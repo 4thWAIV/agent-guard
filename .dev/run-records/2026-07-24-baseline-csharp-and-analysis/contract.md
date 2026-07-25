@@ -127,7 +127,8 @@ also inlined here so each is directly checkable.
    `eng/agentguard-test-analyzer-relaxations.globalconfig` sets exactly the six named rules to `none`.
 7. Every `.cs` file's first line is `// Copyright (c) 4thWAIV. All rights reserved.`, and `stylecop.json`
    `companyName` is `"4thWAIV"` — an adversary greps for any `.cs` lacking the header.
-8. `git status` shows no commit and only the surfaces listed below as new files.
+8. `git status` shows no commit and only the surfaces listed below as new files; the .NET build artifacts
+   `bin/` and `obj/` are already gitignored and must not appear, and `.gitignore` must not be modified.
 
 ## Tier
 FULL — mutating; installs the project baseline and the self-governing analysis stack.

@@ -144,3 +144,10 @@ vite.config.ts.timestamp-*
 
 # Local dev working area: copied internal reference docs stay local, never published.
 .dev/reference/
+
+# .NET build output and IDE artifacts
+[Bb]in/
+[Oo]bj/
+*.user
+.vs/
+[Tt]est[Rr]esults/
