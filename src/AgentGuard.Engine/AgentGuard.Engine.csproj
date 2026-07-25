@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>AgentGuard.Engine</RootNamespace>
+    <AssemblyName>AgentGuard.Engine</AssemblyName>
+    <PackageId>AgentGuard.Engine</PackageId>
+  </PropertyGroup>
+
+</Project>

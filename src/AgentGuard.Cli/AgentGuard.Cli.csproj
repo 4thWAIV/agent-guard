@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>AgentGuard.Cli</RootNamespace>
+    <AssemblyName>guard</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj" />
+  </ItemGroup>
+
+</Project>
