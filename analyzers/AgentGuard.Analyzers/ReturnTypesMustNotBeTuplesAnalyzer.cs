@@ -4,13 +4,15 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports any method, property, indexer, or delegate whose return type is, or contains, a
-/// tuple type. A named type or record must be returned instead.
+/// Reports any method, property, indexer, delegate, or local function whose return type is, or
+/// contains, a tuple type. A named type or record must be returned instead.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
@@ -29,7 +31,7 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Methods, properties, indexers, and delegates must not return a tuple type; declare a named type or record instead.");
+        description: "Methods, properties, indexers, delegates, and local functions must not return a tuple type; declare a named type or record instead.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -49,6 +51,7 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
         context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
         context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
         context.RegisterSymbolAction(AnalyzeDelegate, SymbolKind.NamedType);
+        context.RegisterSyntaxNodeAction(AnalyzeLocalFunction, SyntaxKind.LocalFunctionStatement);
     }
 
     private static void AnalyzeMethod(SymbolAnalysisContext context)
@@ -63,7 +66,7 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
         if (symbol.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor
             or MethodKind.Destructor or MethodKind.PropertyGet or MethodKind.PropertySet
             or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise
-            or MethodKind.LambdaMethod)
+            or MethodKind.LambdaMethod or MethodKind.LocalFunction)
         {
             return;
         }
@@ -104,6 +107,23 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(Rule, symbol.Locations[0], symbol.Name));
+    }
+
+    private static void AnalyzeLocalFunction(SyntaxNodeAnalysisContext context)
+    {
+        var node = (LocalFunctionStatementSyntax)context.Node;
+
+        if (context.SemanticModel.GetDeclaredSymbol(node) is not IMethodSymbol symbol)
+        {
+            return;
+        }
+
+        if (symbol.ReturnsVoid || !ReturnsTuple(symbol.ReturnType))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(Rule, node.Identifier.GetLocation(), symbol.Name));
     }
 
     private static bool ReturnsTuple(ITypeSymbol? type)

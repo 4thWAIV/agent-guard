@@ -7,11 +7,12 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports every public type declared directly in a namespace whose name ends in
-/// <c>.Abstractions</c> that is not an interface.
+/// Reports a public plain class declared in an <c>.Abstractions</c> namespace, or in any namespace
+/// nested under one. Abstractions may declare interfaces, enums, records, delegates, and structs,
+/// which are contracts, but not a plain class, which is an implementation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
-public sealed class AbstractionsMustBeInterfacesAnalyzer : DiagnosticAnalyzer
+public sealed class NoClassInAbstractionsAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>
     /// The diagnostic identifier reported by this analyzer.
@@ -19,16 +20,16 @@ public sealed class AbstractionsMustBeInterfacesAnalyzer : DiagnosticAnalyzer
     public const string DiagnosticId = "AG0001";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string AbstractionsSuffix = ".Abstractions";
+    private const string AbstractionsSegment = "Abstractions";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Abstractions must be interfaces",
-        messageFormat: "Type '{0}' is declared in an '.Abstractions' namespace and must be an interface",
+        title: "Abstractions must not declare a class",
+        messageFormat: "Type '{0}' is a class declared in an '.Abstractions' namespace; abstractions declare contracts, not implementations",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "Public types declared directly in a namespace ending in '.Abstractions' must be interfaces.");
+        description: "A public class declared in an '.Abstractions' namespace, or a namespace nested under one, is not allowed. Abstractions may declare interfaces, enums, records, delegates, and structs.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -57,29 +58,34 @@ public sealed class AbstractionsMustBeInterfacesAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (symbol.TypeKind == TypeKind.Interface)
-        {
-            return;
-        }
-
         if (symbol.ContainingType is not null)
         {
             return;
         }
 
-        var containingNamespace = symbol.ContainingNamespace;
-        if (containingNamespace is null || containingNamespace.IsGlobalNamespace)
+        if (symbol.TypeKind != TypeKind.Class || symbol.IsRecord)
         {
             return;
         }
 
-        var namespaceName = containingNamespace.ToDisplayString();
-        if (!namespaceName.EndsWith(AbstractionsSuffix, StringComparison.Ordinal))
+        if (!IsUnderAbstractionsNamespace(symbol.ContainingNamespace))
         {
             return;
         }
 
-        var diagnostic = Diagnostic.Create(Rule, symbol.Locations[0], symbol.Name);
-        context.ReportDiagnostic(diagnostic);
+        context.ReportDiagnostic(Diagnostic.Create(Rule, symbol.Locations[0], symbol.Name));
+    }
+
+    private static bool IsUnderAbstractionsNamespace(INamespaceSymbol? containingNamespace)
+    {
+        for (INamespaceSymbol? ns = containingNamespace; ns is not null && !ns.IsGlobalNamespace; ns = ns.ContainingNamespace)
+        {
+            if (string.Equals(ns.Name, AbstractionsSegment, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

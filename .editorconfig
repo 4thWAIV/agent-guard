@@ -86,3 +86,10 @@ dotnet_diagnostic.AG0001.severity = warning
 
 # AG0002: bans tuple return types, surfaced as a warning (promoted to error by TreatWarningsAsErrors).
 dotnet_diagnostic.AG0002.severity = warning
+
+# AG0003-AG0007: the contract-implementation pattern rules, warnings (promoted to error by TreatWarningsAsErrors).
+dotnet_diagnostic.AG0003.severity = warning
+dotnet_diagnostic.AG0004.severity = warning
+dotnet_diagnostic.AG0005.severity = warning
+dotnet_diagnostic.AG0006.severity = warning
+dotnet_diagnostic.AG0007.severity = warning

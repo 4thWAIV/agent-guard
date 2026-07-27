@@ -23,7 +23,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerNegativeTests
             }
             """;
 
-        await AnalyzerVerifier.VerifyAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
+        Assert.Empty(await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source));
     }
 
     [Fact]
@@ -41,7 +41,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerNegativeTests
             }
             """;
 
-        await AnalyzerVerifier.VerifyAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
+        Assert.Empty(await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerNegativeTests
             }
             """;
 
-        await AnalyzerVerifier.VerifyAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
+        Assert.Empty(await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source));
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public class ReturnTypesMustNotBeTuplesAnalyzerNegativeTests
             }
             """;
 
-        await AnalyzerVerifier.VerifyAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
+        Assert.Empty(await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source));
     }
 
     [Fact]
@@ -89,6 +89,6 @@ public class ReturnTypesMustNotBeTuplesAnalyzerNegativeTests
             }
             """;
 
-        await AnalyzerVerifier.VerifyAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source);
+        Assert.Empty(await AnalyzerRunner.RunAsync<ReturnTypesMustNotBeTuplesAnalyzer>(source));
     }
 }
