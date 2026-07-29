@@ -26,6 +26,11 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.5.7" />
     <PackageVersion Include="FluentAssertions" Version="6.12.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.1" />
+    <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Label="Runtime dependencies">
+    <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
   </ItemGroup>
 
   <ItemGroup Label="Source link">
