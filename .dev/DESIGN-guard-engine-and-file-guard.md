@@ -63,17 +63,18 @@ The agreed vocabulary for this level. Names in **bold** are load-bearing.
 - **Effect** — a privileged side effect a Guard requests and only the Engine executes, such as restoring
   bytes, so every protected-path write stays in one audited place.
 
-**The artifact channel**
+**The Context**
 - **Context** — the per-ToolCall store, persisted between the separate Pre and Post processes, that Capture
   writes and Postcheck reads. Addressed by the triple (ToolCallId, Guard, kind). The Engine writes it after
-  Pre, loads it before Post, and deletes it after Post.
-- **Artifact** — a typed, self-describing record inside the Context; the File Guard's Artifact is the
-  pre-image byte snapshot.
+  Pre, loads it before Post, and deletes it after Post. For the File Guard it holds the **pre-image snapshot**;
+  because the store is keyed by kind, a future Guard can hold a different kind of data with no change to the
+  Engine.
 
 **A Guard's three behaviors**
 - **Precheck** — the Pre-phase verify: produce a Verdict. For the File Guard this is the core-system block —
   deny a write that touches the Sealed or System set, the only things Post cannot undo.
-- **Capture** — the Pre-phase prepare: write the Artifacts the Post phase will need into the Context.
+- **Capture** — the Pre-phase prepare: write into the Context what the Post phase will need — for the File
+  Guard, the pre-image snapshot.
 - **Postcheck** — the Post-phase verify: produce a Verdict plus Effects. For the File Guard this is the full
   drift-and-revert over the configurable protected files, answering Coverage and then Conformance from the
   bytes that landed.
@@ -86,7 +87,7 @@ The agreed vocabulary for this level. Names in **bold** are load-bearing.
   (a language-specific envelope). "All" is just the first Scope.
 - **Coverage** — the all-or-none question of whether a change is authorized at all: does a Grant cover this
   path, or does an approved command account for it. Answered at Postcheck for the configurable protected files,
-  and at Precheck only for the System set (a Grant or the guard's own setup command).
+  and at Precheck only for the System set (a Grant in v1; the approved-command allowance is deferred).
 - **Conformance** — the Postcheck, change-level question a Verifier answers: is the landed change inside the
   Grant's envelope.
 
@@ -135,16 +136,20 @@ slipped in ahead of the check. Those, and only those, are Precheck's business.
 ### Pre phase — two responsibilities, enforced apart
 - **Precheck** is the core-system block. It denies a write that touches the **Sealed** set (the Grant store and
   the Context store) unconditionally, and one that touches the **System** set (the guard's shipped code and the
-  specific runtime-wiring files) unless a Grant or the guard's own setup command covers it. It does not ask the
+  specific runtime-wiring files) unless a Grant covers it — the approved-command allowance that would also let
+  the guard's own setup command through is deferred from v1. It does not ask the
   broad Coverage question for ordinary protected files, and it does not try to find every write target in an
   arbitrary command: because no legitimate tool call ever writes the core system, Precheck is conservative and
   denies on any reference to those few fixed paths. Precheck returns a Verdict only.
-- **Capture** writes the pre-image Artifact into the Context for every configurable protected path a change
+- **Capture** writes the pre-image snapshot into the Context for every configurable protected path a change
   could touch. It runs only for a ToolCall that is not being denied.
 
 The split is enforced by architecture, not developer discipline, on two mechanisms:
 1. **Capability.** Precheck is handed only read-only inputs and can return only a Verdict; Capture is the only
-   method given a writable Context handle. The ability to produce an Artifact does not exist inside Precheck.
+   method given a writable Context handle, and the Engine never hands a Guard the store itself, so a Precheck
+   has nothing to write the Context with. Because Guards are compiled into the Engine assembly this rests on the
+   Engine's wiring, not an assembly boundary — enough for the lazy threat; a separate Guards assembly is the
+   lever only if the threat model ever widens to a malicious Guard author.
 2. **Engine-owned sequence.** The Engine calls every Guard's Precheck, aggregates, and only if the aggregate
    is not a deny does it then call Capture on each Guard. A denied call never reaches anyone's Capture.
 
@@ -179,7 +184,7 @@ Four points govern the core-system match, all decided:
   message for a blocked write may tell the AI that reading the path with the Read tool is allowed.
 
 ### Post phase — the full drift-and-revert
-- **Postcheck** compares the pre-image Artifact against what is now on disk to find every drifted protected
+- **Postcheck** compares the pre-image snapshot against what is now on disk to find every drifted protected
   path, then decides each one from complete data — it holds both the bytes and the command that produced them.
   Per drifted path it answers **Coverage** first: an **All** Grant covers it, or (later) an approved command
   accounts for it, and it is allowed; otherwise it answers **Conformance** with the path's Verifier — a **Part**
@@ -231,9 +236,9 @@ fact.
 The **Context** is a per-ToolCall store, persisted to disk because Pre and Post are separate processes, keyed
 by (ToolCallId, Guard, kind). **Capture** writes it, **Postcheck** reads it, and the Engine deletes it after
 Post, sweeping orphans by TTL. Guards never touch the store directly; the Engine mediates it, so the store's
-own Sealed protection lives in one place. A record in the Context is an **Artifact**; the File Guard's Artifact
-is the pre-image byte snapshot, and a future Guard can emit a different Artifact (an AST, a precomputed diff, a
-schema fingerprint) with no change to the Engine.
+own Sealed protection lives in one place. What the File Guard stores in the Context is the **pre-image byte
+snapshot**; because the store is keyed by kind, a future Guard can store a different kind of data (an AST, a
+precomputed diff, a schema fingerprint) with no change to the Engine.
 
 ## 11. What this level deliberately excludes
 The Grant CLI (mint, extend, add, revoke, list, show, verify), the signed-exemption / lint gate, the
@@ -254,8 +259,8 @@ per-language fixtures. Each is a separate level with its own document.
    skill mandates, versus keeping the spec, glossary, and contracts under the untracked `./.dev/`.
    Recommendation: keep them under `./.dev/` for now and decide on publishing later.
 
-Minor and non-blocking: the name **Artifact** is kept unless changed; key storage is parked as its own
-discussion, needed before the Grant layer but not before the File Guard spec.
+Minor and non-blocking: key storage is parked as its own discussion, needed before the Grant layer but not
+before the File Guard spec.
 
 ## 13. Provenance
 Grounded in the 4thWAIV reference docs copied to `./.dev/reference/4thWAIV-agent-governance/` — principally
