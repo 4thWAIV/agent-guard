@@ -4,6 +4,18 @@
     <RootNamespace>AgentGuard.Engine</RootNamespace>
     <AssemblyName>AgentGuard.Engine</AssemblyName>
     <PackageId>AgentGuard.Engine</PackageId>
+    <!-- The atomic current-symlink swap renames a symlink over an existing one, which only rename(2) does
+         atomically; the LibraryImport source generator for that P/Invoke requires unsafe blocks. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="NuGet.Versioning" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Tests" />
+  </ItemGroup>
 
 </Project>

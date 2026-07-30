@@ -151,3 +151,7 @@ vite.config.ts.timestamp-*
 *.user
 .vs/
 [Tt]est[Rr]esults/
+
+# AgentGuard Sealed stores: per-call snapshots and signed grant tokens (never committed).
+.protected-snapshots/
+.agentguard/grants/

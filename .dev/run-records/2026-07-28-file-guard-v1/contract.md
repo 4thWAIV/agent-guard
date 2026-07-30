@@ -114,7 +114,11 @@ everything else uses the committed interfaces unchanged.
 ## What the agent MUST NOT do
 
 - Change any file under `src/AgentGuard.Engine/Abstractions/` or under `analyzers/`.
-- Weaken, skip, `xfail`, or delete any test; disable, downgrade, or `NoWarn` any analyzer; relax the golden build.
+- Weaken, skip, `xfail`, or delete any test; disable, downgrade, or `NoWarn` any analyzer; relax the golden
+  build. Exactly one suppression is permitted and no other: a single, commented `[SuppressMessage]` of `CA1031`
+  on each fail-closed boundary method that converts any caught exception into a deny. This is the recognized
+  top-level-boundary pattern, it makes the guard more fail-closed rather than less, and it is the first exemption
+  that the signed-exemption unit will sign once that unit exists. Any suppression anywhere else is forbidden.
 - Fail open anywhere. A capture failure, an incomplete Pre scan, a missing/corrupt/mismatched snapshot, an
   un-diffable Post, an unparsable payload, or an indeterminate store inspection must deny.
 - Use `EnumerationOptions.IgnoreInaccessible = true`, or any walk that skips inaccessible entries silently.

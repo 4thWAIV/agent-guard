@@ -75,6 +75,16 @@ csharp_new_line_before_finally = true
 
 # --- Severity policy overrides (product code) ---
 
+# Duplicate-code golden-build guardrails. S1192 (repeated string literals) and S4144 (methods with identical
+# bodies) are confirmed active as errors and catch the fine-grained cases; PH2071 is the Philips token-sequence
+# duplicate-code analyzer at its default 100-token threshold. There is no >=100-token copy-paste in the tree;
+# the remaining shapes are small (~40-70 token) idiomatic patterns in product code — a shared try/catch-hash
+# preamble and condition detect/repair scaffolds — none of which is a plagiarized block.
+dotnet_diagnostic.S1192.severity = error
+dotnet_diagnostic.S4144.severity = error
+dotnet_diagnostic.PH2071.severity = error
+dotnet_code_quality.PH2071.token_count = 100
+
 # SA1101: PrefixLocalCallsWithThis contradicts dotnet_style_qualification_for_* = false.
 dotnet_diagnostic.SA1101.severity = none
 

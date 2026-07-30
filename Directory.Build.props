@@ -37,6 +37,7 @@
     <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" PrivateAssets="all" />
     <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup Label="Source link">
