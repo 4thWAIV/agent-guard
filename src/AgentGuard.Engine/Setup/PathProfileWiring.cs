@@ -1,8 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using System.IO;
-using System.Text;
 
 namespace AgentGuard.Setup;
 
@@ -18,23 +16,9 @@ internal static class PathProfileWiring
     /// <param name="profilePath">The profile file.</param>
     /// <returns><see langword="true"/> when the line was appended; <see langword="false"/> when it was already
     /// present.</returns>
-    internal static bool Ensure(string profilePath)
-    {
-        string existing = File.Exists(profilePath) ? File.ReadAllText(profilePath) : string.Empty;
-        if (existing.Contains(ShellProfile.Marker, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var builder = new StringBuilder(existing);
-        if (existing.Length > 0 && !existing.EndsWith('\n'))
-        {
-            builder.Append('\n');
-        }
-
-        builder.Append("\n# Added by AgentGuard: put the guard launcher on PATH.\n");
-        builder.Append(ShellProfile.ExportLine()).Append('\n');
-        AtomicFile.WriteAllText(profilePath, builder.ToString());
-        return true;
-    }
+    internal static bool Ensure(string profilePath) =>
+        IdempotentAppend.Ensure(profilePath, existing =>
+            existing.Contains(ShellProfile.Marker, StringComparison.Ordinal)
+                ? null
+                : "\n# Added by AgentGuard: put the guard launcher on PATH.\n" + ShellProfile.ExportLine() + "\n");
 }

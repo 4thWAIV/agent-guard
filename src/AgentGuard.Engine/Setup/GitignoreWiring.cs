@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using AgentGuard.Engine;
@@ -38,30 +37,23 @@ internal static class GitignoreWiring
     /// </summary>
     /// <param name="gitignorePath">The <c>.gitignore</c> path.</param>
     /// <returns><see langword="true"/> when a line was appended; <see langword="false"/> when all were present.</returns>
-    internal static bool Ensure(string gitignorePath)
-    {
-        string existing = File.Exists(gitignorePath) ? File.ReadAllText(gitignorePath) : string.Empty;
-        List<string> missing = RequiredLines.Where(line => !ContainsLine(existing, line)).ToList();
-        if (missing.Count == 0)
+    internal static bool Ensure(string gitignorePath) =>
+        IdempotentAppend.Ensure(gitignorePath, existing =>
         {
-            return false;
-        }
+            List<string> missing = RequiredLines.Where(line => !ContainsLine(existing, line)).ToList();
+            if (missing.Count == 0)
+            {
+                return null;
+            }
 
-        var builder = new StringBuilder(existing);
-        if (existing.Length > 0 && !existing.EndsWith('\n'))
-        {
-            builder.Append('\n');
-        }
+            var block = new StringBuilder("\n# Added by AgentGuard: runtime stores are never committed.\n");
+            foreach (string line in missing)
+            {
+                block.Append(line).Append('\n');
+            }
 
-        builder.Append("\n# Added by AgentGuard: runtime stores are never committed.\n");
-        foreach (string line in missing)
-        {
-            builder.Append(line).Append('\n');
-        }
-
-        AtomicFile.WriteAllText(gitignorePath, builder.ToString());
-        return true;
-    }
+            return block.ToString();
+        });
 
     private static bool ContainsLine(string content, string line) =>
         content.Split('\n').Any(existing => string.Equals(existing.Trim(), line, StringComparison.Ordinal));

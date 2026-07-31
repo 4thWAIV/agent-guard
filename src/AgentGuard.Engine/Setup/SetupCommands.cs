@@ -194,19 +194,13 @@ public static class SetupCommands
 
     private static string? PreflightSettings(SetupContext context)
     {
-        string path = ProjectPaths.ClaudeSettingsFile(context);
-        string? existing = null;
-        if (File.Exists(path))
+        SettingsRead settings = ClaudeSettings.Read(context);
+        if (!settings.Readable)
         {
-            if (!SafeRead.TryReadText(path, out string content, out string error))
-            {
-                return $".claude/settings.json is unreadable: {error}";
-            }
-
-            existing = content;
+            return settings.UnreadableReason;
         }
 
-        SettingsMergeResult result = ClaudeSettingsWiring.AddGuardEntries(existing, MachinePaths.BinGuard(context));
+        SettingsMergeResult result = ClaudeSettingsWiring.AddGuardEntries(settings.Content, MachinePaths.BinGuard(context));
         return result.Success ? null : $"init refused: {result.Conflict}";
     }
 }

@@ -1,7 +1,5 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System.IO;
-
 namespace AgentGuard.Setup;
 
 /// <summary>
@@ -19,19 +17,13 @@ internal sealed class HookEntriesCondition : ISetupCondition
     /// <inheritdoc />
     public ConditionState Detect(SetupContext context)
     {
-        string path = ProjectPaths.ClaudeSettingsFile(context);
-        string? existing = null;
-        if (File.Exists(path))
+        SettingsRead settings = ClaudeSettings.Read(context);
+        if (!settings.Readable)
         {
-            if (!SafeRead.TryReadText(path, out string content, out string error))
-            {
-                return ConditionState.CannotVerify($".claude/settings.json is unreadable: {error}");
-            }
-
-            existing = content;
+            return ConditionState.CannotVerify(settings.UnreadableReason!);
         }
 
-        SettingsInspection inspection = ClaudeSettingsWiring.Inspect(existing, MachinePaths.BinGuard(context));
+        SettingsInspection inspection = ClaudeSettingsWiring.Inspect(settings.Content, MachinePaths.BinGuard(context));
         return inspection.Health switch
         {
             SettingsHealth.Ok => ConditionState.Ok(),

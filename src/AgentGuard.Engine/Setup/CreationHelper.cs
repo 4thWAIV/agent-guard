@@ -145,25 +145,19 @@ internal static class CreationHelper
     /// <returns>The repair outcome.</returns>
     internal static RepairOutcome WireSettings(SetupContext context)
     {
-        string path = ProjectPaths.ClaudeSettingsFile(context);
-        string? existing = null;
-        if (File.Exists(path))
+        SettingsRead settings = ClaudeSettings.Read(context);
+        if (!settings.Readable)
         {
-            if (!SafeRead.TryReadText(path, out string content, out string error))
-            {
-                return RepairOutcome.NotRepairable($".claude/settings.json is unreadable: {error}");
-            }
-
-            existing = content;
+            return RepairOutcome.NotRepairable(settings.UnreadableReason!);
         }
 
-        SettingsMergeResult result = ClaudeSettingsWiring.AddGuardEntries(existing, MachinePaths.BinGuard(context));
+        SettingsMergeResult result = ClaudeSettingsWiring.AddGuardEntries(settings.Content, MachinePaths.BinGuard(context));
         if (!result.Success)
         {
             return RepairOutcome.NotRepairable(result.Conflict ?? "the settings file could not be merged");
         }
 
-        AtomicFile.WriteAllText(path, result.Json!);
+        AtomicFile.WriteAllText(ProjectPaths.ClaudeSettingsFile(context), result.Json!);
         return RepairOutcome.Repaired("wired .claude/settings.json");
     }
 
