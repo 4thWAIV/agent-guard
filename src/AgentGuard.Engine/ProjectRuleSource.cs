@@ -6,19 +6,18 @@ using System.IO;
 using System.Text.Json;
 using AgentGuard.Engine.Abstractions;
 using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
 
 /// <summary>
-/// The repository's own configurable protected paths, read from an optional <c>.agentguard/protected-paths.json</c>
-/// (a JSON array of patterns). A missing file contributes no Rules; a malformed file throws, so composition
-/// fails closed rather than silently protecting nothing. Each pattern is a bare file name, a <c>*.ext</c>
-/// suffix, or a repo-relative path.
+/// The repository's own configurable protected paths, read from the optional single project-config file
+/// <c>.agentguard/config.json</c> (its <c>ProtectedPaths</c>). A missing file contributes no Rules; a malformed
+/// file throws, so composition fails closed rather than silently protecting nothing. Each pattern is a bare file
+/// name, a <c>*.ext</c> suffix, or a repo-relative path.
 /// </summary>
 internal sealed class ProjectRuleSource : IRuleSource
 {
-    private const string ConfigRelative = ".agentguard/protected-paths.json";
-
     private readonly IReadOnlyList<Rule> _rules;
 
     private ProjectRuleSource(IReadOnlyList<Rule> rules) => _rules = rules;
@@ -39,7 +38,7 @@ internal sealed class ProjectRuleSource : IRuleSource
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
-        string configPath = CoreSystemPaths.Absolute(projectRoot, ConfigRelative);
+        string configPath = CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.ProjectConfigRelative);
         var rules = new List<Rule>();
         if (!File.Exists(configPath))
         {
@@ -47,10 +46,10 @@ internal sealed class ProjectRuleSource : IRuleSource
         }
 
         string text = File.ReadAllText(configPath);
-        List<string>? patterns = JsonSerializer.Deserialize<List<string>>(text)
-            ?? throw new JsonException("Project protected-paths config deserialized to null.");
+        ProjectConfig config = SetupJson.DeserializeProjectConfig(text)
+            ?? throw new JsonException("Project config deserialized to null.");
         IVerifier verifier = NoChangeVerifier.Create();
-        foreach (string pattern in patterns)
+        foreach (string pattern in config.ProtectedPaths)
         {
             rules.Add(new Rule(
                 $"project:{pattern}",

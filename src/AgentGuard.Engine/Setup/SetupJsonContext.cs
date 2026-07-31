@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Text.Json.Serialization;
+using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
 
@@ -13,7 +14,7 @@ namespace AgentGuard.Setup;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 [JsonSerializable(typeof(InstallState))]
 [JsonSerializable(typeof(ProjectState))]
-[JsonSerializable(typeof(GuardConfig))]
+[JsonSerializable(typeof(ProjectConfig))]
 internal sealed partial class SetupJsonContext : JsonSerializerContext
 {
 }

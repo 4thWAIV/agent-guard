@@ -9,21 +9,14 @@ namespace AgentGuard.Setup;
 
 /// <summary>
 /// Merges, strips, and inspects the guard's hook entries in <c>.claude/settings.json</c>. A guard entry is any
-/// matcher group whose command carries the <see cref="Sentinel"/>, so it is identified regardless of its path and
-/// distinct from any user hook that merely invokes a <c>guard</c>. The merge preserves every non-guard key and
-/// every non-guard hook group unchanged, adds the guard entries when absent, refreshes a guard entry whose path
-/// is stale, and refuses (leaving the file untouched) when the existing shape cannot be merged safely.
+/// matcher group whose command carries the <see cref="HookCommand.OwnedFlag"/> sentinel, so it is identified
+/// regardless of its path and distinct from any user hook that merely invokes a <c>guard</c>. The merge preserves
+/// every non-guard key and every non-guard hook group unchanged, adds the guard entries when absent, refreshes a
+/// guard entry whose path is stale, and refuses (leaving the file untouched) when the existing shape cannot be
+/// merged safely.
 /// </summary>
 internal static class ClaudeSettingsWiring
 {
-    /// <summary>
-    /// The sentinel argument that marks a hook command as guard-owned.
-    /// </summary>
-    internal const string Sentinel = "--agentguard-owned";
-
-    private const string HostToken = "--host claude-code";
-    private const string PreEventToken = "pre";
-    private const string PostEventToken = "post";
     private const string PreEventKey = "PreToolUse";
     private const string PostEventKey = "PostToolUse";
     private const string HooksKey = "hooks";
@@ -41,7 +34,7 @@ internal static class ClaudeSettingsWiring
     /// <param name="eventToken">The event token, <c>pre</c> or <c>post</c>.</param>
     /// <returns>The command string.</returns>
     internal static string Command(string absolutePath, string eventToken) =>
-        $"{absolutePath} hook {eventToken} {HostToken} {Sentinel}";
+        HookCommand.ForEvent(absolutePath, eventToken);
 
     /// <summary>
     /// Merges the guard's Pre/Post hook entries into the settings, preserving all non-guard content.
@@ -79,8 +72,8 @@ internal static class ClaudeSettingsWiring
             return SettingsMergeResult.Refused($".claude/settings.json {shapeError}");
         }
 
-        RewriteGuardGroups(hooks, PreEventKey, Command(absolutePath, PreEventToken));
-        RewriteGuardGroups(hooks, PostEventKey, Command(absolutePath, PostEventToken));
+        RewriteGuardGroups(hooks, PreEventKey, Command(absolutePath, HookCommand.PreEvent));
+        RewriteGuardGroups(hooks, PostEventKey, Command(absolutePath, HookCommand.PostEvent));
         return SettingsMergeResult.Merged(root.ToJsonString(IndentedOptions));
     }
 
@@ -153,9 +146,9 @@ internal static class ClaudeSettingsWiring
             return new SettingsInspection(SettingsHealth.Missing, "no hook entries present");
         }
 
-        SettingsInspection pre = InspectEvent(hooks, PreEventKey, Command(absolutePath, PreEventToken));
+        SettingsInspection pre = InspectEvent(hooks, PreEventKey, Command(absolutePath, HookCommand.PreEvent));
         return pre.Health == SettingsHealth.Ok
-            ? InspectEvent(hooks, PostEventKey, Command(absolutePath, PostEventToken))
+            ? InspectEvent(hooks, PostEventKey, Command(absolutePath, HookCommand.PostEvent))
             : pre;
     }
 
@@ -352,7 +345,7 @@ internal static class ClaudeSettingsWiring
                 && hook["command"] is JsonValue value
                 && value.TryGetValue(out string? command)
                 && command is not null
-                && command.Contains(Sentinel, StringComparison.Ordinal))
+                && command.Contains(HookCommand.OwnedFlag, StringComparison.Ordinal))
             {
                 return true;
             }

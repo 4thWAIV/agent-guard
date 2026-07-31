@@ -49,7 +49,7 @@ public sealed class InitCommandTests
         harness.Init().Success.Should().BeTrue();
 
         File.Exists(harness.ProjectConfig).Should().BeTrue();
-        File.ReadAllText(harness.ProjectConfig).Should().Contain("csharp");
+        File.ReadAllText(harness.ProjectConfig).Should().Contain("protectedPaths");
         Directory.Exists(Path.Combine(harness.ProjectAgentGuard, "grants")).Should().BeTrue();
         File.ReadAllText(harness.ProjectStateFile).Should().Contain("0.1.0-alpha");
     }

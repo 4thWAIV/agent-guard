@@ -2,8 +2,7 @@
 
 using System;
 using System.IO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
 
@@ -126,7 +125,7 @@ internal static class CreationHelper
             return RepairOutcome.NoChangeNeeded();
         }
 
-        AtomicFile.WriteAllText(path, SetupJson.Serialize(GuardConfig.Default()));
+        AtomicFile.WriteAllText(path, SetupJson.Serialize(ProjectConfig.Default()));
         return RepairOutcome.Repaired("wrote .agentguard/config.json");
     }
 
@@ -147,18 +146,15 @@ internal static class CreationHelper
     internal static RepairOutcome WireSettings(SetupContext context)
     {
         string path = ProjectPaths.ClaudeSettingsFile(context);
-        string? existing;
-        try
+        string? existing = null;
+        if (File.Exists(path))
         {
-            existing = File.Exists(path) ? File.ReadAllText(path) : null;
-        }
-        catch (IOException exception)
-        {
-            return RepairOutcome.NotRepairable($".claude/settings.json is unreadable: {exception.Message}");
-        }
-        catch (UnauthorizedAccessException exception)
-        {
-            return RepairOutcome.NotRepairable($".claude/settings.json is unreadable: {exception.Message}");
+            if (!SafeRead.TryReadText(path, out string content, out string error))
+            {
+                return RepairOutcome.NotRepairable($".claude/settings.json is unreadable: {error}");
+            }
+
+            existing = content;
         }
 
         SettingsMergeResult result = ClaudeSettingsWiring.AddGuardEntries(existing, MachinePaths.BinGuard(context));
@@ -183,16 +179,7 @@ internal static class CreationHelper
             return;
         }
 
-        string existing;
-        try
-        {
-            existing = File.ReadAllText(path);
-        }
-        catch (IOException)
-        {
-            return;
-        }
-        catch (UnauthorizedAccessException)
+        if (!SafeRead.TryReadText(path, out string existing, out _))
         {
             return;
         }
@@ -228,23 +215,6 @@ internal static class CreationHelper
         }
     }
 
-    private static bool ParsesAsObject(string path)
-    {
-        try
-        {
-            return JsonNode.Parse(File.ReadAllText(path)) is JsonObject;
-        }
-        catch (JsonException)
-        {
-            return false;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
-        }
-    }
+    private static bool ParsesAsObject(string path) =>
+        SafeRead.TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out _);
 }

@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.IO;
+using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
 
@@ -13,9 +14,10 @@ namespace AgentGuard.Setup;
 internal static class MachinePaths
 {
     /// <summary>
-    /// The install root directory name under the user's home directory.
+    /// The install root directory name under the user's home directory. It draws the guard's dot-directory segment
+    /// from its single owner rather than re-spelling the literal.
     /// </summary>
-    internal const string RootDirectoryName = ".agentguard";
+    internal const string RootDirectoryName = CoreSystemPaths.InRepoDirectoryName;
 
     /// <summary>
     /// The file name of the guard binary within each version directory and behind the launcher.

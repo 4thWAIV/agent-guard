@@ -48,17 +48,17 @@ internal static class Program
             Arity = ArgumentArity.ZeroOrOne,
             Description = "The lifecycle event: pre or post.",
         };
-        var hostOption = new Option<string>("--host")
+        var hostOption = new Option<string>(HookCommand.HostOption)
         {
             DefaultValueFactory = _ => GuardHost.ClaudeCodeHost,
             Description = "The host runtime.",
         };
-        var ownedOption = new Option<bool>("--agentguard-owned")
+        var ownedOption = new Option<bool>(HookCommand.OwnedFlag)
         {
             Description = "Marker identifying an AgentGuard-owned hook entry; ignored at runtime.",
         };
 
-        var command = new Command("hook", "Run the File Guard for a Claude Code PreToolUse/PostToolUse event.")
+        var command = new Command(HookCommand.Verb, "Run the File Guard for a Claude Code PreToolUse/PostToolUse event.")
         {
             eventArgument,
             hostOption,
@@ -211,11 +211,11 @@ internal static class Program
     {
         switch (value)
         {
-            case "pre":
+            case HookCommand.PreEvent:
             case "PreToolUse":
                 hookEvent = HookEvent.PreToolUse;
                 return true;
-            case "post":
+            case HookCommand.PostEvent:
             case "PostToolUse":
                 hookEvent = HookEvent.PostToolUse;
                 return true;

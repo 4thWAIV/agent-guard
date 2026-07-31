@@ -13,12 +13,13 @@ namespace AgentGuard.Setup;
 internal static class ProjectPaths
 {
     /// <summary>
-    /// Returns the project guard directory, <c>{root}/.agentguard</c>.
+    /// Returns the project guard directory, <c>{root}/.agentguard</c>. The in-repo segment comes from its
+    /// core-system owner, not from the machine-home root name, so the two are not conflated by a shared literal.
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute project guard directory.</returns>
     internal static string AgentGuardDirectory(SetupContext context) =>
-        Path.Combine(context.ProjectRoot, MachinePaths.RootDirectoryName);
+        CoreSystemPaths.Absolute(context.ProjectRoot, CoreSystemPaths.InRepoDirectoryName);
 
     /// <summary>
     /// Returns the project configuration file, <c>{root}/.agentguard/config.json</c>.
@@ -26,7 +27,7 @@ internal static class ProjectPaths
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute configuration path.</returns>
     internal static string ConfigFile(SetupContext context) =>
-        Path.Combine(AgentGuardDirectory(context), "config.json");
+        CoreSystemPaths.Absolute(context.ProjectRoot, CoreSystemPaths.ProjectConfigRelative);
 
     /// <summary>
     /// Returns the project state file, <c>{root}/.agentguard/state.json</c>.
@@ -34,7 +35,7 @@ internal static class ProjectPaths
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute project state path.</returns>
     internal static string StateFile(SetupContext context) =>
-        Path.Combine(AgentGuardDirectory(context), "state.json");
+        Path.Combine(AgentGuardDirectory(context), MachinePaths.StateFileName);
 
     /// <summary>
     /// Returns the signed-grant store directory, <c>{root}/.agentguard/grants</c>.

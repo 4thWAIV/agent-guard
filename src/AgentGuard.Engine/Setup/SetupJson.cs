@@ -1,6 +1,8 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Text.Json;
+using System.Text.Json.Nodes;
+using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
 
@@ -31,8 +33,8 @@ internal static class SetupJson
     /// </summary>
     /// <param name="value">The configuration.</param>
     /// <returns>The indented JSON.</returns>
-    internal static string Serialize(GuardConfig value) =>
-        JsonSerializer.Serialize(value, SetupJsonContext.Default.GuardConfig);
+    internal static string Serialize(ProjectConfig value) =>
+        JsonSerializer.Serialize(value, SetupJsonContext.Default.ProjectConfig);
 
     /// <summary>
     /// Deserializes the machine install state.
@@ -49,4 +51,33 @@ internal static class SetupJson
     /// <returns>The state, or <see langword="null"/> when the JSON is null content.</returns>
     internal static ProjectState? DeserializeProjectState(string json) =>
         JsonSerializer.Deserialize(json, SetupJsonContext.Default.ProjectState);
+
+    /// <summary>
+    /// Deserializes the per-project configuration.
+    /// </summary>
+    /// <param name="json">The JSON.</param>
+    /// <returns>The configuration, or <see langword="null"/> when the JSON is null content.</returns>
+    internal static ProjectConfig? DeserializeProjectConfig(string json) =>
+        JsonSerializer.Deserialize(json, SetupJsonContext.Default.ProjectConfig);
+
+    /// <summary>
+    /// Determines whether text parses as a JSON object — the single parse-as-object check the config condition and
+    /// the config-creation helper both use.
+    /// </summary>
+    /// <param name="content">The JSON text.</param>
+    /// <param name="parseError">The parse-error message when the text is not well-formed JSON; otherwise <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the text is a well-formed JSON object.</returns>
+    internal static bool TryParseObject(string content, out string? parseError)
+    {
+        parseError = null;
+        try
+        {
+            return JsonNode.Parse(content) is JsonObject;
+        }
+        catch (JsonException exception)
+        {
+            parseError = exception.Message;
+            return false;
+        }
+    }
 }

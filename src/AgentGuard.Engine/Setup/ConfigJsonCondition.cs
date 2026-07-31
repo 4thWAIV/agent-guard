@@ -1,8 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.IO;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 
 namespace AgentGuard.Setup;
 
@@ -32,16 +30,14 @@ internal sealed class ConfigJsonCondition : ISetupCondition
             return ConditionState.CannotVerify($".agentguard/config.json is unreadable: {error}");
         }
 
-        try
+        if (SetupJson.TryParseObject(content, out string? parseError))
         {
-            return JsonNode.Parse(content) is JsonObject
-                ? ConditionState.Ok()
-                : ConditionState.Broken(".agentguard/config.json is not a JSON object");
+            return ConditionState.Ok();
         }
-        catch (JsonException exception)
-        {
-            return ConditionState.Broken($".agentguard/config.json does not parse: {exception.Message}");
-        }
+
+        return parseError is null
+            ? ConditionState.Broken(".agentguard/config.json is not a JSON object")
+            : ConditionState.Broken($".agentguard/config.json does not parse: {parseError}");
     }
 
     /// <inheritdoc />

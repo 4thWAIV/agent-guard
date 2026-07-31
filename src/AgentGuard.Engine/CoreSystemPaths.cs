@@ -15,6 +15,13 @@ namespace AgentGuard.Engine;
 internal static class CoreSystemPaths
 {
     /// <summary>
+    /// The in-repo guard directory segment. It is spelled once here; every in-repo location under it (the grant
+    /// store, the grant public key, and the project config) is derived from it, and the machine-home and project
+    /// path owners reference it rather than re-spelling the literal.
+    /// </summary>
+    internal const string InRepoDirectoryName = ".agentguard";
+
+    /// <summary>
     /// The repo-root-relative directory that holds the per-call pre-image snapshots (a Sealed store).
     /// </summary>
     internal const string SnapshotStoreRelative = ".protected-snapshots";
@@ -22,12 +29,17 @@ internal static class CoreSystemPaths
     /// <summary>
     /// The repo-root-relative directory that holds signed grant tokens (a Sealed store).
     /// </summary>
-    internal const string GrantStoreRelative = ".agentguard/grants";
+    internal const string GrantStoreRelative = InRepoDirectoryName + "/grants";
 
     /// <summary>
     /// The repo-root-relative file holding the committed Ed25519 public key that verifies grant signatures.
     /// </summary>
-    internal const string GrantPublicKeyRelative = ".agentguard/grant-public-key";
+    internal const string GrantPublicKeyRelative = InRepoDirectoryName + "/grant-public-key";
+
+    /// <summary>
+    /// The repo-root-relative single project-config file the engine reads and setup writes.
+    /// </summary>
+    internal const string ProjectConfigRelative = InRepoDirectoryName + "/config.json";
 
     /// <summary>
     /// The repo-root-relative runtime-wiring file (a System path a grant can unlock).

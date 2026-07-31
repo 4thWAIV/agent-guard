@@ -56,11 +56,8 @@ internal static class SymlinkOps
 
     private static void PointAtomically(string linkPath, string relativeTarget)
     {
-        string directory = Path.GetDirectoryName(linkPath)!;
-        Directory.CreateDirectory(directory);
-        string temporaryPath = Path.Combine(
-            directory,
-            Path.GetFileName(linkPath) + ".tmp-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.GetDirectoryName(linkPath)!);
+        string temporaryPath = AtomicFile.TemporarySiblingPath(linkPath);
         DeleteIfExists(temporaryPath);
         Directory.CreateSymbolicLink(temporaryPath, relativeTarget);
 

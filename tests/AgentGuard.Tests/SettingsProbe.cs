@@ -26,7 +26,7 @@ internal static class SettingsProbe
 
         return array.OfType<JsonObject>().FirstOrDefault(group =>
             string.Equals(group["matcher"]?.GetValue<string>(), matcher, StringComparison.Ordinal)
-            && CommandOf(group)?.Contains(ClaudeSettingsWiring.Sentinel, StringComparison.Ordinal) == true);
+            && CommandOf(group)?.Contains(HookCommand.OwnedFlag, StringComparison.Ordinal) == true);
     }
 
     /// <summary>Returns the first hook command of a group.</summary>
@@ -49,12 +49,12 @@ internal static class SettingsProbe
         }
 
         return array.OfType<JsonObject>().Count(group =>
-            CommandOf(group)?.Contains(ClaudeSettingsWiring.Sentinel, StringComparison.Ordinal) == true);
+            CommandOf(group)?.Contains(HookCommand.OwnedFlag, StringComparison.Ordinal) == true);
     }
 
     /// <summary>Gets a value indicating whether any command anywhere carries the sentinel.</summary>
     /// <param name="root">The settings root object.</param>
     /// <returns><see langword="true"/> when a sentinel command is present.</returns>
     internal static bool HasAnySentinel(JsonObject root) =>
-        root.ToJsonString().Contains(ClaudeSettingsWiring.Sentinel, StringComparison.Ordinal);
+        root.ToJsonString().Contains(HookCommand.OwnedFlag, StringComparison.Ordinal);
 }

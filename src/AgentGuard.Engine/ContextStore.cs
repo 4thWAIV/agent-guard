@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AgentGuard.Engine.Abstractions;
 using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
 
@@ -31,11 +32,7 @@ internal sealed class ContextStore : IContextStore
     {
         ArgumentNullException.ThrowIfNull(key);
         string recordFile = ContextStorePaths.RecordFile(_projectRoot, key);
-        string directory = Path.GetDirectoryName(recordFile)!;
-        Directory.CreateDirectory(directory);
-        string temp = recordFile + ".tmp-" + Guid.NewGuid().ToString("N");
-        await File.WriteAllBytesAsync(temp, data, cancellationToken).ConfigureAwait(false);
-        File.Move(temp, recordFile, overwrite: true);
+        await AtomicFile.WriteAllBytesAsync(recordFile, data, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />

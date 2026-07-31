@@ -6,6 +6,7 @@ using System.IO;
 using System.Text.Json;
 using AgentGuard.Engine.Abstractions;
 using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
 
@@ -41,7 +42,7 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
     }
 
     /// <inheritdoc />
-    public string Host => "claude-code";
+    public string Host => GuardHost.ClaudeCodeHost;
 
     /// <summary>
     /// Gets the ordered edit-tool names, the single source the file-edit hook matcher is joined from so the wired

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using AgentGuard.Engine;
 using AgentGuard.Engine.Abstractions;
 using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Setup;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -14,6 +15,8 @@ namespace AgentGuard.Tests;
 
 public sealed class AcceptancePostRevertTests
 {
+    private static readonly string[] ConfigProtectedPaths = { "config-protected.txt" };
+
     [Fact]
     public async Task Acceptance_c_UnauthorizedEditToDirectoryBuildProps_IsRevertedAtPost()
     {
@@ -62,6 +65,34 @@ public sealed class AcceptancePostRevertTests
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
         fixture.Exists("stylecop.json").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Acceptance_ConfigProtectedPath_DriftIsRevertedAtPost()
+    {
+        using var fixture = new FixtureProject();
+        fixture.WriteFile(
+            CoreSystemPaths.ProjectConfigRelative,
+            SetupJson.Serialize(new ProjectConfig { ProtectedPaths = ConfigProtectedPaths }));
+        fixture.WriteFile("config-protected.txt", "the original committed content\n");
+        IPipeline pipeline = GuardEngine.CreatePipeline(TestSupport.Options(fixture.Root, new FakeTimeProvider()));
+
+        await AssertDriftRevertedAsync(
+            fixture,
+            pipeline,
+            TestSupport.Edit("call-config", fixture.PathOf("config-protected.txt")),
+            "config-protected.txt",
+            "tampered by an unauthorized edit\n");
+    }
+
+    private static async Task AssertDriftRevertedAsync(
+        FixtureProject fixture, IPipeline pipeline, ToolCall call, string relativePath, string tampered)
+    {
+        string original = fixture.ReadText(relativePath);
+        Verdict verdict = await RunPrePostAsync(fixture, pipeline, call, () => fixture.WriteFile(relativePath, tampered))
+            .ConfigureAwait(false);
+        verdict.Kind.Should().Be(VerdictKind.Deny);
+        fixture.ReadText(relativePath).Should().Be(original);
     }
 
     private static async Task<Verdict> RunPrePostAsync(
