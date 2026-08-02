@@ -127,7 +127,17 @@ internal static class MachinePaths
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns>The absolute launcher path.</returns>
-    internal static string BinGuard(SetupContext context) => Path.Combine(BinDirectory(context), BinaryName);
+    internal static string BinGuard(SetupContext context) => BinGuardIn(context.HomeDirectory);
+
+    /// <summary>
+    /// Returns the launcher, <c>{home}/.agentguard/bin/guard</c>, from a bare home directory. It is the one place
+    /// the launcher layout is spelled, so the engine's canonical settings check and the setup writer agree on the
+    /// path the guard hooks point at.
+    /// </summary>
+    /// <param name="home">The user's home directory.</param>
+    /// <returns>The absolute launcher path.</returns>
+    internal static string BinGuardIn(string home) =>
+        Path.Combine(home, RootDirectoryName, BinName, BinaryName);
 
     /// <summary>
     /// Returns the machine state record, <c>{root}/state.json</c>.

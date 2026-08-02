@@ -43,7 +43,7 @@ public sealed class DoctorCommandTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
-        harness.MakeGuardEntryStale("PreToolUse", "Bash");
+        harness.MakeGuardEntryStale("PreToolUse");
 
         DoctorOutcome outcome = harness.Doctor(fix: false);
 
@@ -99,7 +99,7 @@ public sealed class DoctorCommandTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
-        harness.MakeGuardEntryStale("PreToolUse", "Bash");
+        harness.MakeGuardEntryStale("PreToolUse");
         File.WriteAllText(harness.Gitignore, "# nothing here\n");
         File.Delete(harness.ProjectConfig);
 

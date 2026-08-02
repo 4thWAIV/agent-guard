@@ -28,12 +28,12 @@ public sealed class RemoveCommandTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.WriteSettings(SettingsWithUserHook);
         harness.Init().Success.Should().BeTrue();
-        SettingsProbe.HasAnySentinel(harness.ReadSettings()).Should().BeTrue();
+        SettingsProbe.HasAnyGuardHook(harness.ReadSettings()).Should().BeTrue();
 
         harness.Remove().Success.Should().BeTrue();
 
         JsonObject settings = harness.ReadSettings();
-        SettingsProbe.HasAnySentinel(settings).Should().BeFalse();
+        SettingsProbe.HasAnyGuardHook(settings).Should().BeFalse();
         settings["permissions"]!["allow"]![0]!.GetValue<string>().Should().Be("Read");
         settings.ToJsonString().Should().Contain("echo user-hook");
         Directory.Exists(harness.ProjectAgentGuard).Should().BeFalse();
@@ -49,7 +49,7 @@ public sealed class RemoveCommandTests
         harness.Remove().Success.Should().BeTrue();
         harness.Remove().Success.Should().BeTrue();
 
-        SettingsProbe.HasAnySentinel(harness.ReadSettings()).Should().BeFalse();
+        SettingsProbe.HasAnyGuardHook(harness.ReadSettings()).Should().BeFalse();
     }
 
     [Fact]

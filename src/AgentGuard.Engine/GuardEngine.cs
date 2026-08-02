@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
 
@@ -24,7 +25,34 @@ public static class GuardEngine
     /// </summary>
     /// <param name="options">The pipeline configuration.</param>
     /// <returns>The pipeline, as its interface.</returns>
-    public static IPipeline CreatePipeline(GuardEngineOptions options)
+    public static IPipeline CreatePipeline(GuardEngineOptions options) =>
+        CreatePipeline(options, regionMapRegistry: null);
+
+    /// <summary>
+    /// Creates the Claude Code host adapter.
+    /// </summary>
+    /// <returns>The host adapter, as its interface.</returns>
+    public static IHostAdapter CreateClaudeCodeAdapter() => ClaudeCodeHostAdapter.Create();
+
+    /// <summary>
+    /// Returns the absolute snapshot-store base directory for a project, for diagnostics and tests.
+    /// </summary>
+    /// <param name="projectRoot">The absolute project root.</param>
+    /// <returns>The absolute snapshot-store base directory.</returns>
+    public static string SnapshotStoreDirectory(string projectRoot)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(projectRoot);
+        return ContextStorePaths.BaseDirectory(projectRoot);
+    }
+
+    /// <summary>
+    /// Builds the File Guard pipeline, optionally with a supplied region-map registry so a test can drive the
+    /// fail-closed path where a file is registered as protected yet produces no region/adapter to adjudicate it.
+    /// </summary>
+    /// <param name="options">The pipeline configuration.</param>
+    /// <param name="regionMapRegistry">The registry to use, or <see langword="null"/> to build the default.</param>
+    /// <returns>The pipeline, as its interface.</returns>
+    internal static IPipeline CreatePipeline(GuardEngineOptions options, IRegionMapRegistry? regionMapRegistry)
     {
         ArgumentNullException.ThrowIfNull(options);
         string root = options.ProjectRoot;
@@ -43,6 +71,9 @@ public static class GuardEngine
         };
         IProtectedSet protectedSet = ProtectedSet.Create(sources);
 
+        IRegionMapRegistry regionRegistry = regionMapRegistry ?? RegionMapRegistry.CreateDefault(
+            canonicalizer, root, MachinePaths.BinGuardIn(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)));
+
         var skipRules = new List<IDirectorySkipRule>
         {
             BuildOutputSkipRule.Create(),
@@ -51,7 +82,7 @@ public static class GuardEngine
             NamedDirectorySkipRule.Create(
                 canonicalizer.Canonicalize(CoreSystemPaths.Absolute(root, CoreSystemPaths.GrantStoreRelative)).Value),
         };
-        IProtectedFileScanner scanner = ProtectedFileScanner.Create(canonicalizer, protectedSet, skipRules);
+        IProtectedFileScanner scanner = ProtectedFileScanner.Create(canonicalizer, protectedSet, regionRegistry, skipRules);
 
         string fingerprint = RulesetFingerprint.Compute(sources, providers, skipRules);
         ReadOnlyMemory<byte> grantPublicKey = options.GrantPublicKey.IsEmpty
@@ -64,7 +95,7 @@ public static class GuardEngine
             canonicalizer,
             options.TimeProvider);
 
-        var services = new FileGuardServices(protectedSet, scanner, fileReader, canonicalizer, grantStore);
+        var services = new FileGuardServices(protectedSet, scanner, fileReader, canonicalizer, grantStore, regionRegistry);
         var configuration = new FileGuardConfiguration(
             FileGuardName,
             services,
@@ -77,23 +108,6 @@ public static class GuardEngine
         IContextStore store = ContextStore.Create(root, options.TimeProvider);
         IPrivilegedWriter privilegedWriter = PrivilegedWriter.Create();
         return Pipeline.Create(registry, store, privilegedWriter);
-    }
-
-    /// <summary>
-    /// Creates the Claude Code host adapter.
-    /// </summary>
-    /// <returns>The host adapter, as its interface.</returns>
-    public static IHostAdapter CreateClaudeCodeAdapter() => ClaudeCodeHostAdapter.Create();
-
-    /// <summary>
-    /// Returns the absolute snapshot-store base directory for a project, for diagnostics and tests.
-    /// </summary>
-    /// <param name="projectRoot">The absolute project root.</param>
-    /// <returns>The absolute snapshot-store base directory.</returns>
-    public static string SnapshotStoreDirectory(string projectRoot)
-    {
-        ArgumentException.ThrowIfNullOrEmpty(projectRoot);
-        return ContextStorePaths.BaseDirectory(projectRoot);
     }
 
     private static ReadOnlyMemory<byte> LoadGrantPublicKey(string projectRoot)

@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json.Nodes;
 using AgentGuard.Setup;
@@ -8,25 +8,24 @@ using AgentGuard.Setup;
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// Helpers for asserting over the guard's hook entries in a parsed <c>.claude/settings.json</c> tree.
+/// Helpers for asserting over the guard's hook entries in a parsed <c>.claude/settings.json</c> tree. A guard
+/// group is identified by its command — a call to the guard binary running <c>hook pre</c>/<c>hook post</c> — not
+/// by any marker.
 /// </summary>
 internal static class SettingsProbe
 {
-    /// <summary>Finds the group in an event array that has the given matcher and carries the sentinel.</summary>
+    /// <summary>Finds the guard's own hook group in an event array, identified by its guard command.</summary>
     /// <param name="root">The settings root object.</param>
     /// <param name="eventKey">The event key.</param>
-    /// <param name="matcher">The matcher to match.</param>
     /// <returns>The guard group, or <see langword="null"/>.</returns>
-    internal static JsonObject? GuardGroup(JsonObject root, string eventKey, string matcher)
+    internal static JsonObject? GuardGroup(JsonObject root, string eventKey)
     {
         if (root["hooks"] is not JsonObject hooks || hooks[eventKey] is not JsonArray array)
         {
             return null;
         }
 
-        return array.OfType<JsonObject>().FirstOrDefault(group =>
-            string.Equals(group["matcher"]?.GetValue<string>(), matcher, StringComparison.Ordinal)
-            && CommandOf(group)?.Contains(HookCommand.OwnedFlag, StringComparison.Ordinal) == true);
+        return array.OfType<JsonObject>().FirstOrDefault(IsGuardGroup);
     }
 
     /// <summary>Returns the first hook command of a group.</summary>
@@ -37,7 +36,7 @@ internal static class SettingsProbe
             ? first["command"]?.GetValue<string>()
             : null;
 
-    /// <summary>Counts the guard-owned groups (those carrying the sentinel) in an event array.</summary>
+    /// <summary>Counts the guard-owned groups (those carrying a guard command) in an event array.</summary>
     /// <param name="root">The settings root object.</param>
     /// <param name="eventKey">The event key.</param>
     /// <returns>The count.</returns>
@@ -48,13 +47,47 @@ internal static class SettingsProbe
             return 0;
         }
 
-        return array.OfType<JsonObject>().Count(group =>
-            CommandOf(group)?.Contains(HookCommand.OwnedFlag, StringComparison.Ordinal) == true);
+        return array.OfType<JsonObject>().Count(IsGuardGroup);
     }
 
-    /// <summary>Gets a value indicating whether any command anywhere carries the sentinel.</summary>
+    /// <summary>Gets a value indicating whether any guard hook command is present anywhere in the settings.</summary>
     /// <param name="root">The settings root object.</param>
-    /// <returns><see langword="true"/> when a sentinel command is present.</returns>
-    internal static bool HasAnySentinel(JsonObject root) =>
-        root.ToJsonString().Contains(HookCommand.OwnedFlag, StringComparison.Ordinal);
+    /// <returns><see langword="true"/> when a guard hook command is present.</returns>
+    internal static bool HasAnyGuardHook(JsonObject root)
+    {
+        if (root["hooks"] is not JsonObject hooks)
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<string, JsonNode?> pair in hooks)
+        {
+            if (pair.Value is JsonArray array && array.OfType<JsonObject>().Any(IsGuardGroup))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsGuardGroup(JsonObject group)
+    {
+        if (group["hooks"] is not JsonArray hooks)
+        {
+            return false;
+        }
+
+        foreach (JsonObject hook in hooks.OfType<JsonObject>())
+        {
+            if (hook["command"] is JsonValue value
+                && value.TryGetValue(out string? command)
+                && HookCommand.IsGuardCommand(command))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

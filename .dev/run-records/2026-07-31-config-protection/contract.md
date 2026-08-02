@@ -1,5 +1,19 @@
 # Protect the guard's own config files with per-region modes
 
+## Approved decisions (each carries Tim's exact words)
+
+
+
+1. **The guard keeps its own hooks canonical and does not police hooks you add.** It can't tell a hook the AI added from one you added, so it only re-asserts its own groups and leaves every other hook alone. Tim: *"HOW do you know they are not legit?"*
+2. **Identify the guard's own hook groups by their command** — a call to the guard binary running `hook pre`/`post`, which the guard computes — not by any marker. This supersedes every `--agentguard-owned` reference in the body below. Tim: *"Should not 'exactly' the guard's hooks be a call to the guard CLI ... is that not a better way to locate it."*
+3. **Remove the `--agentguard-owned` marker** (`HookCommand.OwnedFlag`) and every use of it. Tim: *"GET RID OF THESE --agentowned BULLSHIT ... that you put in with no ... APPROVAL or even discussion with me."*
+4. **config.json protection stays as designed** — mode-1 structure/defaults, mode-2 `protectedPaths` reverted unless a grant covers it. (Already in the framework body below; listed so the set is complete.) - Tim indicates NOW as I (Tim) write this by hand that this is approved.
+5. **The region check runs before the fingerprint gate**, so a `protectedPaths` change is reverted rather than denied-without-revert in the two-process case. See What-to-do 7 and Acceptance 9. -- Tim approves now by hand.
+6. **Add `.agentguard/config.json` to the pre Bash-scan** so a shell command naming it is blocked at Pre like the other core files. See What-to-do 8 and Acceptance 11.  -- Tim agrees.
+7. **Broaden the hook matcher** to `Edit|Write|MultiEdit|NotebookEdit|Bash|Monitor|PowerShell|mcp__.*`, so MCP, Monitor, and PowerShell tool calls also fire the hooks (all verified real in the Claude Code tools reference). See What-to-do 9 and Acceptance 10. -- I Timothy approve this.
+
+Everything below this section is the framework design Tim ordered and previously approved, unchanged except where a decision above modifies it.
+
 ## The standard / what we're building
 
 The guard watches `.claude/settings.json` and `.agentguard/config.json` after every tool call and restores its own parts if they changed without authorization, leaving all other content untouched.
@@ -13,7 +27,7 @@ Each protected config file declares a **region map**: a list of regions, each wi
 - **Mode 3 — Unprotected.** Everything not declared. Never checked, never touched.
 
 Region maps:
-- `settings.json` = mode 1: the guard hook groups (the `--agentguard-owned` Pre/Post entries). Everything else is mode 3.
+- `settings.json` = mode 1: the guard hook groups (identified by their command — a call to the guard binary with `hook pre`/`post`; see decision 2). Everything else is mode 3.
 - `config.json` = mode 1: the file's structure/defaults (a valid object with a `protectedPaths` array; `guard init`/`doctor` regenerate this when missing). Mode 2: the **contents** of `protectedPaths`. Everything else is mode 3.
 
 Both restores are **partial**: rewrite or revert only the failing region; preserve every other byte of the file.
@@ -22,7 +36,7 @@ The read/write layer is a **general seam** across formats. A **region** is `{ id
 
 ## Success definition
 
-All eight acceptance checks pass; `dotnet build` = 0 warnings / 0 errors; `dotnet test` = 0 failed (the existing 76 engine + 45 analyzer tests plus the new config-protection tests); analyzers clean. AND this end state holds: `.claude/settings.json`'s guard hooks and `.agentguard/config.json`'s `protectedPaths` are checked after every tool call and restored per the three modes — mode 1 rewrites to the guard's canonical value (so `doctor --fix` and `init` survive), mode 2 reverts to the pre-call backup unless a grant covers it, mode 3 is never touched; the Pre-block is unchanged; the region/adapter seam is general with only the JSON adapter built; none of the reuse-ledger owners are duplicated; nothing under `Abstractions/` or `analyzers/` changed. Any restatement or weakening of this to fit the result is a top-line Lie-catcher finding.
+All acceptance checks pass; `dotnet build` = 0 warnings / 0 errors; `dotnet test` = 0 failed (the existing 76 engine + 45 analyzer tests plus the new config-protection tests); analyzers clean. AND this end state holds: `.claude/settings.json`'s guard hooks and `.agentguard/config.json`'s `protectedPaths` are checked after every tool call and restored per the three modes — mode 1 rewrites to the guard's canonical value (so `doctor --fix` and `init` survive), mode 2 reverts to the pre-call backup unless a grant covers it, mode 3 is never touched; the Pre-block is unchanged; the region/adapter seam is general with only the JSON adapter built; none of the reuse-ledger owners are duplicated; nothing under `Abstractions/` or `analyzers/` changed. Any restatement or weakening of this to fit the result is a top-line Lie-catcher finding.
 
 ## Surfaces
 
@@ -59,7 +73,11 @@ Any capability marked NEW must be re-checked by the DRY adversary against every 
 3. **Region-aware verifier** (a new `IVerifier`). For each declared region: mode 1 → compare the current region to the guard's canonical value (reuse `Inspect` for settings, `ProjectConfig.Default()` shape for config structure); mode 2 → compare the current region to the pre-call backup and require a covering grant. Deny only when a protected region is wrong/unauthorized; allow all mode-3 content.
 4. **Restore.** Mode 1 → rewrite the canonical region (partial). Mode 2 → revert the region to the pre-call backup (partial). If the file is unparseable/deleted so no region can be read, fall back to restoring the whole pre-call snapshot. All restores carried by `RestoreFileEffect`.
 5. **After-check membership = two sources unioned.** The after-check watches the existing whole-file set (the Provider/Project build-config files — any change reverts, no region map, `NoChangeVerifier` as today) **plus** the files in a new **region-map registry** (`settings.json`, `config.json` — region-aware verifier). The scanner already emits the first set from rule origin; it also consults the region-map registry (a new #2 construct, populated by setup) for the second. Each file runs the verifier its source assigns: whole-file for the origin set, region-aware for the registry set. No change to `RuleOrigin` or the frozen `Rule`, and no hardcoded filenames — a file joins the after-check by being registered with a region map.
-6. **Guard-own-edit authorization is implicit.** No new `ApprovalGate` / marker / command-trust path: mode-1 canonical checking makes `init`/`doctor --fix` pass because their output is canonical; mode-2 `protectedPaths` is grant-gated and the guard's own commands never write it. **This replaces the "change ledger" subsystem from the retired install/init/doctor contract — no Sealed-store ledger is needed; the canonical check is the mechanism.**
+6. **Guard-own-edit authorization is implicit.** No new `ApprovalGate` or command-trust *authorization* path: mode-1 canonical checking makes `init`/`doctor --fix` pass because their output is canonical; mode-2 `protectedPaths` is grant-gated and the guard's own commands never write it. Identifying the guard's own hook groups by their command (decisions 2–3, item 10) is identification, not authorization. **This replaces the "change ledger" subsystem from the retired install/init/doctor contract — no Sealed-store ledger is needed; the canonical check is the mechanism.**
+7. **Region check before the fingerprint gate.** Reverting `protectedPaths` also changes the ruleset, so a `protectedPaths` change moves the ruleset fingerprint between the pre-hook and post-hook processes. `FileGuard.PostcheckAsync` currently returns Deny with no revert whenever that fingerprint changed. For a region-map registry file, run the region check and restore independent of, and ahead of, the fingerprint gate, so a `protectedPaths` change is reverted rather than denied-without-revert. The fingerprint gate stays in place for the whole-file diff path.
+8. **Add `config.json` to the pre Bash-scan.** Add `CoreSystemPaths.ProjectConfigRelative` (`.agentguard/config.json`) to `CoreSystemPaths.BashReferenceTokens`, so a Bash command that names it is denied at Pre like the snapshot store, grant store, grant public key, and `settings.json`.
+9. **Broaden the hook matcher.** In `ClaudeSettingsWiring`, the guard's Pre and Post groups fire on `Edit|Write|MultiEdit|NotebookEdit|Bash|Monitor|PowerShell|mcp__.*`. `Monitor` and `PowerShell` are real command-running tools, and MCP tool calls fire the hooks but their `mcp__…` names were unmatched; sub-agents already fire the parent hooks, so no change is needed there.
+10. **Identify the guard's hook groups by command; remove the marker.** Change `IsGuardGroup` from matching `HookCommand.OwnedFlag` to matching the guard's own command (the guard binary invoked with `hook pre`/`post`). Remove `HookCommand.OwnedFlag` and its emission in `HookCommand.ForEvent`. Inspect, rewrite, and strip continue to find the guard's groups by that command.
 
 ## What the agent MAY do
 
@@ -70,7 +88,7 @@ Any capability marked NEW must be re-checked by the DRY adversary against every 
 
 - Build a new config reader/writer/parser that duplicates `ClaudeSettingsWiring`, `SafeRead`, `ClaudeSettings`, `RestoreFileEffect`, the snapshot store, or the grant/coverage machinery.
 - Implement XML/TOML/YAML/INI in this build.
-- Add an `ApprovalGate` / command-prefix / self-identification authorization path (mode-1 canonical replaces it).
+- Add an `ApprovalGate` or command-trust *authorization* path (mode-1 canonical replaces it). Identifying the guard's own hook groups by their command (decision 2) is identification, not authorization, and is required by the marker removal.
 - Weaken, skip, or delete any existing test. No commit. Stop and escalate at any wall.
 - Touch the frozen `Abstractions/**` or `analyzers/**` without a separate contract.
 
@@ -86,6 +104,10 @@ Each an xUnit acceptance test (naming: `Acceptance_ConfigProtection_*`), Pre the
 6. AI deletes `settings.json` entirely → restored (canonical hooks re-created / whole-file fallback).
 7. AI corrupts `config.json` to non-JSON → restored from the whole-file pre-call snapshot fallback.
 8. `guard init` creating `config.json` with default `protectedPaths` inside a tool call → not reverted.
+9. Emptying `config.json` `protectedPaths` when the pre-image snapshot and the post state carry **different ruleset fingerprints** (the two-process case, where the post-hook computes the fingerprint from the already-changed config) → the region is still reverted to the pre-call backup, NOT denied-without-revert. This is the case that fails today; it must pass.
+10. A tool whose name matches `mcp__…` writes a protected file → the Post hook fires and the change is reverted (the broadened matcher sees it).
+11. A Bash command that names `.agentguard/config.json` → denied at Pre (config.json is in the Bash-scan token list).
+12. An extra hook appended inside the guard's own group → removed when the group is re-asserted to canonical; hooks the user added elsewhere are preserved. (This is the case the old health-label check missed.)
 
 ## Tier
 

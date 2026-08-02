@@ -30,15 +30,18 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
 
     private readonly IPathCanonicalizer _canonicalizer;
     private readonly IProtectedSet _protectedSet;
+    private readonly IRegionMapRegistry _regionRegistry;
     private readonly IReadOnlyList<IDirectorySkipRule> _skipRules;
 
     private ProtectedFileScanner(
         IPathCanonicalizer canonicalizer,
         IProtectedSet protectedSet,
+        IRegionMapRegistry regionRegistry,
         IReadOnlyList<IDirectorySkipRule> skipRules)
     {
         _canonicalizer = canonicalizer;
         _protectedSet = protectedSet;
+        _regionRegistry = regionRegistry;
         _skipRules = skipRules;
     }
 
@@ -73,7 +76,7 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
                 }
 
                 CanonicalPath candidate = _canonicalizer.Canonicalize(entry.FullName);
-                if (IsConfigurableProtected(candidate))
+                if (IsConfigurableProtected(candidate) || _regionRegistry.IsRegistered(candidate))
                 {
                     results.Add(candidate);
                 }
@@ -88,17 +91,20 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
     /// </summary>
     /// <param name="canonicalizer">The canonicalizer used to resolve each candidate.</param>
     /// <param name="protectedSet">The Protected Set each candidate is matched against.</param>
+    /// <param name="regionRegistry">The region-map registry whose watched files join the after-check set.</param>
     /// <param name="skipRules">The directory skip rules that prune the walk.</param>
     /// <returns>The scanner, as its interface.</returns>
     internal static IProtectedFileScanner Create(
         IPathCanonicalizer canonicalizer,
         IProtectedSet protectedSet,
+        IRegionMapRegistry regionRegistry,
         IReadOnlyList<IDirectorySkipRule> skipRules)
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentNullException.ThrowIfNull(protectedSet);
+        ArgumentNullException.ThrowIfNull(regionRegistry);
         ArgumentNullException.ThrowIfNull(skipRules);
-        return new ProtectedFileScanner(canonicalizer, protectedSet, skipRules);
+        return new ProtectedFileScanner(canonicalizer, protectedSet, regionRegistry, skipRules);
     }
 
     private bool ShouldSkip(string directoryFullPath) =>

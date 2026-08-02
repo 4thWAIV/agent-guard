@@ -27,6 +27,7 @@ internal sealed class FileGuard : IGuard
     private readonly IFileReader _fileReader;
     private readonly IPathCanonicalizer _canonicalizer;
     private readonly IGrantStore _grantStore;
+    private readonly IRegionMapRegistry _regionRegistry;
     private readonly IVerifier _defaultVerifier;
     private readonly string _rulesetFingerprint;
     private readonly IReadOnlyList<string> _coreSystemPathTokens;
@@ -41,6 +42,7 @@ internal sealed class FileGuard : IGuard
         _fileReader = configuration.Services.FileReader;
         _canonicalizer = configuration.Services.Canonicalizer;
         _grantStore = configuration.Services.GrantStore;
+        _regionRegistry = configuration.Services.RegionRegistry;
         _defaultVerifier = NoChangeVerifier.Create();
         _rulesetFingerprint = configuration.RulesetFingerprint;
         _coreSystemPathTokens = configuration.CoreSystemPathTokens;
@@ -120,11 +122,6 @@ internal sealed class FileGuard : IGuard
             return Deny("The pre-image snapshot is corrupt; failing closed.");
         }
 
-        if (!string.Equals(snapshot.RulesetFingerprint, _rulesetFingerprint, StringComparison.Ordinal))
-        {
-            return Deny("The ruleset changed between capture and post; refusing to diff across a changed membership.");
-        }
-
         Dictionary<string, ReadOnlyMemory<byte>>? current = await TryReadCurrentAsync(environment, cancellationToken)
             .ConfigureAwait(false);
         if (current is null)
@@ -138,10 +135,16 @@ internal sealed class FileGuard : IGuard
             preImage[entry.Path] = entry.Content;
         }
 
+        // The region check runs independent of, and ahead of, the fingerprint gate: reverting a registry
+        // file's region (config.json's protectedPaths) also moves the ruleset fingerprint between the
+        // pre-hook and post-hook processes, so gating the region restore on that fingerprint would leave the
+        // file changed and protection off. The gate still guards the whole-file diff path inside Reconcile.
+        bool fingerprintMatches =
+            string.Equals(snapshot.RulesetFingerprint, _rulesetFingerprint, StringComparison.Ordinal);
         IReadOnlyList<FileChange> changes = SnapshotDiffer.Diff(preImage, current);
-        return changes.Count == 0
+        return changes.Count == 0 && fingerprintMatches
             ? PostcheckResult.Allow()
-            : await ReconcileAsync(changes, cancellationToken).ConfigureAwait(false);
+            : await ReconcileAsync(changes, fingerprintMatches, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -165,6 +168,9 @@ internal sealed class FileGuard : IGuard
         FileRemoved removed => new RestoreFileEffect(removed.Path, removed.Before),
         _ => throw new InvalidOperationException($"Unhandled change kind: {change.GetType().Name}"),
     };
+
+    private static string DriftReason(IReadOnlyList<string> reasons) =>
+        "Reverted unauthorized drift to the protected set:\n" + string.Join("\n", reasons);
 
     private async Task<CaptureResult> WriteSnapshotAsync(
         IReadOnlyList<CanonicalPath> paths,
@@ -224,11 +230,95 @@ internal sealed class FileGuard : IGuard
 
     private async Task<PostcheckResult> ReconcileAsync(
         IReadOnlyList<FileChange> changes,
+        bool fingerprintMatches,
         CancellationToken cancellationToken)
     {
         IReadOnlyList<Grant> grants = await _grantStore.GetActiveGrantsAsync(cancellationToken).ConfigureAwait(false);
         var effects = new List<Effect>();
         var reasons = new List<string>();
+
+        // Partition the changed files. A file in the region-map registry is governed SOLELY by the region pass —
+        // its whole authority for allow AND deny — independent of the fingerprint gate (item 7): reverting a
+        // registry file's region is what restores the ruleset a change moved, and a grant-covered region change the
+        // region pass ALLOWS must not then be denied by the gate. Every other change is a whole-file diff whose
+        // membership the fingerprint gate protects.
+        var regionChanges = new List<FileChange>();
+        var wholeFileChanges = new List<FileChange>();
+        foreach (FileChange change in changes)
+        {
+            if (_regionRegistry.IsRegistered(new CanonicalPath(change.Path)))
+            {
+                regionChanges.Add(change);
+            }
+            else
+            {
+                wholeFileChanges.Add(change);
+            }
+        }
+
+        // Region pass: the sole authority for registry files. Allow leaves no effect; deny emits a partial restore.
+        await ReconcileRegionsAsync(regionChanges, grants, effects, reasons, cancellationToken).ConfigureAwait(false);
+
+        // Fingerprint gate: guards ONLY the whole-file diff path. A changed membership means that diff would compare
+        // across a changed universe, so a non-region change is refused. Any region effect already computed stands.
+        if (!fingerprintMatches && wholeFileChanges.Count > 0)
+        {
+            reasons.Add("The ruleset changed between capture and post; refusing to diff across a changed membership.");
+            return new PostcheckResult(Verdict.Deny(DriftReason(reasons)), effects);
+        }
+
+        // Whole-file pass: only when the membership is stable.
+        if (fingerprintMatches)
+        {
+            await ReconcileWholeFileAsync(wholeFileChanges, grants, effects, reasons, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
+        return effects.Count == 0
+            ? PostcheckResult.Allow()
+            : new PostcheckResult(Verdict.Deny(DriftReason(reasons)), effects);
+    }
+
+    private async Task ReconcileRegionsAsync(
+        IReadOnlyList<FileChange> changes,
+        IReadOnlyList<Grant> grants,
+        List<Effect> effects,
+        List<string> reasons,
+        CancellationToken cancellationToken)
+    {
+        foreach (FileChange change in changes)
+        {
+            var canonicalPath = new CanonicalPath(change.Path);
+            RegionEntry? region = _regionRegistry.Find(canonicalPath);
+            if (region is null)
+            {
+                // Fail closed: the file is registered as protected but the registry produced no region/adapter to
+                // adjudicate it. Never let the change through — deny and restore the whole file from the pre-call
+                // snapshot (the same fallback the region verifier uses for an unparseable or deleted file).
+                effects.Add(BuildEffect(change));
+                reasons.Add($"A registered protected file could not be adjudicated — restored from snapshot: {change.Path}");
+                continue;
+            }
+
+            Grant? authorizing = CoverageChecker.FindAuthorizing(grants, canonicalPath);
+            IVerifier regionVerifier = RegionVerifier.Create(region.Map, region.Adapter);
+            Verdict regionVerdict = await regionVerifier.VerifyAsync(change, authorizing, cancellationToken)
+                .ConfigureAwait(false);
+            if (regionVerdict.Kind == VerdictKind.Deny)
+            {
+                effects.Add(RegionRestore.Build(change, region.Map, region.Adapter, authorizing));
+                reasons.Add(regionVerdict.Message ?? change.Path);
+            }
+        }
+    }
+
+    private async Task ReconcileWholeFileAsync(
+        IReadOnlyList<FileChange> changes,
+        IReadOnlyList<Grant> grants,
+        List<Effect> effects,
+        List<string> reasons,
+        CancellationToken cancellationToken)
+    {
         foreach (FileChange change in changes)
         {
             var canonicalPath = new CanonicalPath(change.Path);
@@ -246,14 +336,6 @@ internal sealed class FileGuard : IGuard
                 reasons.Add(verdict.Message ?? change.Path);
             }
         }
-
-        if (effects.Count == 0)
-        {
-            return PostcheckResult.Allow();
-        }
-
-        string reason = "Reverted unauthorized drift to the protected set:\n" + string.Join("\n", reasons);
-        return new PostcheckResult(Verdict.Deny(reason), effects);
     }
 
     private async Task<Verdict> PrecheckWriteAsync(FileWriteInput write, CancellationToken cancellationToken)

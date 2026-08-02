@@ -53,17 +53,15 @@ internal static class Program
             DefaultValueFactory = _ => GuardHost.ClaudeCodeHost,
             Description = "The host runtime.",
         };
-        var ownedOption = new Option<bool>(HookCommand.OwnedFlag)
-        {
-            Description = "Marker identifying an AgentGuard-owned hook entry; ignored at runtime.",
-        };
 
         var command = new Command(HookCommand.Verb, "Run the File Guard for a Claude Code PreToolUse/PostToolUse event.")
         {
             eventArgument,
             hostOption,
-            ownedOption,
         };
+
+        // A legacy settings file may still pass a now-retired ownership flag; unmatched tokens are tolerated so the
+        // hook run still executes rather than erroring.
         command.TreatUnmatchedTokensAsErrors = false;
         command.SetAction((parseResult, cancellationToken) =>
             RunHookAsync(parseResult.GetValue(eventArgument), parseResult.GetValue(hostOption), cancellationToken));

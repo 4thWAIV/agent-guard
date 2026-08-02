@@ -24,6 +24,10 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
     /// </summary>
     internal const string ShellToolName = "Bash";
 
+    private const string MonitorToolName = "Monitor";
+    private const string PowerShellToolName = "PowerShell";
+    private const string McpToolPattern = "mcp__.*";
+
     private const int BlockExitCode = 2;
     private const int AllowExitCode = 0;
 
@@ -37,6 +41,8 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
 
     private static readonly HashSet<string> EditTools = new(EditToolNamesOrdered, StringComparer.Ordinal);
 
+    private static readonly string[] HookMatcherTokensOrdered = BuildHookMatcherTokens();
+
     private ClaudeCodeHostAdapter()
     {
     }
@@ -45,10 +51,13 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
     public string Host => GuardHost.ClaudeCodeHost;
 
     /// <summary>
-    /// Gets the ordered edit-tool names, the single source the file-edit hook matcher is joined from so the wired
-    /// matcher cannot drift from the tools this adapter normalizes.
+    /// Gets the complete, ordered set of tool-name tokens the guard's Pre/Post hook matcher fires on — the parsed
+    /// edit tools and shell tool, plus the hook-firing-only Monitor, PowerShell, and <c>mcp__.*</c> tokens. This is
+    /// the single source the settings matcher is assembled from, so the wired matcher cannot drift from the tools
+    /// the guard watches. Input is parsed only for the edit-family and shell tools (see <see cref="BuildInput"/>);
+    /// the remaining tokens fire the hook but carry no parsed input.
     /// </summary>
-    internal static IReadOnlyList<string> EditToolNames => EditToolNamesOrdered;
+    internal static IReadOnlyList<string> HookMatcherToolTokens => HookMatcherTokensOrdered;
 
     /// <inheritdoc />
     public HostReadResult Read(HookEvent hookEvent, string rawPayload)
@@ -111,6 +120,18 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
     /// </summary>
     /// <returns>The adapter, as its interface.</returns>
     internal static IHostAdapter Create() => new ClaudeCodeHostAdapter();
+
+    private static string[] BuildHookMatcherTokens()
+    {
+        var tokens = new List<string>(EditToolNamesOrdered)
+        {
+            ShellToolName,
+            MonitorToolName,
+            PowerShellToolName,
+            McpToolPattern,
+        };
+        return tokens.ToArray();
+    }
 
     private static ToolInput? BuildInput(string toolName, JsonElement root)
     {

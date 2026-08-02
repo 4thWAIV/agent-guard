@@ -210,5 +210,5 @@ internal static class CreationHelper
     }
 
     private static bool ParsesAsObject(string path) =>
-        SafeRead.TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out _);
+        SafeRead.TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out string? _);
 }

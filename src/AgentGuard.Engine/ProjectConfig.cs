@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text.Json;
 
 namespace AgentGuard.Engine;
 
@@ -12,6 +13,14 @@ namespace AgentGuard.Engine;
 /// </summary>
 internal sealed record ProjectConfig
 {
+    /// <summary>
+    /// The on-the-wire JSON key of <see cref="ProtectedPaths"/>, derived once from the property name through the
+    /// same camelCase policy the serializer applies, so a rename of the property cannot leave a hardcoded key
+    /// pointing at a name that no longer exists.
+    /// </summary>
+    internal static readonly string ProtectedPathsWireKey =
+        JsonNamingPolicy.CamelCase.ConvertName(nameof(ProtectedPaths));
+
     /// <summary>
     /// Gets the project protected-paths; defaults to empty when the file omits the field.
     /// </summary>

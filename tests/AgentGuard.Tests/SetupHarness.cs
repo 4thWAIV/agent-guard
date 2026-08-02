@@ -135,15 +135,15 @@ public sealed class SetupHarness : IDisposable
         File.WriteAllText(ClaudeSettings, json);
     }
 
-    /// <summary>Rewrites a guard hook entry's command to a stale path, keeping the sentinel.</summary>
+    /// <summary>Relocates the guard hook entry's command to a stale launcher path, keeping it a guard command.</summary>
     /// <param name="eventKey">The event key.</param>
-    /// <param name="matcher">The matcher of the guard group to make stale.</param>
-    public void MakeGuardEntryStale(string eventKey, string matcher)
+    public void MakeGuardEntryStale(string eventKey)
     {
         JsonObject settings = ReadSettings();
-        JsonObject group = SettingsProbe.GuardGroup(settings, eventKey, matcher)!;
+        JsonObject group = SettingsProbe.GuardGroup(settings, eventKey)!;
+        string current = SettingsProbe.CommandOf(group)!;
         group["hooks"]![0]!["command"] =
-            "/old/relocated/.agentguard/bin/guard hook pre --host claude-code --agentguard-owned";
+            current.Replace(BinGuard, "/old/relocated/.agentguard/bin/guard", System.StringComparison.Ordinal);
         File.WriteAllText(ClaudeSettings, settings.ToJsonString());
     }
 

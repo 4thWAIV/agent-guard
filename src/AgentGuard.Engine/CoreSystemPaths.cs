@@ -57,6 +57,7 @@ internal static class CoreSystemPaths
         SnapshotStoreRelative,
         GrantStoreRelative,
         GrantPublicKeyRelative,
+        ProjectConfigRelative,
         ClaudeSettingsRelative,
     };
 

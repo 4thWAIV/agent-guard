@@ -10,9 +10,6 @@ namespace AgentGuard.Tests;
 
 public sealed class InitCommandTests
 {
-    private const string EditMatcher = "Edit|Write|MultiEdit|NotebookEdit";
-    private const string BashMatcher = "Bash";
-
     [Fact]
     public void Acceptance_3d_Init_WhenMachineNotInstalled_IsRefused()
     {
@@ -34,10 +31,8 @@ public sealed class InitCommandTests
         harness.Init().Success.Should().BeTrue();
 
         JsonObject settings = harness.ReadSettings();
-        AssertCommand(settings, "PreToolUse", EditMatcher, harness, "pre");
-        AssertCommand(settings, "PreToolUse", BashMatcher, harness, "pre");
-        AssertCommand(settings, "PostToolUse", EditMatcher, harness, "post");
-        AssertCommand(settings, "PostToolUse", BashMatcher, harness, "post");
+        AssertGuardCommand(settings, "PreToolUse", harness, "pre");
+        AssertGuardCommand(settings, "PostToolUse", harness, "post");
     }
 
     [Fact]
@@ -77,8 +72,8 @@ public sealed class InitCommandTests
         settings["permissions"]!["allow"]![0]!.GetValue<string>().Should().Be("Read");
         settings["sandbox"]!["enabled"]!.GetValue<bool>().Should().BeTrue();
         settings.ToJsonString().Should().Contain("echo user-hook");
-        SettingsProbe.GuardGroup(settings, "PreToolUse", EditMatcher).Should().NotBeNull();
-        SettingsProbe.GuardGroup(settings, "PreToolUse", BashMatcher).Should().NotBeNull();
+        SettingsProbe.GuardGroup(settings, "PreToolUse").Should().NotBeNull();
+        SettingsProbe.GuardGroupCount(settings, "PreToolUse").Should().Be(1);
     }
 
     [Fact]
@@ -91,8 +86,8 @@ public sealed class InitCommandTests
         harness.Init().Success.Should().BeTrue();
 
         JsonObject settings = harness.ReadSettings();
-        SettingsProbe.GuardGroupCount(settings, "PreToolUse").Should().Be(2);
-        SettingsProbe.GuardGroupCount(settings, "PostToolUse").Should().Be(2);
+        SettingsProbe.GuardGroupCount(settings, "PreToolUse").Should().Be(1);
+        SettingsProbe.GuardGroupCount(settings, "PostToolUse").Should().Be(1);
     }
 
     [Fact]
@@ -101,14 +96,14 @@ public sealed class InitCommandTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
-        harness.MakeGuardEntryStale("PreToolUse", BashMatcher);
+        harness.MakeGuardEntryStale("PreToolUse");
 
         harness.Init().Success.Should().BeTrue();
 
         JsonObject settings = harness.ReadSettings();
-        SettingsProbe.CommandOf(SettingsProbe.GuardGroup(settings, "PreToolUse", BashMatcher)!)
-            .Should().Be($"{harness.BinGuard} hook pre --host claude-code --agentguard-owned");
-        SettingsProbe.GuardGroupCount(settings, "PreToolUse").Should().Be(2);
+        SettingsProbe.CommandOf(SettingsProbe.GuardGroup(settings, "PreToolUse")!)
+            .Should().Be(HookCommand.ForEvent(harness.BinGuard, HookCommand.PreEvent));
+        SettingsProbe.GuardGroupCount(settings, "PreToolUse").Should().Be(1);
     }
 
     [Fact]
@@ -153,12 +148,13 @@ public sealed class InitCommandTests
         File.Exists(harness.ClaudeSettings).Should().BeTrue();
     }
 
-    private static void AssertCommand(JsonObject settings, string eventKey, string matcher, SetupHarness harness, string token)
+    private static void AssertGuardCommand(JsonObject settings, string eventKey, SetupHarness harness, string token)
     {
-        JsonObject? group = SettingsProbe.GuardGroup(settings, eventKey, matcher);
+        JsonObject? group = SettingsProbe.GuardGroup(settings, eventKey);
         group.Should().NotBeNull();
-        SettingsProbe.CommandOf(group!)
-            .Should().Be($"{harness.BinGuard} hook {token} --host claude-code --agentguard-owned");
+        group!["matcher"]!.GetValue<string>().Should().Be(ClaudeSettingsWiring.ToolMatcher);
+        SettingsProbe.CommandOf(group)
+            .Should().Be(HookCommand.ForEvent(harness.BinGuard, token));
     }
 
     private static int CountLines(string content, string line)
