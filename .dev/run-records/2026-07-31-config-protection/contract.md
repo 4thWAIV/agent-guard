@@ -20,6 +20,20 @@ Both restores are **partial**: rewrite or revert only the failing region; preser
 
 The read/write layer is a **general seam** across formats. A **region** is `{ id, mode, locator, canonical? }`: `id` a stable name; `mode` 1/2/3; `locator` an address that **only the per-format adapter interprets** (the shared verifier/diff/restore treat it as opaque); `canonical` a value provider for mode-1 regions only (the guard's "what it should be" logic — per-region, never per-format). The locator means whatever the format needs — a JSON key path, an XPath (`.csproj`), a TOML key, a `.sln` section, a JSONL record selector — and the adapter also **normalizes** the value it reads so key-order/whitespace differences are not changes. This build ships the **JSON** adapter only; XML / TOML / YAML / INI / `.sln` each add one adapter later (see #1 for `.js`/`.ts`), with the verifier/diff/restore reused unchanged. Supporting another language (C#, TypeScript, Python, Rust) is then region-map **data**, not code — until it brings a format with no adapter yet, which is one new adapter.
 
+## Success definition
+
+All eight acceptance checks pass; `dotnet build` = 0 warnings / 0 errors; `dotnet test` = 0 failed (the existing 76 engine + 45 analyzer tests plus the new config-protection tests); analyzers clean. AND this end state holds: `.claude/settings.json`'s guard hooks and `.agentguard/config.json`'s `protectedPaths` are checked after every tool call and restored per the three modes — mode 1 rewrites to the guard's canonical value (so `doctor --fix` and `init` survive), mode 2 reverts to the pre-call backup unless a grant covers it, mode 3 is never touched; the Pre-block is unchanged; the region/adapter seam is general with only the JSON adapter built; none of the reuse-ledger owners are duplicated; nothing under `Abstractions/` or `analyzers/` changed. Any restatement or weakening of this to fit the result is a top-line Lie-catcher finding.
+
+## Surfaces
+
+Check every claim against all of these:
+1. `.claude/settings.json` — the guard hook region and all non-guard content.
+2. `.agentguard/config.json` — its structure/defaults, the `protectedPaths` contents, and any other user keys.
+3. The pre-call snapshot store — the mode-2 backup source.
+4. The region-map registry — which files, regions, and modes are watched (new).
+5. The grant / coverage store — mode-2 authorization.
+6. The after-check membership — the whole-file scanner set plus the region-map registry.
+
 ## Reuse ledger (from the prior-art-ledger run, 2026-07-31)
 
 | Capability | Ruling | Owner to reuse |
