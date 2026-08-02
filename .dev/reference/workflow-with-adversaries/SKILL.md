@@ -7,9 +7,15 @@ description: The standard way substantive work runs — a worker executes agains
 
 This is the NEW WAY substantive work runs, not a per-task tool. It sits on `adversarial-plan-review` (the blocking self-audit checklist) and uses `explorer` (derive the subsystem's ground truth from live code before judging). This skill wires those into a run with agents.
 
-**RULE 1 (never weaken to fit):** never narrow, soften, or reinterpret a human requirement to fit what the code already does. Grow the code/tool until it meets the requirement. Any change that quietly makes a requirement match existing behavior is a top-line finding.
+The contract replaces the subjective "would the human approve?" with checks an adversary can refute. It is a file, not a vibe.
 
-**The prime failure this prevents:** work that looks complete while incomplete, or that passes because the check was pointed at the wrong thing / the output was cropped / a test was softened.
+## The two standing rules
+
+**RULE 1 — never weaken to fit.** Never narrow, soften, or reinterpret a human requirement to fit what the code already does. Grow the code or tool until it meets the requirement. Any change that quietly makes a requirement match existing behavior is a top-line finding.
+
+**RULE 2 — never invent the human's approval.** A decision the human did not approve, in their own words, is a lie — ranked with a weakened test. Silence, a topic change, or a request to reword or clarify is never approval. This is enforced in the CONTRACT stage (every decision carries the human's verbatim sign-off) and hunted by the Lie-catcher (below).
+
+**The prime failure this prevents:** work that looks complete while incomplete, that passes because the check was pointed at the wrong thing or the output was cropped or a test was softened, or that carries a design decision the human never signed off on.
 
 ## The five stages
 
@@ -23,9 +29,17 @@ Before writing the contract or judging any subsystem you lack proven, code-level
 For any change that introduces new capabilities, ALSO run the `prior-art-ledger` workflow (`.claude/workflows/prior-art-ledger.js`) over every capability the work needs. It searches each capability across every lens — CodeGraph, lore semantic search, and grep — and a cheap model rules reuse / extract / new. Its output is the reuse ledger the contract must carry. A capability may be built new ONLY when every lens came back empty.
 
 ### CONTRACT
-Acceptance checks derived VERBATIM from the requirement sentences, written to a contract FILE BEFORE any work, each with the exact re-runnable verification command. **The contract MUST carry a SUCCESS DEFINITION section** stating the human's standard verbatim (the standing definition: ALL criteria met AND no errors in the system as a result of the change) plus this run's specific expected end state. A contract without a success definition is invalid — the gate cannot run against it. Any attempt to weaken, game, or restate the definition to fit the result is a top-line Lie-catcher finding. The contract is a file, not a vibe; it replaces the subjective "would the human approve?" with checks an adversary can refute. **Scope changes ONLY by the human editing the contract** — or, when the human is unavailable and has given explicit prior authorization for exactly this extension, by recording that authorization verbatim as the change's ruling provenance and top-lining it.
+Write the contract to a FILE before any work. Acceptance checks are derived VERBATIM from the requirement sentences, each with the exact re-runnable verification command. The file lives at **`run-records/<date>-<slug>/contract.md` under the repo root** — never elsewhere; an out-of-place contract fragments the run-record.
 
-The contract file lives at **`run-records/<date>-<slug>/contract.md` under the repo root** — never elsewhere; out-of-place contracts fragment the run-record. The contract must also contain: (a) the enumerated **SURFACES** the change touches — every store where the same value lives — so adversaries refute against a WRITTEN surface list at contract time, not a post-mortem (this is the second-store-miss guard doing its job up front); (b) the chosen **tier** (FULL / LITE / CONTRACT-ONLY) with a one-line why, so the tier decision is auditable and never a silent scope choice; and (c) the **reuse ledger** from GROUND — every capability the change needs, each marked reuse / extract / new — so the DRY adversary refutes duplication against a WRITTEN ledger at contract time, not a post-mortem.
+**The contract MUST carry a SUCCESS DEFINITION section** — the human's standard verbatim (the standing definition: ALL criteria met AND no errors in the system as a result of the change) plus this run's specific expected end state. A contract without a success definition is invalid — the gate cannot run against it. Any attempt to weaken, game, or restate the definition to fit the result is a top-line Lie-catcher finding.
+
+The contract must also carry:
+- **Decisions**, each with the human's verbatim words approving that exact item (RULE 2). A decision without the human's words is not a decision; it is an open item and must be surfaced, never written as decided. A blanket "put them back / do it" approves only items the human already individually approved.
+- **Surfaces**: every store where the same value lives, so adversaries refute against a WRITTEN surface list at contract time, not a post-mortem (the second-store-miss guard doing its job up front).
+- **Tier** (FULL / LITE / CONTRACT-ONLY) with a one-line why, so the tier decision is auditable and never a silent scope choice.
+- **Reuse ledger** from GROUND — every capability the change needs, each marked reuse / extract / new — so the DRY adversary refutes duplication against a WRITTEN ledger at contract time, not a post-mortem.
+
+**Scope changes ONLY by the human editing the contract** — or, when the human is unavailable and has given explicit prior authorization for exactly this extension, by recording that authorization verbatim as the change's ruling provenance and top-lining it.
 
 ### IMPLEMENT
 ONE worker executes the contract EXACTLY (tier permitting more only with explicit approval). Wall → STOP and escalate; never deviate silently, never edit a test to pass.
@@ -34,7 +48,7 @@ ONE worker executes the contract EXACTLY (tier permitting more only with explici
 Independent adversaries whose job is to REFUTE the result against the contract — not review-and-approve. Distinct lenses (below). Every adversary except the Lie-catcher ALSO returns the path to fix. Each adversary's context is REUSED across refute rounds so its critique stays consistent and cumulative (no fresh, conflicting demands round to round).
 
 ### GATE
-A result counts ONLY when no adversary refutes AND every verification is pasted verbatim (flags AND bytes AND command output with exit codes). The adversary RE-RUNS the contract's spot checks itself; cropped/stale output or a missing exit code is an automatic refute. Refuted → worker retries with the refutation attached.
+A result counts ONLY when no adversary refutes AND every verification is pasted verbatim (flags AND bytes AND command output with exit codes). The adversary RE-RUNS the contract's spot checks itself; cropped or stale output, or a missing exit code, is an automatic refute. Refuted → the worker retries with the refutation attached.
 
 ### ESCALATE
 Refuted twice on the same point, or a genuine design fork the standing rules don't settle → STOP and surface to the human with both sides' evidence. Never iterate silently past disagreement.
@@ -46,7 +60,10 @@ Refuted twice on the same point, or a genuine design fork the standing rules don
 3. **PROVE-IT / anti-review-failure adversary.** Refutes against the contract; hunts drift and fake justifications; Rule 1 is its first check; escalates dire deviations. Gives the fix path.
 4. **SOLID adversary.** Only SOLID — design and structure, real not pedantic: the single owner of the invariant, symptom-vs-owner, no second path beside an existing one, no hardcoded specifics, the gate wired into the normal workflow. Gives the fix path.
 5. **DRY adversary.** A DEDICATED, full-time duplication hunter — duplication is this project's most frequent defect, so it gets its own reviewer and is never folded under SOLID. Owns the reuse ledger: it re-runs every discovery lens itself (CodeGraph, lore, grep), FAILs any capability the ledger marked "new" that is not empty on every lens or that a lens shows already exists, and hunts every duplicated value, block, or whole function — including copies across modules the in-build analyzers cannot see. Gives the fix path.
-6. **LIE-CATCHER.** Pure dick, NO fix advice: enumerate every deviation, fake justification, lie, and weakened/skipped test, and make them the TOP LINE of the morning Executive Summary — or "NONE: every change proven approvable." Forces the conversation up front; never buried.
+6. **LIE-CATCHER.** Pure dick, NO fix advice. Two top-line duties, both made the TOP LINE of the morning Executive Summary, never buried:
+   - Enumerate every deviation, fake justification, lie, and weakened/skipped test.
+   - YELL every decision-level item — in the contract or in the work — that lacks the human's cited verbatim approval, and every "approval" that is really a non-answer, a topic change, or a reword request treated as a yes. An unapproved design decision ranks with a weakened test.
+   Or, if clean: "NONE: every change proven approvable and every decision carries the human's words."
 
 ## Context discipline (reuse vs throw away)
 
@@ -70,6 +87,7 @@ These are the classes that have actually burned this project — block them by n
 - **Status-field lies.** Metadata flags vs actual bytes — read the bytes.
 - **Byte-space confusion.** Offsets valid in one layer's space applied in another — name the byte space in writing.
 - **Oracle staleness.** A pinned test that fails has exactly two legal moves: fix the code, or repin the oracle WITH ruling provenance. Silent weakening is the Lie-catcher's #1 hunt — it diffs test files specifically.
+- **Unapproved decision.** A design element added or reversed without the human's verbatim sign-off (RULE 2). The Lie-catcher yells it top-line; do not ride over it.
 - **Inherited PENDING markers.** Any "not yet wired" comment found = surfaced top-line, never ridden over.
 - **Out-of-repo-root references.** Illegal — workers never add one, adversaries flag any found.
 - **"Pre-existing" as an excuse.** Banned. A red on the branch is fixed, not footnoted.
@@ -90,6 +108,7 @@ Two hard conditions on the metric:
 - Worker pastes cropped/stale output → the adversary RE-RUNS the contract's commands itself; missing exit codes = automatic refute.
 - Adversary rubber-stamps → each adversary enumerates WHAT it attempted to refute and how; zero findings twice on changed code = respawn. Respawning until someone approves ("agreement-shopping") is itself a Lie-catcher finding.
 - Worker edits a test to pass → oracle diffs are a declared change-class needing ruling provenance; unmarked test edits = top-line lie.
+- Decision smuggled in without sign-off → the Lie-catcher yells any decision-level item lacking the human's verbatim approval; a non-answer or reword-request treated as a yes is itself the finding.
 - Main loosens rules under deadline → the Lie-catcher audits the orchestrator too.
 
 ## Worker prompt requirements
@@ -171,11 +190,16 @@ Report:
 ## Lie-catcher prompt
 
 ```text
-You are the Lie-catcher. Do not make code changes. Do NOT give fix advice. Your FIRST duty: rule the RUN against the contract's SUCCESS DEFINITION — your output MUST begin with the single word SUCCEEDED or FAILED by that definition, before anything else; a run with any criterion unmet or any resulting system error is FAILED no matter how much genuine progress it contains. Then your findings: every deviation from the contract, every fake or hand-wavy justification, every unproven claim asserted as true, and every test that was weakened/skipped/xfail'd/loosened to pass. Diff the test files specifically. Audit the ORCHESTRATOR's steps too (skipped preflights, unrun verifications, requirement-weakening) — no one is exempt.
+You are the Lie-catcher. Do not make code changes. Do NOT give fix advice. Your FIRST duty: rule the RUN against the contract's SUCCESS DEFINITION — your output MUST begin with the single word SUCCEEDED or FAILED by that definition, before anything else; a run with any criterion unmet or any resulting system error is FAILED no matter how much genuine progress it contains.
+
+Then your findings, most-damaging first, each with exact file/line/command evidence:
+- Every deviation from the contract, every fake or hand-wavy justification, every unproven claim asserted as true, and every test that was weakened / skipped / xfail'd / loosened to pass. Diff the test files specifically.
+- Every decision-level item — in the contract or the work — that lacks the human's cited verbatim approval, and every "approval" that is really a non-answer, a topic change, or a reword request treated as a yes. A design element added or reversed without the human's own words is a lie, ranked with a weakened test. Anchoring to "it is already in the code" instead of the human's words is the same lie.
+- Audit the ORCHESTRATOR's steps too (skipped preflights, unrun verifications, requirement-weakening) — no one is exempt.
 
 Output EXACTLY one of:
 - "LIES/DEVIATIONS FOUND:" then a numbered list, most-damaging first, each with the exact file/line/command evidence.
-- "NONE: every change is proven against the contract; no requirement weakened, no test softened, no red footnoted."
+- "NONE: every change is proven against the contract; no requirement weakened, no test softened, no red footnoted, and every decision carries the human's own words."
 
 This output is the TOP LINE of the human's morning Executive Summary. It is never buried under progress.
 ```
