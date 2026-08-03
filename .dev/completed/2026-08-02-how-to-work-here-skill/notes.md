@@ -27,3 +27,17 @@ After the skill is written and checked in, delete/reset the memory files it supe
 
 ## Approach on memory: UPDATE, not delete
 Correction locked with Tim: the point is NOT to delete redundant memories. Go through memories related to this rule-set and update them to match the rules in the set (reconcile), keeping them as correct reflections of the canonical skill.
+
+## DONE — 2026-08-02 (reconcile executed post-compact)
+Tim corrected the direction before execution: memories carry the **full rule content** (for ready recall), not pointers back to the skill; the skill's "This file vs private memory" section was the badly-worded pointer and got rewritten to say so ("This file and your private memory" — content lives in memory, skill is the shared/checked-in source they sync from). Approved verbatim: "Approve. And sync the memories to the skills version."
+
+Executed:
+- Rewrote the skill's memory-relationship section; mirrored to the untracked `.claude/skills/how-to-work-here/SKILL.md` runtime copy (byte-identical).
+- Folded the skill's cold-pass refinements into 4 memories that lacked them: `feedback-never-change-agreed-design` (existing-in-tree ≠ approval), `feedback-silence-is-never-consent` (blanket "go" covers only already-approved items), `feedback-no-commentary-lead-with-signal` (status-report structure), `practice-run-laziness-auditor` (verbatim-output-or-it-didn't-count).
+- 9 rule-memories already carried the content verbatim-equivalent — left as-is (they are the source the skill was distilled from).
+- "hostile"→"lazy" scrub: no occurrences existed. No-op.
+- Fixed 3 stale reorg paths (`.dev/run-records/` → `.dev/completed/run-records/`) in MEMORY.md + `project-config-protection-open-defects` + `decision-guard-handles-its-config-files`; added an orienting line to MEMORY.md naming the skill as the shared source.
+
+Open (flagged to Tim, not decided):
+1. Recall gap — the skill's **Verification** section and **approval-scope test** have no memory, so they don't auto-recall. Candidate: add two memories.
+2. Mirror drift — `.claude/skills/how-to-work-here/` is an untracked copy of the checked-in `.agents/` one; can diverge. Candidate: symlink.

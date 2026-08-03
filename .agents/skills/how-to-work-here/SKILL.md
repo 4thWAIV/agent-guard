@@ -65,7 +65,7 @@ See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `refer
 - **grep** — exact string/token search.
 - **prior-art-ledger** workflow (`.claude/workflows/prior-art-ledger.js`) — runs all lenses per capability and rules reuse / extract / new; produces the reuse ledger a contract must carry.
 
-## This file vs private memory
-These rules are the shared, canonical source. An individual agent's private memory holds only project-specific state (roadmap, open defects, naming decisions) — not these norms. If a private memory duplicates a rule here, this file wins.
+## This file and your private memory
+This checked-in skill is the shared, reviewed copy of these rules — it travels with the repo and serves any agent, teammate, or cold start that has no private memory. Your own private memory carries a **full working copy** of these rules, not a pointer back here: memory is what you recall readily every session without opening this file, so the content has to actually live there.
 
-**Reconcile on load.** When you read this set of rules, go through your private memory, find every entry that relates to what this file covers, and **update it to match the rules here** — reconcile it, do not delete it. Memory must stay a correct reflection of this canonical set, never a stale or contradicting copy. This applies to any rule-set skill you load, not just this one.
+**Reconcile on load.** When you read this skill, sync your private memory to it: for every rule here, make sure the matching memory entry carries the rule's current content — bring stale wording up to date, add what's missing — alongside the project-specific incident context that memory already holds. Update, never delete; keep both in sync. This applies to any rule-set skill you load, not just this one.
