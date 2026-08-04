@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- A .NET binary JITs, so under hardened runtime it needs these to launch (decision 14).
+       Proven sufficient on osx-x64: the signed single-file binary launches (exit 0) with exactly these two.
+       disable-library-validation is intentionally NOT here (decision 14 lists only these two). If a future
+       notarized/Gatekeeper path needs it, add it via a decision-14 amendment, not silently. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+</dict>
+</plist>

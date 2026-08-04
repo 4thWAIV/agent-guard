@@ -25,3 +25,20 @@ The multi-contract breakdown of the "make a real, authorized change to a protect
 
 ## Later / roadmap (not contracts yet)
 Turn it on in this repo; TS/Rust providers; the build scanner (`.csproj`/`.sln`/`Directory.Packages.props`); dotnet-tool distribution + notarization.
+
+## Locked decisions — 2026-08-03 (presence & platform structure)
+
+Recorded verbatim, immediately, per the rule that a decision carries the human's exact words. These govern the presence contracts (1a/1b), not the CI/CD pipeline.
+
+1. **One binary; platform-specific logic isolated behind one shared abstraction in a separate assembly, general across Windows and Linux.** Tim: *"One binary and if we really want to isolate we'll create a seperate assembly to hold all of the per platform logic. BEcAUSE we'll need the same capabilities behind the same abstraction for WIN and Linux ..."*
+
+2. **Platform differences are absorbed by polymorphism and library centralization confined to a few classes — never scattered `#if`s. Add this to the platform-work instructions, and add a lint rule to enforce it.** Tim: *"THere are VERY GOOD structured techniques and good use of polimorphism and good libary centralization can minimize this impact to a couple of classes where we hold all the complexity... DO NOT make a mess of this it should be added to the instructions for this and then probably lint rules to keep the AI from shitting #ifs all throughout the codebase (and only doing 1/2 of them and leaving the others to rot)."* (The lint rule is its own contract — `analyzers/**` is frozen. File it as a GitHub issue.)
+
+3. **All platforms or none: when Touch ID lands, presence must be solved for every platform in the same release.** Tim: *"ALL platform matrix is setup and build and tested AND signing configured and 100% equivilant AND NOT oNE SINGLE thing get's scoped out of ANY platform NOW. ... WHEN we add the touch ID ... WE"LL be forced to solve the problem for all platforms."*
+
+4. **Presence testing: seam the real sensor call behind the interface, test everything above it in CI with a fake, auto-test the "biometrics unavailable → deny" path on the CI runner, and cover the real sensor path with a manual pre-release checklist.** Approved as written; his exact words on the exact text below: *"You can record I approve this decision exactly as written."* The approved text:
+   > - The actual sensor call is one tiny piece behind the presence interface. Everything above it is tested in CI against a fake that returns "approved"/"denied" on command — that's ~95% of it, fully automated.
+   > - The Mac CI runner has no fingerprint enrolled, so we automatically test the "biometrics unavailable → deny" path — proves we fail safe, for free.
+   > - The real "human touches sensor → approved" path is a manual pre-release checklist step. It's the only part no robot can do, and the seam keeps it tiny on purpose.
+
+5. **Research the best Linux presence experience before designing the Linux solution.** Tim: *"What is the experiance and what is the best epxeriance linxu can offer. WE must research this before we design the linux solution."*

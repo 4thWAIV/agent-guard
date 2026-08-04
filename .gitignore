@@ -153,3 +153,6 @@ vite.config.ts.timestamp-*
 .protected-snapshots/
 .agentguard/grants/
 .lore/
+
+# AgentGuard signing: locally generated dev keys (decision 20 — generated on demand, never committed).
+eng/signing/local/

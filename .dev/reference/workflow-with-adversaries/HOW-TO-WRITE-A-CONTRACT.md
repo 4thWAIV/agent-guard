@@ -30,6 +30,7 @@ A *decision* is anything that adds or reverses a design element: a mechanism, a 
 - A blanket "put them all back" or "do it" approves only the items the human had already individually approved — never one that was never approved.
 - Reversing a design the human previously approved needs an explicit yes for the reversal — that bar is higher, not lower.
 - The anchor must point at the human's actual words, never at "it is already in the code." Existing-in-the-tree is how an unapproved thing launders itself into looking approved.
+- Before the Decisions section is final, run the `hidden-decision-scan` (a GROUND adversary, `.claude/workflows/hidden-decision-scan.js`): every forced-but-undecided choice it surfaces that the human would care about must be resolved with the human's own words, or the contract is not ready. An undecided forced choice left off the Decisions list is the same failure class as an unapproved decision.
 
 ## Cut every one of these — they are noise
 

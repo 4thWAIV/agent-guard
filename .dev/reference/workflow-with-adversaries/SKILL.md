@@ -23,10 +23,12 @@ The contract replaces the subjective "would the human approve?" with checks an a
 GROUND → CONTRACT → IMPLEMENT → REFUTE → GATE → (ESCALATE)
 ```
 
-### GROUND (explorer + prior-art ledger)
+### GROUND (explorer + prior-art ledger + hidden-decision scan)
 Before writing the contract or judging any subsystem you lack proven, code-level knowledge of, run the `explorer` skill FRESH. Docs, maps, comments, prior run-records, and memory are hints about where to look — never answers. Truth is the code as it exists now.
 
 For any change that introduces new capabilities, ALSO run the `prior-art-ledger` workflow (`.claude/workflows/prior-art-ledger.js`) over every capability the work needs. It searches each capability across every lens — CodeGraph, lore semantic search, and grep — and a cheap model rules reuse / extract / new. Its output is the reuse ledger the contract must carry. A capability may be built new ONLY when every lens came back empty.
+
+ALSO run the `hidden-decision-scan` workflow (`.claude/workflows/hidden-decision-scan.js`) over the draft contract plus the grounded facts. It hunts the choices the work FORCES that are NOT in the contract's Decisions section and that the human would care about — a choice qualifies only when it is **forced** (building requires choosing, or a tool defaults it anyway), **lasting** (it outlives its function — a shipped or committed artifact, a user- or developer-visible name/format/identity, a public interface or command, a dependency, a trust boundary, an encoding/limit/invariant, a versioning or release scheme), and would **bite later** (costly to reverse once shipped/committed/depended-on, or silently wrong). Pure implementation, already-decided items, and cheaply-reversible choices are dropped as noise. Each surviving finding is an OPEN decision the human resolves in their own words before the Decisions section locks. **HARD RULE: no contract advances to IMPLEMENT with an unresolved item on this list** — an undecided-but-forced choice left in the system is a bite waiting to happen, ranked with an unapproved decision.
 
 ### CONTRACT
 Write the contract to a FILE before any work. Acceptance checks are derived VERBATIM from the requirement sentences, each with the exact re-runnable verification command. The file lives at **`run-records/<date>-<slug>/contract.md` under the repo root** — never elsewhere; an out-of-place contract fragments the run-record.
@@ -88,6 +90,7 @@ These are the classes that have actually burned this project — block them by n
 - **Byte-space confusion.** Offsets valid in one layer's space applied in another — name the byte space in writing.
 - **Oracle staleness.** A pinned test that fails has exactly two legal moves: fix the code, or repin the oracle WITH ruling provenance. Silent weakening is the Lie-catcher's #1 hunt — it diffs test files specifically.
 - **Unapproved decision.** A design element added or reversed without the human's verbatim sign-off (RULE 2). The Lie-catcher yells it top-line; do not ride over it.
+- **Undecided forced choice.** A choice the work FORCES — a tool default, a user-visible name/format, a trust boundary, an encoding/limit, a versioning/release scheme — that is not in the Decisions section and that a tool or implementer will silently default. The `hidden-decision-scan` (GROUND) surfaces it; letting the default stand unsurfaced, or advancing to IMPLEMENT with it unresolved, is a top-line finding ranked with an unapproved decision.
 - **Inherited PENDING markers.** Any "not yet wired" comment found = surfaced top-line, never ridden over.
 - **Out-of-repo-root references.** Illegal — workers never add one, adversaries flag any found.
 - **"Pre-existing" as an excuse.** Banned. A red on the branch is fixed, not footnoted.
