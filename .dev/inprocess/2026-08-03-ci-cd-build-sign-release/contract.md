@@ -93,7 +93,7 @@ Example (Day 2406, Time 22065, hash a1b2c3d): SemVer dev `0.1.103961265-pre-rele
 
 41. **The GitHub release tags the exact commit that was built, tested, and signed (`--target $GITHUB_SHA`), never a branch's default HEAD.** Tim (2026-08-06): *"THE EXACT commit that was built is the only correct answer."*
 
-42. **Every GitHub Action is pinned by immutable commit id, not a moveable version tag — and this applies only to our GitHub-Actions dependencies, the only non-package-managed dependency we have.** Tim (2026-08-06): *"Yes, and only for our GitHub dependencies."* Implementer proposal, not yet ruled: install the cosign CLI by downloading its binary and verifying its checksum (rather than a third-party installer action), keeping outside dependencies to GitHub's own first-party steps.
+42. **Every GitHub Action is pinned by immutable commit id, not a moveable version tag — and this applies only to our GitHub-Actions dependencies, the only non-package-managed dependency we have.** Tim (2026-08-06): *"Yes, and only for our GitHub dependencies."* cosign is installed via its official GitHub Action `sigstore/cosign-installer` (from cosign's own `sigstore` org), commit-id pinned like the others (`6f9f17788090df1f26f669e9d70d6ae9567deba6`, v4.1.2), pinned to install cosign v3.1.3. Tim (2026-08-06): *"WE will go with (a)"* (the official action, vs downloading the binary ourselves).
 
 43. **Two public certs ship per release — one Windows, one Mac — matching the two CI cert secrets; each is exported from its Secret at release time so it can never drift, not stored separately.** The private certs stay GitHub Secrets. Tim (2026-08-06): *"Yes, one WIndows, One Mac. BUT we keep the secrets in GitHub."* and, on deriving the public cert from the Secret at release time: *"I agree with this."*
 
@@ -101,7 +101,7 @@ Example (Day 2406, Time 22065, hash a1b2c3d): SemVer dev `0.1.103961265-pre-rele
 
 45. **The CI signing cert gets the same 1-year expiry check as the local cert; the build fails if the CI cert is expired.** (The "report remaining life monthly" part rides with the deferred monthly workflow, decision 44.) Tim (2026-08-06): *"Agreed."*
 
-46. **The Windows signature is timestamped against DigiCert's public timestamp service.** Tim (2026-08-06): *"Okay, DigiCert's public one."* Implementer proposal, not yet ruled: record a named fallback timestamp service so a single-vendor outage doesn't stall releases.
+46. **The Windows signature is timestamped against DigiCert's public timestamp service, with one free fallback service if DigiCert is unavailable so an outage never blocks a release.** Tim (2026-08-06): *"Okay, DigiCert's public one."* and agreed to a single fallback (option b). Free TSA options are DigiCert (primary), Sectigo, GlobalSign, Certum, SSL.com; the specific fallback is **Sectigo (assistant's recommendation, pending Tim's pick)** and its exact endpoint URL is verified before pinning. STILL TO CONFIRM: which fallback service.
 
 47. **The release job runs `chmod +x` on the macOS/Linux binaries before publishing, so a downloaded binary is executable regardless of the upload/download round-trip.** Tim (2026-08-06): *"YES!"*
 
