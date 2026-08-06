@@ -1,0 +1,32 @@
+<Project>
+
+  <!-- Shared build-id resolution (one MSBuild copy of the formula). -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.compute.targets" />
+
+  <!--
+    Stamp the two version forms (decisions 15-17) after the id is resolved, before the SDK turns them into
+    assembly attributes.
+
+    AgentGuardResolveVersion (its DependsOn) fills the id when it wasn't supplied as args and the pre-solution
+    target didn't already set it: it reads the shared file another project in THIS build wrote, or writes it
+    once itself — so every project in one build carries the same id (compute-once holds for solution builds,
+    `dotnet test`, and single/multi-project builds alike).
+
+    No placeholder ever: if the id is still incomplete here (e.g. partial CI args), fail loudly.
+  -->
+  <Target Name="AgentGuardStampVersion"
+          BeforeTargets="GetAssemblyVersion;GetAssemblyAttributes;CoreGenerateAssemblyInfo;CoreCompile"
+          DependsOnTargets="AgentGuardResolveVersion"
+          Condition="'$(AgentGuardIsAnalyzerProject)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(AgentGuardDay)' == '' or '$(AgentGuardTime)' == '' or '$(AgentGuardCombined)' == '' or '$(AgentGuardHash)' == ''"
+           Text="Incomplete AgentGuard build id (need Day, Time, Combined, and Hash together). This build refuses to stamp a placeholder version." />
+    <PropertyGroup>
+      <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
+      <AssemblyVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</AssemblyVersion>
+      <FileVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</FileVersion>
+      <Version>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgPre)</Version>
+      <InformationalVersion>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgPre)+$(AgentGuardHash)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
+</Project>
