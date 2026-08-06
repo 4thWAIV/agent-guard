@@ -3,6 +3,12 @@
   <!-- Strong-naming + signed/unsigned selection + the InternalsVisibleTo transform (decisions 20/21/35). -->
   <Import Project="$(MSBuildThisFileDirectory)eng/signing.props" />
 
+  <!-- Build version: MAJOR.MINOR source + the once-per-build Day/Time/hash (decisions 15-17/25). The
+       generated file is written by eng/version.sh / .ps1 (or the CI leading job) and imported by every
+       project, so one build stamps one version. -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.props" />
+  <Import Project="$(MSBuildThisFileDirectory)eng/obj/version.g.props" Condition="Exists('$(MSBuildThisFileDirectory)eng/obj/version.g.props')" />
+
   <PropertyGroup Label="Target framework and language">
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -30,7 +36,24 @@
     <Company>4thWAIV</Company>
     <Product>AgentGuard</Product>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <Version>0.1.0-alpha</Version>
+  </PropertyGroup>
+
+  <!-- Build version (decisions 15-17/25/33). Day/Time/Combined/hash arrive as one shared value from
+       eng/obj/version.g.props (written by the single version step) or from the CI leading job; a bare build
+       with none set uses a non-authoritative local fallback. Set AgentGuardChannel=dev for a -pre-release. -->
+  <PropertyGroup Label="Build version" Condition="'$(AgentGuardIsAnalyzerProject)' != 'true'">
+    <AgentGuardDay Condition="'$(AgentGuardDay)' == ''">0</AgentGuardDay>
+    <AgentGuardTime Condition="'$(AgentGuardTime)' == ''">0</AgentGuardTime>
+    <AgentGuardCombined Condition="'$(AgentGuardCombined)' == ''">0</AgentGuardCombined>
+    <AgentGuardHash Condition="'$(AgentGuardHash)' == ''">local</AgentGuardHash>
+    <_AgentGuardPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgentGuardPre>
+    <Version>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgentGuardPre)</Version>
+    <AssemblyVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</AssemblyVersion>
+    <FileVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</FileVersion>
+    <InformationalVersion>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgentGuardPre)+$(AgentGuardHash)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <FileDescription>AgentGuard guards critical files from agent changes</FileDescription>
+    <Copyright>Copyright © 2026 4thWAIV</Copyright>
   </PropertyGroup>
 
   <ItemGroup Label="Best-practice analyzer suite">

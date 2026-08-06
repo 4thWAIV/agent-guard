@@ -3,6 +3,7 @@
 using System;
 using System.CommandLine;
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using AgentGuard.Engine.Abstractions;
@@ -38,7 +39,29 @@ internal static class Program
         root.Subcommands.Add(BuildInitCommand());
         root.Subcommands.Add(BuildRemoveCommand());
         root.Subcommands.Add(BuildDoctorCommand());
+        root.Subcommands.Add(BuildVersionCommand());
         return root;
+    }
+
+    /// <summary>
+    /// Builds the <c>version</c> command, which prints the three versions this binary was built with
+    /// (decision 18): the SemVer (informational), the AssemblyVersion, and the FileVersion.
+    /// </summary>
+    /// <returns>The configured <c>version</c> command.</returns>
+    private static Command BuildVersionCommand()
+    {
+        var command = new Command("version", "Print the SemVer, AssemblyVersion, and FileVersion this binary was built with.");
+        command.SetAction(_ =>
+        {
+            Assembly assembly = typeof(Program).Assembly;
+            string semVer = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
+            string assemblyVersion = assembly.GetName().Version?.ToString() ?? "unknown";
+            string fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version ?? "unknown";
+            Console.WriteLine($"SemVer: {semVer}");
+            Console.WriteLine($"AssemblyVersion: {assemblyVersion}");
+            Console.WriteLine($"FileVersion: {fileVersion}");
+        });
+        return command;
     }
 
     private static Command BuildHookCommand()
