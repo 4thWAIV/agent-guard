@@ -1,9 +1,0 @@
-<Project>
-
-  <!-- The single source of MAJOR.MINOR (decision 15). Day, Time, and the git hash are computed once per build
-       by eng/version.sh / .ps1 (or the CI leading job) into eng/obj/version.g.props; never hardcoded here. -->
-  <PropertyGroup>
-    <AgentGuardMajorMinor>0.1</AgentGuardMajorMinor>
-  </PropertyGroup>
-
-</Project>

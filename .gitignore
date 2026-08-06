@@ -156,6 +156,3 @@ vite.config.ts.timestamp-*
 
 # AgentGuard signing: locally generated dev keys (decision 20 — generated on demand, never committed).
 eng/signing/local/
-
-# AgentGuard build version: generated once per build by eng/version.sh / .ps1 (decision 25).
-eng/obj/
