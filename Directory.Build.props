@@ -49,8 +49,7 @@
     <!-- The NuGet package version. NuGet resolves it outside the stamp target, so set PackageVersion at
          evaluation time from the id (args or the generated file). Using PackageVersion, not Version, keeps it
          off AssemblyVersion derivation — so the unstamped analyzer project isn't given an out-of-range version. -->
-    <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
-    <PackageVersion Condition="'$(AgentGuardCombined)' != ''">$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgPre)</PackageVersion>
+    <PackageVersion Condition="'$(AgentGuardTag)' != ''">$(AgentGuardTag)</PackageVersion>
   </PropertyGroup>
 
   <ItemGroup Label="Best-practice analyzer suite">

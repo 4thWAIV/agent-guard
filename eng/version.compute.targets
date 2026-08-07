@@ -29,6 +29,12 @@
     <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardHash/text()" Condition="Exists('$(AgentGuardVersionFile)')">
       <Output TaskParameter="Result" PropertyName="AgentGuardHash" />
     </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardTag/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardTag" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardVersion/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardVersion" />
+    </XmlPeek>
 
     <!-- 2. No file yet: compute once and write it so the rest of this build shares it. -->
     <CallTarget Targets="AgentGuardComputeAndWriteVersion" Condition="'$(AgentGuardDay)' == ''" />
@@ -43,6 +49,8 @@
       <_AgLine Include="    &lt;AgentGuardTime&gt;$(_AgTime)&lt;/AgentGuardTime&gt;" />
       <_AgLine Include="    &lt;AgentGuardCombined&gt;$(_AgCombined)&lt;/AgentGuardCombined&gt;" />
       <_AgLine Include="    &lt;AgentGuardHash&gt;$(_AgHash)&lt;/AgentGuardHash&gt;" />
+      <_AgLine Include="    &lt;AgentGuardTag&gt;$(_AgTag)&lt;/AgentGuardTag&gt;" />
+      <_AgLine Include="    &lt;AgentGuardVersion&gt;$(_AgVersion)&lt;/AgentGuardVersion&gt;" />
       <_AgLine Include="  &lt;/PropertyGroup&gt;" />
       <_AgLine Include="&lt;/Project&gt;" />
     </ItemGroup>
@@ -54,10 +62,14 @@
       <AgentGuardTime>$(_AgTime)</AgentGuardTime>
       <AgentGuardCombined>$(_AgCombined)</AgentGuardCombined>
       <AgentGuardHash>$(_AgHash)</AgentGuardHash>
+      <AgentGuardTag>$(_AgTag)</AgentGuardTag>
+      <AgentGuardVersion>$(_AgVersion)</AgentGuardVersion>
     </PropertyGroup>
   </Target>
 
-  <!-- The one MSBuild copy of the Day/Time/Combined/hash formula. -->
+  <!-- The one MSBuild copy of the Day/Time/Combined/hash formula AND the assembled tag/SemVer (the CI-side mirror
+       is eng/compute-build-id.sh). The -pre-release suffix (channel-by-prerelease-id) is applied ONLY here on the
+       local side; no stamp target, project, or job re-joins the string (compute-version-once). -->
   <Target Name="AgentGuardComputeCore">
     <PropertyGroup>
       <!-- Read the clock ONCE so Day and Time can never come from two different instants at the day boundary. -->
@@ -72,6 +84,9 @@
     </Exec>
     <PropertyGroup>
       <_AgHash Condition="'$(_AgGitRc)' != '0' or '$(_AgHash)' == ''">local</_AgHash>
+      <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
+      <_AgTag>$(AgentGuardMajorMinor).$(_AgCombined)$(_AgPre)</_AgTag>
+      <_AgVersion>$(_AgTag)+$(_AgHash)</_AgVersion>
     </PropertyGroup>
   </Target>
 

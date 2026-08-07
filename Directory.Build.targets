@@ -18,14 +18,16 @@
           BeforeTargets="GetAssemblyVersion;GetAssemblyAttributes;CoreGenerateAssemblyInfo;CoreCompile"
           DependsOnTargets="AgentGuardResolveVersion"
           Condition="'$(AgentGuardIsAnalyzerProject)' != 'true' and '$(DesignTimeBuild)' != 'true'">
-    <Error Condition="'$(AgentGuardDay)' == '' or '$(AgentGuardTime)' == '' or '$(AgentGuardCombined)' == '' or '$(AgentGuardHash)' == ''"
-           Text="Incomplete AgentGuard build id (need Day, Time, Combined, and Hash together). This build refuses to stamp a placeholder version." />
+    <Error Condition="'$(AgentGuardDay)' == '' or '$(AgentGuardTime)' == '' or '$(AgentGuardCombined)' == '' or '$(AgentGuardHash)' == '' or '$(AgentGuardTag)' == '' or '$(AgentGuardVersion)' == ''"
+           Text="Incomplete AgentGuard build id (need Day, Time, Combined, Hash, Tag, and Version together). This build refuses to stamp a placeholder version." />
+    <!-- Pure consumer of the single assembled id: Tag (=Version, no +hash) and Version (=InformationalVersion,
+         with +hash) come from the one owner (eng/version.compute.targets locally, the `version` job / -p args in
+         CI). This target never re-joins MAJOR.MINOR/Combined or re-applies -pre-release (compute-version-once). -->
     <PropertyGroup>
-      <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
       <AssemblyVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</AssemblyVersion>
       <FileVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</FileVersion>
-      <Version>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgPre)</Version>
-      <InformationalVersion>$(AgentGuardMajorMinor).$(AgentGuardCombined)$(_AgPre)+$(AgentGuardHash)</InformationalVersion>
+      <Version>$(AgentGuardTag)</Version>
+      <InformationalVersion>$(AgentGuardVersion)</InformationalVersion>
     </PropertyGroup>
   </Target>
 

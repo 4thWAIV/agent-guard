@@ -98,6 +98,8 @@ Tim: *"CAN we make this a script or otherwise provide a solution they do not hav
 The build version is computed exactly once per build and shared. Locally by a single solution-level step that every project imports; in CI by one leading job whose computed value is passed to all downstream jobs. No project and no job ever recomputes it. Any change to this, including one that is "effectively the same," is a hard fail: the Lie-catcher must surface it to the human, and it is never applied silently.
 Tim: *"for local build it is generated at the .SLN LEVEL (DO NOT SILENTLY ALTER THIS AND FUCK ME WITHOUT OWNING IT FIRST... IF THIS CHANGES without my permision LIE-CATURE MUST GIVE ME A HARD FAIL)."* and *"YES"* to the compute-once design.
 
+**Approved refinement (2026-08-06):** the assembled version *string* — the `-pre-release` suffix and the `MAJOR.MINOR.Combined[+hash]` join — is built **exactly once per side** (locally in `AgentGuardComputeCore`, `eng/version.compute.targets`; in CI in the leading `version` job, `eng/compute-build-id.sh`) and exposed as `AgentGuardTag`/`AgentGuardVersion`; every consumer (`Version`, `InformationalVersion`, `PackageVersion`, and the release tag) reads that one assembled string instead of re-joining it. Output is byte-identical. Tim: *"I aprove the DRY centralized approach, you can record that in the contract."*
+
 ### `release-fields`
 Release fields: tag = the version without the `+hash`; title = `AgentGuard <version> (dev preview)` or `(release)`; notes = a fixed template (channel; a self-signed/untrusted line pointing to the trust script; a link to the run-it doc; the commit link); not a draft.
 Tim: *"some of these are computed and we should not go over that and all version number dulicates are not valuabel. Give me suggestions for the rest."* (approved the suggestions).
@@ -111,8 +113,8 @@ Checksum files use the two-column GNU format on all three OSes; a CI step runs `
 Tim: *"Agreed. HOW do we do this?"* and *"I want proof from the build."*
 
 ### `verify-sigs-before-publish`
-The release job verifies every signature before publishing and refuses to publish if any is bad.
-Tim: *"Agreed, a check needs to be in build."*
+Every signature is verified before publishing and nothing publishes if any is bad. Because no single runner has both `codesign` and `signtool`, **each per-OS job verifies its own platform's signatures as a final step and emits a verification-result artifact**; the **release job validates those per-platform results (all present, all PASS)** and re-checks cosign across all six before it publishes. A bad or missing result blocks the release.
+Tim: *"Agreed, a check needs to be in build."* and (2026-08-06): *"the relase job need confirmation that the signatures exist and where properly signed and are valid but that confirmation can be a artifact produced by the build for each OS/platform to properly verify signatures on that platform. Each build can as a final step do a signature validation for their platform and the relase job can validate the results if that removes the block."*
 
 ### `pin-actions-and-cosign`
 Every third-party GitHub Action and the cosign CLI is pinned to an exact version.
@@ -152,7 +154,7 @@ Tim (2026-08-03): *"YES, but after this I should upgrade the Mac."* and *"YES"* 
 
 ### `ci-three-secret-slots`
 CI signing uses three distinct secret slots — strong-name key, macOS cert, Windows cert — plus cosign keyless. CI must see three keys and know each one's job:
-- `AGENTGUARD_STRONGNAME_SNK` — strong-names every assembly; its public key is derived from the `.snk` at build time, so there is no separate public-key secret.
+- `AGENTGUARD_STRONGNAME_SNK` — strong-names every assembly; **its public key is stored as its own secret, `AGENTGUARD_STRONGNAME_PUBLICKEY`** (the 576-hex strong-name public-key blob). Tim ruled 2026-08-06 to store the public material as a secret rather than build a deriver tool: *"STORE all public and PRIVATE keys in vars so we have them if that is what it takes or cram them together and store them in the same [var] and split them out later."*
 - `AGENTGUARD_MACOS_CERT_P12` + `AGENTGUARD_MACOS_CERT_PASSWORD` → `codesign`.
 - `AGENTGUARD_WINDOWS_PFX` + `AGENTGUARD_WINDOWS_PFX_PASSWORD` → Authenticode.
 

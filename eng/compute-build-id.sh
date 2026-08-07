@@ -8,6 +8,7 @@
 # If $GITHUB_OUTPUT is set, the values are also appended there for use as job outputs.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHANNEL="${1:-${AGENTGUARD_CHANNEL:-}}"
 EPOCH=1577836800                       # 2020-01-01T00:00:00Z
 NOW=$(date -u +%s)
@@ -16,7 +17,23 @@ TIME=$(( (NOW % 86400) / 2 ))
 COMBINED=$(( DAY * 43200 + TIME ))
 HASH=$(git rev-parse --short=7 HEAD 2>/dev/null || echo local)
 
-printf 'day=%s\ntime=%s\ncombined=%s\nhash=%s\nchannel=%s\n' "$DAY" "$TIME" "$COMBINED" "$HASH" "$CHANNEL"
+# The SINGLE owner of the assembled version string on the CI side (decisions compute-version-once /
+# two-version-forms / channel-by-prerelease-id / release-fields). MAJOR.MINOR comes from the one config file
+# (eng/version.props); the -pre-release suffix is applied HERE and nowhere else — no downstream job re-reads
+# version.props or re-joins the string. `tag` is the release tag / MSBuild Version (no +hash); `version` is the
+# full SemVer / InformationalVersion (with +hash). This mirrors the MSBuild owner in eng/version.compute.targets
+# (the same authorized two-place mirror as the Day/Time formula above).
+MAJOR_MINOR=$(grep -oE '<AgentGuardMajorMinor>[^<]+' "$SCRIPT_DIR/version.props" | sed 's/.*>//')
+if [ -z "$MAJOR_MINOR" ]; then
+  echo "compute-build-id: could not read <AgentGuardMajorMinor> from $SCRIPT_DIR/version.props" >&2
+  exit 1
+fi
+if [ "$CHANNEL" = "dev" ]; then PRE="-pre-release"; else PRE=""; fi
+TAG="${MAJOR_MINOR}.${COMBINED}${PRE}"
+VERSION="${TAG}+${HASH}"
+
+printf 'day=%s\ntime=%s\ncombined=%s\nhash=%s\nchannel=%s\ntag=%s\nversion=%s\n' \
+  "$DAY" "$TIME" "$COMBINED" "$HASH" "$CHANNEL" "$TAG" "$VERSION"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   {
@@ -25,5 +42,7 @@ if [ -n "${GITHUB_OUTPUT:-}" ]; then
     printf 'combined=%s\n' "$COMBINED"
     printf 'hash=%s\n' "$HASH"
     printf 'channel=%s\n' "$CHANNEL"
+    printf 'tag=%s\n' "$TAG"
+    printf 'version=%s\n' "$VERSION"
   } >> "$GITHUB_OUTPUT"
 fi
