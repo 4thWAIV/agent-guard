@@ -1,4 +1,9 @@
-# How to write a contract
+---
+name: rails-write-a-contract
+description: The guide for writing a contract — the instructions for the agent that does the work plus the checks that prove it is done, the one test every line must pass, and the required sections in order. Load it when writing or reviewing a contract.
+---
+
+# Rails: write a contract
 
 A contract is two things and nothing else: the instructions for the agent that does the work, and the checks that prove it is done. If a line is neither, it does not belong.
 
@@ -49,7 +54,7 @@ A *decision* is anything that adds or reverses a design element: a mechanism, a 
 - One idea per line.
 - Concise is not the goal; CLEAR is. Do not pad into noise; do not compress until it cannot be read.
 - Every requirement must be verifiable. If you cannot write a check for it, it is not a contract term.
-- Every artifact the contract points at — a script, a check, a file — must already exist or be a listed deliverable in the same contract. No dangling references to something that only ran ad-hoc in conversation.
+- Every item the contract points at — a script, a check, a file — must already exist or be a listed deliverable in the same contract. No dangling references to something that only ran ad-hoc in conversation.
 
 ## Last step before it goes to the human
 

@@ -1,6 +1,6 @@
 # Plan: crypto-minting + presence (the gate + exception foundation)
 
-The multi-contract breakdown of the "make a real, authorized change to a protected thing possible" work. Too big for one contract. Detailed (but **out of date**) sketch: `DESIGN-crypto-agility-and-recovery.md` in this folder — treat it as a sketch, ground fresh per contract, and run each contract through workflow-with-adversaries.
+The multi-contract breakdown of the "make a real, authorized change to a protected thing possible" work. Too big for one contract. Detailed (but **out of date**) sketch: `DESIGN-crypto-agility-and-recovery.md` in this folder — treat it as a sketch, ground fresh per contract, and run each contract through rails-run-a-workflow.
 
 ## Grounded starting state (verified 2026-08-02)
 - The presence seam already exists: `ApprovalGate.RequireApproval` is a placeholder that `install`/`init`/`remove` call; it currently always approves. Its comment: "the real Touch ID check is a later build and drops in behind this call with no change to the callers."

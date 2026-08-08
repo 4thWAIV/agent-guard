@@ -1,9 +1,9 @@
 ---
-name: workflow-with-adversaries
+name: rails-run-a-workflow
 description: The standard way substantive work runs — a worker executes against a written CONTRACT, independent adversaries REFUTE the result against that contract, a gate accepts only unrefuted+proven results, and genuine disagreement escalates to the human. Use for any mutating change, any claimed fix, migrations, validator/gate changes, or any reusable process change. Operationalizes adversarial-plan-review with agents; grounds every judgment with the explorer skill.
 ---
 
-# workflow-with-adversaries
+# Rails: run a workflow
 
 This is the NEW WAY substantive work runs, not a per-task tool. It sits on `adversarial-plan-review` (the blocking self-audit checklist) and uses `explorer` (derive the subsystem's ground truth from live code before judging). This skill wires those into a run with agents.
 
@@ -17,10 +17,10 @@ The contract replaces the subjective "would the human approve?" with checks an a
 
 **The prime failure this prevents:** work that looks complete while incomplete, that passes because the check was pointed at the wrong thing or the output was cropped or a test was softened, or that carries a design decision the human never signed off on.
 
-## The five stages
+## The eight stages
 
 ```
-GROUND → CONTRACT → IMPLEMENT → REFUTE → GATE → (ESCALATE)
+GROUND → DESIGN → CONTRACT → RULE-PHASE → IMPLEMENT → REFUTE → GATE → REPORT
 ```
 
 ### GROUND (explorer + prior-art ledger + hidden-decision scan)
@@ -30,8 +30,13 @@ For any change that introduces new capabilities, ALSO run the `prior-art-ledger`
 
 ALSO run the `hidden-decision-scan` workflow (`.claude/workflows/hidden-decision-scan.js`) over the draft contract plus the grounded facts. It hunts the choices the work FORCES that are NOT in the contract's Decisions section and that the human would care about — a choice qualifies only when it is **forced** (building requires choosing, or a tool defaults it anyway), **lasting** (it outlives its function — a shipped or committed artifact, a user- or developer-visible name/format/identity, a public interface or command, a dependency, a trust boundary, an encoding/limit/invariant, a versioning or release scheme), and would **bite later** (costly to reverse once shipped/committed/depended-on, or silently wrong). Pure implementation, already-decided items, and cheaply-reversible choices are dropped as noise. Each surviving finding is an OPEN decision the human resolves in their own words before the Decisions section locks. **HARD RULE: no contract advances to IMPLEMENT with an unresolved item on this list** — an undecided-but-forced choice left in the system is a bite waiting to happen, ranked with an unapproved decision.
 
+### DESIGN
+The architect picks the approach AND determines the rules — two outputs, not one. The approach is chosen under the code rails (`rails-solid-code`, `rails-dry-code`, `rails-real-work`). The rules are DETERMINED here: for this work, what guardrail can we develop to make a failure mode impossible, or at least greppable?
+
+**The rule trigger (the founding point — do not narrow it):** a rule is developed WHENEVER a rule can be developed to mechanically stop a way the AI could cut a corner or hurt the human — NOT only when the architecture changes. DESIGN asks that question on ALL substantive work. Every rule it determines is carried into the contract as a decision the human signs off (RULE 2) before RULE-PHASE writes it.
+
 ### CONTRACT
-Write the contract to a FILE before any work. Acceptance checks are derived VERBATIM from the requirement sentences, each with the exact re-runnable verification command. The file lives at **`run-records/<date>-<slug>/contract.md` under the repo root** — never elsewhere; an out-of-place contract fragments the run-record.
+Write the contract to a FILE before any work. Acceptance checks are derived VERBATIM from the requirement sentences, each with the exact re-runnable verification command. The file lives at **`.dev/inprocess/<date>-<slug>/contract.md`** while the work is in flight, moving to `.dev/completed/run-records/` when the run ships (see Provenance) — never elsewhere; an out-of-place contract fragments the run-record.
 
 **The contract MUST carry a SUCCESS DEFINITION section** — the human's standard verbatim (the standing definition: ALL criteria met AND no errors in the system as a result of the change) plus this run's specific expected end state. A contract without a success definition is invalid — the gate cannot run against it. Any attempt to weaken, game, or restate the definition to fit the result is a top-line Lie-catcher finding.
 
@@ -40,32 +45,45 @@ The contract must also carry:
 - **Surfaces**: every store where the same value lives, so adversaries refute against a WRITTEN surface list at contract time, not a post-mortem (the second-store-miss guard doing its job up front).
 - **Tier** (FULL / LITE / CONTRACT-ONLY) with a one-line why, so the tier decision is auditable and never a silent scope choice.
 - **Reuse ledger** from GROUND — every capability the change needs, each marked reuse / extract / new — so the DRY adversary refutes duplication against a WRITTEN ledger at contract time, not a post-mortem.
+- **Rules to add** from DESIGN — every analyzer rule DESIGN determined, each recorded as a decision with the human's verbatim sign-off (RULE 2; see `rails-decisions`) and signed off BEFORE RULE-PHASE writes it. A rule written into `analyzers/` without the human's words is an unapproved decision, ranked with a weakened test.
 
 **Scope changes ONLY by the human editing the contract** — or, when the human is unavailable and has given explicit prior authorization for exactly this extension, by recording that authorization verbatim as the change's ruling provenance and top-lining it.
 
-### IMPLEMENT
-ONE worker executes the contract EXACTLY (tier permitting more only with explicit approval). Wall → STOP and escalate; never deviate silently, never edit a test to pass.
+### RULE-PHASE
+A rule-gen agent — holding rule-generation authority — writes the rules DESIGN determined into `analyzers/`. Each rule is wired in EVEN WHERE existing code already violates it, and it is allowed to go RED against that code: that red is the forcing function, never suppressed, exempted, or hidden to reach green (the cleanup law; enforced at GATE). Before any implementation rides on them, the rule-gen agent runs its OWN adversary pass over the rules it wrote — the same lenses as a normal execution, especially SOLID, DRY, and the Lie-catcher — so the rules themselves are clean and honestly built.
+
+### IMPLEMENT (implementation-phase)
+A FRESH worker — a DIFFERENT agent from the rule-gen agent (separation of powers) — takes the SAME contract, is told the rules, and completes it WITHIN them. Its rule-writing authority is REVOKED: it cannot add, edit, or suppress an analyzer; it lives within the rules or asks the human for an exception. It executes the contract EXACTLY (tier permitting more only with explicit approval) and cleans up the RED the new rule exposes — the AI does that cleanup, it is not deferred — until the build is green UNDER the rule (the cleanup law). Wall → STOP and escalate; never deviate silently, never edit a test to pass, never suppress a rule to reach green.
 
 ### REFUTE
 Independent adversaries whose job is to REFUTE the result against the contract — not review-and-approve. Distinct lenses (below). Every adversary except the Lie-catcher ALSO returns the path to fix. Each adversary's context is REUSED across refute rounds so its critique stays consistent and cumulative (no fresh, conflicting demands round to round).
 
 ### GATE
-A result counts ONLY when no adversary refutes AND every verification is pasted verbatim (flags AND bytes AND command output with exit codes). The adversary RE-RUNS the contract's spot checks itself; cropped or stale output, or a missing exit code, is an automatic refute. Refuted → the worker retries with the refutation attached.
+A result counts ONLY when no adversary refutes AND every verification is pasted verbatim (flags AND bytes AND command output with exit codes). **The cleanup law is enforced here:** the build and tests are green UNDER the new rule, with no lingering RED and no suppression (`#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, a dropped analyzer reference) anywhere in the change — green reached by suppressing the rule is not green, it is an automatic refute. The only out from any part of the cleanup law is an explicit waiver from the user. The adversary RE-RUNS the contract's spot checks itself; cropped or stale output, or a missing exit code, is an automatic refute. Refuted → the worker retries with the refutation attached.
 
-### ESCALATE
-Refuted twice on the same point, or a genuine design fork the standing rules don't settle → STOP and surface to the human with both sides' evidence. Never iterate silently past disagreement.
+### REPORT (terminal)
+The run ends in exactly ONE terminal report — this replaces the old ESCALATE and the separate Reporting section. Write it in the human's terms (`how-to-communicate` + `rewrite-in-tim`), decision first. EVERY report's first line: SUCCEEDED or FAILED by the contract's success definition, then the count of KNOWN BROKEN ITEMS in the system (with the delta since the last report). Root cause comes before item lists. Paperwork, process notes, and conduct-ledger material go to the run-record files, never into the report body. It carries exactly one of two outcomes:
 
-## The six roles
+- **SUCCESS** — done and proven. Lead with the Lie-catcher's top line. Then: gate verdict (accepted/rejected), Prove-It verdict, SOLID verdict, DRY verdict, laziness-auditor verdict, exact proof counts and paths, next action. Never bury a reviewer failure under progress. If the work is less than 100% complete, say `not complete` before describing any successful part.
+- **ESCALATION** — the decision the human must make. Reached when a point is refuted twice on the same point, when a genuine design fork the standing rules don't settle appears, or when the run is stuck. STOP and surface to the human with both sides' evidence; never iterate silently past disagreement.
+
+## The nine roles
 
 1. **MAIN (orchestrator).** Loops the stages until CLEAN alignment; enforces the rules; forces the worker to try, try, try again; brings insight toward the SIMPLER solution; RECONCILES the adversaries into ONE directive to the worker each round (resolving conflicts by SOLID-above-DRY and Rule 1, escalating a genuine fork) so the worker never receives contradictory instructions. **Never loosens a rule** — an honest morning FAIL with a real unsolved problem beats a fake pass ("lipstick on a dress"). **NOT EXEMPT:** the Lie-catcher audits the orchestrator's own steps (skipped preflights, unrun verifications, requirement-weakening).
-2. **IMPLEMENTER (worker).** IMPLEMENT stage.
-3. **PROVE-IT / anti-review-failure adversary.** Refutes against the contract; hunts drift and fake justifications; Rule 1 is its first check; escalates dire deviations. Gives the fix path.
-4. **SOLID adversary.** Only SOLID — design and structure, real not pedantic: the single owner of the invariant, symptom-vs-owner, no second path beside an existing one, no hardcoded specifics, the gate wired into the normal workflow. Gives the fix path.
-5. **DRY adversary.** A DEDICATED, full-time duplication hunter — duplication is this project's most frequent defect, so it gets its own reviewer and is never folded under SOLID. Owns the reuse ledger: it re-runs every discovery lens itself (CodeGraph, lore, grep), FAILs any capability the ledger marked "new" that is not empty on every lens or that a lens shows already exists, and hunts every duplicated value, block, or whole function — including copies across modules the in-build analyzers cannot see. Gives the fix path.
-6. **LIE-CATCHER.** Pure dick, NO fix advice. Two top-line duties, both made the TOP LINE of the morning Executive Summary, never buried:
+2. **ARCHITECT.** DESIGN stage: picks the approach AND determines the rules — the rule trigger is any way the AI could cut a corner or hurt the human that a rule could mechanically stop, not only an architecture change. Guided by the code rails.
+3. **RULE-GEN AGENT.** RULE-PHASE stage: holds rule-generation authority; writes the rules DESIGN determined into `analyzers/` (RED against existing violations) and runs its own SOLID/DRY/Lie-catcher pass over the rules themselves.
+4. **IMPLEMENTER (worker).** IMPLEMENT stage. Rule-writing authority REVOKED — cannot add, edit, or suppress an analyzer; lives within the rules or asks the human for an exception.
+5. **PROVE-IT / anti-review-failure adversary.** Refutes against the contract; hunts drift and fake justifications; Rule 1 is its first check; escalates dire deviations. Gives the fix path.
+6. **SOLID adversary.** Only SOLID — design and structure, real not pedantic: the single owner of the invariant, symptom-vs-owner, no second path beside an existing one, no hardcoded specifics, the gate wired into the normal workflow. Loads `rails-solid-code` as its PRIMARY PASS/FAIL checklist. Gives the fix path.
+7. **DRY adversary.** A DEDICATED, full-time duplication hunter — duplication is this project's most frequent defect, so it gets its own reviewer and is never folded under SOLID. Owns the reuse ledger: it re-runs every discovery lens itself (CodeGraph, lore, grep), FAILs any capability the ledger marked "new" that is not empty on every lens or that a lens shows already exists, and hunts every duplicated value, block, or whole function — including copies across modules the in-build analyzers cannot see. Loads `rails-dry-code` as its PRIMARY PASS/FAIL checklist. Gives the fix path.
+8. **LAZINESS-AUDITOR.** A REFUTE-stage adversary against shortcut / low-quality work — the easy-half shortcut, the hacked result, the one-case design, dropped purpose, noise over signal, stale/unused data. Confirms each rail Violation against the finished work and its live ground truth; any one confirmed Violation is a FAIL. Loads `rails-real-work` as its PRIMARY PASS/FAIL checklist. Gives the fix path.
+9. **LIE-CATCHER.** Pure dick, NO fix advice. Loads `rails-decisions` as its PRIMARY PASS/FAIL checklist for the decision-approval duty — that rail's Violation list is what it rules each decision-level item against. Three top-line duties, all made the TOP LINE of the morning Executive Summary, never buried:
    - Enumerate every deviation, fake justification, lie, and weakened/skipped test.
    - YELL every decision-level item — in the contract or in the work — that lacks the human's cited verbatim approval, and every "approval" that is really a non-answer, a topic change, or a reword request treated as a yes. An unapproved design decision ranks with a weakened test.
+   - HUNT every suppression that breaks the fence — `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, or a dropped analyzer reference — the only way to break the architecture once the rules are in place; each one is a top-line finding.
    Or, if clean: "NONE: every change proven approvable and every decision carries the human's words."
+
+**Separation of powers.** The rule-writer (rule-gen agent) and the rule-follower (implementer) are deliberately DIFFERENT agents: the agent that must obey the rules cannot rewrite them, and any attempt to add, edit, or suppress a rule leaves a fingerprint the Lie-catcher flags.
 
 ## Context discipline (reuse vs throw away)
 
@@ -73,13 +91,17 @@ Reuse an agent's context (resume by id/name) for continuity: the implementer acr
 
 ## Tiering (chosen by whether state mutates; CONTRACT never skips)
 
-- **FULL** (all six roles): anything MUTATING — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
+- **FULL** (all roles): anything MUTATING — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
 - **LITE** (contract + one Prove-It): smaller, lower-blast-radius changes.
 - **CONTRACT-ONLY**: read-only probes and trivial doc edits. Still write the contract.
+
+**DESIGN and RULE-PHASE run whenever a guardrail can be developed for the work** — driven by the rule trigger, not by the mutate/read tier: if DESIGN can determine a rule that mechanically stops a way the AI could cut a corner or hurt the human, RULE-PHASE writes it before IMPLEMENT.
 
 ## Provenance (the run-record)
 
 Every run leaves a run-record under repo root: the contract, the worker's outputs, the adversary verdicts, and the final pasted proof. It is the evidence the system was USED (not shelved) and is auditable later.
+
+**Where the run-record lives, and how it moves through the folders.** When substantive work starts, its folder lives at `.dev/inprocess/<date>-<slug>/`, and every non-code file of the run — the contract, the run-record, the adversary verdicts, the agent outputs — sits there while the work is in flight. When the run ends in a successful REPORT, the folder moves to `.dev/completed/`: `run-records/` for the contract + verdicts + report of a shipped build, `designs/` for a design or spec doc whose subject shipped. `backlog/` holds planned-but-not-started items; `reference/` and `archive/` sit outside the flow. See `.dev/README.md` for the full folder definitions.
 
 ## Failure-class practice pack (inject into every worker + adversary prompt)
 
@@ -95,6 +117,7 @@ These are the classes that have actually burned this project — block them by n
 - **Out-of-repo-root references.** Illegal — workers never add one, adversaries flag any found.
 - **"Pre-existing" as an excuse.** Banned. A red on the branch is fixed, not footnoted.
 - **Scaffolded / gamed metric.** A check hard-wired, special-cased, or gamed to pass is worse than no check — it certifies an unknown problem as solved. The metric must measure reality or it dies.
+- **Suppressed rule (fence broken).** Reaching green by suppressing an analyzer instead of cleaning up the RED — `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, or a dropped analyzer reference. This is the ONE way to break the architecture fence once the rules are in place, and it is a visible, greppable act: the Lie-catcher yells it top-line and the gate treats any such suppression in the change as an automatic refute.
 
 ## When stuck or overwhelmed
 
@@ -118,49 +141,15 @@ Two hard conditions on the metric:
 
 The worker prompt must include: exact write scope and files owned; exact forbidden actions (no migration/commit/prepare-target unless authorized); one-unit-only unless the human approved more; the dirty-worktree warning (do not revert unrelated work); the required proof artifacts and commands; the instruction to STOP and escalate at a wall rather than deviate; the instruction to list every changed file in the final answer; and the failure-class pack above.
 
-## SOLID adversary prompt
+## SOLID, DRY, and laziness adversary checklists (rails)
 
-```text
-You are the SOLID adversarial reviewer for this finished change. Do not make code changes. Review the worker's final diff and reports. Your verdict must be exactly PASS or FAIL. You cover design and structure ONLY — duplication is the DRY adversary's job, not yours.
+Three adversaries no longer carry an embedded prompt here — each loads a shared rail as its PRIMARY PASS/FAIL checklist, so the criteria live in exactly one owner and the whole team designs, builds, and reviews against the same source:
 
-Check:
-- What invariant is being fixed, and which single module/process owns it?
-- Did the worker fix the owner, or only one visible symptom?
-- Did the worker hardcode a file, module, id, path, selector, text phrase, or observed current data pattern instead of a general rule?
-- Did the worker add a second path beside an existing one without explaining why the existing path cannot own it?
-- Did the worker rely on human memory to run a verifier instead of wiring a gate into the normal workflow?
-- Is there a failing fixture, regression check, deterministic replay check, or exact proof command?
-- Could this same failure recur on the next file, next module, next input, or next run?
+- **SOLID adversary** → loads `rails-solid-code`. That file is its PASS/FAIL checklist for design and structure ONLY (duplication is the DRY adversary's job). Each **Violation** line is a concrete, checkable structural defect; any one confirmed Violation is a FAIL.
+- **DRY adversary** → loads `rails-dry-code`. That file is its PASS/FAIL checklist for duplication ONLY, paired with the `prior-art-ledger` tool it re-runs itself to verify the reuse ledger. Any one confirmed Violation is a FAIL.
+- **Laziness-auditor** → loads `rails-real-work`. That file is its PASS/FAIL checklist against shortcut / low-quality work — the easy-half shortcut, the hacked result, the one-case design, dropped purpose, noise over signal, stale data. Any one confirmed Violation is a FAIL.
 
-Report:
-- Verdict: PASS or FAIL.
-- Blocking issues first, with exact file/line references.
-- Required changes to make it non-hacky (SOLID above DRY when they conflict).
-- Proof commands that passed or were not run.
-- What you attempted to refute, and how (an adversary that lists no refutation attempts is rubber-stamping).
-```
-
-## DRY adversary prompt
-
-```text
-You are the DRY adversarial reviewer for this finished change — a DEDICATED, full-time duplication hunter, because duplication is this project's most frequent defect. Do not make code changes. Your verdict must be exactly PASS or FAIL. You cover duplication ONLY; design and structure are the SOLID adversary's job.
-
-You own the reuse ledger. Verify it, never trust it:
-- Re-run every discovery lens YOURSELF for each capability the change introduces — CodeGraph (codegraph_explore), lore semantic search (search_code), and grep. Do not rely on the worker's ledger entries.
-- FAIL any capability the ledger marked "new" that any lens shows already exists, or that was not checked by every lens. "New" is valid only when every lens came back empty.
-- FAIL any capability the ledger marked "reuse" or "extract" where the worker instead wrote a fresh copy.
-
-Hunt every duplicate the change adds or leaves — no single lens finds them all, so chain them:
-- A duplicated string, number, or path spelled in more than one place.
-- A duplicated block or whole function — same logic even with renamed variables — including copies across projects/modules, which the in-build analyzers cannot see.
-- The chain that finds every copy: run semantic search to get the concept neighborhood, pivot on the shared primitive it exposes, ask CodeGraph for that symbol's callers and blast radius, then READ the callers. Never trust a single top-N result.
-
-Report:
-- Verdict: PASS or FAIL.
-- Blocking duplications first, each naming the existing owner to reuse (file:line) or the copies to collapse into one owner.
-- The lens queries you re-ran and what each returned (an adversary that lists no re-run queries is rubber-stamping).
-- The fix path: reuse X, or extract one owner from copies A / B / C.
-```
+These three adversaries do not make code changes — they refute only. Each of the three returns exactly PASS or FAIL per its rail, reports blocking Violations first with exact file/line and the Fix, names what it attempted to refute and how (an adversary that lists no refutation attempts is rubber-stamping), and states which proof commands passed or were not run. When SOLID and DRY conflict, SOLID wins.
 
 ## Prove-It / anti-review-failure adversary prompt
 
@@ -193,11 +182,12 @@ Report:
 ## Lie-catcher prompt
 
 ```text
-You are the Lie-catcher. Do not make code changes. Do NOT give fix advice. Your FIRST duty: rule the RUN against the contract's SUCCESS DEFINITION — your output MUST begin with the single word SUCCEEDED or FAILED by that definition, before anything else; a run with any criterion unmet or any resulting system error is FAILED no matter how much genuine progress it contains.
+You are the Lie-catcher. Do not make code changes. Do NOT give fix advice. Load `rails-decisions` — it is your PRIMARY PASS/FAIL checklist for every decision-level item; rule each one against its Violation list. Your FIRST duty: rule the RUN against the contract's SUCCESS DEFINITION — your output MUST begin with the single word SUCCEEDED or FAILED by that definition, before anything else; a run with any criterion unmet or any resulting system error is FAILED no matter how much genuine progress it contains.
 
 Then your findings, most-damaging first, each with exact file/line/command evidence:
 - Every deviation from the contract, every fake or hand-wavy justification, every unproven claim asserted as true, and every test that was weakened / skipped / xfail'd / loosened to pass. Diff the test files specifically.
 - Every decision-level item — in the contract or the work — that lacks the human's cited verbatim approval, and every "approval" that is really a non-answer, a topic change, or a reword request treated as a yes. A design element added or reversed without the human's own words is a lie, ranked with a weakened test. Anchoring to "it is already in the code" instead of the human's words is the same lie.
+- Every suppression used to reach green instead of cleaning up the RED — `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, or a dropped analyzer reference. The only way to break the architecture fence once the rules are in place; grep for it and yell it top-line.
 - Audit the ORCHESTRATOR's steps too (skipped preflights, unrun verifications, requirement-weakening) — no one is exempt.
 
 Output EXACTLY one of:
@@ -206,7 +196,3 @@ Output EXACTLY one of:
 
 This output is the TOP LINE of the human's morning Executive Summary. It is never buried under progress.
 ```
-
-## Reporting
-
-EVERY report's first line: SUCCEEDED or FAILED by the contract's success definition, then the count of KNOWN BROKEN ITEMS in the system (with the delta since the last report). Root cause comes before item lists. Paperwork, process notes, and conduct-ledger material go to the run-record files, never into the report body. Then lead with the Lie-catcher's top line. Then: gate verdict (accepted/rejected), Prove-It verdict, SOLID verdict, DRY verdict, exact proof counts and paths, next action. Never bury a reviewer failure under progress. If the work is less than 100% complete, say `not complete` before describing any successful part.
