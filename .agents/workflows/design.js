@@ -64,7 +64,7 @@ const facts = input && input.facts   // grounded facts from GROUND (optional but
 const angles = (input && input.angles) || [
   { id: 'simplest', focus: 'the simplest correct design — fewest moving parts, least new surface; bias hard to reusing an existing owner over adding one.' },
   { id: 'most-general', focus: 'the fullest general seam for the KNOWN need — no one-case hack, no deferred abstraction; the seam built right the first time.' },
-  { id: 'risk-first', focus: 'the design that most reduces the chance the AI cuts a corner here — maximize what a guardrail rule can mechanically stop or make greppable.' },
+  { id: 'risk-first', model: 'opus', focus: 'the design that most reduces the chance the AI cuts a corner here — maximize what a guardrail rule can mechanically stop or make greppable.' },
 ]
 
 if (!projectPath || !goal) {
@@ -95,7 +95,7 @@ Pick the winning angle, say why, then synthesize the approach to ADOPT: the winn
 Return winningAngle, why, synthesizedApproach, graftedFrom, and the merged rulesToAdd.`
 
 const proposals = (await parallel(angles.map((angle) => () =>
-  agent(proposePrompt(angle), { label: `propose:${angle.id}`, phase: 'Propose', model: 'sonnet', schema: APPROACH_SCHEMA }))
+  agent(proposePrompt(angle), { label: `propose:${angle.id}`, phase: 'Propose', model: angle.model || 'sonnet', schema: APPROACH_SCHEMA }))
 )).filter(Boolean)
 
 log(`${proposals.length} approaches proposed; judging against the code rails`)
