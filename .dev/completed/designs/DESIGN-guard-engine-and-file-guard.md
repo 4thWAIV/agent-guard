@@ -265,5 +265,5 @@ before the File Guard spec.
 ## 13. Provenance
 Grounded in the 4thWAIV reference docs copied to `./.dev/reference/4thWAIV-agent-governance/` — principally
 `dispatcher.md`, `policy-module.md`, `protected-files-block.md`, and `drift-detect-and-revert.md` — and in the
-contract and workflow conventions at `./.dev/reference/workflow-with-adversaries/`. The full prior decision log
+contract and workflow conventions now in the `rails-run-a-workflow` and `rails-write-a-contract` skills (`./.agents/skills/`). The full prior decision log
 is `./.dev/DECISIONS.md`.

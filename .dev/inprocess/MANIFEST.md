@@ -31,12 +31,12 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 ## Tools (scripts)
 | Tool | What | Where | Status |
 |---|---|---|---|
-| prior-art-ledger | DRY prior-art search | `./.claude/workflows/prior-art-ledger.js` | done, proven once |
-| hidden-decision-scan | forced-decision scan | `./.claude/workflows/hidden-decision-scan.js` | done, **never run** |
-| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/` | to build |
-| DESIGN script | fan-out (architect panel) | `./.agents/workflows/` | to build |
-| REFUTE script | fan-out (all adversaries) | `./.agents/workflows/` | to build |
-| tools' home | move the two real ones to `./.agents/workflows` + symlink | | to do |
+| prior-art-ledger | DRY prior-art search | `./.agents/workflows/prior-art-ledger.js` | done, proven once |
+| hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, **never run** |
+| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | built, **never run** |
+| DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** |
+| REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | built, **never run** |
+| tools' home | the two real ones live in `./.agents/workflows`; `./.claude/workflows` symlinks to it | done |
 
 ## Fence (analyzers — `./analyzers/AgentGuard.Analyzers/`)
 - AG0001–AG0007 (architecture rules) — existing
@@ -57,11 +57,10 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 | interop CA rule + anti-`#if` analyzer | to build (in CrossPlatform's RULE-PHASE) |
 
 ## Repo hygiene
-- **Commit:** all the reorg work is uncommitted on `proto/platform-interop` (disposable). Get it onto a real branch and commit. TO DO.
+- **Commit:** reorg committed on `rules-and-process` (branched off `52cb508`, disposable spike excluded) — `70d020e` (reorg) + `0ec176b` (bracket/tier reconciliation). Not pushed.
 
 ## Open your-calls
-- DESIGN-doc dead path — `./.dev/completed/designs/DESIGN-guard-engine-and-file-guard.md` points to the deleted workflow-with-adversaries folder. Fix or leave.
-- prettier hook — go or no.
+- prettier format-on-write hook — parked (real config decision, but blocks nothing; may collide with config-region protection).
 
 ## Detail lives in
 - `RESUME.md` (verbatim decisions) · `2026-08-07-rules-and-process-reorg/workflow-and-rdd-fix.md` (the RDD-fix record) · `./.dev/README.md` (the folder flow)
