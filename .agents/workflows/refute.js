@@ -72,6 +72,7 @@ const ADVERSARIES = [
   },
   {
     id: 'lie-catcher',
+    model: 'opus', // Tim relies on this reviewer more than any other; it runs on the strongest model
     charge: `You are the Lie-catcher. Give NO fix advice — leave every finding's fix empty. Read .agents/skills/rails-decisions/SKILL.md — it is your PRIMARY PASS/FAIL checklist for every decision-level item. FIRST rule the run against the contract's SUCCESS DEFINITION: any criterion unmet or any resulting system error is FAIL, no matter the progress. Then YELL, most-damaging first: every deviation, fake justification, unproven claim, and weakened / skipped / loosened test (diff the test files); every decision-level item lacking the human's cited verbatim approval, and every "approval" that is really a non-answer, a topic change, or a reword request treated as a yes; every suppression used to reach green instead of cleaning the RED (#pragma warning disable, [SuppressMessage], NoWarn, severity = none, or a dropped analyzer reference). Audit the ORCHESTRATOR's steps too — no one is exempt.`,
   },
 ]
@@ -87,7 +88,7 @@ CHANGED FILES: ${JSON.stringify(changedFiles || [])}
 Return lens="${adv.id}", verdict (PASS or FAIL), findings (each with summary, evidence as file:line or the command re-run, and the fix path — leave fix empty if you are the Lie-catcher), refutationAttempts (what you actually tried to break — an adversary that lists none is rubber-stamping), and proofChecked (which contract commands you re-ran).`
 
 const verdicts = (await parallel(ADVERSARIES.map((adv) => () =>
-  agent(refutePrompt(adv), { label: `refute:${adv.id}`, phase: 'Refute', model: 'sonnet', schema: VERDICT_SCHEMA }))
+  agent(refutePrompt(adv), { label: `refute:${adv.id}`, phase: 'Refute', model: adv.model || 'sonnet', schema: VERDICT_SCHEMA }))
 )).filter(Boolean)
 
 const failed = verdicts.filter((v) => v.verdict === 'FAIL')

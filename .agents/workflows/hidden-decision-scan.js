@@ -2,7 +2,7 @@ export const meta = {
   name: 'hidden-decision-scan',
   description: 'GROUND-phase adversary: scans a contract plus the grounded code for forced, lasting, costly-to-reverse choices that are NOT in the contract Decisions section and that the human would care about — so no key decision is silently defaulted and bites later.',
   phases: [
-    { title: 'Hunt', detail: 'one hunter per lens finds forced, undecided choices', model: 'sonnet' },
+    { title: 'Hunt', detail: 'one hunter per lens finds forced, undecided choices', model: 'opus' },
     { title: 'Filter', detail: 'apply forced+lasting+bites, drop noise, rank by bite', model: 'sonnet' },
   ],
 }
@@ -130,7 +130,7 @@ DROP a candidate if: it is pure implementation with no lasting external effect; 
 For each SURVIVING decision output: choice (one line); whyForced (the default that gets taken if it stays unaddressed); options (the realistic choices, 2–4); howItBites (the concrete lock-in / user-visible / trust consequence if the wrong default is silently taken); recommended (your recommended pick, one line); severity (high/medium/low by how badly it bites). RANK worst-bite first. Also return droppedAsNoise = the count of candidates you dropped.`
 
 const hunted = (await parallel(LENSES.map((lens) => () =>
-  agent(huntPrompt(lens), { label: `hunt:${lens.id}`, phase: 'Hunt', model: 'sonnet', schema: CANDIDATES_SCHEMA }))
+  agent(huntPrompt(lens), { label: `hunt:${lens.id}`, phase: 'Hunt', model: 'opus', schema: CANDIDATES_SCHEMA }))
 )).filter(Boolean)
 
 const pooled = hunted.flatMap((h) => (h.candidates || []).map((c) => ({ ...c, lensId: h.lensId })))
