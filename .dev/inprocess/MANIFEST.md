@@ -32,7 +32,7 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 | Tool | What | Where | Status |
 |---|---|---|---|
 | prior-art-ledger | DRY prior-art search | `./.agents/workflows/prior-art-ledger.js` | done, proven once |
-| hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, **never run** |
+| hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, proven once (CrossPlatform contract) |
 | GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | built, **never run** |
 | DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** |
 | REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | built, **never run** |
@@ -45,7 +45,7 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 ## Cross-tool / deploy
 | Part | Status |
 |---|---|
-| Codex twins of the runner + both tools | to build |
+| Codex twins of the runner + both tools | to build — issue #10 |
 | deploy-skill-set-to-projects (install rails into other repos, self-injected managed block) | to build — issue #8 |
 | prettier format-on-write hook | pending Tim's go |
 
