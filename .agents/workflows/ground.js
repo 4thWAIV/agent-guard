@@ -44,11 +44,11 @@ while (typeof input === 'string' && unwrapGuard < 5) {
 
 const projectPath = input && input.projectPath
 const areas = input && input.areas                 // [{ id, focus }]
-const capabilities = input && input.capabilities   // [{ id, description }] for the ledger (optional)
+const capabilities = input && input.capabilities   // [{ id, description }] — MANDATORY; the ledger runs every time
 
-if (!projectPath || !areas || !areas.length) {
+if (!projectPath || !areas || !areas.length || !capabilities || !capabilities.length) {
   throw new Error(
-    'ground requires args { projectPath, areas: [{id, focus}], capabilities?: [{id, description}] } (got type: ' + typeof args + ')')
+    'ground requires args { projectPath, areas: [{id, focus}], capabilities: [{id, description}] }. capabilities is MANDATORY and non-empty — the prior-art ledger runs on EVERY ground, never optional; a run that declares no capability cannot ground (got type: ' + typeof args + ')')
 }
 
 const explorePrompt = (area) => `You are an explorer deriving GROUND TRUTH for one area of a subsystem, from the LIVE code as it exists right now. Docs, comments, maps, and memory are hints about where to look — never answers. Do NOT write code. Never state a fact you did not read; every claim carries a file:line.
@@ -66,12 +66,8 @@ const facts = (await parallel(areas.map((area) => () =>
 
 log(`grounded ${facts.reduce((n, f) => n + (f.facts ? f.facts.length : 0), 0)} facts across ${facts.length} areas`)
 
-// The reuse ledger is mandatory for any change that adds a capability; run it as a child workflow.
-let ledger = null
-if (capabilities && capabilities.length) {
-  ledger = await workflow('prior-art-ledger', { projectPath, capabilities })
-} else {
-  log('no capabilities passed — skipping the prior-art ledger (a change that adds a capability MUST pass it)')
-}
+// The prior-art ledger runs on EVERY ground — never optional, no skip path. Enforced above by the mandatory
+// non-empty capabilities arg: there is no way to reach here without capabilities to run the ledger over.
+const ledger = await workflow('prior-art-ledger', { projectPath, capabilities })
 
 return { projectPath, facts, ledger }
