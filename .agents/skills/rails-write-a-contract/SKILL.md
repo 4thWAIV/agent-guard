@@ -23,7 +23,7 @@ Does this line tell the agent WHAT TO DO, what it MUST NOT do, HOW IT IS CHECKED
 8. **What the agent MAY do** — the permitted actions, when scoping helps.
 9. **What the agent MUST NOT do** — the hard boundaries. Anti-cheat lives here: no weakening, skipping, or deleting tests; no commit; no scope expansion; stop and report on any wall.
 10. **Acceptance** — numbered checks, each with the command or proof. Where cheating is a risk, the check must be re-derivable by someone other than the worker — an adversary reading the bytes, or a script the human runs. The worker's own word is not proof.
-11. **Tier** — one line: FULL / LITE / CONTRACT-ONLY, plus one clause of why. One line, never a paragraph.
+11. **Tier** — one line: low ceremony / normal ceremony (self-action needs no contract), plus one clause of why. One line, never a paragraph.
 12. **Scope line** — "Change scope only by editing this file before the run starts."
 
 ## Decisions must carry the human's sign-off

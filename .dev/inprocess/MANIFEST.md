@@ -46,7 +46,7 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 | Part | Status |
 |---|---|
 | Codex twins of the runner + both tools | to build |
-| deploy-skill-set-to-projects (install rails into other repos) | to build — **issue owed** |
+| deploy-skill-set-to-projects (install rails into other repos, self-injected managed block) | to build — issue #8 |
 | prettier format-on-write hook | pending Tim's go |
 
 ## Product workstreams (the real work — untouched this session)

@@ -43,7 +43,7 @@ Write the contract to a FILE before any work. Acceptance checks are derived VERB
 The contract must also carry:
 - **Decisions**, each with the human's verbatim words approving that exact item (RULE 2). A decision without the human's words is not a decision; it is an open item and must be surfaced, never written as decided. A blanket "put them back / do it" approves only items the human already individually approved.
 - **Surfaces**: every store where the same value lives, so adversaries refute against a WRITTEN surface list at contract time, not a post-mortem (the second-store-miss guard doing its job up front).
-- **Tier** (FULL / LITE / CONTRACT-ONLY) with a one-line why, so the tier decision is auditable and never a silent scope choice.
+- **Tier** (low ceremony / normal ceremony — self-action needs no contract) with a one-line why, so the tier decision is auditable and never a silent scope choice.
 - **Reuse ledger** from GROUND — every capability the change needs, each marked reuse / extract / new — so the DRY adversary refutes duplication against a WRITTEN ledger at contract time, not a post-mortem.
 - **Rules to add** from DESIGN — every analyzer rule DESIGN determined, each recorded as a decision with the human's verbatim sign-off (RULE 2; see `rails-decisions`) and signed off BEFORE RULE-PHASE writes it. A rule written into `analyzers/` without the human's words is an unapproved decision, ranked with a weakened test.
 
@@ -53,7 +53,7 @@ The contract must also carry:
 A rule-gen agent — holding rule-generation authority — writes the rules DESIGN determined into `analyzers/`. Each rule is wired in EVEN WHERE existing code already violates it, and it is allowed to go RED against that code: that red is the forcing function, never suppressed, exempted, or hidden to reach green (the cleanup law; enforced at GATE). Before any implementation rides on them, the rule-gen agent runs its OWN adversary pass over the rules it wrote — the same lenses as a normal execution, especially SOLID, DRY, and the Lie-catcher — so the rules themselves are clean and honestly built.
 
 ### IMPLEMENT (implementation-phase)
-A FRESH worker — a DIFFERENT agent from the rule-gen agent (separation of powers) — takes the SAME contract, is told the rules, and completes it WITHIN them. Its rule-writing authority is REVOKED: it cannot add, edit, or suppress an analyzer; it lives within the rules or asks the human for an exception. It executes the contract EXACTLY (tier permitting more only with explicit approval) and cleans up the RED the new rule exposes — the AI does that cleanup, it is not deferred — until the build is green UNDER the rule (the cleanup law). Wall → STOP and escalate; never deviate silently, never edit a test to pass, never suppress a rule to reach green.
+IMPLEMENT opens with the contract's build+test bracket: one `dotnet build` (0 warnings/errors) and `dotnet test` (0 failed) proven green as a clean baseline before any change, so a later failure can never be excused as pre-existing. This bracket runs once per contract — here at the start and again at GATE — never per-work-item, mid-change, or on load. A FRESH worker — a DIFFERENT agent from the rule-gen agent (separation of powers) — takes the SAME contract, is told the rules, and completes it WITHIN them. Its rule-writing authority is REVOKED: it cannot add, edit, or suppress an analyzer; it lives within the rules or asks the human for an exception. It executes the contract EXACTLY (tier permitting more only with explicit approval) and cleans up the RED the new rule exposes — the AI does that cleanup, it is not deferred — until the build is green UNDER the rule (the cleanup law). Wall → STOP and escalate; never deviate silently, never edit a test to pass, never suppress a rule to reach green.
 
 ### REFUTE
 Independent adversaries whose job is to REFUTE the result against the contract — not review-and-approve. Distinct lenses (below). Every adversary except the Lie-catcher ALSO returns the path to fix. Each adversary's context is REUSED across refute rounds so its critique stays consistent and cumulative (no fresh, conflicting demands round to round).
@@ -89,13 +89,17 @@ The run ends in exactly ONE terminal report — this replaces the old ESCALATE a
 
 Reuse an agent's context (resume by id/name) for continuity: the implementer across retries; each adversary across its refute rounds so its position is cumulative, not reinvented. Throw the context away and spawn FRESH only when stuck — the same rejected approach twice, or two rounds with no drop in adversary findings, or the agent starts rationalizing a deviation — and attach the prior refutation history to the fresh agent so it doesn't re-walk the dead path.
 
-## Tiering (chosen by whether state mutates; CONTRACT never skips)
+## Tiering (chosen by blast radius; every mutating tier is bracketed by a contract)
 
-- **FULL** (all roles): anything MUTATING — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
-- **LITE** (contract + one Prove-It): smaller, lower-blast-radius changes.
-- **CONTRACT-ONLY**: read-only probes and trivial doc edits. Still write the contract.
+Three tiers:
 
-**DESIGN and RULE-PHASE run whenever a guardrail can be developed for the work** — driven by the rule trigger, not by the mutate/read tier: if DESIGN can determine a rule that mechanically stops a way the AI could cut a corner or hurt the human, RULE-PHASE writes it before IMPLEMENT.
+- **Self-action** — the agent does the work directly, **no contract**: reads, probes, and trivial doc edits that don't mutate behavior and are quick (≈ 5–10 min) with no blast radius. This tier IS the rule for when to act directly instead of spinning up the process.
+- **Low ceremony** (contract + one Prove-It): smaller, lower-blast-radius mutating changes.
+- **Normal ceremony** (contract + all roles): anything MUTATING with blast radius — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
+
+Any change that mutates real state gets a contract (low or normal ceremony); only self-action skips it. Every contract is bracketed by the build+test baseline at the start of IMPLEMENT and green at GATE.
+
+**DESIGN and RULE-PHASE run whenever a guardrail can be developed for the work** — driven by the rule trigger, not by the tier: if DESIGN can determine a rule that mechanically stops a way the AI could cut a corner or hurt the human, RULE-PHASE writes it before IMPLEMENT.
 
 ## Provenance (the run-record)
 
