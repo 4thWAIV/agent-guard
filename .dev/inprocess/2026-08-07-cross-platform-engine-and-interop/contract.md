@@ -42,12 +42,14 @@ Tim: *"Change the namespace to AgentGuard.CrossPlatform. Then the problem is res
 The interop interface is a **complete set** — it provides the capabilities to do the act plus its setup and teardown (CRUD) — and is allowed to grow; every addition is an interop-interface change needing Tim's sign-off (`interop-interfaces-locked`). Test *scaffolding* (temp dirs, marker files) is plain cross-platform `System.IO` and is deliberately NOT in the interface.
 Tim: *"the interface and implementation may need to be a 'complete set' meaning the interop library provides all the capabilities we would need to do the act but also setup the action and tare down (what we would think of as CRUD in data world). FOR US that means this interface will probably need to grow."*
 
-### `three-method-filesystem-interface` (proven)
-`IPlatformFileSystem` is exactly three methods, proven complete by the prototype (no fourth primitive was needed to express the six spec tests):
+### `link-target-interface` (renamed + approved by Tim 2026-08-08)
+`IPlatformFileSystem`'s symlink capability is a consistent CRUD set of four methods — renamed from the prototype's `Repoint`/`Remove` for naming consistency, with `IsLinkTarget` added to complete the set:
+- `bool IsLinkTarget(string linkPath)` — whether the path is a symlink.
 - `string? ReadLinkTarget(string linkPath)` — raw target, or null if not a link.
-- `void Repoint(string linkPath, string relativeTarget)` — atomically point at the target, create OR replace, **never momentarily absent**; also creates any missing parent directory (see `behavioral-uniformity-proven-by-spec`).
-- `void Remove(string linkPath)` — remove the link only, never its target.
+- `void MakeLinkTarget(string linkPath, string relativeTarget)` — atomically create OR replace the link, **never momentarily absent**; creates any missing parent directory (see `behavioral-uniformity-proven-by-spec`). Was `Repoint` in the prototype.
+- `void RemoveLinkTarget(string linkPath)` — remove the link only, never its target. Was `Remove`.
 The generic idempotency check ("skip if already correct") stays engine-side, not in the interface.
+Tim: *"RENAME these to be consistent. bool IsLinkTarget(string linkPath) / string? ReadLinkTarget(string linkPath); / void MakeLinkTarget(string linkPath, string relativeTarget); / void RemoveLInkTarget(string linkPath);"* and *"I actually approve this interface."*
 
 ### `platform-executable-flag` (interface grows — Tim signed off 2026-08-08)
 `IPlatformFileSystem` grows by four executable-bit methods so the engine's one remaining OS branch (`CreationHelper.cs:46`, the `File.SetUnixFileMode` chmod that AG0009 flags) moves behind the interface and goes green without a platform `#if`. Uniformity (`behavioral-uniformity-proven-by-spec`) is preserved through the guard method rather than by pretending the executable bit exists on Windows:
@@ -59,7 +61,7 @@ The spec proves it uniformly: where `NeedsExecutableFlag()` is false the other t
 Tim: *"NeedsExecutableFlag() -- RETURNS true if the OS needs to have the flag switches or supports it really. HARD code to true on the POSIX version hard code to false on Windows. IsExecutable() -- RETURN true if is fliped && is POSIX. THROWS 'NotImplemented' on Windows. MakeExecutable() -- flips executable (chmod +x) on POSIX. THROWS 'NotImplemented' on Windows. MakeNonExecutable() -- flips (chmod -x) on POSIX.. TRHOWS on Windows."*
 
 ### `behavioral-uniformity-proven-by-spec`
-The three OS implementations behave **exactly** the same, with no deviation. Any behavior — e.g. `Repoint` creating a missing parent directory — is done on all three or on none; if it cannot be identical on all three, it is removed. Whatever the behavior is (or is not), it is tested and proven by the one OS-agnostic spec. (Parent-directory creation is a managed `Directory.CreateDirectory` call that behaves identically on all three, so it **stays on all three**, is written into the interface contract, and gets a spec test.)
+The three OS implementations behave **exactly** the same, with no deviation. Any behavior — e.g. `MakeLinkTarget` creating a missing parent directory — is done on all three or on none; if it cannot be identical on all three, it is removed. Whatever the behavior is (or is not), it is tested and proven by the one OS-agnostic spec. (Parent-directory creation is a managed `Directory.CreateDirectory` call that behaves identically on all three, so it **stays on all three**, is written into the interface contract, and gets a spec test.)
 Tim: *"WHATEVER keeps the 3 OS instances showing the same behavior exactly with no deviation. IF we parent create we parent create ON ALL 3 — IF we can not parent create on all 3 or IF WE DO NOT ... THEN it must go. WHATEVER we do (or don't do) it must be tested and proven as a spec."*
 
 ### `one-osagnostic-spec-test-project`
@@ -71,7 +73,7 @@ The machine layout keeps its symlinks (the audience is developers — ~95% admin
 Tim (audience): *"WHO IS going to use this tool? ... just being admin (95% of my users will be) or having dev mode (99%) enough?"*
 
 ### `wire-engine-delete-nativeinterop`
-`SymlinkOps` is rewired to consume `IPlatformFileSystem` (read via `ReadLinkTarget`, write via `Repoint`, remove via `Remove`); the idempotency compare stays in `SymlinkOps`; the create-temp-then-atomic-swap moves into each platform's `Repoint`. `src/AgentGuard.Engine/Setup/NativeInterop.cs` is **deleted**. (Consumers, per CodeGraph: `CreationHelper.PointCurrent`/`EnsureBinGuard`, `CurrentSymlinkCondition`, `BinSymlinkCondition`, `InstallIntegrity`; `NativeInterop.Rename` has exactly one caller.)
+`SymlinkOps` is rewired to consume `IPlatformFileSystem` (read via `ReadLinkTarget`, write via `MakeLinkTarget`, remove via `RemoveLinkTarget`); the idempotency compare stays in `SymlinkOps`; the create-temp-then-atomic-swap moves into each platform's `MakeLinkTarget`. `src/AgentGuard.Engine/Setup/NativeInterop.cs` is **deleted**. (Consumers, per CodeGraph: `CreationHelper.PointCurrent`/`EnsureBinGuard`, `CurrentSymlinkCondition`, `BinSymlinkCondition`, `InstallIntegrity`; `NativeInterop.Rename` has exactly one caller.)
 
 ### `config-protection-crlf-fix`
 The config-protection canonical drift check normalizes line endings (CRLF/LF) so drift is detected identically on Windows (the two non-symlink Windows test failures). This is the guard's own config-protection code from the config-protection contract.
@@ -97,7 +99,7 @@ Standing definition (Tim's, verbatim): ALL criteria met AND no errors in the sys
 
 End state:
 - `AgentGuard.CrossPlatform` (interfaces + `Platform.Create()` container, zero native code) and the three per-OS libraries build; the POSIX source is one authored file `<Compile Link>`-shared mac→linux (verifiable in the csproj + a single source file), never duplicated.
-- The one `AgentGuard.CrossPlatform.Tests` project is OS-agnostic and its spec tests pass on **all three** OS in CI, proving identical behavior (including `Repoint`'s parent-directory creation and the two safety properties: `Remove` never deletes the target; a re-point leaves no stray temp).
+- The one `AgentGuard.CrossPlatform.Tests` project is OS-agnostic and its spec tests pass on **all three** OS in CI, proving identical behavior (including `MakeLinkTarget`'s parent-directory creation and the two safety properties: `RemoveLinkTarget` never deletes the target; a re-point leaves no stray temp).
 - The engine consumes `IPlatformFileSystem`; `src/AgentGuard.Engine/Setup/NativeInterop.cs` no longer exists; no `[LibraryImport]`/`[DllImport]` exists outside `AgentGuard.CrossPlatform.*`.
 - `dotnet build -c Release` = 0/0 and `dotnet test -c Release` = 0 failed, locally and in CI, **including the Windows leg** (the ~35 install/setup failures and the 2 config-protection CRLF failures are gone).
 - The CI/CD contract's gate goes green on all three OS on GitHub (its success, now reachable).
@@ -119,7 +121,7 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 |---|---|---|
 | platform-interop-interfaces (`IPlatformServices`, `IPlatformFileSystem`) | new | No live impl; the logic exists in `SymlinkOps` but with no interface seam. |
 | platform-container-factory (`Platform.Create()`) | new | The factory does not exist yet. |
-| posix-symlink-filesystem | **reuse** | `src/AgentGuard.Engine/Setup/SymlinkOps.cs:23` (`EnsurePointsTo`/`ReadRawTarget`/`PointAtomically`/`DeleteIfExists`) + `AtomicFile.TemporarySiblingPath` + `NativeInterop.Rename`. The POSIX impl EXTRACTS this existing logic (matching `wire-engine-delete-nativeinterop`'s "the create-temp-then-atomic-swap moves into each platform's `Repoint`"), never re-authored fresh. |
+| posix-symlink-filesystem | **reuse** | `src/AgentGuard.Engine/Setup/SymlinkOps.cs:23` (`EnsurePointsTo`/`ReadRawTarget`/`PointAtomically`/`DeleteIfExists`) + `AtomicFile.TemporarySiblingPath` + `NativeInterop.Rename`. The POSIX impl EXTRACTS this existing logic (matching `wire-engine-delete-nativeinterop`'s "the create-temp-then-atomic-swap moves into each platform's `MakeLinkTarget`"), never re-authored fresh. |
 | windows-symlink-filesystem | new | No Windows symlink impl exists (`MoveFileEx` path is new). |
 | symlinkops-rewire-nativeinterop-removal | new | `SymlinkOps` still calls `NativeInterop` directly; the rewire + deletion is new work. |
 | config-crlf-normalization | new | No CRLF/LF normalization exists in the canonical drift path (`RegionDiffer`/`JsonRegionAdapter`). |
@@ -128,7 +130,7 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 ## What to do
 
 1. Build `AgentGuard.CrossPlatform` (the two interfaces + `Platform.Create()` container; `namespace-crossplatform`), following the proven prototype.
-2. Build the three per-OS libraries (`three-per-os-libs-shared-source`): MacOS authors the POSIX `PosixFileSystem` (`ReadLinkTarget`/`Remove` managed; `Repoint` = create temp link + `libc rename`, creating missing parents); Linux `<Compile Link>`s the identical POSIX source; Windows authors its own (`Repoint` = create temp link + `MoveFileEx REPLACE_EXISTING`; `Remove` uses the Windows call that removes a directory vs file symlink; parents created identically).
+2. Build the three per-OS libraries (`three-per-os-libs-shared-source`): MacOS authors the POSIX `PosixFileSystem` (`ReadLinkTarget`/`RemoveLinkTarget` managed; `MakeLinkTarget` = create temp link + `libc rename`, creating missing parents); Linux `<Compile Link>`s the identical POSIX source; Windows authors its own (`MakeLinkTarget` = create temp link + `MoveFileEx REPLACE_EXISTING`; `RemoveLinkTarget` uses the Windows call that removes a directory vs file symlink; parents created identically).
 3. Build the one `AgentGuard.CrossPlatform.Tests` (`one-osagnostic-spec-test-project`): the prototype's six spec tests plus a parent-directory-creation test (`behavioral-uniformity-proven-by-spec`); tighten the no-stray-temp test to assert the directory contains exactly the expected entries; the impl is swapped per-OS by csproj.
 4. Rewire the engine (`wire-engine-delete-nativeinterop`): thread an `IPlatformFileSystem` through `SymlinkOps` and its consumers; keep the idempotency compare engine-side; delete `NativeInterop.cs`; the real engine tests mock the interface.
 5. Fix the config-protection CRLF canonicalization (`config-protection-crlf-fix`).
