@@ -58,6 +58,7 @@ Tim: *"RENAME these to be consistent. bool IsLinkTarget(string linkPath) / strin
 - `void MakeExecutable(string path)` — `chmod +x` on POSIX; throws on Windows.
 - `void MakeNonExecutable(string path)` — `chmod -x` on POSIX; throws on Windows.
 The spec proves it uniformly: where `NeedsExecutableFlag()` is false the other three throw, and where it is true `MakeExecutable`/`IsExecutable`/`MakeNonExecutable` round-trip.
+Callers guard `MakeExecutable` behind both `NeedsExecutableFlag()` and `!IsExecutable(path)`, so the bit is set only when the OS uses it and it is not already set — the same skip-if-correct idempotency the link-target ops keep caller-side. Tim: *"THIS needs an inner 'if(!fs.IsExecutable())'"*
 Tim: *"NeedsExecutableFlag() -- RETURNS true if the OS needs to have the flag switches or supports it really. HARD code to true on the POSIX version hard code to false on Windows. IsExecutable() -- RETURN true if is fliped && is POSIX. THROWS 'NotImplemented' on Windows. MakeExecutable() -- flips executable (chmod +x) on POSIX. THROWS 'NotImplemented' on Windows. MakeNonExecutable() -- flips (chmod -x) on POSIX.. TRHOWS on Windows."*
 
 ### `behavioral-uniformity-proven-by-spec`
