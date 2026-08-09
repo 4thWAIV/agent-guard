@@ -32,6 +32,32 @@ const RULEGEN_SCHEMA = {
   required: ['ruleFiles', 'redProof', 'perRule'],
 }
 
+// One rule-adversary's verdict on the rules themselves.
+const VERDICT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    lens: { type: 'string' },
+    verdict: { type: 'string', enum: ['PASS', 'FAIL'] },
+    findings: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          summary: { type: 'string' },
+          evidence: { type: 'string' },
+          fix: { type: 'string' },
+        },
+        required: ['summary', 'evidence'],
+      },
+    },
+    refutationAttempts: { type: 'array', items: { type: 'string' } },
+    proofChecked: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['lens', 'verdict', 'refutationAttempts'],
+}
+
 let input = args
 let unwrapGuard = 0
 while (typeof input === 'string' && unwrapGuard < 5) {
@@ -75,14 +101,32 @@ if (!ruleGen || !ruleGen.ruleFiles || !ruleGen.ruleFiles.length) {
   return { ruleFiles: [], error: 'rule-gen produced no rule files', ruleGen }
 }
 
-log(`rule-gen wrote ${ruleGen.ruleFiles.length} files; handing the rules to the independent refute panel`)
+log(`rule-gen wrote ${ruleGen.ruleFiles.length} files; handing the rules to the independent adversary panel`)
 
-// The independent adversary panel refutes the RULES themselves — separate agents, never the author.
-// Reuse the refute workflow, pointing it at the new rule files as the changed set.
-const refute = await workflow('refute', {
-  projectPath,
-  contractPath,
-  changedFiles: ruleGen.ruleFiles,
-})
+// The independent adversaries judge the RULES themselves — separate agents, never the author.
+// This is NOT the implementation refute: the build is INTENTIONALLY RED here (the rules fire against the
+// code the later IMPLEMENT worker will clean up), so RED is correct and is never a reason to fail the rules.
+const RULE_ADVERSARIES = [
+  { id: 'solid', rail: 'rails-solid-code', focus: "the analyzer code's design and structure", model: 'sonnet' },
+  { id: 'dry', rail: 'rails-dry-code', focus: 'duplication across the analyzers — reuse the existing analyzer helpers/pattern, no copy-pasted rule logic', model: 'sonnet' },
+  { id: 'lie-catcher', rail: 'rails-decisions', focus: 'honesty of the rules', model: 'opus' },
+]
 
-return { ruleFiles: ruleGen.ruleFiles, redProof: ruleGen.redProof, perRule: ruleGen.perRule, refute }
+const ruleRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the RULES a rule-gen agent just wrote — NOT a finished implementation. Do NOT make code changes. The build is INTENTIONALLY RED right now: the new rules fire against the code that the later IMPLEMENT worker will clean up. RED is correct here; never fail the rules because the build is red.
+
+Read .agents/skills/${adv.rail}/SKILL.md — it is your PASS/FAIL checklist. Read the contract's rule-phase-ruleset (${contractPath}) and the rule files (${JSON.stringify(ruleGen.ruleFiles)}). Your lens: ${adv.focus}.
+
+${adv.id === 'lie-catcher'
+  ? 'Give NO fix advice. Re-run dotnet build yourself and confirm each rule fires RED against EXACTLY its intended violation and nothing spurious (not over-broad, not under-broad). YELL any suppression, NoWarn, lowered severity, or scaffolded/faked rule; any rule that does not match the signed-off rule-phase-ruleset; and any new analyzer missing from AnalyzerReleases.Unshipped.md.'
+  : 'Rule each Violation in your rail against the analyzer code with exact file:line. Give the fix path.'}
+
+Return lens="${adv.id}", verdict PASS or FAIL, findings (summary, evidence as file:line, and fix — leave fix empty for the lie-catcher), refutationAttempts (what you tried to break; none means rubber-stamping), and proofChecked.`
+
+const verdicts = (await parallel(RULE_ADVERSARIES.map((adv) => () =>
+  agent(ruleRefutePrompt(adv), { label: `refute-rule:${adv.id}`, phase: 'Refute-rules', model: adv.model, schema: VERDICT_SCHEMA }))
+)).filter(Boolean)
+
+const failed = verdicts.filter((v) => v.verdict === 'FAIL')
+log(`${verdicts.length} rule-adversaries ran; ${failed.length} FAIL (${failed.map((v) => v.lens).join(', ') || 'none'})`)
+
+return { ruleFiles: ruleGen.ruleFiles, redProof: ruleGen.redProof, perRule: ruleGen.perRule, verdicts, anyFail: failed.length > 0 }
