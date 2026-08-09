@@ -104,7 +104,7 @@ Reuse an agent's context (resume by id/name) for continuity: the implementer acr
 Three tiers:
 
 - **Self-action** — the agent does the work directly, **no contract**: reads, probes, and trivial doc edits that don't mutate behavior and are quick (≈ 5–10 min) with no blast radius. This tier IS the rule for when to act directly instead of spinning up the process.
-- **Low ceremony** (contract + one Prove-It): smaller, lower-blast-radius mutating changes.
+- **Low ceremony** (lighter contract, but the FULL REFUTE gate still runs — the Lie-catcher never skipped): smaller, lower-blast-radius mutating changes. The tier scales the contract's weight, never the review.
 - **Normal ceremony** (contract + all roles): anything MUTATING with blast radius — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
 
 Any change that mutates real state gets a contract (low or normal ceremony); only self-action skips it. Every contract is bracketed by the build+test baseline at the start of IMPLEMENT and green at GATE.
@@ -151,9 +151,16 @@ Two hard conditions on the metric:
 - Decision smuggled in without sign-off → the Lie-catcher yells any decision-level item lacking the human's verbatim approval; a non-answer or reword-request treated as a yes is itself the finding.
 - Main loosens rules under deadline → the Lie-catcher audits the orchestrator too.
 
-## Worker prompt requirements
+## The L2 worker contract (every delegated worker)
 
-The worker prompt must include: exact write scope and files owned; exact forbidden actions (no migration/commit/prepare-target unless authorized); one-unit-only unless the human approved more; the dirty-worktree warning (do not revert unrelated work); the required proof artifacts and commands; the instruction to STOP and escalate at a wall rather than deviate; the instruction to list every changed file in the final answer; and the failure-class pack above.
+A delegated (L2) worker is a FRESH agent with zero memory of the conversation. To be trustworthy it is given, and operates under, exactly this:
+
+1. **A self-contained task.** The whole spec lives in its prompt — the work to do, the contract path, the exact write scope and files owned, and every constraint — nothing assumed from context. One unit of work only, unless the human approved more. *So it can't guess or drift into work no one asked for.*
+2. **Revoked authority, spelled out.** It cannot add, edit, or suppress an analyzer; cannot touch frozen paths (`analyzers/**` and anything the contract freezes); cannot `push` or `commit` (those stay with the orchestrator); cannot migrate or prepare a target unless explicitly authorized; and it never reverts unrelated work in a dirty tree. *So it can't cheat a rule to green or ship on its own.*
+3. **The build+test bracket, and proof-carrying output.** It proves the baseline green before it starts and green again after, pastes build and test output with exit codes, lists every file it changed, names any wall it hit, and carries the failure-class pack above. *So its work is verified, never taken on faith.*
+4. **Stop-on-wall.** Anything the task didn't cover, it STOPS and escalates instead of deviating — never edits a test to pass, never suppresses a rule to reach green. *So a gap becomes an escalation to the human, not a silent hack.*
+
+**The gate after every L2 worker is non-negotiable: its output ALWAYS goes through REFUTE in full, and the Lie-catcher (on Opus) is never skipped — no tier and no "small fix" earns an exemption.** A fresh worker optimizing for a green build will cut a corner; green is not proof, and the worker's self-report is never acceptance.
 
 ## SOLID, DRY, and laziness adversary checklists (rails)
 
