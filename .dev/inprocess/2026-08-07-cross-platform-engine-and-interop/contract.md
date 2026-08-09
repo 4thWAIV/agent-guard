@@ -85,6 +85,10 @@ The second AG0009 RED site is `tests/AgentGuard.Tests/AcceptanceFailClosedTests.
 `SystemDirectoryEnumerator` is the production adapter that owns the `EnumerationOptions`/`DirectoryInfo` walk and the `IgnoreInaccessible = false` fail-closed behavior; `ProtectedFileScanner` depends on the seam and keeps all its policy (skip rules, protected-set match, reparse skip) over `DirectoryChild`, with no `System.IO` type left in it. Two invariants then get honest, OS-agnostic tests: a `ProtectedFileScanner` unit test asserts the scanner PROPAGATES an inaccessible directory rather than swallowing it; the fail-closed guard test threads a `ThrowingDirectoryEnumerator` through `GuardEngine.CreatePipeline` (an optional parameter defaulting to the real adapter, mirroring the existing region-registry seam) and asserts Deny + zero snapshots. The `OperatingSystem.IsWindows()` branch and both `File.SetUnixFileMode` blocks are deleted. The rejected alternative — housing the OS-specific step in a "CrossPlatform per-OS test library where the analyzer permits it" — is not real: the AG0009 boundary matches only the four exact assembly names and does NOT exempt a `.Tests` sibling, so no analyzer-permitted test library exists.
 Tim: *"YES It is approved and needed and should have been in your first design."* On the general rule this exposed: *"if it is outside your code YOU NEED an abstraction between your code and it for test mocking ALWAYS even when it is built into your favorate library."*
 
+### `remove-writable-check` (Tim approved 2026-08-09)
+The `InstallIntegrity` binary-writable check is **removed, not ported**: delete `IsUserWritable` (the `FileInfo.UnixFileMode` read at `InstallIntegrity.cs:127`), the `BinaryWritable` report field, and the `Program.cs` stderr warning. It is advisory-only (it never blocks a hook); the only actor who could exploit a writable guard binary is a same-user admin who can rewrite it and reset the bit anyway; and this product's adversary is a lazy AI that will never rewrite the binary rather than just comply. The Windows all-bits-set behavior confirms the case is not cleanly protectable. The binary hash-integrity gate stays; only the writable-warning goes — which also removes any need to grow the locked `IPlatformFileSystem`.
+Tim: *"I question if this was not an over reach to betin with and if it add real value to the system. THIS is after all a 'stop AI from being lazy system' and complying with our rules is probably easier than rewriting the guard and replacin git."* and *"I APPROVE the removal of InstallIntegrity FROM the contract."*
+
 ### `config-protection-crlf-fix`
 The config-protection canonical drift check normalizes line endings (CRLF/LF) so drift is detected identically on Windows (the two non-symlink Windows test failures). This is the guard's own config-protection code from the config-protection contract.
 
@@ -144,7 +148,7 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 1. Build `AgentGuard.CrossPlatform` (the two interfaces + `Platform.Create()` container; `namespace-crossplatform`), following the proven prototype.
 2. Build the three per-OS libraries (`three-per-os-libs-shared-source`): MacOS authors the POSIX `PosixFileSystem` (`ReadLinkTarget`/`RemoveLinkTarget` managed; `MakeLinkTarget` = create temp link + `libc rename`, creating missing parents); Linux `<Compile Link>`s the identical POSIX source; Windows authors its own (`MakeLinkTarget` = create temp link + `MoveFileEx REPLACE_EXISTING`; `RemoveLinkTarget` uses the Windows call that removes a directory vs file symlink; parents created identically).
 3. Build the one `AgentGuard.CrossPlatform.Tests` (`one-osagnostic-spec-test-project`): the prototype's six spec tests plus a parent-directory-creation test (`behavioral-uniformity-proven-by-spec`); tighten the no-stray-temp test to assert the directory contains exactly the expected entries; the impl is swapped per-OS by csproj.
-4. Rewire the engine (`wire-engine-delete-nativeinterop`): thread an `IPlatformFileSystem` through `SymlinkOps` and its consumers; keep the idempotency compare engine-side; delete `NativeInterop.cs`; the real engine tests mock the interface.
+4. Rewire the engine (`wire-engine-delete-nativeinterop`): thread an `IPlatformFileSystem` through `SymlinkOps` and its consumers; keep the idempotency compare engine-side; delete `NativeInterop.cs`; the real engine tests mock the interface. Also delete `InstallIntegrity`'s writable-check (`IsUserWritable`, the `BinaryWritable` report field, and the `Program.cs` warning) per `remove-writable-check`.
 5. Add the `IDirectoryEnumerator` engine seam (`fail-closed-scanner-enumerator-seam`): move `ProtectedFileScanner`'s raw filesystem walk into a `SystemDirectoryEnumerator` adapter behind the interface (the scanner keeps its policy over `DirectoryChild`); thread an optional `IDirectoryEnumerator` through `GuardEngine.CreatePipeline`, defaulting to the real adapter, mirroring the region-registry seam; add a `ProtectedFileScanner` unit test that asserts it propagates an inaccessible directory; rewrite `AcceptanceFailClosedTests.cs` to inject a `ThrowingDirectoryEnumerator`, deleting its `OperatingSystem.IsWindows()` branch and both `File.SetUnixFileMode` blocks.
 6. Fix the config-protection CRLF canonicalization (`config-protection-crlf-fix`).
 7. Add the "enable Developer Mode / run elevated" clear error for the rare no-privilege Windows case (`keep-symlinks-audience-has-privilege`), and a line in the alpha-run doc.
@@ -174,18 +178,13 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 
 - Structural confirm: this is a **new contract** that gates the CI/CD contract's completion (vs. edited into the CI/CD contract). Proceeding this way per Tim's "extended contract to this one"; flag if you want it merged into the CI/CD file instead.
 
-### Pending decisions carried out of the 2026-08-09 session (Tim has NOT ruled)
-The `InstallIntegrity` writable-check (`InstallIntegrity.cs:127`, `new FileInfo(path).UnixFileMode`) is a genuinely OS-divergent read that returns wrong on Windows (the `UnixFileMode` getter returns all-bits-set → the tamper warning prints on every hook). Three coupled decisions were presented with picks and are STILL OPEN:
-- `grow-locked-interface` (pick: **yes**) — add `bool IsWritableByCurrentUser(string path)` to the locked `IPlatformFileSystem` (POSIX `access(W_OK)` via P/Invoke; Windows via DACL evaluation). A locked-interface change needs Tim's explicit yes.
-- `writable-fix-scope` (pick: **this contract**) — fix it here vs a follow-up. `InstallIntegrity` is already edited here for the symlink read.
-- `writable-semantic` (pick: **file-contents-modifiable**) — "can the current user modify the file's contents" vs the broader "image replaceable = file OR parent-dir writable".
-Do not implement the writable check until these are ruled.
+### Writable-check — RESOLVED
+Removed, not ported — see decision `remove-writable-check`. No open decisions remain on this contract.
 
-### Coordination with the filesystem-seam contract (`../2026-08-09-filesystem-seam-and-boundary-rules/`)
-That contract is the larger boundary framework. Two overlaps:
-- `IDirectoryEnumerator` (this contract's `fail-closed-scanner-enumerator-seam`) is also one of that contract's seven boundary interfaces — the same interface, defined once.
-- This contract's OS-divergent surface (symlink/Unix-mode/`Marshal`/libc `rename`) becomes **AG0101** in that contract's scheme, and `IPlatformFileSystem` would move from `AgentGuard.CrossPlatform` into the new `AgentGuard.Abstractions` assembly — a change to the locked `namespace-crossplatform` decision that needs Tim's explicit yes. NOT decided.
-Sequencing of the two contracts is Tim's call.
+### Coordination with the CLR-primitive lockdown contract (`../2026-08-09-clr-primitive-lockdown/`)
+That contract is the larger boundary framework; **this cross-platform contract lands FIRST** (Tim ruled 2026-08-09), then it. Two overlaps:
+- `IDirectoryEnumerator` (this contract's `fail-closed-scanner-enumerator-seam`) is also one of that contract's boundary interfaces — the same interface, built here once and reused there.
+- This contract's OS-divergent surface (symlink/Unix-mode/`Marshal`/libc `rename`) becomes **AG0101** in that contract's scheme, and `IPlatformFileSystem` is defined here in `AgentGuard.CrossPlatform` (its locked `namespace-crossplatform` decision, unchanged). Whether the lockdown contract later pulls `IPlatformFileSystem` into its new `AgentGuard.Abstractions` assembly is a decision for that contract when it runs; NOT decided now.
 
 ## Tier
 

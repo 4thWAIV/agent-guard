@@ -1,4 +1,6 @@
-# Filesystem seam + boundary rules — DECISIONS (pre-contract record)
+# CLR-primitive lockdown — DECISIONS (pre-contract record)
+
+_(Formerly "filesystem seam + boundary rules"; renamed to the precise name Tim approved 2026-08-09. It forces every direct call to a CLR/OS primitive — files, directories, environment, console, GUIDs — through an interface we own, and makes a raw call a build error, so the whole codebase is mockable and nothing touches the OS unwatched.)_
 
 **Status.** Design settled with Tim across the 2026-08-09 session; every decision below carries his exact approving words. **This contract is PARKED — the cross-platform contract lands FIRST** (Tim ruled 2026-08-09; see Sequencing). GROUND has run (workflow `wf_102e11b0-164`) and its facts are captured below so they survive any context reset. When this contract resumes, its own contract.md gets written FROM the grounded facts + the reuse ledger + these decisions, then the hidden-decision scan runs over the draft, then RULE-PHASE. Nothing here lives in the orchestrator's memory — resume by READING this file.
 
@@ -12,7 +14,7 @@ Finish the cross-platform contract first — *"I agree we should finish it it is
 
 **This contract then builds (what's LEFT):** extend `IFileReader`; new `IFileWriter`, `IEnvironment`, `IGuidFactory`, `IConsole`; the three assemblies (`Abstractions`, `Boundaries`, `TestHelpers`); `ISystemServices` + `SystemServices.Create()` + the two construction walls; AG0011–AG0017 + AG0101; the ~53 raw `Setup/` sites + the other non-adapter sites; the test system; and the one leftover decision — whether to pull `IPlatformFileSystem` into `Abstractions`.
 
-## Grounded facts (from GROUND `wf_102e11b0-164`, 2026-08-09 — the seam contract is written from these)
+## Grounded facts (from GROUND `wf_102e11b0-164`, 2026-08-09 — the CLR-primitive lockdown contract is written from these)
 - **106 boundary calls across 34 files** (the ~113 estimate was high). Categories:
   - **26** already behind Guard-facing `Abstractions/Contracts` interfaces (`FileReader`/`IFileReader`, `PathCanonicalizer`, `ClaudeCodeHostAdapter`, `ContextStore`, `ContextStoreInspector`, `GrantStore`, `ProtectedFileScanner`, `ProjectRuleSource`) — legitimate; become `Boundaries` adapters.
   - **5** behind internal-wiring interfaces (`PrivilegedWriter`/`IPrivilegedWriter`, `BuildOutputSkipRule`/`IDirectorySkipRule`) — legitimate.

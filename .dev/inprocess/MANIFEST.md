@@ -43,7 +43,7 @@ _Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `89
 ## Fence (analyzers — `./analyzers/AgentGuard.Analyzers/`)
 - AG0001–AG0007 (architecture rules) — existing
 - AG0008 (interop-only-in-crossplatform), AG0009 (no-OS-branching), AG0010 (factory-returns-container) + link-shared-source test — CrossPlatform rule phase, committed
-- AG0011–AG0017 + AG0101 (boundary-call ban + construction pin + OS-divergent series) — filesystem-seam contract, to build in its RULE-PHASE
+- AG0011–AG0017 + AG0101 (boundary-call ban + construction pin + OS-divergent series) — CLR-primitive lockdown contract, to build in its RULE-PHASE
 - new rules per task, written in the RULE-PHASE — ongoing
 
 ## Cross-tool / deploy
@@ -56,8 +56,8 @@ _Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `89
 ## Product workstreams (the real work)
 | Work | Status |
 |---|---|
-| **CrossPlatform (DO FIRST — Tim ruled 2026-08-09)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, delete `NativeInterop.cs`, chmod→`MakeExecutable`, fail-closed fix, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | ACTIVE; contract updated + rule phase's AG0008/9/10 committed; **next is IMPLEMENT**; 3 InstallIntegrity writable-check decisions still open (don't block the build — not RED sites) |
-| Filesystem seam + boundary rules — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-filesystem-seam-and-boundary-rules/DECISIONS.md` | **PARKED behind CrossPlatform**; design settled + GROUND done (106 sites/34 files, all captured in DECISIONS.md); resumes after CrossPlatform ships |
+| **CrossPlatform (DO FIRST — Tim ruled 2026-08-09)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, delete `NativeInterop.cs`, chmod→`MakeExecutable`, fail-closed fix, remove the writable-check, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | ACTIVE; contract written + rule phase's AG0008/9/10 committed; **no open decisions** (writable-check REMOVED, Tim 2026-08-09); remaining before IMPLEMENT: hidden-decision scan on the updated contract, then IMPLEMENT |
+| CLR-primitive lockdown (was "filesystem seam + boundary rules") — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-clr-primitive-lockdown/DECISIONS.md` | **PARKED behind CrossPlatform**; design settled + GROUND done (106 sites/34 files, all captured in DECISIONS.md); resumes after CrossPlatform ships |
 | CI/CD — PR #7, green on 3 OS; contract at `./.dev/inprocess/2026-08-03-ci-cd-build-sign-release/contract.md` | RED on the Windows leg (blocked on CrossPlatform) |
 | interop CA rule + anti-`#if` analyzer | done — AG0008/AG0009 committed in CrossPlatform's rule phase |
 
