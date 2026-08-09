@@ -49,6 +49,15 @@ Tim: *"the interface and implementation may need to be a 'complete set' meaning 
 - `void Remove(string linkPath)` — remove the link only, never its target.
 The generic idempotency check ("skip if already correct") stays engine-side, not in the interface.
 
+### `platform-executable-flag` (interface grows — Tim signed off 2026-08-08)
+`IPlatformFileSystem` grows by four executable-bit methods so the engine's one remaining OS branch (`CreationHelper.cs:46`, the `File.SetUnixFileMode` chmod that AG0009 flags) moves behind the interface and goes green without a platform `#if`. Uniformity (`behavioral-uniformity-proven-by-spec`) is preserved through the guard method rather than by pretending the executable bit exists on Windows:
+- `bool NeedsExecutableFlag()` — whether the OS uses the executable bit. Hard true on POSIX, hard false on Windows. Callers guard the other three on this.
+- `bool IsExecutable(string path)` — on POSIX, whether the bit is set; throws on Windows.
+- `void MakeExecutable(string path)` — `chmod +x` on POSIX; throws on Windows.
+- `void MakeNonExecutable(string path)` — `chmod -x` on POSIX; throws on Windows.
+The spec proves it uniformly: where `NeedsExecutableFlag()` is false the other three throw, and where it is true `MakeExecutable`/`IsExecutable`/`MakeNonExecutable` round-trip.
+Tim: *"NeedsExecutableFlag() -- RETURNS true if the OS needs to have the flag switches or supports it really. HARD code to true on the POSIX version hard code to false on Windows. IsExecutable() -- RETURN true if is fliped && is POSIX. THROWS 'NotImplemented' on Windows. MakeExecutable() -- flips executable (chmod +x) on POSIX. THROWS 'NotImplemented' on Windows. MakeNonExecutable() -- flips (chmod -x) on POSIX.. TRHOWS on Windows."*
+
 ### `behavioral-uniformity-proven-by-spec`
 The three OS implementations behave **exactly** the same, with no deviation. Any behavior — e.g. `Repoint` creating a missing parent directory — is done on all three or on none; if it cannot be identical on all three, it is removed. Whatever the behavior is (or is not), it is tested and proven by the one OS-agnostic spec. (Parent-directory creation is a managed `Directory.CreateDirectory` call that behaves identically on all three, so it **stays on all three**, is written into the interface contract, and gets a spec test.)
 Tim: *"WHATEVER keeps the 3 OS instances showing the same behavior exactly with no deviation. IF we parent create we parent create ON ALL 3 — IF we can not parent create on all 3 or IF WE DO NOT ... THEN it must go. WHATEVER we do (or don't do) it must be tested and proven as a spec."*
