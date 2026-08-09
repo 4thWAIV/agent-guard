@@ -43,7 +43,7 @@ Write the contract to a FILE before any work. Acceptance checks are derived VERB
 The contract must also carry:
 - **Decisions**, each with the human's verbatim words approving that exact item (RULE 2). A decision without the human's words is not a decision; it is an open item and must be surfaced, never written as decided. A blanket "put them back / do it" approves only items the human already individually approved.
 - **Surfaces**: every store where the same value lives, so adversaries refute against a WRITTEN surface list at contract time, not a post-mortem (the second-store-miss guard doing its job up front).
-- **Tier** (low ceremony / normal ceremony — self-action needs no contract) with a one-line why, so the tier decision is auditable and never a silent scope choice.
+- **Level** (L1 / L2 / L3 — see The three levels) with a one-line why, so the level choice is auditable and never a silent scope decision.
 - **Reuse ledger** from GROUND — every capability the change needs, each marked reuse / extract / new — so the DRY adversary refutes duplication against a WRITTEN ledger at contract time, not a post-mortem.
 - **Rules to add** from DESIGN — every analyzer rule DESIGN determined, each recorded as a decision with the human's verbatim sign-off (RULE 2; see `rails-decisions`) and signed off BEFORE RULE-PHASE writes it. A rule written into `analyzers/` without the human's words is an unapproved decision, ranked with a weakened test.
 
@@ -53,7 +53,7 @@ The contract must also carry:
 A rule-gen agent — holding rule-generation authority — writes the rules DESIGN determined into `analyzers/`. Each rule is wired in EVEN WHERE existing code already violates it, and it is allowed to go RED against that code: that red is the forcing function, never suppressed, exempted, or hidden to reach green (the cleanup law; enforced at GATE). Before any implementation rides on them, the rules go through the INDEPENDENT adversary panel — the same SOLID, DRY, and Lie-catcher agents that refute any work — never the rule-gen agent grading the rules it wrote. The rules are proven clean by someone other than their author, the same separation of powers as the rest of the workflow.
 
 ### IMPLEMENT (implementation-phase)
-IMPLEMENT opens with the contract's build+test bracket: one `dotnet build` (0 warnings/errors) and `dotnet test` (0 failed) proven green as a clean baseline before any change, so a later failure can never be excused as pre-existing. This bracket runs once per contract — here at the start and again at GATE — never per-work-item, mid-change, or on load. A FRESH worker — a DIFFERENT agent from the rule-gen agent (separation of powers) — takes the SAME contract, is told the rules, and completes it WITHIN them. Its rule-writing authority is REVOKED: it cannot add, edit, or suppress an analyzer; it lives within the rules or asks the human for an exception. It executes the contract EXACTLY (tier permitting more only with explicit approval) and cleans up the RED the new rule exposes — the AI does that cleanup, it is not deferred — until the build is green UNDER the rule (the cleanup law). Wall → STOP and escalate; never deviate silently, never edit a test to pass, never suppress a rule to reach green.
+IMPLEMENT opens with the contract's build+test bracket: one `dotnet build` (0 warnings/errors) and `dotnet test` (0 failed) proven green as a clean baseline before any change, so a later failure can never be excused as pre-existing. This bracket runs once per contract — here at the start and again at GATE — never per-work-item, mid-change, or on load. A FRESH worker — a DIFFERENT agent from the rule-gen agent (separation of powers) — takes the SAME contract, is told the rules, and completes it WITHIN them. Its rule-writing authority is REVOKED: it cannot add, edit, or suppress an analyzer; it lives within the rules or asks the human for an exception. It executes the contract EXACTLY (the level permits more only with explicit approval) and cleans up the RED the new rule exposes — the AI does that cleanup, it is not deferred — until the build is green UNDER the rule (the cleanup law). Wall → STOP and escalate; never deviate silently, never edit a test to pass, never suppress a rule to reach green.
 
 ### REFUTE
 Independent adversaries whose job is to REFUTE the result against the contract — not review-and-approve. Distinct lenses (below). Every adversary except the Lie-catcher ALSO returns the path to fix. Each adversary's context is REUSED across refute rounds so its critique stays consistent and cumulative (no fresh, conflicting demands round to round).
@@ -99,17 +99,30 @@ These fan-outs are not hand-run. Each has a checked-in workflow script in `.agen
 
 Reuse an agent's context (resume by id/name) for continuity: the implementer across retries; each adversary across its refute rounds so its position is cumulative, not reinvented. Throw the context away and spawn FRESH only when stuck — the same rejected approach twice, or two rounds with no drop in adversary findings, or the agent starts rationalizing a deviation — and attach the prior refutation history to the fresh agent so it doesn't re-walk the dead path.
 
-## Tiering (chosen by blast radius; every mutating tier is bracketed by a contract)
+## The three levels (L1 / L2 / L3)
 
-Three tiers:
+Work runs at one of three levels, named by rigor — L1 is the gold standard, L3 is the lightest. The level sets which roles run. A pure read or probe that changes nothing needs no level. L1 and L2 are bracketed by a contract and by the build+test baseline (green at the start of IMPLEMENT, green again at GATE); L3 is the orchestrator acting directly and needs no contract.
 
-- **Self-action** — the agent does the work directly, **no contract**: reads, probes, and trivial doc edits that don't mutate behavior and are quick (≈ 5–10 min) with no blast radius. This tier IS the rule for when to act directly instead of spinning up the process.
-- **Low ceremony** (lighter contract, but the FULL REFUTE gate still runs — the Lie-catcher never skipped): smaller, lower-blast-radius mutating changes. The tier scales the contract's weight, never the review.
-- **Normal ceremony** (contract + all roles): anything MUTATING with blast radius — file writes, validator/gate changes, locks/registries, cross-store data ops — and ANY claimed FIX.
+| Role | L1 — gold standard | L2 — lighter | L3 — you |
+|---|---|---|---|
+| Orchestrator | 1 | 1 | 1 (this *is* L3) |
+| GROUND (explorers) | N | — | — |
+| DESIGN (architects) | N | opt | — |
+| RULE-gen | 1 (unless the human excepts it) | — | — |
+| Implement (worker) | 1 | 1 | — (the orchestrator does it) |
+| Prove-It | 1 | 1 | — |
+| SOLID | 1 | — | — |
+| DRY | 1 | opt | — |
+| Laziness-auditor | 1 | opt | — |
+| Lie-catcher | 1 | 1 | opt (the human specifies at assignment) |
 
-Any change that mutates real state gets a contract (low or normal ceremony); only self-action skips it. Every contract is bracketed by the build+test baseline at the start of IMPLEMENT and green at GATE.
+**N** = fan-out (count varies — one explorer per area, an architect panel); **opt** = runs only if needed; **—** = not present.
 
-**DESIGN and RULE-PHASE run whenever a guardrail can be developed for the work** — driven by the rule trigger, not by the tier: if DESIGN can determine a rule that mechanically stops a way the AI could cut a corner or hurt the human, RULE-PHASE writes it before IMPLEMENT.
+- **L1 — the gold standard.** Every stage and every adversary runs; nothing is optional. GROUND always, DESIGN always, RULE-PHASE always (unless the human grants an exception), IMPLEMENT, and the full five-adversary REFUTE. Use it for anything mutating with real blast radius and for ANY claimed fix.
+- **L2 — the lighter, delegated level.** A worker plus a reduced review: Prove-It and the Lie-catcher always; DESIGN, DRY, and Laziness only when the work needs them; no GROUND, no RULE-PHASE, and **no SOLID**. Because L2 has no SOLID reviewer, **L2 is used only when a SOLID violation is not a possibility** — if the work could touch structure or design, it is L1, not L2.
+- **L3 — the orchestrator, directly.** The orchestrator does the work itself (no delegated worker); the Lie-catcher runs only when the human asks for it at assignment time. For the smallest changes kept in the orchestrator's own hands.
+
+Where the table marks the Lie-catcher required (L1 and L2) it is never skipped. DESIGN and RULE-PHASE, where they run, are driven by the rule trigger: if a guardrail can be developed to mechanically stop a way the AI could cut a corner or hurt the human, it is developed, never omitted to save ceremony.
 
 ## Provenance (the run-record)
 
@@ -160,7 +173,7 @@ A delegated (L2) worker is a FRESH agent with zero memory of the conversation. T
 3. **The build+test bracket, and proof-carrying output.** It proves the baseline green before it starts and green again after, pastes build and test output with exit codes, lists every file it changed, names any wall it hit, and carries the failure-class pack above. *So its work is verified, never taken on faith.*
 4. **Stop-on-wall.** Anything the task didn't cover, it STOPS and escalates instead of deviating — never edits a test to pass, never suppresses a rule to reach green. *So a gap becomes an escalation to the human, not a silent hack.*
 
-**The gate after every L2 worker is non-negotiable: its output ALWAYS goes through REFUTE in full, and the Lie-catcher (on Opus) is never skipped — no tier and no "small fix" earns an exemption.** A fresh worker optimizing for a green build will cut a corner; green is not proof, and the worker's self-report is never acceptance.
+**The gate after every L2 worker is non-negotiable: Prove-It and the Lie-catcher (on Opus) always run on its output — DRY and Laziness when the work needs them, and no SOLID (which is exactly why L2 is used only where a SOLID violation is not possible; otherwise the work is L1) — and the Lie-catcher is never skipped for a "small fix."** A fresh worker optimizing for a green build will cut a corner; green is not proof, and the worker's self-report is never acceptance.
 
 ## SOLID, DRY, and laziness adversary checklists (rails)
 
