@@ -70,7 +70,7 @@ BLOCK THESE FAILURE CLASSES BY NAME:
 - Second-store miss (the same value in two stores, only one verified). Enumerate every surface first.
 - Weakening a requirement to fit the code, or editing a test/oracle to pass. Grow the code to meet the requirement.
 - Scaffolded or gamed metric (a check hard-wired to pass). The check must measure reality.
-- Suppressing a rule to reach green (\`#pragma warning disable\`, \`[SuppressMessage]\`, \`NoWarn\`, \`severity = none\`, a dropped analyzer reference). Forbidden; STOP instead.
+- Suppressing ANY analyzer warning or error to reach green, not only the new rules (\`#pragma warning disable\`, \`[SuppressMessage]\`, \`NoWarn\`, \`severity = none\`, an .editorconfig severity edit, a dropped analyzer reference). Forbidden — there is no automated guard blocking this yet, so clean the RED by doing the real work, or STOP and escalate.
 
 PROVE (paste verbatim, with exit codes): \`dotnet build -c Release\` is 0 warnings / 0 errors, and \`dotnet test -c Release\` is 0 failed, plus each of the contract's own acceptance spot checks (its grep checks, file-existence checks, etc.). Cropped or exit-code-missing output does not count.
 
