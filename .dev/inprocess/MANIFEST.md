@@ -56,8 +56,8 @@ _Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `89
 ## Product workstreams (the real work)
 | Work | Status |
 |---|---|
-| Filesystem seam + boundary rules — 3 new assemblies (Abstractions/Boundaries/TestHelpers), 7 boundary interfaces, `ISystemServices` container + 2 construction walls, AG0011–AG0017 + AG0101, ~113-site cleanup, the test system; decisions at `./.dev/inprocess/2026-08-09-filesystem-seam-and-boundary-rules/DECISIONS.md` | design settled; GROUND running (`wf_102e11b0-164`); contract next |
-| CrossPlatform — 3 libs, delete `NativeInterop.cs`, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | contract updated (enumerator seam added; rule phase's AG0008/9/10 committed); **3 InstallIntegrity writable-check decisions PENDING** (see the contract's Open); not yet implemented |
+| **CrossPlatform (DO FIRST — Tim ruled 2026-08-09)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, delete `NativeInterop.cs`, chmod→`MakeExecutable`, fail-closed fix, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | ACTIVE; contract updated + rule phase's AG0008/9/10 committed; **next is IMPLEMENT**; 3 InstallIntegrity writable-check decisions still open (don't block the build — not RED sites) |
+| Filesystem seam + boundary rules — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-filesystem-seam-and-boundary-rules/DECISIONS.md` | **PARKED behind CrossPlatform**; design settled + GROUND done (106 sites/34 files, all captured in DECISIONS.md); resumes after CrossPlatform ships |
 | CI/CD — PR #7, green on 3 OS; contract at `./.dev/inprocess/2026-08-03-ci-cd-build-sign-release/contract.md` | RED on the Windows leg (blocked on CrossPlatform) |
 | interop CA rule + anti-`#if` analyzer | done — AG0008/AG0009 committed in CrossPlatform's rule phase |
 

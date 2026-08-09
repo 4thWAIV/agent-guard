@@ -1,6 +1,28 @@
 # Filesystem seam + boundary rules — DECISIONS (pre-contract record)
 
-**Status.** Design settled with Tim across the 2026-08-09 session; every decision below carries his exact approving words. This is NOT the contract — GROUND is running (workflow run `wf_102e11b0-164`, `.agents/workflows/ground.js`). The contract is written FROM the GROUND facts + reuse ledger + these decisions, then the hidden-decision scan runs over the draft, then RULE-PHASE. This file exists so none of the settled design is lost if context is cut before the contract is written.
+**Status.** Design settled with Tim across the 2026-08-09 session; every decision below carries his exact approving words. **This contract is PARKED — the cross-platform contract lands FIRST** (Tim ruled 2026-08-09; see Sequencing). GROUND has run (workflow `wf_102e11b0-164`) and its facts are captured below so they survive any context reset. When this contract resumes, its own contract.md gets written FROM the grounded facts + the reuse ledger + these decisions, then the hidden-decision scan runs over the draft, then RULE-PHASE. Nothing here lives in the orchestrator's memory — resume by READING this file.
+
+## Sequencing (Tim ruled 2026-08-09)
+Finish the cross-platform contract first — *"I agree we should finish it it is the worst objection and when we put the rules in place for the other items the rest will get clean also. SO let's extract all the corss-platform work fnow and fix it and then we can move on to the clean up of the CLR primitives (and unlock better testing)."*
+
+**Cross-platform DELIVERS to this contract (inherited as done — do NOT rebuild):**
+- `IDirectoryEnumerator` — built for the scanner fail-closed fix (`fail-closed-scanner-enumerator-seam` in the cross-platform contract). This contract REUSES it; it is one of the seven boundary interfaces but already exists.
+- `IPlatformFileSystem` — defined in `AgentGuard.CrossPlatform` (its locked `namespace-crossplatform` decision). This contract composes it into `ISystemServices.Platform` and governs its members with AG0101; it does NOT define it.
+- `NativeInterop.cs` deleted; the `CreationHelper.cs:46` chmod moved behind `IPlatformFileSystem.MakeExecutable`; the fail-closed test rewritten (no OS branch, no chmod); the config-protection CRLF fix.
+
+**This contract then builds (what's LEFT):** extend `IFileReader`; new `IFileWriter`, `IEnvironment`, `IGuidFactory`, `IConsole`; the three assemblies (`Abstractions`, `Boundaries`, `TestHelpers`); `ISystemServices` + `SystemServices.Create()` + the two construction walls; AG0011–AG0017 + AG0101; the ~53 raw `Setup/` sites + the other non-adapter sites; the test system; and the one leftover decision — whether to pull `IPlatformFileSystem` into `Abstractions`.
+
+## Grounded facts (from GROUND `wf_102e11b0-164`, 2026-08-09 — the seam contract is written from these)
+- **106 boundary calls across 34 files** (the ~113 estimate was high). Categories:
+  - **26** already behind Guard-facing `Abstractions/Contracts` interfaces (`FileReader`/`IFileReader`, `PathCanonicalizer`, `ClaudeCodeHostAdapter`, `ContextStore`, `ContextStoreInspector`, `GrantStore`, `ProtectedFileScanner`, `ProjectRuleSource`) — legitimate; become `Boundaries` adapters.
+  - **5** behind internal-wiring interfaces (`PrivilegedWriter`/`IPrivilegedWriter`, `BuildOutputSkipRule`/`IDirectorySkipRule`) — legitimate.
+  - **21** at the composition root (`GuardEngine`: `Environment.GetFolderPath` at :75 + `File.Exists`/`ReadAllText` for the grant key at :116,:123) and the CLI entry (`Program.cs`: 13 `Console` + `Environment.ProcessPath` at :153; `SetupContext.ForCurrentProcess`: 4 process-state reads at :50,:51,:55,:56).
+  - **53 in `Setup/` with NO abstraction** — raw `File.Exists`/`ReadAllText`/`Directory.*` inside `ISetupCondition.Detect()`/`Repair()` decision code and the static helpers (`CreationHelper` 12 sites, `InstallIntegrity` 8 + 1 `Path.GetFullPath`, `MachineInspection`, `SetupCommands`, `AtomicFile`, `Hashing`, `SafeRead`, `IdempotentAppend`, `ClaudeSettings`, `SymlinkOps`, `ProjectPaths`). This half is the bulk of the cleanup.
+  - `NativeInterop.cs:22` libc `rename` P/Invoke (deleted by cross-platform).
+- **Zero** `DateTime.Now`/`UtcNow`, `Random`/`RandomNumberGenerator`, `Process`, `Stopwatch`, `Assembly.Location`/`AppContext.BaseDirectory` in live code. Only **1** `Guid.NewGuid` (`AtomicFile.cs:56`), **13** `Console` (all `Program.cs`), **4** single-arg `Path.GetFullPath` (`ContextStorePaths.cs:25`, `InstallIntegrity.cs:78`, +2), **2** `Marshal`/P-Invoke (`SymlinkOps.cs:67`, `NativeInterop`). Time is already fully seamed via injected `TimeProvider` — AG0015 is purely preventive.
+- **Reuse:** `IFileReader`/`FileReader` (extend), `IPathCanonicalizer`, `IPrivilegedWriter`/`PrivilegedWriter` (rebuild on `IFileWriter`), `IContextStore`, `ProtectedFileScanner`, injected `TimeProvider`; the `static Create(deps)` factory + bundle idiom (`FileGuardServices`, `GuardEngineOptions`, ~30 files) — `ISystemServices` fits it; the analyzer infra (`CrossPlatformBoundary` assembly-gate model, `ContractPattern`, `WellKnownType`, `AnalyzerReleases.Unshipped.md`, `Directory.Build.props` `OutputItemType=Analyzer` + `TreatWarningsAsErrors`) for the new rules.
+- **Test infra:** `InternalsVisibleTo` grants only `AgentGuard.Tests`; NO fakes exist for `IFileReader`/`IPathCanonicalizer`/`IPrivilegedWriter` (tests use the real `.Create()` against `FixtureProject`'s real temp dir via `Directory.CreateTempSubdirectory`); `ContextStoreSweepTests` reaches around the seam with `Directory.SetLastWriteTimeUtc` (goes RED — rebuild on the seam); `FailClosedHardeningTests` builds pipelines by hand. `TestHelpers` + the fakes are genuinely new.
+- **Not built yet:** the `AgentGuard.CrossPlatform.*` assemblies and `IPlatformFileSystem` do not exist in live code (only AG0008/9/10 scaffolding + the RED `PosixSourceIsLinkSharedTests`); the disposable proto uses `AgentGuard.Platform` names, not `AgentGuard.CrossPlatform`.
 
 **Branch** `rules-and-process` (not pushed). **Related issues:** #13 (rule + review must require a seam at every external boundary), #14 (the boundary-violation inventory — its ~13-site count is superseded; the real surface is ~113 sites / 34 files, to be re-derived by GROUND against the settled adapter list).
 
@@ -215,11 +237,10 @@ var s = SystemServicesBuilder.Fake().With(new FixedGuidFactory("…0001")).With(
 
 ---
 
-## Open items carried into the contract
-
-- `IPlatformFileSystem` location: the cross-platform contract defines it in `AgentGuard.CrossPlatform` (locked decision `namespace-crossplatform`); `abstractions-assembly-holds-all-interfaces` would move it to `AgentGuard.Abstractions`. Moving it changes a locked decision → needs Tim's explicit yes. NOT decided.
-- Sequencing vs the cross-platform contract (which lands first; the shared `IDirectoryEnumerator`; the cross-platform contract's OS-divergent surface becoming AG0101). Tim's call.
-- Issue #14's count is superseded; rewrite it against the settled adapter list once GROUND fixes the number.
+## Open items carried into the contract (resolved when this contract resumes, NOT now)
+- `IPlatformFileSystem` location: cross-platform builds it in `AgentGuard.CrossPlatform` (its locked `namespace-crossplatform` decision — unchanged by doing cross-platform first). Whether `abstractions-assembly-holds-all-interfaces` then pulls it into `AgentGuard.Abstractions` is a decision for THIS contract when it runs; moving it changes a locked decision → needs Tim's explicit yes. NOT decided.
+- Issue #14's count is superseded (real surface is 106 sites / 34 files); rewrite it against the settled adapter list when this contract writes its contract.md.
+- Sequencing is RULED: cross-platform first (see Sequencing above). This is no longer open.
 
 ## Process state
-GROUND running (`wf_102e11b0-164`). Next: write the contract from GROUND facts + reuse ledger + these decisions → hidden-decision scan over the draft → resolve survivors with Tim → RULE-PHASE (build AG0011–AG0017 + AG0101 RED against the ~113 sites) → IMPLEMENT → REFUTE → GATE.
+GROUND done (`wf_102e11b0-164`, facts captured above). This contract is **PARKED** behind the cross-platform contract. When cross-platform lands, resume by reading THIS file, then: write the contract.md from the grounded facts + reuse ledger + these decisions → hidden-decision scan over the draft → resolve survivors with Tim → RULE-PHASE (build AG0011–AG0017 + AG0101 RED against the residual sites) → IMPLEMENT → REFUTE → GATE.
