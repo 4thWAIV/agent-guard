@@ -73,6 +73,7 @@ These fan-outs are not hand-run. Each has a checked-in workflow script in `.agen
 - **GROUND** runs as `ground.js`, which fans out the explorers and then calls `prior-art-ledger.js` to produce the reuse ledger.
 - **DESIGN** runs as `design.js`, which fans out the architect panel and then the judge.
 - **RULE-PHASE** runs as `rule-phase.js`, in which the rule-gen agent writes the rules and the independent refute panel then refutes them.
+- **IMPLEMENT** runs as `implement.js`, which launches the single fresh worker with the canonical worker prompt (rule-writing authority revoked, RED to green under the rules, STOP at a wall). It is one worker, not a fan-out.
 - **REFUTE** runs as `refute.js`, which runs the five adversaries in parallel.
 - The two standalone tools are `prior-art-ledger.js`, which produces the DRY reuse ledger, and `hidden-decision-scan.js`, which is the GROUND forced-decision scan.
 

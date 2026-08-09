@@ -36,7 +36,8 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 | GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | built, **never run** |
 | DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** |
 | REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | built, **never run** |
-| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | built, **never run** |
+| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | built, **running now** (first run, CrossPlatform) |
+| IMPLEMENT script | single fresh worker, canonical prompt | `./.agents/workflows/implement.js` | built, **never run** |
 | tools' home | the two real ones live in `./.agents/workflows`; `./.claude/workflows` symlinks to it | done |
 
 ## Fence (analyzers — `./analyzers/AgentGuard.Analyzers/`)
