@@ -18,12 +18,15 @@ internal static class AnalyzerRunner
 {
     /// <summary>
     /// Compiles <paramref name="source"/> against the net9.0 reference assemblies, runs
-    /// <typeparamref name="TAnalyzer"/> over it, and returns exactly the diagnostics the analyzer produced.
+    /// <typeparamref name="TAnalyzer"/> over it, and returns exactly the diagnostics the analyzer produced. The
+    /// assembly name is configurable because some rules (native interop, OS branching) turn on the assembly the
+    /// code is compiled into.
     /// </summary>
     /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
     /// <param name="source">The C# source to analyze.</param>
+    /// <param name="assemblyName">The assembly name to compile the source into.</param>
     /// <returns>The diagnostics the analyzer reported.</returns>
-    internal static async Task<ImmutableArray<Diagnostic>> RunAsync<TAnalyzer>(string source)
+    internal static async Task<ImmutableArray<Diagnostic>> RunAsync<TAnalyzer>(string source, string assemblyName = "AnalyzerUnderTest")
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
         ImmutableArray<MetadataReference> references =
@@ -31,7 +34,7 @@ internal static class AnalyzerRunner
                 .ConfigureAwait(false);
 
         CSharpCompilation compilation = CSharpCompilation.Create(
-            assemblyName: "AnalyzerUnderTest",
+            assemblyName: assemblyName,
             syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
             references: references,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
