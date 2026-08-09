@@ -24,6 +24,7 @@ Tim: *"no native interop is done outside of these DLLS."*
 ### `interop-interfaces-locked`
 Interop interfaces are locked: no change to an existing interop interface, and no new interop interface, without Tim's permission. Tim sees and agrees to the structure of the interfaces **and** the resulting classes before they are built.
 Tim: *"NO CHANGE TO AN INTEROP INTERFACE can be made without my permision and no new ones can be made without it. ALL INTEROP requires I get to see and agree to the structure of the interafces and the resulting clasees."*
+**Signed off 2026-08-08:** Tim approved the interface structure (the `IPlatformServices` container plus the three-method `IPlatformFileSystem`) and the resulting per-OS classes before build. Tim: *"I sign off on the inerfaces."*
 
 ### `three-per-os-libs-shared-source`
 Three native libraries — `AgentGuard.CrossPlatform.MacOS`, `AgentGuard.CrossPlatform.Linux`, `AgentGuard.CrossPlatform.Windows` — each implementing the same interface, each with a bootstrap that also implements the interface so they are polymorphically swappable. **KLAXON — strict lie-catcher alteration check:** where a single implementation satisfies both mac and linux (the POSIX/`libc` code), **one `.cs` file is authored once (in MacOS) and `<Compile Include=… Link=…>`-linked into the Linux project** across directories — NOT duplicated into two copies, NOT collapsed to two libraries, NOT a shared base-class shortcut. Windows authors its own.
