@@ -104,6 +104,18 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 - **Solution + CI:** add the new projects to the solution; the CI legs already build/test all six RIDs (the CI/CD contract) — no CI change needed here beyond the projects being in the build.
 - **Frozen — untouched:** `Abstractions/**`, `analyzers/**`.
 
+## Reuse ledger (from the prior-art-ledger run, 2026-08-08)
+
+| Capability | Ruling | Owner / note |
+|---|---|---|
+| platform-interop-interfaces (`IPlatformServices`, `IPlatformFileSystem`) | new | No live impl; the logic exists in `SymlinkOps` but with no interface seam. |
+| platform-container-factory (`Platform.Create()`) | new | The factory does not exist yet. |
+| posix-symlink-filesystem | **reuse** | `src/AgentGuard.Engine/Setup/SymlinkOps.cs:23` (`EnsurePointsTo`/`ReadRawTarget`/`PointAtomically`/`DeleteIfExists`) + `AtomicFile.TemporarySiblingPath` + `NativeInterop.Rename`. The POSIX impl EXTRACTS this existing logic (matching `wire-engine-delete-nativeinterop`'s "the create-temp-then-atomic-swap moves into each platform's `Repoint`"), never re-authored fresh. |
+| windows-symlink-filesystem | new | No Windows symlink impl exists (`MoveFileEx` path is new). |
+| symlinkops-rewire-nativeinterop-removal | new | `SymlinkOps` still calls `NativeInterop` directly; the rewire + deletion is new work. |
+| config-crlf-normalization | new | No CRLF/LF normalization exists in the canonical drift path (`RegionDiffer`/`JsonRegionAdapter`). |
+| interop-osbranching-factory-analyzers (AG0008/AG0009/AG0010 + link-shared test) | reuse | Created in this contract's rule phase; they now exist. |
+
 ## What to do
 
 1. Build `AgentGuard.CrossPlatform` (the two interfaces + `Platform.Create()` container; `namespace-crossplatform`), following the proven prototype.

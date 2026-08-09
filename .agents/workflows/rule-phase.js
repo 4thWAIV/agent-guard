@@ -77,7 +77,19 @@ if (!projectPath || !contractPath) {
     'rule-phase requires args { projectPath, contractPath } (got type: ' + typeof args + ')')
 }
 
-const ruleGenPrompt = `You are the RULE-GEN agent for the rule phase. You hold rule-generation authority: you MAY create and edit files under \`analyzers/\`. You are the ONLY writer this phase. Do NOT commit.
+// Fix round: when refutation/approved fixes are passed, the rule-gen FIXES the existing rules rather than writing fresh.
+const refutation = input && input.refutation
+const fixModePreamble = refutation
+  ? `THIS IS A FIX ROUND, NOT AN INITIAL WRITE. The rules already exist on disk from a prior rule-phase run. Do NOT rewrite them from scratch and do NOT recreate files. Apply EXACTLY these confirmed, human-approved fixes and add the tests they call for — nothing more — then re-prove RED and re-run the covering tests:
+
+${typeof refutation === 'string' ? refutation : JSON.stringify(refutation, null, 2)}
+
+The proof and return steps below apply unchanged.
+
+`
+  : ''
+
+const ruleGenPrompt = `${fixModePreamble}You are the RULE-GEN agent for the rule phase. You hold rule-generation authority: you MAY create and edit files under \`analyzers/\`. You are the ONLY writer this phase. Do NOT commit.
 
 PROJECT PATH: ${projectPath}
 CONTRACT: ${contractPath} — Read it in full. Its \`rule-phase-ruleset\` decision lists the exact guardrails to create, each with what it forbids, where it goes RED, and its mechanism (Roslyn analyzer vs a test).
