@@ -67,6 +67,15 @@ The run ends in exactly ONE terminal report — this replaces the old ESCALATE a
 - **SUCCESS** — done and proven. Lead with the Lie-catcher's top line. Then: gate verdict (accepted/rejected), Prove-It verdict, SOLID verdict, DRY verdict, laziness-auditor verdict, exact proof counts and paths, next action. Never bury a reviewer failure under progress. If the work is less than 100% complete, say `not complete` before describing any successful part.
 - **ESCALATION** — the decision the human must make. Reached when a point is refuted twice on the same point, when a genuine design fork the standing rules don't settle appears, or when the run is stuck. STOP and surface to the human with both sides' evidence; never iterate silently past disagreement.
 
+## The scripts that run these stages
+
+These fan-outs are not hand-run. Each has a checked-in workflow script in `.agents/workflows/`, which Claude runs through its Workflow tool. The Codex equivalents are tracked as issue #10.
+- **GROUND** runs as `ground.js`, which fans out the explorers and then calls `prior-art-ledger.js` to produce the reuse ledger.
+- **DESIGN** runs as `design.js`, which fans out the architect panel and then the judge.
+- **RULE-PHASE** runs as `rule-phase.js`, in which the rule-gen agent writes the rules and the independent refute panel then refutes them.
+- **REFUTE** runs as `refute.js`, which runs the five adversaries in parallel.
+- The two standalone tools are `prior-art-ledger.js`, which produces the DRY reuse ledger, and `hidden-decision-scan.js`, which is the GROUND forced-decision scan.
+
 ## The nine roles
 
 1. **MAIN (orchestrator).** Loops the stages until CLEAN alignment; enforces the rules; forces the worker to try, try, try again; brings insight toward the SIMPLER solution; RECONCILES the adversaries into ONE directive to the worker each round (resolving conflicts by SOLID-above-DRY and Rule 1, escalating a genuine fork) so the worker never receives contradictory instructions. **Never loosens a rule** — an honest morning FAIL with a real unsolved problem beats a fake pass ("lipstick on a dress"). **NOT EXEMPT:** the Lie-catcher audits the orchestrator's own steps (skipped preflights, unrun verifications, requirement-weakening).
