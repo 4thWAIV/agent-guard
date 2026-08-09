@@ -76,6 +76,15 @@ Tim (audience): *"WHO IS going to use this tool? ... just being admin (95% of my
 ### `wire-engine-delete-nativeinterop`
 `SymlinkOps` is rewired to consume `IPlatformFileSystem` (read via `ReadLinkTarget`, write via `MakeLinkTarget`, remove via `RemoveLinkTarget`); the idempotency compare stays in `SymlinkOps`; the create-temp-then-atomic-swap moves into each platform's `MakeLinkTarget`. `src/AgentGuard.Engine/Setup/NativeInterop.cs` is **deleted**. (Consumers, per CodeGraph: `CreationHelper.PointCurrent`/`EnsureBinGuard`, `CurrentSymlinkCondition`, `BinSymlinkCondition`, `InstallIntegrity`; `NativeInterop.Rename` has exactly one caller.)
 
+### `fail-closed-scanner-enumerator-seam` (Tim approved 2026-08-09; he overrode my design here)
+The second AG0009 RED site is `tests/AgentGuard.Tests/AcceptanceFailClosedTests.cs:20`, a test that branches on `OperatingSystem.IsWindows()` to skip itself because it can only fabricate an un-enumerable directory with a POSIX `chmod 000`. The root cause is a missing abstraction: `ProtectedFileScanner` reaches the OS filesystem directly (`Directory.Exists`, `new DirectoryInfo(...).EnumerateFileSystemInfos(...)`), so its fail-closed guarantee can be tested only against a real un-enumerable directory. The fix is a new **engine-level** seam `IDirectoryEnumerator` — NOT a cross-platform interop interface, because directory enumeration through the BCL is OS-uniform, so it does not belong on `IPlatformFileSystem`. It lives beside `IDirectorySkipRule` in the engine root (`src/AgentGuard.Engine/`), never under the frozen `Abstractions/**`.
+- `bool DirectoryExists(string path)` — whether the directory exists.
+- `IReadOnlyList<DirectoryChild> EnumerateChildren(string directoryPath)` — the immediate children of one directory; an inaccessible directory **throws** (`IOException`/`UnauthorizedAccessException`), never silently skipped, so an incomplete walk denies the call rather than hiding a protected file.
+- `DirectoryChild` is `readonly record struct DirectoryChild(string FullPath, bool IsDirectory, bool IsReparsePoint)`, so the scanner never touches `FileSystemInfo`/`FileAttributes`.
+
+`SystemDirectoryEnumerator` is the production adapter that owns the `EnumerationOptions`/`DirectoryInfo` walk and the `IgnoreInaccessible = false` fail-closed behavior; `ProtectedFileScanner` depends on the seam and keeps all its policy (skip rules, protected-set match, reparse skip) over `DirectoryChild`, with no `System.IO` type left in it. Two invariants then get honest, OS-agnostic tests: a `ProtectedFileScanner` unit test asserts the scanner PROPAGATES an inaccessible directory rather than swallowing it; the fail-closed guard test threads a `ThrowingDirectoryEnumerator` through `GuardEngine.CreatePipeline` (an optional parameter defaulting to the real adapter, mirroring the existing region-registry seam) and asserts Deny + zero snapshots. The `OperatingSystem.IsWindows()` branch and both `File.SetUnixFileMode` blocks are deleted. The rejected alternative — housing the OS-specific step in a "CrossPlatform per-OS test library where the analyzer permits it" — is not real: the AG0009 boundary matches only the four exact assembly names and does NOT exempt a `.Tests` sibling, so no analyzer-permitted test library exists.
+Tim: *"YES It is approved and needed and should have been in your first design."* On the general rule this exposed: *"if it is outside your code YOU NEED an abstraction between your code and it for test mocking ALWAYS even when it is built into your favorate library."*
+
 ### `config-protection-crlf-fix`
 The config-protection canonical drift check normalizes line endings (CRLF/LF) so drift is detected identically on Windows (the two non-symlink Windows test failures). This is the guard's own config-protection code from the config-protection contract.
 
@@ -86,13 +95,13 @@ Tim (RDD + cleanup law): *"THE rules will be created and WILL FAIL ... RED ... W
 ### `rule-phase-ruleset` — the four guardrails (DESIGN output, signed off)
 The rule phase creates FOUR guardrails, determined in DESIGN and signed off by Tim (*"I agree those are DAMN fine rules."*). Each is written FIRST — RED where it hits live code, preventive where it does not — and the implementation phase cleans up under them with no suppression.
 1. **Interop boundary** (Roslyn analyzer). `[LibraryImport]`/`[DllImport]` is a build error outside `AgentGuard.CrossPlatform.*`. RED against `src/AgentGuard.Engine/Setup/NativeInterop.cs`; forces its deletion. (This is `interop-ca-rule-enforcement` above.)
-2. **No OS branching in OS-agnostic code** (Roslyn analyzer). A platform `#if`, `OperatingSystem.IsX()`, or `RuntimeInformation.IsOSPlatform` is a build error outside `AgentGuard.CrossPlatform.*`. RED against `src/AgentGuard.Engine/Setup/CreationHelper.cs:46` (`OperatingSystem.IsWindows()`), which the implementation moves behind the interface. Folds in the anti-`#if` rule (was `PLAN-crypto-minting-and-presence` platform decision #2) and keeps the engine and the one spec-test project OS-agnostic.
+2. **No OS branching in OS-agnostic code** (Roslyn analyzer). A platform `#if`, `OperatingSystem.IsX()`, or `RuntimeInformation.IsOSPlatform` is a build error outside `AgentGuard.CrossPlatform.*`. RED against TWO live sites: `src/AgentGuard.Engine/Setup/CreationHelper.cs:46` (`OperatingSystem.IsWindows()`), which the implementation moves behind the interface (`platform-executable-flag`); and `tests/AgentGuard.Tests/AcceptanceFailClosedTests.cs:20` (`OperatingSystem.IsWindows()`), resolved by `fail-closed-scanner-enumerator-seam`. Folds in the anti-`#if` rule (was `PLAN-crypto-minting-and-presence` platform decision #2) and keeps the engine and the one spec-test project OS-agnostic.
 3. **Factory returns the container** (Roslyn analyzer). The platform factory must return `IPlatformServices`, never a bare `IPlatformFileSystem`. Preventive (the factory does not exist yet); pins `platform-create-container` so a later edit cannot collapse it to a bare service.
 4. **POSIX source is link-shared, not copied** (a test, not a C# analyzer). A test asserts the Linux project `<Compile Include=… Link=…>`s the single MacOS POSIX source. It only needs to check the link: a real second copy would be the same type and namespace compiled twice into one assembly (a duplicate-type build error), so the compiler already forbids the copy. Fences `three-per-os-libs-shared-source`.
 
 ## What we're building
 
-A governed native-interop framework and the engine change that uses it, so the guard runs correctly on macOS, Linux, and Windows. The `AgentGuard.CrossPlatform` contract assembly holds pure interfaces + the `Platform.Create()` container factory; three per-OS libraries implement them (POSIX source authored once, link-shared mac→linux; Windows authors its own with `MoveFileEx`); one OS-agnostic spec project proves identical behavior across all three; the engine's `SymlinkOps` is rewired to the interface and `NativeInterop.cs` is deleted; the config-protection CRLF gap is fixed. This unblocks the CI/CD contract's Windows-Intel test leg.
+A governed native-interop framework and the engine change that uses it, so the guard runs correctly on macOS, Linux, and Windows. The `AgentGuard.CrossPlatform` contract assembly holds pure interfaces + the `Platform.Create()` container factory; three per-OS libraries implement them (POSIX source authored once, link-shared mac→linux; Windows authors its own with `MoveFileEx`); one OS-agnostic spec project proves identical behavior across all three; the engine's `SymlinkOps` is rewired to the interface and `NativeInterop.cs` is deleted; the scanner's raw filesystem walk moves behind a new `IDirectoryEnumerator` engine seam so the fail-closed acceptance test drops its OS branch; the config-protection CRLF gap is fixed. This unblocks the CI/CD contract's Windows-Intel test leg.
 
 ## Success definition
 
@@ -111,6 +120,7 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 ## Surfaces
 
 - **New:** `src/AgentGuard.CrossPlatform/` (interfaces `IPlatformServices`, `IPlatformFileSystem`; assembly-info); `src/AgentGuard.CrossPlatform.MacOS/` (the POSIX impl authored here); `src/AgentGuard.CrossPlatform.Linux/` (links the POSIX `.cs`); `src/AgentGuard.CrossPlatform.Windows/` (`MoveFileEx` impl); `tests/AgentGuard.CrossPlatform.Tests/` (the one OS-agnostic spec project). The prototype at `proto/platform-interop/` is the structural model.
+- **New (engine seam, non-frozen) — `fail-closed-scanner-enumerator-seam`:** `src/AgentGuard.Engine/IDirectoryEnumerator.cs` (the `IDirectoryEnumerator` interface + the `DirectoryChild` record struct, beside `IDirectorySkipRule`, NOT under `Abstractions/**`) and `src/AgentGuard.Engine/SystemDirectoryEnumerator.cs` (the production adapter). Edited: `src/AgentGuard.Engine/ProtectedFileScanner.cs` (walk moved behind the seam, no `System.IO` left in it), `src/AgentGuard.Engine/GuardEngine.cs` (threads the optional `IDirectoryEnumerator`). Tests: `tests/AgentGuard.Tests/ThrowingDirectoryEnumerator.cs`, the rewritten `tests/AgentGuard.Tests/AcceptanceFailClosedTests.cs` (no OS branch, no chmod), and a new `ProtectedFileScanner` propagation unit test.
 - **Edited (engine, non-frozen):** `src/AgentGuard.Engine/Setup/SymlinkOps.cs` (rewired to `IPlatformFileSystem`); `CreationHelper.cs`, `CurrentSymlinkCondition.cs`, `BinSymlinkCondition.cs`, `InstallIntegrity.cs` (obtain/read via the interface); wherever the `IPlatformServices` is constructed and threaded (via `GuardEngine`/`SetupContext`); the config-protection canonicalizer (CRLF normalization).
 - **Deleted:** `src/AgentGuard.Engine/Setup/NativeInterop.cs`.
 - **Solution + CI:** add the new projects to the solution; the CI legs already build/test all six RIDs (the CI/CD contract) — no CI change needed here beyond the projects being in the build.
@@ -127,6 +137,7 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 | symlinkops-rewire-nativeinterop-removal | new | `SymlinkOps` still calls `NativeInterop` directly; the rewire + deletion is new work. |
 | config-crlf-normalization | new | No CRLF/LF normalization exists in the canonical drift path (`RegionDiffer`/`JsonRegionAdapter`). |
 | interop-osbranching-factory-analyzers (AG0008/AG0009/AG0010 + link-shared test) | reuse | Created in this contract's rule phase; they now exist. |
+| directory-enumerator-seam (`IDirectoryEnumerator`) | new | `ProtectedFileScanner` walks the raw filesystem inline (`Directory.Exists`, `DirectoryInfo.EnumerateFileSystemInfos`); the seam + `SystemDirectoryEnumerator` adapter + `ThrowingDirectoryEnumerator` test double are new. |
 
 ## What to do
 
@@ -134,10 +145,11 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 2. Build the three per-OS libraries (`three-per-os-libs-shared-source`): MacOS authors the POSIX `PosixFileSystem` (`ReadLinkTarget`/`RemoveLinkTarget` managed; `MakeLinkTarget` = create temp link + `libc rename`, creating missing parents); Linux `<Compile Link>`s the identical POSIX source; Windows authors its own (`MakeLinkTarget` = create temp link + `MoveFileEx REPLACE_EXISTING`; `RemoveLinkTarget` uses the Windows call that removes a directory vs file symlink; parents created identically).
 3. Build the one `AgentGuard.CrossPlatform.Tests` (`one-osagnostic-spec-test-project`): the prototype's six spec tests plus a parent-directory-creation test (`behavioral-uniformity-proven-by-spec`); tighten the no-stray-temp test to assert the directory contains exactly the expected entries; the impl is swapped per-OS by csproj.
 4. Rewire the engine (`wire-engine-delete-nativeinterop`): thread an `IPlatformFileSystem` through `SymlinkOps` and its consumers; keep the idempotency compare engine-side; delete `NativeInterop.cs`; the real engine tests mock the interface.
-5. Fix the config-protection CRLF canonicalization (`config-protection-crlf-fix`).
-6. Add the "enable Developer Mode / run elevated" clear error for the rare no-privilege Windows case (`keep-symlinks-audience-has-privilege`), and a line in the alpha-run doc.
-7. The interop CA-rule is created and wired in the **rule phase** (going red against `NativeInterop.cs`); the **implementation phase** cleans up `NativeInterop.cs` until green under it (see Execution). No exemption, no suppression.
-8. Prove: `dotnet build`/`test` green locally; then the CI/CD pipeline green on all three OS on GitHub (the CI/CD contract's success).
+5. Add the `IDirectoryEnumerator` engine seam (`fail-closed-scanner-enumerator-seam`): move `ProtectedFileScanner`'s raw filesystem walk into a `SystemDirectoryEnumerator` adapter behind the interface (the scanner keeps its policy over `DirectoryChild`); thread an optional `IDirectoryEnumerator` through `GuardEngine.CreatePipeline`, defaulting to the real adapter, mirroring the region-registry seam; add a `ProtectedFileScanner` unit test that asserts it propagates an inaccessible directory; rewrite `AcceptanceFailClosedTests.cs` to inject a `ThrowingDirectoryEnumerator`, deleting its `OperatingSystem.IsWindows()` branch and both `File.SetUnixFileMode` blocks.
+6. Fix the config-protection CRLF canonicalization (`config-protection-crlf-fix`).
+7. Add the "enable Developer Mode / run elevated" clear error for the rare no-privilege Windows case (`keep-symlinks-audience-has-privilege`), and a line in the alpha-run doc.
+8. The interop CA-rule is created and wired in the **rule phase** (going red against `NativeInterop.cs`); the **implementation phase** cleans up `NativeInterop.cs` until green under it (see Execution). No exemption, no suppression.
+9. Prove: `dotnet build`/`test` green locally; then the CI/CD pipeline green on all three OS on GitHub (the CI/CD contract's success).
 
 ## What the agent MUST NOT do
 
@@ -161,6 +173,19 @@ Any restatement or weakening of this to fit the result is a top-line Lie-catcher
 ## Open
 
 - Structural confirm: this is a **new contract** that gates the CI/CD contract's completion (vs. edited into the CI/CD contract). Proceeding this way per Tim's "extended contract to this one"; flag if you want it merged into the CI/CD file instead.
+
+### Pending decisions carried out of the 2026-08-09 session (Tim has NOT ruled)
+The `InstallIntegrity` writable-check (`InstallIntegrity.cs:127`, `new FileInfo(path).UnixFileMode`) is a genuinely OS-divergent read that returns wrong on Windows (the `UnixFileMode` getter returns all-bits-set → the tamper warning prints on every hook). Three coupled decisions were presented with picks and are STILL OPEN:
+- `grow-locked-interface` (pick: **yes**) — add `bool IsWritableByCurrentUser(string path)` to the locked `IPlatformFileSystem` (POSIX `access(W_OK)` via P/Invoke; Windows via DACL evaluation). A locked-interface change needs Tim's explicit yes.
+- `writable-fix-scope` (pick: **this contract**) — fix it here vs a follow-up. `InstallIntegrity` is already edited here for the symlink read.
+- `writable-semantic` (pick: **file-contents-modifiable**) — "can the current user modify the file's contents" vs the broader "image replaceable = file OR parent-dir writable".
+Do not implement the writable check until these are ruled.
+
+### Coordination with the filesystem-seam contract (`../2026-08-09-filesystem-seam-and-boundary-rules/`)
+That contract is the larger boundary framework. Two overlaps:
+- `IDirectoryEnumerator` (this contract's `fail-closed-scanner-enumerator-seam`) is also one of that contract's seven boundary interfaces — the same interface, defined once.
+- This contract's OS-divergent surface (symlink/Unix-mode/`Marshal`/libc `rename`) becomes **AG0101** in that contract's scheme, and `IPlatformFileSystem` would move from `AgentGuard.CrossPlatform` into the new `AgentGuard.Abstractions` assembly — a change to the locked `namespace-crossplatform` decision that needs Tim's explicit yes. NOT decided.
+Sequencing of the two contracts is Tim's call.
 
 ## Tier
 

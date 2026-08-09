@@ -2,7 +2,7 @@
 
 The checked-in index of every part and its status. **Read this before working the system, and list from the files, not from memory.** Supersedes `STATE-OF-THE-WORK`; `RESUME.md` stays the verbatim-decision record.
 
-_Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — everything below is UNCOMMITTED on it._
+_Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `8976948`._
 
 ## Global (personal — `~/.codex`, `~/.claude`)
 | Part | What | Status |
@@ -33,15 +33,17 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 |---|---|---|---|
 | prior-art-ledger | DRY prior-art search | `./.agents/workflows/prior-art-ledger.js` | done, proven once |
 | hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, proven once (CrossPlatform contract) |
-| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | built, **never run** |
-| DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** |
+| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | **running now** (filesystem-seam, `wf_102e11b0-164`) — first real run |
+| DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** (filesystem-seam design done interactively + via ad-hoc design/refute agents) |
 | REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | built, **never run** |
-| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | built, **running now** (first run, CrossPlatform) |
+| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | run once — CrossPlatform AG0008/9/10 + link test committed (`adf1be5`) |
 | IMPLEMENT script | single fresh worker, canonical prompt | `./.agents/workflows/implement.js` | built, **never run** |
 | tools' home | the two real ones live in `./.agents/workflows`; `./.claude/workflows` symlinks to it | done |
 
 ## Fence (analyzers — `./analyzers/AgentGuard.Analyzers/`)
 - AG0001–AG0007 (architecture rules) — existing
+- AG0008 (interop-only-in-crossplatform), AG0009 (no-OS-branching), AG0010 (factory-returns-container) + link-shared-source test — CrossPlatform rule phase, committed
+- AG0011–AG0017 + AG0101 (boundary-call ban + construction pin + OS-divergent series) — filesystem-seam contract, to build in its RULE-PHASE
 - new rules per task, written in the RULE-PHASE — ongoing
 
 ## Cross-tool / deploy
@@ -51,12 +53,13 @@ _Verified 2026-08-08. Branch `proto/platform-interop` (a disposable spike) — e
 | deploy-skill-set-to-projects (install rails into other repos, self-injected managed block) | to build — issue #8 |
 | prettier format-on-write hook | pending Tim's go |
 
-## Product workstreams (the real work — untouched this session)
+## Product workstreams (the real work)
 | Work | Status |
 |---|---|
-| CrossPlatform — 3 libs, delete `NativeInterop.cs`, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | locked, not built |
+| Filesystem seam + boundary rules — 3 new assemblies (Abstractions/Boundaries/TestHelpers), 7 boundary interfaces, `ISystemServices` container + 2 construction walls, AG0011–AG0017 + AG0101, ~113-site cleanup, the test system; decisions at `./.dev/inprocess/2026-08-09-filesystem-seam-and-boundary-rules/DECISIONS.md` | design settled; GROUND running (`wf_102e11b0-164`); contract next |
+| CrossPlatform — 3 libs, delete `NativeInterop.cs`, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | contract updated (enumerator seam added; rule phase's AG0008/9/10 committed); **3 InstallIntegrity writable-check decisions PENDING** (see the contract's Open); not yet implemented |
 | CI/CD — PR #7, green on 3 OS; contract at `./.dev/inprocess/2026-08-03-ci-cd-build-sign-release/contract.md` | RED on the Windows leg (blocked on CrossPlatform) |
-| interop CA rule + anti-`#if` analyzer | to build (in CrossPlatform's RULE-PHASE) |
+| interop CA rule + anti-`#if` analyzer | done — AG0008/AG0009 committed in CrossPlatform's rule phase |
 
 ## Repo hygiene
 - **Commit:** reorg committed on `rules-and-process` (branched off `52cb508`, disposable spike excluded) — `70d020e` (reorg) + `0ec176b` (bracket/tier reconciliation). Not pushed.
