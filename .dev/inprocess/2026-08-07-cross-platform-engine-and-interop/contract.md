@@ -199,6 +199,9 @@ That contract is the larger boundary framework; **this cross-platform contract l
 - `IDirectoryEnumerator` (this contract's `fail-closed-scanner-enumerator-seam`) is also one of that contract's boundary interfaces — the same interface, built here once and reused there.
 - This contract's OS-divergent surface (symlink/Unix-mode/`Marshal`/libc `rename`) becomes **AG0101** in that contract's scheme, and `IPlatformFileSystem` is defined here in `AgentGuard.CrossPlatform` (its locked `namespace-crossplatform` decision, unchanged). Whether the lockdown contract later pulls `IPlatformFileSystem` into its new `AgentGuard.Abstractions` assembly is a decision for that contract when it runs; NOT decided now.
 
+### Accepted known limitations (acknowledged by Tim — do NOT re-surface)
+- The Windows re-point (`FSCTL_SET_REPARSE_POINT`) compiles and macOS stays green, but its runtime behavior is provable only on real Windows CI, deferred until the branch is pushed. **Tim acknowledged and accepted this 2026-08-09. Do not raise it again in any report.**
+
 ## Tier
 
 FULL — new assemblies, a native-interop framework, engine rewiring, a deletion, and cross-OS behavior proven live; all roles.
