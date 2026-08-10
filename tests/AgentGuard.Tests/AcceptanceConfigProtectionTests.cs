@@ -328,7 +328,7 @@ public sealed class AcceptanceConfigProtectionTests
                 call,
                 () => fixture.WriteFile(
                     CoreSystemPaths.ClaudeSettingsRelative,
-                    original.Replace(Launcher(), "/tmp/evil/guard", StringComparison.Ordinal)))
+                    ClaudeSettingsWiring.AddGuardEntries(original, "/tmp/evil/guard").Json!))
             .ConfigureAwait(false);
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
