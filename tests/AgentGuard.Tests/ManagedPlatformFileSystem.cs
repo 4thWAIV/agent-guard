@@ -26,17 +26,7 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
         string linkDirectory = Path.GetDirectoryName(linkPath)!;
         Directory.CreateDirectory(linkDirectory);
         PlatformFileSystemShared.DeleteLinkEntry(linkPath);
-
-        // Choose the symlink kind from the resolved target so the link resolves correctly on every OS (matters on
-        // Windows; harmless on POSIX). The raw relative target is stored verbatim.
-        if (Directory.Exists(Path.GetFullPath(Path.Combine(linkDirectory, relativeTarget))))
-        {
-            Directory.CreateSymbolicLink(linkPath, relativeTarget);
-        }
-        else
-        {
-            File.CreateSymbolicLink(linkPath, relativeTarget);
-        }
+        PlatformFileSystemShared.CreateLinkEntry(linkPath, relativeTarget);
     }
 
     public void RemoveLinkTarget(string linkPath)

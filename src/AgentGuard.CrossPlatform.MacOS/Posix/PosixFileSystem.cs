@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 
 namespace AgentGuard.CrossPlatform.Posix;
 
@@ -69,7 +70,7 @@ internal sealed class PosixFileSystem : IPlatformFileSystem
     /// <inheritdoc/>
     public bool IsExecutable(string path)
     {
-        if (OperatingSystem.IsWindows())
+        if (!IsPosix())
         {
             throw new PlatformNotSupportedException(WindowsNotSupported);
         }
@@ -80,7 +81,7 @@ internal sealed class PosixFileSystem : IPlatformFileSystem
     /// <inheritdoc/>
     public void MakeExecutable(string path)
     {
-        if (OperatingSystem.IsWindows())
+        if (!IsPosix())
         {
             throw new PlatformNotSupportedException(WindowsNotSupported);
         }
@@ -91,13 +92,20 @@ internal sealed class PosixFileSystem : IPlatformFileSystem
     /// <inheritdoc/>
     public void MakeNonExecutable(string path)
     {
-        if (OperatingSystem.IsWindows())
+        if (!IsPosix())
         {
             throw new PlatformNotSupportedException(WindowsNotSupported);
         }
 
         File.SetUnixFileMode(path, File.GetUnixFileMode(path) & ~ExecuteBits);
     }
+
+    // The single Windows guard for the three POSIX-only executable-bit methods. [UnsupportedOSPlatformGuard("windows")]
+    // states that a true result guarantees the code is not on Windows, so the File.Get/SetUnixFileMode calls each
+    // method reaches after this guard passes are proven safe to CA1416 without a suppression. Mirrors the approved
+    // guard in PlatformFileSystemSpecTests.
+    [UnsupportedOSPlatformGuard("windows")]
+    private static bool IsPosix() => !OperatingSystem.IsWindows();
 
     private static void TryRemoveLink(string linkPath)
     {

@@ -68,7 +68,7 @@ internal sealed class WindowsFileSystem : IPlatformFileSystem
         }
         else
         {
-            CreateSymbolicLink(linkPath, relativeTarget, linkDirectory);
+            CreateSymbolicLink(linkPath, relativeTarget);
         }
     }
 
@@ -97,27 +97,25 @@ internal sealed class WindowsFileSystem : IPlatformFileSystem
     public void MakeNonExecutable(string path) =>
         throw new PlatformNotSupportedException("Windows has no executable bit; guard MakeNonExecutable on NeedsExecutableFlag().");
 
-    private static void CreateSymbolicLink(string linkPath, string relativeTarget, string linkDirectory)
+    private static void CreateSymbolicLink(string linkPath, string relativeTarget)
     {
-        // Windows records a symlink as either a directory link or a file link, so the kind is inferred from the
-        // target here (refute-round2 option B, kept inside this implementation). Precondition: the target exists when
-        // a fresh link is created — the guard's version pointers always target an already-created versions directory,
-        // so the link is created as a directory link and resolves/traverses as a directory.
-        bool targetIsDirectory = Directory.Exists(Path.GetFullPath(Path.Combine(linkDirectory, relativeTarget)));
+        // The kind inference and the fresh-create are the OS-uniform recipe shared with the test double; only the
+        // privilege-not-held mapping to the Developer-Mode guidance is Windows-specific, so it stays here.
         try
         {
-            if (targetIsDirectory)
-            {
-                Directory.CreateSymbolicLink(linkPath, relativeTarget);
-            }
-            else
-            {
-                File.CreateSymbolicLink(linkPath, relativeTarget);
-            }
+            PlatformFileSystemShared.CreateLinkEntry(linkPath, relativeTarget);
         }
         catch (IOException exception) when (exception.HResult == PrivilegeNotHeldHResult)
         {
             throw new UnauthorizedAccessException(DeveloperModeMessage, exception);
+        }
+    }
+
+    private static void ThrowIfPrivilegeNotHeld(int error)
+    {
+        if (error == PrivilegeNotHeldWin32Error)
+        {
+            throw new UnauthorizedAccessException(DeveloperModeMessage);
         }
     }
 
@@ -142,10 +140,7 @@ internal sealed class WindowsFileSystem : IPlatformFileSystem
                 IntPtr.Zero))
         {
             int error = Marshal.GetLastPInvokeError();
-            if (error == PrivilegeNotHeldWin32Error)
-            {
-                throw new UnauthorizedAccessException(DeveloperModeMessage);
-            }
+            ThrowIfPrivilegeNotHeld(error);
 
             throw new IOException(
                 $"Failed to atomically re-point '{linkPath}' at '{relativeTarget}' (Win32 error {error}).");
@@ -167,10 +162,7 @@ internal sealed class WindowsFileSystem : IPlatformFileSystem
         {
             int error = Marshal.GetLastPInvokeError();
             handle.Dispose();
-            if (error == PrivilegeNotHeldWin32Error)
-            {
-                throw new UnauthorizedAccessException(DeveloperModeMessage);
-            }
+            ThrowIfPrivilegeNotHeld(error);
 
             throw new IOException($"Failed to open the link '{linkPath}' to re-point it (Win32 error {error}).");
         }

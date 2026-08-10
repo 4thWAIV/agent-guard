@@ -109,6 +109,30 @@ public static class PlatformFileSystemShared
     }
 
     /// <summary>
+    /// Creates a fresh symlink at <paramref name="linkPath"/> pointing at <paramref name="relativeTarget"/>, choosing
+    /// the directory-symlink or file-symlink call by the kind of the resolved target. Windows records the two kinds
+    /// distinctly and needs the right one for the link to resolve; the choice is harmless on POSIX. The raw relative
+    /// target is stored verbatim. The precondition is that the target already exists so its kind can be read (the
+    /// guard's version pointers always target an already-created versions directory). This is the managed create the
+    /// Windows implementation and the engine test double share; the POSIX implementation creates a link of either kind
+    /// with a single native call and so does not need this kind branch.
+    /// </summary>
+    /// <param name="linkPath">The symlink to create.</param>
+    /// <param name="relativeTarget">The raw relative target, stored verbatim.</param>
+    public static void CreateLinkEntry(string linkPath, string relativeTarget)
+    {
+        string linkDirectory = Path.GetDirectoryName(linkPath)!;
+        if (Directory.Exists(Path.GetFullPath(Path.Combine(linkDirectory, relativeTarget))))
+        {
+            Directory.CreateSymbolicLink(linkPath, relativeTarget);
+        }
+        else
+        {
+            File.CreateSymbolicLink(linkPath, relativeTarget);
+        }
+    }
+
+    /// <summary>
     /// The single concrete <see cref="IPlatformServices"/> container, owned once here because it holds zero
     /// OS-specific logic. Every per-OS factory obtains it through <see cref="CreateServices"/>; new capabilities are
     /// added as constructor-injected properties here without changing the factory signature or any caller.
