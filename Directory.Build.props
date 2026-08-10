@@ -1,0 +1,83 @@
+<Project>
+
+  <!-- Strong-naming + signed/unsigned selection + the InternalsVisibleTo transform (decisions 20/21/35). -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/signing.props" />
+
+  <!-- Build version (decisions 15-17/25). MAJOR.MINOR from one config file; Day/Time/Combined/hash come in from
+       CI (-p:AgentGuard* globals), or from the generated file (written by the pre-solution target on a solution
+       build, or by the per-project fallback on a lone/test build). -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.props" />
+  <Import Project="$(MSBuildThisFileDirectory)eng/obj/version.g.props" Condition="Exists('$(MSBuildThisFileDirectory)eng/obj/version.g.props')" />
+
+  <PropertyGroup Label="Target framework and language">
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Continuous integration" Condition="'$(CI)' == 'true'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Warnings and static analysis">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <CodeAnalysisTreatWarningsAsErrors>true</CodeAnalysisTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Package metadata">
+    <Authors>4thWAIV</Authors>
+    <Company>4thWAIV</Company>
+    <Product>AgentGuard</Product>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <!-- Static version metadata (decision 33). The two version forms are stamped in a target
+       (Directory.Build.targets); these are the id-independent bits. The SDK derives the Win32 FileDescription
+       from AssemblyTitle (a plain <FileDescription> property is inert), so AssemblyTitle carries decision 33's
+       description; Copyright becomes the Win32 LegalCopyright. -->
+  <PropertyGroup Label="Build version">
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <AssemblyTitle>AgentGuard guards critical files from agent changes</AssemblyTitle>
+    <Copyright>Copyright © 2026 4thWAIV</Copyright>
+    <!-- The NuGet package version. NuGet resolves it outside the stamp target, so set PackageVersion at
+         evaluation time from the id (args or the generated file). Using PackageVersion, not Version, keeps it
+         off AssemblyVersion derivation — so the unstamped analyzer project isn't given an out-of-range version. -->
+    <PackageVersion Condition="'$(AgentGuardTag)' != ''">$(AgentGuardTag)</PackageVersion>
+  </PropertyGroup>
+
+  <ItemGroup Label="Best-practice analyzer suite">
+    <PackageReference Include="StyleCop.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Formatting.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.CodeAnalysis.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="SonarAnalyzer.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup Label="Source link">
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup Label="StyleCop configuration">
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
+  </ItemGroup>
+
+  <ItemGroup Label="Test-only analyzer relaxations" Condition="'$(AgentGuardIsTestProject)' == 'true'">
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)eng/agentguard-test-analyzer-relaxations.globalconfig" />
+  </ItemGroup>
+
+  <ItemGroup Label="Custom analyzer wiring" Condition="'$(AgentGuardIsAnalyzerProject)' != 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+</Project>

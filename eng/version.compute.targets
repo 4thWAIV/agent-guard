@@ -1,0 +1,93 @@
+<Project>
+
+  <!--
+    Build-id resolution, shared by the pre-solution target (Directory.Solution.targets) and the per-project
+    fallback (Directory.Build.targets). The Day/Time math lives here once (the authorized bash mirror is
+    eng/compute-build-id.sh).
+
+    AgentGuardResolveVersion fills AgentGuardDay/Time/Combined/Hash when they were not supplied as args (A):
+      1. If a generated file already exists this build (written by the pre-solution target B, or by the first
+         project in a non-solution build C), READ it — so every project in one build shares the one id.
+      2. Otherwise compute the id once and WRITE the file, so the rest of this build reads the same value.
+  -->
+
+  <PropertyGroup>
+    <AgentGuardVersionFile>$(MSBuildThisFileDirectory)obj/version.g.props</AgentGuardVersionFile>
+  </PropertyGroup>
+
+  <Target Name="AgentGuardResolveVersion" Condition="'$(AgentGuardDay)' == ''">
+    <!-- 1. Prefer a file already written this build (shared id). -->
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardDay/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardDay" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardTime/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardTime" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardCombined/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardCombined" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardHash/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardHash" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardTag/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardTag" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(AgentGuardVersionFile)" Query="/Project/PropertyGroup/AgentGuardVersion/text()" Condition="Exists('$(AgentGuardVersionFile)')">
+      <Output TaskParameter="Result" PropertyName="AgentGuardVersion" />
+    </XmlPeek>
+
+    <!-- 2. No file yet: compute once and write it so the rest of this build shares it. -->
+    <CallTarget Targets="AgentGuardComputeAndWriteVersion" Condition="'$(AgentGuardDay)' == ''" />
+  </Target>
+
+  <Target Name="AgentGuardComputeAndWriteVersion" DependsOnTargets="AgentGuardComputeCore">
+    <MakeDir Directories="$(MSBuildThisFileDirectory)obj" />
+    <ItemGroup>
+      <_AgLine Include="&lt;Project&gt;" />
+      <_AgLine Include="  &lt;PropertyGroup&gt;" />
+      <_AgLine Include="    &lt;AgentGuardDay&gt;$(_AgDay)&lt;/AgentGuardDay&gt;" />
+      <_AgLine Include="    &lt;AgentGuardTime&gt;$(_AgTime)&lt;/AgentGuardTime&gt;" />
+      <_AgLine Include="    &lt;AgentGuardCombined&gt;$(_AgCombined)&lt;/AgentGuardCombined&gt;" />
+      <_AgLine Include="    &lt;AgentGuardHash&gt;$(_AgHash)&lt;/AgentGuardHash&gt;" />
+      <_AgLine Include="    &lt;AgentGuardTag&gt;$(_AgTag)&lt;/AgentGuardTag&gt;" />
+      <_AgLine Include="    &lt;AgentGuardVersion&gt;$(_AgVersion)&lt;/AgentGuardVersion&gt;" />
+      <_AgLine Include="  &lt;/PropertyGroup&gt;" />
+      <_AgLine Include="&lt;/Project&gt;" />
+    </ItemGroup>
+    <!-- Write to a temp file then atomically move, so a concurrent reader never sees a torn/partial file. -->
+    <WriteLinesToFile File="$(AgentGuardVersionFile).tmp" Lines="@(_AgLine)" Overwrite="true" />
+    <Move SourceFiles="$(AgentGuardVersionFile).tmp" DestinationFiles="$(AgentGuardVersionFile)" OverwriteReadOnlyFiles="true" />
+    <PropertyGroup>
+      <AgentGuardDay>$(_AgDay)</AgentGuardDay>
+      <AgentGuardTime>$(_AgTime)</AgentGuardTime>
+      <AgentGuardCombined>$(_AgCombined)</AgentGuardCombined>
+      <AgentGuardHash>$(_AgHash)</AgentGuardHash>
+      <AgentGuardTag>$(_AgTag)</AgentGuardTag>
+      <AgentGuardVersion>$(_AgVersion)</AgentGuardVersion>
+    </PropertyGroup>
+  </Target>
+
+  <!-- The one MSBuild copy of the Day/Time/Combined/hash formula AND the assembled tag/SemVer (the CI-side mirror
+       is eng/compute-build-id.sh). The -pre-release suffix (channel-by-prerelease-id) is applied ONLY here on the
+       local side; no stamp target, project, or job re-joins the string (compute-version-once). -->
+  <Target Name="AgentGuardComputeCore">
+    <PropertyGroup>
+      <!-- Read the clock ONCE so Day and Time can never come from two different instants at the day boundary. -->
+      <_AgTicks>$([System.DateTime]::UtcNow.Ticks)</_AgTicks>
+      <_AgDay>$([System.DateTime]::new($(_AgTicks)).Subtract($([System.DateTime]::new(2020,1,1))).Days)</_AgDay>
+      <_AgTime>$([System.Convert]::ToInt32($([System.Math]::Floor($([MSBuild]::Divide($([System.DateTime]::new($(_AgTicks)).TimeOfDay.TotalSeconds), 2))))))</_AgTime>
+      <_AgCombined>$([MSBuild]::Add($([MSBuild]::Multiply($(_AgDay), 43200)), $(_AgTime)))</_AgCombined>
+    </PropertyGroup>
+    <Exec Command="git rev-parse --short=7 HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_AgHash" />
+      <Output TaskParameter="ExitCode" PropertyName="_AgGitRc" />
+    </Exec>
+    <PropertyGroup>
+      <_AgHash Condition="'$(_AgGitRc)' != '0' or '$(_AgHash)' == ''">local</_AgHash>
+      <_AgPre Condition="'$(AgentGuardChannel)' == 'dev'">-pre-release</_AgPre>
+      <_AgTag>$(AgentGuardMajorMinor).$(_AgCombined)$(_AgPre)</_AgTag>
+      <_AgVersion>$(_AgTag)+$(_AgHash)</_AgVersion>
+    </PropertyGroup>
+  </Target>
+
+</Project>

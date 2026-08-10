@@ -1,0 +1,20 @@
+<Project>
+
+  <!-- MAJOR.MINOR (for the log line) + the shared build-id resolution. -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.props" />
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.compute.targets" />
+
+  <!--
+    Pre-solution build target (decision 25). Runs ONCE, before any project in the solution builds/rebuilds/
+    publishes/packs. Unless CI supplied the id via -p:AgentGuardDay, it computes a FRESH id and writes
+    eng/obj/version.g.props, which every project then reads — so a solution build (including a clean Rebuild)
+    mints a new id and all projects share it.
+  -->
+  <Target Name="AgentGuardComputeVersion"
+          BeforeTargets="Build;Rebuild;Publish;Pack"
+          Condition="'$(AgentGuardDay)' == ''"
+          DependsOnTargets="AgentGuardComputeAndWriteVersion">
+    <Message Importance="high" Text="AgentGuard build id computed: $(AgentGuardMajorMinor).$(AgentGuardCombined)+$(AgentGuardHash) (Day=$(AgentGuardDay) Time=$(AgentGuardTime))" />
+  </Target>
+
+</Project>

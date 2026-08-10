@@ -1,0 +1,34 @@
+<Project>
+
+  <!-- Shared build-id resolution (one MSBuild copy of the formula). -->
+  <Import Project="$(MSBuildThisFileDirectory)eng/version.compute.targets" />
+
+  <!--
+    Stamp the two version forms (decisions 15-17) after the id is resolved, before the SDK turns them into
+    assembly attributes.
+
+    AgentGuardResolveVersion (its DependsOn) fills the id when it wasn't supplied as args and the pre-solution
+    target didn't already set it: it reads the shared file another project in THIS build wrote, or writes it
+    once itself — so every project in one build carries the same id (compute-once holds for solution builds,
+    `dotnet test`, and single/multi-project builds alike).
+
+    No placeholder ever: if the id is still incomplete here (e.g. partial CI args), fail loudly.
+  -->
+  <Target Name="AgentGuardStampVersion"
+          BeforeTargets="GetAssemblyVersion;GetAssemblyAttributes;CoreGenerateAssemblyInfo;CoreCompile"
+          DependsOnTargets="AgentGuardResolveVersion"
+          Condition="'$(AgentGuardIsAnalyzerProject)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(AgentGuardDay)' == '' or '$(AgentGuardTime)' == '' or '$(AgentGuardCombined)' == '' or '$(AgentGuardHash)' == '' or '$(AgentGuardTag)' == '' or '$(AgentGuardVersion)' == ''"
+           Text="Incomplete AgentGuard build id (need Day, Time, Combined, Hash, Tag, and Version together). This build refuses to stamp a placeholder version." />
+    <!-- Pure consumer of the single assembled id: Tag (=Version, no +hash) and Version (=InformationalVersion,
+         with +hash) come from the one owner (eng/version.compute.targets locally, the `version` job / -p args in
+         CI). This target never re-joins MAJOR.MINOR/Combined or re-applies -pre-release (compute-version-once). -->
+    <PropertyGroup>
+      <AssemblyVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</AssemblyVersion>
+      <FileVersion>$(AgentGuardMajorMinor).$(AgentGuardDay).$(AgentGuardTime)</FileVersion>
+      <Version>$(AgentGuardTag)</Version>
+      <InformationalVersion>$(AgentGuardVersion)</InformationalVersion>
+    </PropertyGroup>
+  </Target>
+
+</Project>
