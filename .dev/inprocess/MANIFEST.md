@@ -2,7 +2,7 @@
 
 The checked-in index of every part and its status. **Read this before working the system, and list from the files, not from memory.** Supersedes `STATE-OF-THE-WORK`; `RESUME.md` stays the verbatim-decision record.
 
-_Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `8976948`._
+_Verified 2026-08-10. CrossPlatform + CI/CD shipped to `dev` — full pipeline green on all 3 OS, six signed binaries published, branch protection on `dev`+`main`. Both contracts moved to `.dev/completed/run-records/`._
 
 ## Global (personal — `~/.codex`, `~/.claude`)
 | Part | What | Status |
@@ -56,9 +56,9 @@ _Verified 2026-08-09. Branch `rules-and-process` (not pushed). Latest commit `89
 ## Product workstreams (the real work)
 | Work | Status |
 |---|---|
-| **CrossPlatform (DO FIRST — Tim ruled 2026-08-09)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, delete `NativeInterop.cs`, chmod→`MakeExecutable`, fail-closed fix, remove the writable-check, CRLF fix; contract at `./.dev/inprocess/2026-08-07-cross-platform-engine-and-interop/contract.md` | IMPLEMENTED, local checkpoint `82ab9ef` (NOT pushed/accepted); REFUTE round 3 = 4/5 PASS incl the Lie-catcher, live `guard install` proven on macOS; ONE DRY dup fix left (Windows link-kind → `PlatformFileSystemShared`) → re-REFUTE round 4 → accept; then Tim's push runs the 3 CI legs. See `RESUME.md` in the contract folder. |
-| CLR-primitive lockdown (was "filesystem seam + boundary rules") — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-clr-primitive-lockdown/DECISIONS.md` | **PARKED behind CrossPlatform**; design settled + GROUND done (106 sites/34 files, all captured in DECISIONS.md); resumes after CrossPlatform ships |
-| CI/CD — PR #7, green on 3 OS; contract at `./.dev/inprocess/2026-08-03-ci-cd-build-sign-release/contract.md` | RED on the Windows leg (blocked on CrossPlatform) |
+| **CrossPlatform — DONE (shipped 2026-08-10)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, `NativeInterop.cs` deleted, chmod→`MakeExecutable`, fail-closed fix, writable-check removed, CRLF fix; contract at `./.dev/completed/run-records/2026-08-07-cross-platform-engine-and-interop/contract.md` | DONE — merged to `dev`, full CI green on all 3 OS. The per-OS `IPlatformFileSystem` libraries replace the Unix-only interop; the RID-selection double-build was fixed (Cli `AdditionalProperties` made conditional on a non-empty RID). |
+| CLR-primitive lockdown (was "filesystem seam + boundary rules") — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-clr-primitive-lockdown/DECISIONS.md` | **UNBLOCKED — next on deck** (CrossPlatform shipped 2026-08-10); design settled + GROUND done (106 sites/34 files in DECISIONS.md). Related: issue #13 (seam-at-every-boundary rule), #14 (boundary-violation inventory). |
+| CI/CD — DONE; contract at `./.dev/completed/run-records/2026-08-03-ci-cd-build-sign-release/contract.md` | DONE — full pipeline (build/test/sign/verify/release) green on GitHub all 3 OS; six signed binaries published as pre-release `0.1.104270894` on `dev`; branch protection on `dev`+`main` (gate required). `dev→main` PR #19 open to cut the full/latest release. |
 | interop CA rule + anti-`#if` analyzer | done — AG0008/AG0009 committed in CrossPlatform's rule phase |
 
 ## Repo hygiene
