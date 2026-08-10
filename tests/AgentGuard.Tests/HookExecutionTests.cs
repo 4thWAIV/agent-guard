@@ -13,7 +13,7 @@ namespace AgentGuard.Tests;
 public sealed class HookExecutionTests
 {
     [Fact]
-    public async Task ComposedHook_HealthyInstall_BenignEdit_AllowsAndReportsWritable()
+    public async Task ComposedHook_HealthyInstall_BenignEdit_Allows()
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
@@ -21,10 +21,9 @@ public sealed class HookExecutionTests
         string payload = TestPayloads.Edit(fixture.Root, fixture.PathOf("Notes.txt"));
 
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, harness.BinGuard, payload, GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, harness.BinGuard, payload, GuardHost.ClaudeCodeHost, CancellationToken.None, harness.FileSystem);
 
         execution.ExitCode.Should().Be(0);
-        execution.BinaryWritable.Should().BeTrue();
     }
 
     [Fact]
@@ -37,7 +36,7 @@ public sealed class HookExecutionTests
         string benignPayload = TestPayloads.Edit(fixture.Root, fixture.PathOf("Notes.txt"));
 
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, harness.BinGuard, benignPayload, GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, harness.BinGuard, benignPayload, GuardHost.ClaudeCodeHost, CancellationToken.None, harness.FileSystem);
 
         execution.ExitCode.Should().Be(2);
         execution.Message.Should().Contain("hash");
@@ -47,7 +46,7 @@ public sealed class HookExecutionTests
     public async Task ComposedHook_UnresolvableBinary_Denies()
     {
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, null, "{}", GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, null, "{}", GuardHost.ClaudeCodeHost, CancellationToken.None, new ManagedPlatformFileSystem());
 
         execution.ExitCode.Should().Be(2);
     }

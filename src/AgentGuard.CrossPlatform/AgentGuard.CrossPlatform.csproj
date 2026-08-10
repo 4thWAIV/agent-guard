@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Contract assembly: the platform-capability interfaces and nothing else. ZERO native code lives here; the
+       [LibraryImport] bindings live only in the per-OS impl assemblies (.MacOS/.Linux/.Windows), behind these
+       locked interfaces. This is one of the four AgentGuard.CrossPlatform.* libraries the interop/OS-branching
+       analyzers (AG0008/AG0009) exempt. -->
+  <PropertyGroup>
+    <RootNamespace>AgentGuard.CrossPlatform</RootNamespace>
+    <AssemblyName>AgentGuard.CrossPlatform</AssemblyName>
+  </PropertyGroup>
+
+</Project>

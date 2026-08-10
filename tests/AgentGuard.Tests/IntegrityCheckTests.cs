@@ -15,7 +15,7 @@ public sealed class IntegrityCheckTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
 
-        InstallIntegrity.Check(harness.BinGuard).IsAllowed.Should().BeTrue();
+        InstallIntegrity.Check(harness.FileSystem, harness.BinGuard).IsAllowed.Should().BeTrue();
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public sealed class IntegrityCheckTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         File.WriteAllText(harness.MachineStateFile, "{\"version\":\"0.1.0-alpha\",\"sha256\":\"deadbeef\"}");
 
-        IntegrityReport report = InstallIntegrity.Check(harness.BinGuard);
+        IntegrityReport report = InstallIntegrity.Check(harness.FileSystem, harness.BinGuard);
 
         report.IsAllowed.Should().BeFalse();
         report.Detail.Should().Contain("hash");
@@ -38,7 +38,7 @@ public sealed class IntegrityCheckTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         File.Delete(harness.MachineStateFile);
 
-        InstallIntegrity.Check(harness.BinGuard).IsAllowed.Should().BeFalse();
+        InstallIntegrity.Check(harness.FileSystem, harness.BinGuard).IsAllowed.Should().BeFalse();
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class IntegrityCheckTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         File.WriteAllText(harness.MachineStateFile, "{ this is not json");
 
-        InstallIntegrity.Check(harness.BinGuard).IsAllowed.Should().BeFalse();
+        InstallIntegrity.Check(harness.FileSystem, harness.BinGuard).IsAllowed.Should().BeFalse();
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class IntegrityCheckTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         Directory.Delete(Path.Combine(harness.AgentGuardRoot, "versions", "0.1.0-alpha"), recursive: true);
 
-        InstallIntegrity.Check(harness.BinGuard).IsAllowed.Should().BeFalse();
+        InstallIntegrity.Check(harness.FileSystem, harness.BinGuard).IsAllowed.Should().BeFalse();
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class IntegrityCheckTests
         string resolvable = Path.Combine(harness.AgentGuardRoot, "versions", "0.1.0-alpha", "keeper");
         File.WriteAllText(resolvable, "x");
 
-        IntegrityReport report = InstallIntegrity.Check(resolvable);
+        IntegrityReport report = InstallIntegrity.Check(harness.FileSystem, resolvable);
 
         report.IsAllowed.Should().BeFalse();
         report.Detail.Should().Contain("current");

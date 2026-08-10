@@ -3,26 +3,28 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using AgentGuard.CrossPlatform;
 
 namespace AgentGuard.Setup;
 
 /// <summary>
 /// The hook integrity self-check that gates a <c>guard hook</c> run. It derives the install root from the
 /// resolved running binary — never from <c>$HOME</c>, since a hook may run with a different or absent home — and
-/// fails closed on an unresolvable <c>current</c>, or a missing, unreadable, or mismatched hash record. It also
-/// reports (without blocking) whether the running image is user-writable. This build does not claim the hash
-/// check defends the binary against a same-user agent; that is a later build.
+/// fails closed on an unresolvable <c>current</c>, or a missing, unreadable, or mismatched hash record. This build
+/// does not claim the hash check defends the binary against a same-user agent; that is a later build.
 /// </summary>
 public static class InstallIntegrity
 {
     /// <summary>
     /// Checks the integrity of the running install, deriving everything from the resolved binary path.
     /// </summary>
+    /// <param name="fileSystem">The platform file system used to detect the <c>current</c> symlink OS-agnostically.</param>
     /// <param name="resolvedBinaryPath">The resolved running binary path
     /// (<see cref="Environment.ProcessPath"/>).</param>
     /// <returns>The integrity report; a denial fails the hook closed.</returns>
-    public static IntegrityReport Check(string? resolvedBinaryPath)
+    public static IntegrityReport Check(IPlatformFileSystem fileSystem, string? resolvedBinaryPath)
     {
+        ArgumentNullException.ThrowIfNull(fileSystem);
         if (string.IsNullOrEmpty(resolvedBinaryPath))
         {
             return IntegrityReport.Deny("the running binary path could not be resolved");
@@ -33,7 +35,7 @@ public static class InstallIntegrity
             return IntegrityReport.Deny("the running binary does not exist at its resolved path");
         }
 
-        string? root = FindInstallRoot(resolvedBinaryPath);
+        string? root = FindInstallRoot(fileSystem, resolvedBinaryPath);
         if (root is null)
         {
             return IntegrityReport.Deny("could not locate the install root (state.json) from the running binary");
@@ -70,17 +72,17 @@ public static class InstallIntegrity
                 "binary hash does not match the recorded install; re-run `guard install` from a trusted build");
         }
 
-        return IntegrityReport.Allow(IsUserWritable(resolvedBinaryPath));
+        return IntegrityReport.Allow();
     }
 
-    private static string? FindInstallRoot(string binaryPath)
+    private static string? FindInstallRoot(IPlatformFileSystem fileSystem, string binaryPath)
     {
         string? directory = Path.GetDirectoryName(Path.GetFullPath(binaryPath));
         while (directory is not null)
         {
             if (File.Exists(MachinePaths.StateFileIn(directory))
                 && Directory.Exists(MachinePaths.VersionsDirectoryIn(directory))
-                && HasCurrentEntry(directory))
+                && HasCurrentEntry(fileSystem, directory))
             {
                 return directory;
             }
@@ -91,12 +93,12 @@ public static class InstallIntegrity
         return null;
     }
 
-    private static bool HasCurrentEntry(string root)
+    private static bool HasCurrentEntry(IPlatformFileSystem fileSystem, string root)
     {
         string current = MachinePaths.CurrentIn(root);
         return File.Exists(current)
             || Directory.Exists(current)
-            || SymlinkOps.ReadRawTarget(current) is not null;
+            || fileSystem.IsLinkTarget(current);
     }
 
     private static InstallState? ReadState(string root)
@@ -117,24 +119,6 @@ public static class InstallIntegrity
         catch (JsonException)
         {
             return null;
-        }
-    }
-
-    private static bool IsUserWritable(string path)
-    {
-        try
-        {
-            UnixFileMode mode = new FileInfo(path).UnixFileMode;
-            return (mode & (UnixFileMode.UserWrite | UnixFileMode.GroupWrite | UnixFileMode.OtherWrite))
-                != UnixFileMode.None;
-        }
-        catch (IOException)
-        {
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return false;
         }
     }
 }

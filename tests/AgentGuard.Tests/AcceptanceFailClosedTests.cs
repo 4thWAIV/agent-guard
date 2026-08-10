@@ -17,34 +17,24 @@ public sealed class AcceptanceFailClosedTests
     [Fact]
     public async Task Acceptance_f_PreScanCannotEnumerate_DeniesAndWritesNoSnapshot()
     {
-        if (System.OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         using var fixture = new FixtureProject();
-        string lockedDirectory = fixture.PathOf("locked");
-        Directory.CreateDirectory(lockedDirectory);
-        File.SetUnixFileMode(lockedDirectory, UnixFileMode.None);
-        try
-        {
-            IPipeline pipeline = GuardEngine.CreatePipeline(TestSupport.Options(fixture.Root, new FakeTimeProvider()));
 
-            Verdict verdict = await pipeline.RunAsync(
-                HookEvent.PreToolUse,
-                TestSupport.Bash("call-f", "echo hi"),
-                TestSupport.Env(fixture.Root, HookEvent.PreToolUse),
-                CancellationToken.None);
+        // The scanner reaches the filesystem through IDirectoryEnumerator; injecting one that throws stands in for
+        // an un-enumerable directory, so this proves the fail-closed guarantee OS-agnostically (no chmod, no OS
+        // branch) — the real per-OS enumeration is proven elsewhere.
+        IPipeline pipeline = GuardEngine.CreatePipeline(
+            TestSupport.Options(fixture.Root, new FakeTimeProvider()),
+            regionMapRegistry: null,
+            directoryEnumerator: new ThrowingDirectoryEnumerator());
 
-            verdict.Kind.Should().Be(VerdictKind.Deny);
-            SnapshotRecordCount(fixture.Root).Should().Be(0);
-        }
-        finally
-        {
-            File.SetUnixFileMode(
-                lockedDirectory,
-                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
-        }
+        Verdict verdict = await pipeline.RunAsync(
+            HookEvent.PreToolUse,
+            TestSupport.Bash("call-f", "echo hi"),
+            TestSupport.Env(fixture.Root, HookEvent.PreToolUse),
+            CancellationToken.None);
+
+        verdict.Kind.Should().Be(VerdictKind.Deny);
+        SnapshotRecordCount(fixture.Root).Should().Be(0);
     }
 
     [Fact]

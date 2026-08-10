@@ -20,8 +20,15 @@
     <PackageReference Include="System.CommandLine" />
   </ItemGroup>
 
+  <!-- Thread the target RID to the engine as AgentGuardPlatformRid so the per-OS implementation selection in
+       AgentGuard.CrossPlatform/PlatformImplementation.targets stays consistent across restore and build. On a
+       self-contained cross-RID publish the SDK strips RuntimeIdentifier when it builds this app's library
+       references, which would otherwise let restore (RID present) and the stripped engine build (RID absent, host
+       fallback) pick DIFFERENT per-OS libraries and bundle both. AgentGuardPlatformRid is not on the SDK's strip
+       list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
   <ItemGroup>
-    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj" />
+    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj"
+                      AdditionalProperties="AgentGuardPlatformRid=$(RuntimeIdentifier)" />
   </ItemGroup>
 
 </Project>

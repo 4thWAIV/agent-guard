@@ -26,7 +26,7 @@ public static class GuardEngine
     /// <param name="options">The pipeline configuration.</param>
     /// <returns>The pipeline, as its interface.</returns>
     public static IPipeline CreatePipeline(GuardEngineOptions options) =>
-        CreatePipeline(options, regionMapRegistry: null);
+        CreatePipeline(options, regionMapRegistry: null, directoryEnumerator: null);
 
     /// <summary>
     /// Creates the Claude Code host adapter.
@@ -51,8 +51,14 @@ public static class GuardEngine
     /// </summary>
     /// <param name="options">The pipeline configuration.</param>
     /// <param name="regionMapRegistry">The registry to use, or <see langword="null"/> to build the default.</param>
+    /// <param name="directoryEnumerator">The directory enumerator to use, or <see langword="null"/> for the real
+    /// filesystem adapter. A test can inject a throwing enumerator to drive the fail-closed path where the scan
+    /// cannot enumerate a directory.</param>
     /// <returns>The pipeline, as its interface.</returns>
-    internal static IPipeline CreatePipeline(GuardEngineOptions options, IRegionMapRegistry? regionMapRegistry)
+    internal static IPipeline CreatePipeline(
+        GuardEngineOptions options,
+        IRegionMapRegistry? regionMapRegistry,
+        IDirectoryEnumerator? directoryEnumerator = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         string root = options.ProjectRoot;
@@ -82,7 +88,9 @@ public static class GuardEngine
             NamedDirectorySkipRule.Create(
                 canonicalizer.Canonicalize(CoreSystemPaths.Absolute(root, CoreSystemPaths.GrantStoreRelative)).Value),
         };
-        IProtectedFileScanner scanner = ProtectedFileScanner.Create(canonicalizer, protectedSet, regionRegistry, skipRules);
+        IDirectoryEnumerator enumerator = directoryEnumerator ?? SystemDirectoryEnumerator.Create();
+        IProtectedFileScanner scanner = ProtectedFileScanner.Create(
+            canonicalizer, protectedSet, regionRegistry, skipRules, enumerator);
 
         string fingerprint = RulesetFingerprint.Compute(sources, providers, skipRules);
         ReadOnlyMemory<byte> grantPublicKey = options.GrantPublicKey.IsEmpty

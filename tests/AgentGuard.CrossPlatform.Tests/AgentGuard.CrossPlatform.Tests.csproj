@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The ONE OS-agnostic spec test project for IPlatformFileSystem. Its tests assert the spec through the
+       interface and never branch on OS; the per-OS impl under test is selected by the shared platform-selection
+       import (keyed on RuntimeIdentifier, falling back to the build-host OS) — the same mechanism the engine uses —
+       so the same tests validate each platform's implementation in its own CI leg. This project is deliberately NOT
+       one of the four AgentGuard.CrossPlatform.* libraries the interop/OS-branching analyzers exempt, so the spec
+       code itself stays OS-agnostic. -->
+  <PropertyGroup>
+    <AgentGuardIsTestProject>true</AgentGuardIsTestProject>
+    <RootNamespace>AgentGuard.CrossPlatform.Tests</RootNamespace>
+    <AssemblyName>AgentGuard.CrossPlatform.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
+  <Import Project="../../src/AgentGuard.CrossPlatform/PlatformImplementation.targets" />
+
+</Project>

@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Reflection;
+using AgentGuard.CrossPlatform;
 
 namespace AgentGuard.Setup;
 
@@ -40,9 +41,16 @@ public sealed record SetupContext
     public required string ShellProfilePath { get; init; }
 
     /// <summary>
+    /// Gets the platform file-system capability the setup commands use for the version-pointer symlinks and the
+    /// executable bit. In production it is the per-OS implementation from <c>Platform.Create()</c>; tests inject a
+    /// managed test double so they never touch native.
+    /// </summary>
+    public required IPlatformFileSystem FileSystem { get; init; }
+
+    /// <summary>
     /// Builds a context for the current process: the user's home directory, the current working directory as the
-    /// project root, the resolved running binary, the entry assembly's informational version, and the PATH profile
-    /// resolved from the detected login shell.
+    /// project root, the resolved running binary, the entry assembly's informational version, the PATH profile
+    /// resolved from the detected login shell, and the per-OS platform file system from <c>Platform.Create()</c>.
     /// </summary>
     /// <returns>The context for the current process.</returns>
     public static SetupContext ForCurrentProcess()
@@ -56,6 +64,7 @@ public sealed record SetupContext
             ResolvedBinaryPath = Environment.ProcessPath,
             RunningVersion = ReadRunningVersion(),
             ShellProfilePath = ShellProfile.Resolve(shell, home),
+            FileSystem = Platform.Create().FileSystem,
         };
     }
 

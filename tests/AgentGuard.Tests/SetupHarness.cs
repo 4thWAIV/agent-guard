@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Text.Json.Nodes;
+using AgentGuard.CrossPlatform;
 using AgentGuard.Setup;
 
 namespace AgentGuard.Tests;
@@ -34,6 +35,9 @@ public sealed class SetupHarness : IDisposable
 
     /// <summary>Gets the shell profile the PATH line is written to.</summary>
     public string ShellProfilePath { get; }
+
+    /// <summary>Gets the managed, native-free platform file system the setup commands run against in tests.</summary>
+    public IPlatformFileSystem FileSystem { get; } = new ManagedPlatformFileSystem();
 
     /// <summary>Gets the machine install root.</summary>
     public string AgentGuardRoot => Path.Combine(Home, ".agentguard");
@@ -93,6 +97,7 @@ public sealed class SetupHarness : IDisposable
         ResolvedBinaryPath = binaryPath,
         RunningVersion = version,
         ShellProfilePath = ShellProfilePath,
+        FileSystem = FileSystem,
     };
 
     /// <summary>Installs a version from a fresh source binary and returns the outcome.</summary>

@@ -46,14 +46,15 @@ internal static class AtomicFile
     }
 
     /// <summary>
-    /// Builds the temporary-sibling path — a unique <c>.tmp-</c> name beside the destination — that every atomic
-    /// write-and-rename here and the atomic symlink swap share, so the recipe is spelled once.
+    /// Builds the temporary-sibling path — a unique <c>.tmp-</c> name beside the destination — for these atomic
+    /// write-and-rename operations. It delegates to the single shared recipe,
+    /// <see cref="AgentGuard.CrossPlatform.PlatformFileSystemShared.TemporarySiblingPath(string)"/>, which the
+    /// per-OS atomic symlink swap also calls, so the recipe is spelled once.
     /// </summary>
     /// <param name="path">The destination path.</param>
     /// <returns>The temporary sibling path in the destination's directory.</returns>
-    internal static string TemporarySiblingPath(string path) => Path.Combine(
-        Path.GetDirectoryName(path)!,
-        Path.GetFileName(path) + ".tmp-" + Guid.NewGuid().ToString("N"));
+    internal static string TemporarySiblingPath(string path) =>
+        AgentGuard.CrossPlatform.PlatformFileSystemShared.TemporarySiblingPath(path);
 
     /// <summary>
     /// Atomically copies a source file over a destination, creating parent directories. The source is never

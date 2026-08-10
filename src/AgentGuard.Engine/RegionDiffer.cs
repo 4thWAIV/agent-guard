@@ -43,6 +43,16 @@ internal static class RegionDiffer
         ReadOnlyMemory<byte> right)
     {
         ArgumentNullException.ThrowIfNull(adapter);
-        return string.Equals(adapter.Read(left, locator), adapter.Read(right, locator), StringComparison.Ordinal);
+
+        // The drift compare normalizes line endings (config-protection-crlf-fix) so a pure CRLF/LF difference is not
+        // read as drift, and drift is detected identically on Windows and POSIX. This is compare-only: it never
+        // rewrites the on-disk bytes, so a repair preserves the file's existing line endings (scan-resolutions #6).
+        return string.Equals(
+            NormalizeLineEndings(adapter.Read(left, locator)),
+            NormalizeLineEndings(adapter.Read(right, locator)),
+            StringComparison.Ordinal);
     }
+
+    private static string? NormalizeLineEndings(string? value) =>
+        value?.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\r", "\n", StringComparison.Ordinal);
 }

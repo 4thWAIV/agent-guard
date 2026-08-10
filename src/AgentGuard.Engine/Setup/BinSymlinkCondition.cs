@@ -25,7 +25,7 @@ internal sealed class BinSymlinkCondition : MachineCondition
         }
 
         string expected = MachinePaths.BinGuardRelativeTarget();
-        string? actual = SymlinkOps.ReadRawTarget(MachinePaths.BinGuard(context));
+        string? actual = context.FileSystem.ReadLinkTarget(MachinePaths.BinGuard(context));
         return string.Equals(actual, expected, StringComparison.Ordinal)
             ? ConditionState.Ok()
             : ConditionState.Broken($"bin/guard points at '{actual}', expected '{expected}'");

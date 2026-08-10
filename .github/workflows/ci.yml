@@ -79,6 +79,11 @@ jobs:
           dotnet build -c Release $AG
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-x64 --self-contained $AG
+      - name: Cross-RID selects exactly one platform library (host != target)
+        # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
+        # exactly ONE AgentGuard.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
+        # because each job's host matches its RID; this runs a TRUE cross-build (macOS host -> linux-x64 target).
+        run: eng/check-single-platform-lib.sh linux-x64 $AG
       - name: Test osx-arm64 (native)
         run: dotnet test -c Release $AG
       - name: Test osx-x64 under Rosetta (must run as X64)

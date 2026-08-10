@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using AgentGuard.CrossPlatform;
 using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
@@ -14,11 +15,6 @@ namespace AgentGuard.Setup;
 /// </summary>
 internal static class CreationHelper
 {
-    private const UnixFileMode ExecutableMode =
-        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
-        | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
-        | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-
     /// <summary>
     /// Copies the running binary into <c>versions/&lt;version&gt;/guard</c>, skipping when a byte-identical binary
     /// is already there (which also guarantees the running image is never overwritten).
@@ -43,9 +39,15 @@ internal static class CreationHelper
 
         Directory.CreateDirectory(MachinePaths.VersionDirectory(context, version));
         AtomicFile.CopyOver(context.ResolvedBinaryPath, destination);
-        if (!OperatingSystem.IsWindows())
+
+        // The version binary must be executable where the OS uses the executable bit; the platform interface both
+        // decides whether the bit applies and sets it, so no OS branch lives here. Guard on both NeedsExecutableFlag
+        // (skip on Windows, which has no bit) and !IsExecutable (skip when it is already set) so the bit is touched
+        // only when the OS uses it and it is not already correct.
+        IPlatformFileSystem fileSystem = context.FileSystem;
+        if (fileSystem.NeedsExecutableFlag() && !fileSystem.IsExecutable(destination))
         {
-            File.SetUnixFileMode(destination, ExecutableMode);
+            fileSystem.MakeExecutable(destination);
         }
 
         return RepairOutcome.Repaired($"installed the binary at versions/{version}/guard");
@@ -60,9 +62,11 @@ internal static class CreationHelper
     {
         string version = SemVer.Normalize(context.RunningVersion);
         Directory.CreateDirectory(MachinePaths.VersionDirectory(context, version));
-        bool changed = SymlinkOps.EnsurePointsTo(
-            MachinePaths.Current(context), MachinePaths.CurrentRelativeTarget(version));
-        return changed ? RepairOutcome.Repaired($"pointed current at versions/{version}") : RepairOutcome.NoChangeNeeded();
+        return RepairLink(
+            context,
+            MachinePaths.Current(context),
+            MachinePaths.CurrentRelativeTarget(version),
+            $"pointed current at versions/{version}");
     }
 
     /// <summary>
@@ -73,9 +77,11 @@ internal static class CreationHelper
     internal static RepairOutcome EnsureBinGuard(SetupContext context)
     {
         Directory.CreateDirectory(MachinePaths.BinDirectory(context));
-        bool changed = SymlinkOps.EnsurePointsTo(
-            MachinePaths.BinGuard(context), MachinePaths.BinGuardRelativeTarget());
-        return changed ? RepairOutcome.Repaired("ensured bin/guard resolves to current/guard") : RepairOutcome.NoChangeNeeded();
+        return RepairLink(
+            context,
+            MachinePaths.BinGuard(context),
+            MachinePaths.BinGuardRelativeTarget(),
+            "ensured bin/guard resolves to current/guard");
     }
 
     /// <summary>
@@ -211,4 +217,29 @@ internal static class CreationHelper
 
     private static bool ParsesAsObject(string path) =>
         SafeRead.TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out string? _);
+
+    /// <summary>
+    /// Runs the idempotent symlink re-point through the platform interface and maps the result to a repair outcome.
+    /// A "privilege not held" failure — the rare Windows user who is neither an administrator nor has Developer Mode
+    /// enabled — arrives from the platform impl as an <see cref="UnauthorizedAccessException"/> carrying the fixed
+    /// enable-Developer-Mode-or-run-elevated message; it becomes a clear not-repairable outcome instead of crashing.
+    /// </summary>
+    /// <param name="context">The setup context.</param>
+    /// <param name="linkPath">The symlink path.</param>
+    /// <param name="relativeTarget">The relative target the link should resolve to.</param>
+    /// <param name="repairedMessage">The message when the link was created or changed.</param>
+    /// <returns>The repair outcome.</returns>
+    private static RepairOutcome RepairLink(
+        SetupContext context, string linkPath, string relativeTarget, string repairedMessage)
+    {
+        try
+        {
+            bool changed = SymlinkOps.Create(context.FileSystem).EnsurePointsTo(linkPath, relativeTarget);
+            return changed ? RepairOutcome.Repaired(repairedMessage) : RepairOutcome.NoChangeNeeded();
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return RepairOutcome.NotRepairable(exception.Message);
+        }
+    }
 }

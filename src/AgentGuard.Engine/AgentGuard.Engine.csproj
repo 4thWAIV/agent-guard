@@ -4,9 +4,6 @@
     <RootNamespace>AgentGuard.Engine</RootNamespace>
     <AssemblyName>AgentGuard.Engine</AssemblyName>
     <PackageId>AgentGuard.Engine</PackageId>
-    <!-- The atomic current-symlink swap renames a symlink over an existing one, which only rename(2) does
-         atomically; the LibraryImport source generator for that P/Invoke requires unsafe blocks. -->
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,5 +14,11 @@
   <ItemGroup>
     <InternalsVisibleTo Include="AgentGuard.Tests" />
   </ItemGroup>
+
+  <!-- The engine consumes platform capabilities through IPlatformServices; this references the
+       AgentGuard.CrossPlatform contract and exactly one per-OS implementation, selected by RuntimeIdentifier
+       (falling back to the build-host OS), so the atomic symlink swap and the executable bit stay behind the
+       interface and NO native interop lives in the engine. -->
+  <Import Project="../AgentGuard.CrossPlatform/PlatformImplementation.targets" />
 
 </Project>

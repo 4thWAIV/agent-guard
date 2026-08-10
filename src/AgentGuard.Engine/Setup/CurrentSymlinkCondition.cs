@@ -25,7 +25,7 @@ internal sealed class CurrentSymlinkCondition : MachineCondition
         }
 
         string expected = MachinePaths.CurrentRelativeTarget(state.Version);
-        string? actual = SymlinkOps.ReadRawTarget(MachinePaths.Current(context));
+        string? actual = context.FileSystem.ReadLinkTarget(MachinePaths.Current(context));
         return string.Equals(actual, expected, StringComparison.Ordinal)
             ? ConditionState.Ok()
             : ConditionState.Broken($"current points at '{actual}', expected '{expected}'");

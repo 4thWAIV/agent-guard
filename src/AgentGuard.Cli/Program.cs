@@ -153,13 +153,6 @@ internal static class Program
                 .ExecuteHookAsync(hookEvent, Environment.ProcessPath, payload, host ?? GuardHost.ClaudeCodeHost, cancellationToken)
                 .ConfigureAwait(false);
 
-            if (execution.BinaryWritable)
-            {
-                await Console.Error
-                    .WriteLineAsync("agentguard: warning — the guard binary is user-writable; this build reports but does not block that.")
-                    .ConfigureAwait(false);
-            }
-
             if (!string.IsNullOrEmpty(execution.Message))
             {
                 await Console.Error.WriteLineAsync(execution.Message).ConfigureAwait(false);

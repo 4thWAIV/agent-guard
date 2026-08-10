@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.CrossPlatform;
 using AgentGuard.Engine;
 using AgentGuard.Engine.Abstractions;
 using AgentGuard.Engine.Abstractions.Contracts;
@@ -31,23 +32,29 @@ public static class GuardHost
     /// <param name="rawPayload">The raw host payload from standard input.</param>
     /// <param name="host">The host identifier.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
+    /// <param name="fileSystem">The platform file system for the integrity self-check, or <see langword="null"/> to
+    /// use the real per-OS implementation. A test injects a managed test double so it never touches native, the same
+    /// optional-parameter injection seam <see cref="GuardEngine.CreatePipeline(GuardEngineOptions)"/> uses for its
+    /// directory enumerator.</param>
     /// <returns>The composed hook execution.</returns>
     public static async Task<HookExecution> ExecuteHookAsync(
         HookEvent hookEvent,
         string? resolvedBinaryPath,
         string rawPayload,
         string host,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IPlatformFileSystem? fileSystem = null)
     {
-        IntegrityReport integrity = InstallIntegrity.Check(resolvedBinaryPath);
+        IntegrityReport integrity = InstallIntegrity.Check(
+            fileSystem ?? Platform.Create().FileSystem, resolvedBinaryPath);
         if (!integrity.IsAllowed)
         {
-            return new HookExecution(2, integrity.Detail, false);
+            return new HookExecution(2, integrity.Detail);
         }
 
         HostDecision decision = await RunPipelineAsync(hookEvent, rawPayload, host, cancellationToken)
             .ConfigureAwait(false);
-        return new HookExecution(decision.ExitCode, decision.Message, integrity.BinaryWritable);
+        return new HookExecution(decision.ExitCode, decision.Message);
     }
 
     /// <summary>

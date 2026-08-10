@@ -1,92 +1,50 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using System.IO;
-using System.Runtime.InteropServices;
+using AgentGuard.CrossPlatform;
 
 namespace AgentGuard.Setup;
 
 /// <summary>
-/// Creates and atomically re-points the symlinks the machine layout depends on. A re-point writes a temporary
-/// symlink and renames it over the old one, so the link is never momentarily absent.
+/// The engine-side symlink policy over the platform's <see cref="IPlatformFileSystem"/>: it keeps the generic
+/// "re-point only when needed" idempotency compare here and delegates the platform primitives (read the raw target,
+/// atomically create-or-replace the link) to the interface, so the engine stays OS-agnostic and the native atomic
+/// swap lives only in the per-OS platform libraries.
 /// </summary>
-internal static class SymlinkOps
+internal sealed class SymlinkOps
 {
+    private readonly IPlatformFileSystem _fileSystem;
+
+    private SymlinkOps(IPlatformFileSystem fileSystem) => _fileSystem = fileSystem;
+
     /// <summary>
-    /// Ensures a symlink at <paramref name="linkPath"/> points at <paramref name="relativeTarget"/>, re-pointing
-    /// it atomically only when it is missing or points elsewhere.
+    /// Creates the symlink policy over the given platform file system.
+    /// </summary>
+    /// <param name="fileSystem">The platform file-system capability.</param>
+    /// <returns>The symlink policy.</returns>
+    internal static SymlinkOps Create(IPlatformFileSystem fileSystem)
+    {
+        ArgumentNullException.ThrowIfNull(fileSystem);
+        return new SymlinkOps(fileSystem);
+    }
+
+    /// <summary>
+    /// Ensures a symlink at <paramref name="linkPath"/> points at <paramref name="relativeTarget"/>, re-pointing it
+    /// atomically only when it is missing or points elsewhere. The compare is OS-agnostic and stays here; the
+    /// platform primitive (<see cref="IPlatformFileSystem.MakeLinkTarget"/>) is unconditional and atomic.
     /// </summary>
     /// <param name="linkPath">The symlink path.</param>
     /// <param name="relativeTarget">The relative target the link should resolve to.</param>
     /// <returns><see langword="true"/> when the link was created or changed; <see langword="false"/> when it
     /// already pointed at the target.</returns>
-    internal static bool EnsurePointsTo(string linkPath, string relativeTarget)
+    internal bool EnsurePointsTo(string linkPath, string relativeTarget)
     {
-        if (string.Equals(ReadRawTarget(linkPath), relativeTarget, StringComparison.Ordinal))
+        if (string.Equals(_fileSystem.ReadLinkTarget(linkPath), relativeTarget, StringComparison.Ordinal))
         {
             return false;
         }
 
-        PointAtomically(linkPath, relativeTarget);
+        _fileSystem.MakeLinkTarget(linkPath, relativeTarget);
         return true;
-    }
-
-    /// <summary>
-    /// Reads a symlink's raw (unresolved) target string, or <see langword="null"/> when the path is not a symlink
-    /// or cannot be read.
-    /// </summary>
-    /// <param name="linkPath">The symlink path.</param>
-    /// <returns>The raw target string, or <see langword="null"/>.</returns>
-    internal static string? ReadRawTarget(string linkPath)
-    {
-        try
-        {
-            string? fileTarget = new FileInfo(linkPath).LinkTarget;
-            return fileTarget ?? new DirectoryInfo(linkPath).LinkTarget;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-    }
-
-    private static void PointAtomically(string linkPath, string relativeTarget)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(linkPath)!);
-        string temporaryPath = AtomicFile.TemporarySiblingPath(linkPath);
-        DeleteIfExists(temporaryPath);
-        Directory.CreateSymbolicLink(temporaryPath, relativeTarget);
-
-        int result = NativeInterop.Rename(temporaryPath, linkPath);
-        if (result != 0)
-        {
-            int error = Marshal.GetLastPInvokeError();
-            DeleteIfExists(temporaryPath);
-            throw new IOException(
-                $"Failed to atomically point '{linkPath}' at '{relativeTarget}' (errno {error}).");
-        }
-    }
-
-    private static void DeleteIfExists(string linkPath)
-    {
-        try
-        {
-            if (File.Exists(linkPath) || ReadRawTarget(linkPath) is not null)
-            {
-                File.Delete(linkPath);
-            }
-        }
-        catch (IOException)
-        {
-            // Best-effort cleanup of a stray temporary symlink.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Best-effort cleanup of a stray temporary symlink.
-        }
     }
 }

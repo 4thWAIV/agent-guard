@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,37 +11,33 @@ using AgentGuard.Engine.Abstractions.Contracts;
 namespace AgentGuard.Engine;
 
 /// <summary>
-/// Lists the configurable (Provider and Project) protected files currently present on disk under the project
-/// root. It walks the tree without descending into the Sealed skip-list locations and matches each remaining
-/// candidate against the Protected Set. It uses <see cref="EnumerationOptions.IgnoreInaccessible"/> set to
-/// <see langword="false"/> so an inaccessible directory throws rather than being silently skipped — an
-/// incomplete walk therefore denies the call instead of hiding a file.
+/// Lists the configurable (Provider and Project) protected files currently present on disk under the project root.
+/// It walks the tree through <see cref="IDirectoryEnumerator"/> without descending into the Sealed skip-list
+/// locations and matches each remaining candidate against the Protected Set. The enumerator surfaces an
+/// inaccessible directory as an exception (never silently skipped), so an incomplete walk propagates and denies the
+/// call instead of hiding a file. The scanner keeps all its policy over <see cref="DirectoryChild"/> and touches no
+/// <c>System.IO</c> filesystem type itself.
 /// </summary>
 internal sealed class ProtectedFileScanner : IProtectedFileScanner
 {
-    private static readonly EnumerationOptions WalkOptions = new()
-    {
-        IgnoreInaccessible = false,
-        AttributesToSkip = FileAttributes.None,
-        RecurseSubdirectories = false,
-        ReturnSpecialDirectories = false,
-    };
-
     private readonly IPathCanonicalizer _canonicalizer;
     private readonly IProtectedSet _protectedSet;
     private readonly IRegionMapRegistry _regionRegistry;
     private readonly IReadOnlyList<IDirectorySkipRule> _skipRules;
+    private readonly IDirectoryEnumerator _enumerator;
 
     private ProtectedFileScanner(
         IPathCanonicalizer canonicalizer,
         IProtectedSet protectedSet,
         IRegionMapRegistry regionRegistry,
-        IReadOnlyList<IDirectorySkipRule> skipRules)
+        IReadOnlyList<IDirectorySkipRule> skipRules,
+        IDirectoryEnumerator enumerator)
     {
         _canonicalizer = canonicalizer;
         _protectedSet = protectedSet;
         _regionRegistry = regionRegistry;
         _skipRules = skipRules;
+        _enumerator = enumerator;
     }
 
     /// <inheritdoc />
@@ -51,7 +46,7 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
         ArgumentNullException.ThrowIfNull(environment);
         string root = _canonicalizer.Canonicalize(environment.ProjectRoot).Value;
         var results = new List<CanonicalPath>();
-        if (!Directory.Exists(root))
+        if (!_enumerator.DirectoryExists(root))
         {
             return Task.FromResult<IReadOnlyList<CanonicalPath>>(results);
         }
@@ -62,20 +57,19 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
         {
             cancellationToken.ThrowIfCancellationRequested();
             string directory = pending.Pop();
-            foreach (FileSystemInfo entry in new DirectoryInfo(directory).EnumerateFileSystemInfos("*", WalkOptions))
+            foreach (DirectoryChild entry in _enumerator.EnumerateChildren(directory))
             {
-                bool isReparsePoint = entry.Attributes.HasFlag(FileAttributes.ReparsePoint);
-                if (entry is DirectoryInfo)
+                if (entry.IsDirectory)
                 {
-                    if (!isReparsePoint && !ShouldSkip(entry.FullName))
+                    if (!entry.IsReparsePoint && !ShouldSkip(entry.FullPath))
                     {
-                        pending.Push(entry.FullName);
+                        pending.Push(entry.FullPath);
                     }
 
                     continue;
                 }
 
-                CanonicalPath candidate = _canonicalizer.Canonicalize(entry.FullName);
+                CanonicalPath candidate = _canonicalizer.Canonicalize(entry.FullPath);
                 if (IsConfigurableProtected(candidate) || _regionRegistry.IsRegistered(candidate))
                 {
                     results.Add(candidate);
@@ -93,18 +87,21 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
     /// <param name="protectedSet">The Protected Set each candidate is matched against.</param>
     /// <param name="regionRegistry">The region-map registry whose watched files join the after-check set.</param>
     /// <param name="skipRules">The directory skip rules that prune the walk.</param>
+    /// <param name="enumerator">The directory enumerator that walks the filesystem, failing closed on access errors.</param>
     /// <returns>The scanner, as its interface.</returns>
     internal static IProtectedFileScanner Create(
         IPathCanonicalizer canonicalizer,
         IProtectedSet protectedSet,
         IRegionMapRegistry regionRegistry,
-        IReadOnlyList<IDirectorySkipRule> skipRules)
+        IReadOnlyList<IDirectorySkipRule> skipRules,
+        IDirectoryEnumerator enumerator)
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentNullException.ThrowIfNull(protectedSet);
         ArgumentNullException.ThrowIfNull(regionRegistry);
         ArgumentNullException.ThrowIfNull(skipRules);
-        return new ProtectedFileScanner(canonicalizer, protectedSet, regionRegistry, skipRules);
+        ArgumentNullException.ThrowIfNull(enumerator);
+        return new ProtectedFileScanner(canonicalizer, protectedSet, regionRegistry, skipRules, enumerator);
     }
 
     private bool ShouldSkip(string directoryFullPath) =>

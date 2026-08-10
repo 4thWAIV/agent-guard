@@ -106,6 +106,12 @@ then **Run anyway**. (If your browser flagged the download, choose **Keep** firs
 .\guard-win-x64.exe version
 ```
 
+**Symlink privilege for `guard install`.** The guard's version pointer (`current`) is a symlink, and creating a
+symlink on Windows needs privilege. Almost every developer machine already has it — run an elevated terminal, or
+enable Developer Mode (**Settings > Privacy & security > For developers**). If you have neither, `guard install`
+(and `guard doctor --fix`) fails with a clear message telling you to run as an administrator or enable Developer
+Mode; do one of those and re-run the command.
+
 ---
 
 ## Linux
