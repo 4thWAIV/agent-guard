@@ -99,6 +99,12 @@ From the design + refutation passes, folded into the rule-set (not separate deci
 ### `legal-edges`
 Stay legal everywhere: the pure `Path` members (`Combine`, `GetFileName`, `GetDirectoryName`, `IsPathRooted`, `DirectorySeparatorChar`), the hashing/signature crypto (`SHA256`, `Ed25519`), and reading an enum value as data (`UnixFileMode.UserRead`, `FileAttributes.Hidden`).
 
+### `platform-interfaces-to-abstractions` (Tim approved 2026-08-10)
+Both platform *interfaces* — `IPlatformFileSystem` and its container `IPlatformServices` — move from `AgentGuard.CrossPlatform` into the new `AgentGuard.Abstractions` assembly (per `abstractions-assembly-holds-all-interfaces`). They move together, not one alone: `IPlatformServices.FileSystem` returns `IPlatformFileSystem`, so leaving either behind would force an `Abstractions → CrossPlatform` reference and create a cycle (`Abstractions` must reference nothing). The **implementations** (`PosixFileSystem` in `.MacOS`/link-shared to `.Linux`, `WindowsFileSystem` in `.Windows`, the concrete `PlatformServices` record) and the per-OS **`Platform.Create()`** factories STAY in the `CrossPlatform.*` assemblies — the only place OS-divergent code compiles. The `AgentGuard.CrossPlatform` namespace keeps its name (`namespace-crossplatform` is untouched); only the two interface *definitions* relocate. This is physically free — `Abstractions` is the bottom layer every assembly (including `CrossPlatform.*`) references — so it was always a choice, not a constraint.
+
+Merge design (the single-container reconciliation this records): `ISystemServices` is the one container, built by the one `SystemServices.Create()` in `Boundaries`. That factory composes the six OS-uniform adapters (AG0011–AG0016) with the OS-divergent `IPlatformFileSystem` obtained from the per-OS `Platform.Create()`, and exposes it as `ISystemServices.Platform`. So `IPlatformServices` is **subsumed** — every service, OS-uniform and OS-divergent, is reached through the one `ISystemServices` built at one point. The two interface families split by *why* they exist: `IPlatformFileSystem` = OS-**divergent** (symlinks, exec bit — behaves differently per OS, needs per-OS impls, AG0101); the six new ones = OS-**uniform** (file/dir/env/console/GUID — identical on every OS, seamed only for mockability and no-unwatched-access, AG0011–AG0016).
+Tim: *"I agree we should record this and I now approve the move of IPlatformServices to the Abstractions assembly."*
+
 ---
 
 ## The assemblies (assembly-lock)
@@ -240,7 +246,7 @@ var s = SystemServicesBuilder.Fake().With(new FixedGuidFactory("…0001")).With(
 ---
 
 ## Open items carried into the contract (resolved when this contract resumes, NOT now)
-- `IPlatformFileSystem` location: cross-platform builds it in `AgentGuard.CrossPlatform` (its locked `namespace-crossplatform` decision — unchanged by doing cross-platform first). Whether `abstractions-assembly-holds-all-interfaces` then pulls it into `AgentGuard.Abstractions` is a decision for THIS contract when it runs; moving it changes a locked decision → needs Tim's explicit yes. NOT decided.
+- `IPlatformFileSystem` location: **RESOLVED 2026-08-10 (Tim approved)** — see the `platform-interfaces-to-abstractions` decision above. Both `IPlatformFileSystem` and `IPlatformServices` relocate to `AgentGuard.Abstractions`; the implementations and the per-OS `Platform.Create()` stay in `CrossPlatform.*`; the `namespace-crossplatform` name is untouched.
 - Issue #14's count is superseded (real surface is 106 sites / 34 files); rewrite it against the settled adapter list when this contract writes its contract.md.
 - Sequencing is RULED: cross-platform first (see Sequencing above). This is no longer open.
 
