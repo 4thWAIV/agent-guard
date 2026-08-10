@@ -44,7 +44,10 @@ ok=1
         ;;
       signtool)
         echo "== signtool verify /pa /v guard-$rid$EXT =="
-        if [ -n "$SIGNTOOL" ] && "$SIGNTOOL" verify /pa /v "$bin" 2>&1; then echo "signtool PASS: $rid"; else echo "signtool FAIL: $rid"; ok=0; fi
+        # MSYS_NO_PATHCONV=1: signtool is a native Windows exe run from Git bash, whose POSIX->Windows path
+        # conversion otherwise rewrites the /pa and /v switches into paths (C:/Program Files/Git/pa, V:/) so they
+        # never reach signtool; without /pa it falls back to a policy that rejects our runner-trusted self-signed cert.
+        if [ -n "$SIGNTOOL" ] && MSYS_NO_PATHCONV=1 "$SIGNTOOL" verify /pa /v "$bin" 2>&1; then echo "signtool PASS: $rid"; else echo "signtool FAIL: $rid"; ok=0; fi
         ;;
       none) ;;
       *) echo "unknown native mode '$NATIVE'"; ok=0 ;;
