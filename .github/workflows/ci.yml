@@ -123,7 +123,13 @@ jobs:
           security import "$WORK/cert.p12" -k "$KC" -P "$P12_PW" -T /usr/bin/codesign -A
           security list-keychains -d user -s "$KC" $(security list-keychains -d user | sed s/\"//g)
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KP" "$KC" >/dev/null
-          IDENTITY="$(security find-identity -v -p codesigning "$KC" | awk 'NR==1{print $2}')"
+          # The CI cert is a self-signed, UNTRUSTED code-signing cert, so `find-identity -v` (valid-only) returns
+          # "0 valid identities found" (CSSMERR_TP_NOT_TRUSTED) and the old awk picked the word "valid", making
+          # `codesign --sign valid` fail with "valid: no identity found". codesign does NOT need the cert trusted,
+          # only present, so select the imported identity by its SHA-1 (list WITHOUT -v). codesign --verify --strict
+          # (the verify step) is a structural seal check and likewise needs no trust.
+          IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
+          if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
           for rid in osx-arm64 osx-x64; do
             BIN="src/AgentGuard.Cli/bin/Release/net10.0/$rid/publish/guard"
             codesign --force --options runtime --entitlements eng/signing/agentguard.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"

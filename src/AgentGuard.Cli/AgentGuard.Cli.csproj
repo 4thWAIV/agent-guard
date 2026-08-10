@@ -27,8 +27,9 @@
        fallback) pick DIFFERENT per-OS libraries and bundle both. AgentGuardPlatformRid is not on the SDK's strip
        list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
   <ItemGroup>
-    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj"
-                      AdditionalProperties="AgentGuardPlatformRid=$(RuntimeIdentifier)" />
+    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj">
+      <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>
