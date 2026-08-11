@@ -1,5 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 
 namespace AgentGuard.Analyzers;
@@ -24,6 +25,40 @@ internal static class WellKnownType
     {
         return type is not null
             && string.Equals(type.Name, typeName, StringComparison.Ordinal)
+            && string.Equals(type.ContainingNamespace?.ToDisplayString(), containingNamespace, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> is any of the given (namespace, name) types.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <param name="candidates">The (namespace, name) pairs any of which the type may match.</param>
+    /// <returns><see langword="true"/> when the type matches one of the candidates.</returns>
+    internal static bool IsAnyOf(
+        INamedTypeSymbol? type, ImmutableArray<(string Namespace, string Name)> candidates)
+    {
+        foreach ((string ns, string name) in candidates)
+        {
+            if (Is(type, ns, name))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> is declared directly in the namespace
+    /// <paramref name="containingNamespace"/>, regardless of its name. Used to catch a whole namespace such as
+    /// <c>System.IO.Enumeration</c>.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <param name="containingNamespace">The fully qualified namespace the type must be declared in.</param>
+    /// <returns><see langword="true"/> when the type is declared in that namespace.</returns>
+    internal static bool IsInNamespace(INamedTypeSymbol? type, string containingNamespace)
+    {
+        return type is not null
             && string.Equals(type.ContainingNamespace?.ToDisplayString(), containingNamespace, StringComparison.Ordinal);
     }
 }

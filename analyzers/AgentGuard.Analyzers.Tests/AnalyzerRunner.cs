@@ -29,9 +29,7 @@ internal static class AnalyzerRunner
     internal static async Task<ImmutableArray<Diagnostic>> RunAsync<TAnalyzer>(string source, string assemblyName = "AnalyzerUnderTest")
         where TAnalyzer : DiagnosticAnalyzer, new()
     {
-        ImmutableArray<MetadataReference> references =
-            await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, CancellationToken.None)
-                .ConfigureAwait(false);
+        ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
 
         CSharpCompilation compilation = CSharpCompilation.Create(
             assemblyName: assemblyName,
@@ -39,10 +37,42 @@ internal static class AnalyzerRunner
             references: references,
             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
-        CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers(
-            ImmutableArray.Create<DiagnosticAnalyzer>(new TAnalyzer()));
+        return await RunAnalyzerAsync<TAnalyzer>(compilation).ConfigureAwait(false);
+    }
 
-        return await withAnalyzers.GetAnalyzerDiagnosticsAsync().ConfigureAwait(false);
+    /// <summary>
+    /// Compiles <paramref name="referenceSource"/> into a separate assembly named
+    /// <paramref name="referenceAssemblyName"/>, references it from a compilation of <paramref name="source"/> named
+    /// <paramref name="assemblyName"/>, runs <typeparamref name="TAnalyzer"/> over the latter, and returns its
+    /// diagnostics. This is how the assembly-crossing rules are exercised — a rule that turns on the assembly a
+    /// referenced type lives in (the test helpers, the boundaries container) needs that type to come from a real
+    /// second assembly, not the compilation under test.
+    /// </summary>
+    /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
+    /// <param name="source">The C# source to analyze.</param>
+    /// <param name="assemblyName">The assembly name to compile the source under analysis into.</param>
+    /// <param name="referenceSource">The C# source of the referenced assembly.</param>
+    /// <param name="referenceAssemblyName">The assembly name of the referenced assembly.</param>
+    /// <returns>The diagnostics the analyzer reported for the source under analysis.</returns>
+    internal static async Task<ImmutableArray<Diagnostic>> RunWithReferenceAsync<TAnalyzer>(
+        string source, string assemblyName, string referenceSource, string referenceAssemblyName)
+        where TAnalyzer : DiagnosticAnalyzer, new()
+    {
+        ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+
+        CSharpCompilation referenceCompilation = CSharpCompilation.Create(
+            assemblyName: referenceAssemblyName,
+            syntaxTrees: new[] { CSharpSyntaxTree.ParseText(referenceSource) },
+            references: references,
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        CSharpCompilation compilation = CSharpCompilation.Create(
+            assemblyName: assemblyName,
+            syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+            references: references.Add(referenceCompilation.ToMetadataReference()),
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+
+        return await RunAnalyzerAsync<TAnalyzer>(compilation).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -55,5 +85,31 @@ internal static class AnalyzerRunner
     {
         var span = diagnostic.Location.SourceSpan;
         return source.Substring(span.Start, span.Length);
+    }
+
+    /// <summary>
+    /// Resolves the net9.0 reference assemblies every compilation in this runner is built against.
+    /// </summary>
+    /// <returns>The resolved metadata references.</returns>
+    private static async Task<ImmutableArray<MetadataReference>> ResolveReferencesAsync()
+    {
+        return await ReferenceAssemblies.Net.Net90.ResolveAsync(LanguageNames.CSharp, CancellationToken.None)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Runs <typeparamref name="TAnalyzer"/> over <paramref name="compilation"/> and returns exactly the
+    /// diagnostics it produced.
+    /// </summary>
+    /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
+    /// <param name="compilation">The compilation to analyze.</param>
+    /// <returns>The diagnostics the analyzer reported.</returns>
+    private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync<TAnalyzer>(CSharpCompilation compilation)
+        where TAnalyzer : DiagnosticAnalyzer, new()
+    {
+        CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers(
+            ImmutableArray.Create<DiagnosticAnalyzer>(new TAnalyzer()));
+
+        return await withAnalyzers.GetAnalyzerDiagnosticsAsync().ConfigureAwait(false);
     }
 }

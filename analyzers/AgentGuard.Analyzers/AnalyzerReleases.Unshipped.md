@@ -15,3 +15,12 @@ AG0007  | AgentGuard.Architecture | Warning | ContractConcreteTypeMustNotBeCastT
 AG0008  | AgentGuard.Architecture | Warning | InteropOnlyInCrossPlatformLibrariesAnalyzer
 AG0009  | AgentGuard.Architecture | Warning | NoOsBranchingOutsideCrossPlatformAnalyzer
 AG0010  | AgentGuard.Architecture | Warning | PlatformFactoryMustReturnContainerAnalyzer
+AG0011  | AgentGuard.Architecture | Warning | FilesystemOnlyInBoundariesAnalyzer
+AG0012  | AgentGuard.Architecture | Warning | EnvironmentOnlyInBoundariesAnalyzer
+AG0013  | AgentGuard.Architecture | Warning | ProcessIsForbiddenAnalyzer
+AG0014  | AgentGuard.Architecture | Warning | RandomnessOnlyInBoundariesAnalyzer
+AG0015  | AgentGuard.Architecture | Warning | TimeMustUseTimeProviderAnalyzer
+AG0016  | AgentGuard.Architecture | Warning | ConsoleOnlyInBoundariesAnalyzer
+AG0017  | AgentGuard.Architecture | Warning | SystemServicesCreateOnlyAtCompositionAnalyzer
+AG0018  | AgentGuard.Architecture | Warning | TestHelpersOnlyInTestsAnalyzer
+AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer
