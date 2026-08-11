@@ -31,21 +31,58 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
         }
         """;
 
+    // The real composition point: Program in its real namespace AgentGuard.Cli. The tightened exemption anchors on
+    // full type identity (namespace + name) AND the assembly, so the namespace here must be the real one.
     private const string CallFromProgramSource = """
         using AgentGuard.Boundaries;
 
-        internal static class Program
+        namespace AgentGuard.Cli
         {
-            private static ISystemServices Compose() => SystemServices.Create();
+            internal static class Program
+            {
+                private static ISystemServices Compose() => SystemServices.Create();
+            }
         }
         """;
 
+    // The real test builder: SystemServicesBuilder in its real namespace AgentGuard.TestHelpers.
     private const string CallFromBuilderSource = """
         using AgentGuard.Boundaries;
 
-        public sealed class SystemServicesBuilder
+        namespace AgentGuard.TestHelpers
         {
-            public ISystemServices Build() => SystemServices.Create();
+            public sealed class SystemServicesBuilder
+            {
+                public ISystemServices Build() => SystemServices.Create();
+            }
+        }
+        """;
+
+    // Nominal-collision self-grant probe: a second class NAMED Program, but in a DIFFERENT namespace than the real
+    // composition point (AgentGuard.Cli). Compiled into the right assembly, it still must not self-grant the container.
+    private const string CallFromProgramInDifferentNamespaceSource = """
+        using AgentGuard.Boundaries;
+
+        namespace Some.Other.Place
+        {
+            internal static class Program
+            {
+                private static ISystemServices Compose() => SystemServices.Create();
+            }
+        }
+        """;
+
+    // The same nominal collision for the builder: a class NAMED SystemServicesBuilder in a DIFFERENT namespace than
+    // the real one (AgentGuard.TestHelpers), compiled into the right assembly.
+    private const string CallFromBuilderInDifferentNamespaceSource = """
+        using AgentGuard.Boundaries;
+
+        namespace Some.Other.Place
+        {
+            public sealed class SystemServicesBuilder
+            {
+                public ISystemServices Build() => SystemServices.Create();
+            }
         }
         """;
 
@@ -92,6 +129,32 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
                 CallFromBuilderSource, "AgentGuard.Engine", BoundariesSource, "AgentGuard.Boundaries");
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("AG0017", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfCliAssembly_IsReported()
+    {
+        // Nominal collision: a second class named Program in a DIFFERENT namespace of the right assembly
+        // (AgentGuard.Cli) cannot self-grant the container. The exemption anchors on namespace + name, so this is RED.
+        ImmutableArray<Diagnostic> diagnostics =
+            await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
+                CallFromProgramInDifferentNamespaceSource, "AgentGuard.Cli", BoundariesSource, "AgentGuard.Boundaries");
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("AG0017", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task CreateCall_InSystemServicesBuilderNamedTypeInDifferentNamespaceOfTestHelpers_IsReported()
+    {
+        // The same nominal collision for the builder: a class named SystemServicesBuilder in a DIFFERENT namespace of
+        // the right assembly (AgentGuard.TestHelpers) is RED — the self-grant is blocked by namespace identity.
+        ImmutableArray<Diagnostic> diagnostics =
+            await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
+                CallFromBuilderInDifferentNamespaceSource, "AgentGuard.TestHelpers", BoundariesSource, "AgentGuard.Boundaries");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
         Assert.Equal("AG0017", diagnostic.Id);

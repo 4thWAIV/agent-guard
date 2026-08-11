@@ -19,6 +19,51 @@ public class RandomnessOnlyInBoundariesAnalyzerTests
         }
         """;
 
+    // The single-owner proof: a stub owning interface in AgentGuard.Abstractions, and TWO classes in the SAME
+    // assembly — the owner implementing IGuidFactory (its Guid.NewGuid() is exempt) and a sibling that does not
+    // implement it (its new Random() is RED). This proves the tightening from an assembly-wide exemption to the one
+    // owner class.
+    private const string OwnerAndSiblingSource = """
+        using System;
+
+        namespace AgentGuard.Abstractions
+        {
+            public interface IGuidFactory { }
+        }
+
+        namespace CrossPlatform
+        {
+            public sealed class GuidFactory : AgentGuard.Abstractions.IGuidFactory
+            {
+                public string Name() => Guid.NewGuid().ToString("N");
+            }
+
+            public sealed class Sibling
+            {
+                public Random Make() => new Random();
+            }
+        }
+        """;
+
+    // Wrong-assembly self-grant probe: the GuidFactory owner class implementing IGuidFactory and calling Guid.NewGuid().
+    // Exempt only in its owner assembly AgentGuard.CrossPlatform; RED in any other assembly.
+    private const string GuidFactoryOwnerSource = """
+        using System;
+
+        namespace AgentGuard.Abstractions
+        {
+            public interface IGuidFactory { }
+        }
+
+        namespace CrossPlatform
+        {
+            public sealed class GuidFactory : AgentGuard.Abstractions.IGuidFactory
+            {
+                public string Name() => Guid.NewGuid().ToString("N");
+            }
+        }
+        """;
+
     [Fact]
     public async Task GuidNewGuid_OutsideBoundaries_IsReported()
     {
@@ -29,19 +74,52 @@ public class RandomnessOnlyInBoundariesAnalyzerTests
     }
 
     [Fact]
-    public async Task GuidNewGuid_InCrossPlatformLibrary_IsStillReported()
+    public async Task GuidNewGuid_InOwnerAssembly_ButNotOwnerClass_IsStillReported()
     {
-        // The one Guid.NewGuid() lives in AgentGuard.CrossPlatform's shared helper today; CrossPlatform is not
-        // Boundaries, so this is the RED that forces the GUID behind IGuidFactory.
+        // AgentGuard.CrossPlatform IS the owner assembly for AG0014 (guid-seam-lives-in-crossplatform), but this Sample
+        // does not implement IGuidFactory, so it is not the GuidFactory owner class — its Guid.NewGuid() is still RED.
+        // The assembly half of the conjunction alone never exempts; the class must be the owner too. This is the RED
+        // that forces PlatformFileSystemShared's raw Guid.NewGuid() behind IGuidFactory.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<RandomnessOnlyInBoundariesAnalyzer>(NewGuidSource, "AgentGuard.CrossPlatform"));
         Assert.Equal("AG0014", diagnostic.Id);
     }
 
     [Fact]
-    public async Task GuidNewGuid_InBoundaries_IsNotReported()
+    public async Task OwnerImplementingInterface_IsExempt_SiblingInSameAssembly_IsStillReported()
     {
-        Assert.Empty(await AnalyzerRunner.RunAsync<RandomnessOnlyInBoundariesAnalyzer>(NewGuidSource, "AgentGuard.Boundaries"));
+        // one-owner-class-per-primitive: only the class implementing IGuidFactory is exempt, resolved structurally.
+        // Compiled into AgentGuard.CrossPlatform — where the GuidFactory owner actually lives
+        // (guid-seam-lives-in-crossplatform) — to prove assembly membership no longer grants the exemption: the
+        // owner's Guid.NewGuid() is clean, but the sibling's new Random() in the SAME assembly is RED.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<RandomnessOnlyInBoundariesAnalyzer>(OwnerAndSiblingSource, "AgentGuard.CrossPlatform"));
+        Assert.Equal("AG0014", diagnostic.Id);
+        Assert.Contains(
+            "Random", AnalyzerRunner.SpanText(OwnerAndSiblingSource, diagnostic), System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GuidFactoryOwner_InWrongAssembly_IsReported_SelfGrantBlocked()
+    {
+        // FIX 1: implementing IGuidFactory is not enough — the class must also compile into AgentGuard.CrossPlatform,
+        // where the GuidFactory owner lives (guid-seam-lives-in-crossplatform). In AgentGuard.Boundaries (the wrong
+        // assembly) the owner's Guid.NewGuid() is RED, so a fake declaring ': IGuidFactory' cannot launder it.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<RandomnessOnlyInBoundariesAnalyzer>(
+                GuidFactoryOwnerSource, "AgentGuard.Boundaries"));
+        Assert.Equal("AG0014", diagnostic.Id);
+        Assert.Contains(
+            "NewGuid", AnalyzerRunner.SpanText(GuidFactoryOwnerSource, diagnostic), System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GuidFactoryOwner_InOwnerAssembly_IsExempt()
+    {
+        // The same class compiled into its owner assembly AgentGuard.CrossPlatform is exempt: both halves pass.
+        Assert.Empty(
+            await AnalyzerRunner.RunAsync<RandomnessOnlyInBoundariesAnalyzer>(
+                GuidFactoryOwnerSource, "AgentGuard.CrossPlatform"));
     }
 
     [Fact]

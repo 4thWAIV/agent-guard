@@ -25,8 +25,6 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     private const string Category = "AgentGuard.Architecture";
     private const string InteropNamespace = "System.Runtime.InteropServices";
     private const string AttributeSuffix = "Attribute";
-    private const string DllImportAttributeName = "DllImportAttribute";
-    private const string LibraryImportAttributeName = "LibraryImportAttribute";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -74,8 +72,8 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     {
         var attribute = (AttributeSyntax)context.Node;
         string qualifiedName = FullAttributeName(SimpleName(attribute.Name));
-        if (!string.Equals(qualifiedName, DllImportAttributeName, StringComparison.Ordinal)
-            && !string.Equals(qualifiedName, LibraryImportAttributeName, StringComparison.Ordinal))
+        if (!string.Equals(qualifiedName, PInvoke.DllImportAttributeName, StringComparison.Ordinal)
+            && !string.Equals(qualifiedName, PInvoke.LibraryImportAttributeName, StringComparison.Ordinal))
         {
             return;
         }
@@ -85,8 +83,8 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
         // reject a same-named attribute declared in a different namespace: if the symbol resolves to a type
         // that is NOT the interop attribute, it is not native interop and is left alone.
         if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
-            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, DllImportAttributeName)
-            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, LibraryImportAttributeName))
+            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, PInvoke.DllImportAttributeName)
+            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, PInvoke.LibraryImportAttributeName))
         {
             return;
         }

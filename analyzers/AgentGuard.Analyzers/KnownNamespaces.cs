@@ -8,6 +8,9 @@ namespace AgentGuard.Analyzers;
 /// </summary>
 internal static class KnownNamespaces
 {
+    /// <summary>The <c>AgentGuard.Abstractions</c> namespace, where every owned boundary interface is defined.</summary>
+    internal const string AgentGuardAbstractions = "AgentGuard.Abstractions";
+
     /// <summary>The <c>System</c> namespace.</summary>
     internal const string System = "System";
 

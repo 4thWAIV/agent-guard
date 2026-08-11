@@ -12,8 +12,15 @@ namespace AgentGuard.Analyzers;
 /// </summary>
 internal static class PInvoke
 {
-    private const string DllImportAttributeName = "DllImportAttribute";
-    private const string LibraryImportAttributeName = "LibraryImportAttribute";
+    /// <summary>The simple name of <c>System.Runtime.InteropServices.DllImportAttribute</c>. The single owner of
+    /// this literal; <see cref="InteropOnlyInCrossPlatformLibrariesAnalyzer"/> references it rather than redeclaring
+    /// it.</summary>
+    internal const string DllImportAttributeName = "DllImportAttribute";
+
+    /// <summary>The simple name of <c>System.Runtime.InteropServices.LibraryImportAttribute</c>. The single owner of
+    /// this literal; <see cref="InteropOnlyInCrossPlatformLibrariesAnalyzer"/> references it rather than redeclaring
+    /// it.</summary>
+    internal const string LibraryImportAttributeName = "LibraryImportAttribute";
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="method"/> is a native-interop method — an <c>extern</c>

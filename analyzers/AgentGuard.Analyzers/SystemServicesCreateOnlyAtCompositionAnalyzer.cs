@@ -67,16 +67,16 @@ public sealed class SystemServicesCreateOnlyAtCompositionAnalyzer : DiagnosticAn
 
     private static bool IsSystemServicesCreate(ISymbol member, INamedTypeSymbol type)
     {
+        // Identify the banned call by full type identity (namespace + name) through the codebase's one type-identity
+        // owner, not a bare name-plus-assembly match: it is the static Create() on AgentGuard.Boundaries.SystemServices.
         return member is IMethodSymbol { IsStatic: true }
             && string.Equals(member.Name, FactoryMethodName, StringComparison.Ordinal)
-            && string.Equals(type.Name, FactoryTypeName, StringComparison.Ordinal)
-            && type.ContainingAssembly is not null
-            && string.Equals(type.ContainingAssembly.Name, BoundaryAssembly.Name, StringComparison.Ordinal);
+            && WellKnownType.Is(type, BoundaryAssembly.Name, FactoryTypeName);
     }
 
     private static bool IsInsideAllowedCompositionPoint(ISymbol containingSymbol)
     {
-        for (INamedTypeSymbol? enclosing = containingSymbol as INamedTypeSymbol ?? containingSymbol.ContainingType;
+        for (INamedTypeSymbol? enclosing = OwnerClass.EnclosingType(containingSymbol);
              enclosing is not null;
              enclosing = enclosing.ContainingType)
         {
@@ -89,17 +89,22 @@ public sealed class SystemServicesCreateOnlyAtCompositionAnalyzer : DiagnosticAn
         return false;
     }
 
-    // The exemption is bound to assembly identity like every sibling gate: a type merely named 'Program' or
-    // 'SystemServicesBuilder' in any other assembly cannot self-grant the right to reconstruct the container.
+    // The exemption is bound to full type identity (namespace + name via the one type-identity owner WellKnownType.Is)
+    // AND assembly identity, like every sibling gate — a conjunction. A type merely NAMED 'Program' or
+    // 'SystemServicesBuilder' in a DIFFERENT namespace of the right assembly (a nominal collision) cannot self-grant
+    // the right to reconstruct the container, and neither can one in another assembly. The real composition points are
+    // Program in namespace AgentGuard.Cli and SystemServicesBuilder in namespace AgentGuard.TestHelpers; the CLI and
+    // test-helpers root namespaces equal their assembly names, so the shared CliAssembly / TestAssembly constants own
+    // both the namespace and the assembly literal.
     private static bool IsProgramInCli(INamedTypeSymbol enclosing)
     {
-        return string.Equals(enclosing.Name, CompositionTypeName, StringComparison.Ordinal)
+        return WellKnownType.Is(enclosing, CliAssembly.Name, CompositionTypeName)
             && string.Equals(enclosing.ContainingAssembly?.Name, CliAssembly.Name, StringComparison.Ordinal);
     }
 
     private static bool IsBuilderInTestHelpers(INamedTypeSymbol enclosing)
     {
-        return string.Equals(enclosing.Name, BuilderTypeName, StringComparison.Ordinal)
+        return WellKnownType.Is(enclosing, TestAssembly.TestHelpersName, BuilderTypeName)
             && string.Equals(enclosing.ContainingAssembly?.Name, TestAssembly.TestHelpersName, StringComparison.Ordinal);
     }
 }

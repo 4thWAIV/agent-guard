@@ -9,8 +9,7 @@ namespace AgentGuard.Analyzers;
 /// types they alone may use, <c>AgentGuard.TestHelpers</c>. The shipped guard must never be built against the fake
 /// container the test helpers construct, so a reference to a <c>AgentGuard.TestHelpers</c> type from any assembly
 /// that is not a test assembly is a build error (AG0018). This is the assembly-name gate for that rule, the same
-/// shape as <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/> and
-/// <see cref="BoundaryAssembly.IsBoundariesLibrary"/>.
+/// shape as <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/>.
 /// </summary>
 internal static class TestAssembly
 {

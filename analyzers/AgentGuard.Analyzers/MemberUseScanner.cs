@@ -44,30 +44,6 @@ internal static class MemberUseScanner
     }
 
     /// <summary>
-    /// Registers the member-use scan only when the compilation under analysis is not the assembly the rule exempts
-    /// — the one assembly where the raw primitive is allowed to live. This is the guard-then-register step every
-    /// assembly-locked boundary rule shares, done once here rather than copied into each rule's compilation-start
-    /// method.
-    /// </summary>
-    /// <param name="context">The compilation-start context to register on.</param>
-    /// <param name="isExempt">The predicate that identifies the one assembly where the raw primitive is allowed, so
-    /// the scan is skipped there.</param>
-    /// <param name="inspect">The rule's inspector, given the operation context, the referenced member, and the
-    /// type that declares it.</param>
-    internal static void RegisterUnless(
-        CompilationStartAnalysisContext context,
-        Func<Compilation, bool> isExempt,
-        Action<OperationAnalysisContext, ISymbol, INamedTypeSymbol> inspect)
-    {
-        if (isExempt(context.Compilation))
-        {
-            return;
-        }
-
-        Register(context, inspect);
-    }
-
-    /// <summary>
     /// Builds the human-readable name of a member use for a diagnostic message: <c>new TypeName</c> for a
     /// constructor, or <c>TypeName.MemberName</c> otherwise.
     /// </summary>

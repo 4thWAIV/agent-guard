@@ -1,7 +1,5 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using Microsoft.CodeAnalysis;
-
 namespace AgentGuard.Analyzers;
 
 /// <summary>
@@ -19,16 +17,4 @@ internal static class BoundaryAssembly
     /// only place a raw OS-uniform primitive call compiles. The single owner of this value.
     /// </summary>
     internal const string Name = "AgentGuard.Boundaries";
-
-    /// <summary>
-    /// Gets a value indicating whether <paramref name="compilation"/> is the <c>AgentGuard.Boundaries</c> adapter
-    /// assembly, where raw OS-uniform primitive calls are permitted. The match is exact.
-    /// </summary>
-    /// <param name="compilation">The compilation under analysis.</param>
-    /// <returns><see langword="true"/> when the assembly is exactly <c>AgentGuard.Boundaries</c>; otherwise
-    /// <see langword="false"/>.</returns>
-    internal static bool IsBoundariesLibrary(Compilation compilation)
-    {
-        return string.Equals(compilation.AssemblyName, Name, StringComparison.Ordinal);
-    }
 }
