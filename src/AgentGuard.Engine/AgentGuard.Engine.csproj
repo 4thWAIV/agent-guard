@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>AgentGuard.Engine</RootNamespace>
+    <AssemblyName>AgentGuard.Engine</AssemblyName>
+    <PackageId>AgentGuard.Engine</PackageId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="NuGet.Versioning" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Tests" />
+  </ItemGroup>
+
+  <!-- The engine consumes platform capabilities through IPlatformServices; this references the
+       AgentGuard.CrossPlatform contract and exactly one per-OS implementation, selected by RuntimeIdentifier
+       (falling back to the build-host OS), so the atomic symlink swap and the executable bit stay behind the
+       interface and NO native interop lives in the engine. -->
+  <Import Project="../AgentGuard.CrossPlatform/PlatformImplementation.targets" />
+
+</Project>

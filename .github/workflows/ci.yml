@@ -1,0 +1,467 @@
+name: CI
+
+# The full pipeline: the quality gate (build + test all six RIDs' code, run the four test legs, one gate job
+# PRs must pass) PLUS, on a push to dev/main only, signing and a release.
+#
+# Version id: one leading `version` job computes it once (compute-version-once) and passes it to every OS job
+# and the release job as -p:AgentGuard* args / outputs, so all jobs stamp the identical id. dev => -pre-release,
+# main => none.
+#
+# Signing (push only, decision signing-mechanisms): each OS job strong-name-signs its build (from the
+# AGENTGUARD_STRONGNAME_SNK secret; AGENTGUARD_REQUIRE_SIGNED makes a missing key a hard fail so CI never ships
+# unsigned — no-committed-keys), then codesign (mac) / signtool+timestamp (Windows) / cosign-keyless (all six)
+# its two binaries, checksum them, and upload them. The release job gathers all six and publishes one release:
+# pre-release from dev, full release from main (channel-by-prerelease-id).
+#
+# A single runner cannot host both `codesign` (macOS-only) and `signtool` (Windows-only), so each OS job
+# verifies its own native signature right after signing (a hard `needs:` dependency of the release), and the
+# release job — on macOS — re-verifies the mac codesign seals plus every cosign signature (the one cross-platform
+# check). Nothing publishes if any of these fail (verify-sigs-before-publish).
+#
+# The .NET SDK is installed with Microsoft's official dotnet-install script pinned to 10.0.100 (pin-sdk-10.0.100-ga),
+# the same script used locally. Every third-party action is pinned by immutable commit id (pin-actions-by-commit-id).
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      day: ${{ steps.id.outputs.day }}
+      time: ${{ steps.id.outputs.time }}
+      combined: ${{ steps.id.outputs.combined }}
+      hash: ${{ steps.id.outputs.hash }}
+      channel: ${{ steps.id.outputs.channel }}
+      # The single assembled version string (compute-build-id.sh is its sole owner): `tag` = MSBuild Version /
+      # release tag (no +hash), `version` = SemVer / InformationalVersion (with +hash). Every downstream job
+      # consumes these — no job re-reads version.props or re-applies -pre-release (compute-version-once).
+      tag: ${{ steps.id.outputs.tag }}
+      version: ${{ steps.id.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: id
+        # dev target (push to dev, or a PR based on dev) => channel 'dev'; main => '' (no prerelease).
+        run: eng/compute-build-id.sh "${{ (github.base_ref == 'dev' || github.ref == 'refs/heads/dev') && 'dev' || '' }}"
+
+  macos:
+    needs: version
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
+    env:
+      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned .NET SDK (official script, same as local)
+        run: |
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --version 10.0.100 --install-dir "$RUNNER_TEMP/dotnet"
+          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+      - name: Restore the strong-name signing key (push only; CI must ship signed)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
+          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+        run: |
+          eng/ci-restore-signing-key.sh
+          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+      - name: Build + publish both mac RIDs (build = the lint/analyzer gate too)
+        run: |
+          dotnet build -c Release $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-x64 --self-contained $AG
+      - name: Cross-RID selects exactly one platform library (host != target)
+        # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
+        # exactly ONE AgentGuard.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
+        # because each job's host matches its RID; this runs a TRUE cross-build (macOS host -> linux-x64 target).
+        run: eng/check-single-platform-lib.sh linux-x64 $AG
+      - name: Test osx-arm64 (native)
+        run: dotnet test -c Release $AG
+      - name: Test osx-x64 under Rosetta (must run as X64)
+        # The detailed console logger surfaces ProcessArchitectureTests' "ProcessArchitecture=X64" line in the
+        # CI log (Acceptance 6); AGENTGUARD_EXPECT_ARCH=X64 makes the test itself fail if this leg did not truly
+        # land on x64 under Rosetta — teeth beyond a log grep (decision intel-mac-via-rosetta).
+        env:
+          AGENTGUARD_EXPECT_ARCH: X64
+        run: |
+          bash "$RUNNER_TEMP/dotnet-install.sh" --version 10.0.100 --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
+          DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed"
+      - name: Install cosign (keyless signing)
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
+        with:
+          cosign-release: 'v3.1.3'
+      - name: Sign mac binaries (codesign, hardened runtime + entitlements)
+        if: github.event_name == 'push'
+        env:
+          P12_B64: ${{ secrets.AGENTGUARD_MACOS_CERT_P12 }}
+          P12_PW: ${{ secrets.AGENTGUARD_MACOS_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          WORK="$RUNNER_TEMP/macsign"; mkdir -p "$WORK"
+          printf '%s' "$P12_B64" | openssl base64 -d -A > "$WORK/cert.p12"
+          # ci-cert-expiry-check: fail the build if the CI signing cert is already expired. The p12->PEM
+          # modern-then-legacy fallback lives in one place (eng/p12-to-pem.sh) shared with the release export.
+          eng/p12-to-pem.sh "$WORK/cert.p12" "$P12_PW" "$WORK/cert.pem"
+          if ! openssl x509 -in "$WORK/cert.pem" -checkend 0 -noout; then
+            echo "::error::AGENTGUARD_MACOS_CERT_P12 is expired — regenerate the CI signing cert (decision ci-cert-expiry-check)."
+            exit 1
+          fi
+          KC="$WORK/build.keychain-db"; KP="$(openssl rand -base64 24)"
+          security create-keychain -p "$KP" "$KC"
+          security set-keychain-settings -lut 21600 "$KC"
+          security unlock-keychain -p "$KP" "$KC"
+          security import "$WORK/cert.p12" -k "$KC" -P "$P12_PW" -T /usr/bin/codesign -A
+          security list-keychains -d user -s "$KC" $(security list-keychains -d user | sed s/\"//g)
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KP" "$KC" >/dev/null
+          # The CI cert is a self-signed, UNTRUSTED code-signing cert, so `find-identity -v` (valid-only) returns
+          # "0 valid identities found" (CSSMERR_TP_NOT_TRUSTED) and the old awk picked the word "valid", making
+          # `codesign --sign valid` fail with "valid: no identity found". codesign does NOT need the cert trusted,
+          # only present, so select the imported identity by its SHA-1 (list WITHOUT -v). codesign --verify --strict
+          # (the verify step) is a structural seal check and likewise needs no trust.
+          IDENTITY="$(security find-identity -p codesigning "$KC" | grep -oE '[0-9A-F]{40}' | head -1)"
+          if [ -z "$IDENTITY" ]; then echo "::error::No code-signing identity found in the build keychain after import."; exit 1; fi
+          for rid in osx-arm64 osx-x64; do
+            BIN="src/AgentGuard.Cli/bin/Release/net10.0/$rid/publish/guard"
+            codesign --force --options runtime --entitlements eng/signing/agentguard.entitlements --keychain "$KC" --sign "$IDENTITY" "$BIN"
+          done
+      - name: Launch the codesigned mac binary (proves hardened runtime lets it run)
+        # success definition + Acceptance 5: run the codesigned, hardened-runtime osx-arm64 binary on the mac
+        # runner and require exit 0 — the entitlements (allow-jit / allow-unsigned-executable-memory) let a
+        # .NET binary launch under `codesign --options runtime` (decision mac-hardened-runtime).
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          src/AgentGuard.Cli/bin/Release/net10.0/osx-arm64/publish/guard version
+      - name: Stage, checksum, and cosign mac binaries
+        if: github.event_name == 'push'
+        run: eng/ci-stage-and-cosign.sh dist "" osx-arm64 osx-x64
+      - name: Verify mac signatures + record result artifact (verify-sigs-before-publish)
+        if: github.event_name == 'push'
+        run: eng/ci-verify-signatures.sh verify/verify-macos.txt codesign "" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" osx-arm64 osx-x64
+      - name: Upload signed mac binaries
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-macos
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload mac verify result
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify-macos
+          path: verify/verify-macos.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
+    env:
+      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned .NET SDK (official script, same as local)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
+          & "$env:RUNNER_TEMP/dotnet-install.ps1" -Version 10.0.100 -InstallDir "$env:RUNNER_TEMP/dotnet"
+          "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Restore the strong-name signing key (push only; CI must ship signed)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
+          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+        run: |
+          eng/ci-restore-signing-key.sh
+          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+      - name: Build + publish both windows RIDs
+        # bash (not the default pwsh) so $AG word-splits into separate -p args, matching the mac/linux jobs;
+        # under pwsh "$env:AG" is passed as ONE malformed argument and AgentGuardStampVersion fails the build.
+        shell: bash
+        run: |
+          dotnet build -c Release $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-x64 --self-contained $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-arm64 --self-contained $AG
+      - name: Test win-x64 (win-arm64 is build-only, accepted risk)
+        shell: bash
+        run: dotnet test -c Release $AG
+      - name: Install cosign (keyless signing)
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
+        with:
+          cosign-release: 'v3.1.3'
+      - name: Sign windows binaries (Authenticode + RFC3161 timestamp)
+        if: github.event_name == 'push'
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.AGENTGUARD_WINDOWS_PFX }}
+          PFX_PW: ${{ secrets.AGENTGUARD_WINDOWS_PFX_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $work = Join-Path $env:RUNNER_TEMP 'winsign'
+          New-Item -ItemType Directory -Force -Path $work | Out-Null
+          $pfx = Join-Path $work 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2 @($pfx, $env:PFX_PW)
+          # ci-cert-expiry-check: fail the build if the CI signing cert is already expired.
+          if ($cert.NotAfter -lt (Get-Date)) {
+            Write-Error "AGENTGUARD_WINDOWS_PFX is expired ($($cert.NotAfter)) — regenerate the CI signing cert (decision ci-cert-expiry-check)."
+          }
+          # Install our self-signed cert into this ephemeral runner's trust store so `signtool verify /pa` chains.
+          # This is the RUNNER, not a tester's machine — the tester 'never Root' rule (tester-trust-public-cer)
+          # governs end users, who use eng/signing/trust-cert.ps1 (Trusted Publishers only).
+          $der = Join-Path $work 'public.cer'
+          [IO.File]::WriteAllBytes($der, $cert.Export('Cert'))
+          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\Root | Out-Null
+          Import-Certificate -FilePath $der -CertStoreLocation Cert:\LocalMachine\TrustedPublisher | Out-Null
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" -ErrorAction SilentlyContinue |
+            Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $signtool) { Write-Error 'signtool.exe not found on the runner.' }
+          foreach ($rid in 'win-x64','win-arm64') {
+            $bin = "src\AgentGuard.Cli\bin\Release\net10.0\$rid\publish\guard.exe"
+            # Timestamp against DigiCert; on failure fall back to Sectigo (decision digicert-timestamp-sectigo-fallback).
+            & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.digicert.com /td sha256 $bin
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host 'DigiCert timestamp unavailable; falling back to Sectigo.'
+              & $signtool sign /fd sha256 /f $pfx /p $env:PFX_PW /tr http://timestamp.sectigo.com /td sha256 $bin
+              if ($LASTEXITCODE -ne 0) { Write-Error "signtool sign failed for $rid on both timestamp servers." }
+            }
+          }
+      - name: Stage, checksum, and cosign windows binaries
+        if: github.event_name == 'push'
+        shell: bash
+        run: eng/ci-stage-and-cosign.sh dist ".exe" win-x64 win-arm64
+      - name: Verify windows signatures + record result artifact (verify-sigs-before-publish)
+        if: github.event_name == 'push'
+        shell: bash
+        run: eng/ci-verify-signatures.sh verify/verify-windows.txt signtool ".exe" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" win-x64 win-arm64
+      - name: Upload signed windows binaries
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-windows
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload windows verify result
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify-windows
+          path: verify/verify-windows.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    needs: version
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
+    env:
+      AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install pinned .NET SDK (official script, same as local)
+        run: |
+          curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          bash "$RUNNER_TEMP/dotnet-install.sh" --version 10.0.100 --install-dir "$RUNNER_TEMP/dotnet"
+          echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+      - name: Restore the strong-name signing key (push only; CI must ship signed)
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          AGENTGUARD_STRONGNAME_SNK: ${{ secrets.AGENTGUARD_STRONGNAME_SNK }}
+          AGENTGUARD_STRONGNAME_PUBLICKEY: ${{ secrets.AGENTGUARD_STRONGNAME_PUBLICKEY }}
+        run: |
+          eng/ci-restore-signing-key.sh
+          echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
+      - name: Build + publish both linux RIDs
+        run: |
+          dotnet build -c Release $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-arm64 --self-contained $AG
+          dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-x64 --self-contained $AG
+      - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
+        run: dotnet test -c Release $AG
+      - name: Install cosign (keyless signing)
+        if: github.event_name == 'push'
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
+        with:
+          cosign-release: 'v3.1.3'
+      - name: Stage, checksum, and cosign linux binaries (no native code-signing on Linux)
+        if: github.event_name == 'push'
+        run: eng/ci-stage-and-cosign.sh dist "" linux-arm64 linux-x64
+      - name: Verify linux signatures + record result artifact (verify-sigs-before-publish)
+        if: github.event_name == 'push'
+        run: eng/ci-verify-signatures.sh verify/verify-linux.txt none "" "https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}" linux-arm64 linux-x64
+      - name: Upload signed linux binaries
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: signed-linux
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload linux verify result
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: verify-linux
+          path: verify/verify-linux.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  # The single check branch protection requires. It goes green only if all three OS jobs succeeded — a
+  # skipped or failed OS job cannot green it.
+  gate:
+    needs: [macos, windows, linux]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert every OS job succeeded
+        run: |
+          echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }}"
+          test "${{ needs.macos.result }}" = "success" \
+            && test "${{ needs.windows.result }}" = "success" \
+            && test "${{ needs.linux.result }}" = "success"
+
+  # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
+  # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
+  # the mac codesign seals; cosign verify-blob covers all six.
+  release:
+    needs: [version, gate, macos, windows, linux]
+    if: github.event_name == 'push'
+    runs-on: macos-latest
+    permissions:
+      contents: write
+      id-token: write
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      # The assembled release tag from the single owner (the `version` job) — the release NEVER re-reads
+      # version.props or re-applies -pre-release (compute-version-once / release-fields).
+      TAG: ${{ needs.version.outputs.tag }}
+      CHANNEL: ${{ needs.version.outputs.channel }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install cosign (for verify-blob)
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
+        with:
+          cosign-release: 'v3.1.3'
+      - name: Download all six signed binaries
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: signed-*
+          path: dist
+          merge-multiple: true
+      - name: Download the three per-platform verify results
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: verify-*
+          path: verify
+          merge-multiple: true
+      - name: Require every per-platform verify result present and PASS (verify-sigs-before-publish)
+        # Each per-OS job proved its own native signatures and emitted verify-<os>.txt. Refuse to publish unless
+        # all three exist and each ends with "RESULT: PASS" — a missing or non-PASS result blocks the release.
+        run: |
+          set -euo pipefail
+          for os in macos windows linux; do
+            f="verify/verify-$os.txt"
+            if [ ! -f "$f" ]; then
+              echo "::error::Missing per-platform verify result $f — refusing to publish (verify-sigs-before-publish)."
+              exit 1
+            fi
+            echo "== $f =="
+            cat "$f"
+            if ! grep -q "^RESULT: PASS$" "$f"; then
+              echo "::error::$f is not PASS — refusing to publish (verify-sigs-before-publish)."
+              exit 1
+            fi
+          done
+      - name: Make mac/linux binaries executable (chmod +x)
+        run: chmod +x dist/guard-osx-arm64 dist/guard-osx-x64 dist/guard-linux-arm64 dist/guard-linux-x64
+      - name: Re-verify every signature before publishing (single-owner verify script)
+        # verify-sigs-before-publish: re-run the SAME verifier the per-OS jobs used (eng/ci-verify-signatures.sh)
+        # so the cosign/codesign commands and the keyless identity have exactly one owner. cosign covers all six;
+        # codesign covers the two mac RIDs (this runner is macOS). Windows Authenticode was verified in the
+        # windows job, a hard `needs:` dependency of this job — no single runner hosts codesign + signtool. The
+        # identity uses the same `@${{ github.ref }}` form the per-OS legs pass.
+        run: |
+          set -euo pipefail
+          IDENTITY="https://github.com/${{ github.repository }}/.github/workflows/ci.yml@${{ github.ref }}"
+          eng/ci-verify-signatures.sh verify/release-macos.txt   codesign ""     "$IDENTITY" osx-arm64 osx-x64
+          eng/ci-verify-signatures.sh verify/release-windows.txt none     ".exe" "$IDENTITY" win-x64 win-arm64
+          eng/ci-verify-signatures.sh verify/release-linux.txt   none     ""     "$IDENTITY" linux-arm64 linux-x64
+      - name: Export the two public certs from their secrets (never drift)
+        env:
+          MAC_P12_B64: ${{ secrets.AGENTGUARD_MACOS_CERT_P12 }}
+          MAC_P12_PW: ${{ secrets.AGENTGUARD_MACOS_CERT_PASSWORD }}
+          WIN_PFX_B64: ${{ secrets.AGENTGUARD_WINDOWS_PFX }}
+          WIN_PFX_PW: ${{ secrets.AGENTGUARD_WINDOWS_PFX_PASSWORD }}
+        run: |
+          set -euo pipefail
+          export_cer() { # <b64> <pw> <out.cer>
+            local b64="$1" pw="$2" out="$3" tmp
+            tmp="$(mktemp -d)"
+            printf '%s' "$b64" | openssl base64 -d -A > "$tmp/in.p12"
+            # Shared p12->PEM modern-then-legacy fallback (same helper the mac cert-expiry check uses).
+            eng/p12-to-pem.sh "$tmp/in.p12" "$pw" "$tmp/cert.pem"
+            openssl x509 -in "$tmp/cert.pem" -outform DER -out "$out"
+            rm -rf "$tmp"
+          }
+          export_cer "$MAC_P12_B64" "$MAC_P12_PW" dist/agentguard-macos-public.cer
+          export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/agentguard-windows-public.cer
+      - name: Stage the tester trust scripts
+        run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # VERSION/tag is consumed from the single owner (the `version` job's `tag` output) — already
+          # MM.combined[-pre-release] with NO +hash (decision release-fields). Only the release-kind labels are
+          # derived from the channel here; the version string itself is never re-assembled.
+          if [ "$CHANNEL" = "dev" ]; then
+            PRERELEASE="--prerelease"; KIND="dev preview"; CHANNEL_LINE="dev preview (pre-release)"
+          else
+            PRERELEASE=""; KIND="release"; CHANNEL_LINE="release"
+          fi
+          VERSION="$TAG"
+          TITLE="AgentGuard ${VERSION} (${KIND})"
+          REPO="${{ github.repository }}"
+          NOTES="$RUNNER_TEMP/notes.md"
+          {
+            printf 'Channel: %s\n\n' "$CHANNEL_LINE"
+            printf 'These binaries are signed with a self-signed, UNTRUSTED developer certificate — not a CA-issued or notarized identity. Trust our public certificate first with the attached tester trust script (`trust-cert.sh` on macOS, `trust-cert.ps1` on Windows); it trusts the cert narrowly for code signing only, never as a root.\n\n'
+            printf 'How to run these alpha builds: https://github.com/%s/blob/%s/docs/running-alpha-builds.md\n\n' "$REPO" "$GITHUB_SHA"
+            printf 'Built, tested, and signed from commit: https://github.com/%s/commit/%s\n' "$REPO" "$GITHUB_SHA"
+          } > "$NOTES"
+          cd dist
+          gh release create "$VERSION" \
+            --repo "$REPO" \
+            --target "$GITHUB_SHA" \
+            --title "$TITLE" \
+            --notes-file "$NOTES" \
+            $PRERELEASE \
+            guard-osx-arm64 guard-osx-x64 guard-win-x64.exe guard-win-arm64.exe guard-linux-arm64 guard-linux-x64 \
+            guard-osx-arm64.sha256 guard-osx-x64.sha256 guard-win-x64.sha256 guard-win-arm64.sha256 guard-linux-arm64.sha256 guard-linux-x64.sha256 \
+            guard-osx-arm64.cosign.bundle guard-osx-x64.cosign.bundle guard-win-x64.cosign.bundle guard-win-arm64.cosign.bundle guard-linux-arm64.cosign.bundle guard-linux-x64.cosign.bundle \
+            agentguard-macos-public.cer agentguard-windows-public.cer \
+            trust-cert.sh trust-cert.ps1

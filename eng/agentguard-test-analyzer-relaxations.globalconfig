@@ -1,0 +1,19 @@
+is_global = true
+
+# SA0001: XML comment analysis is disabled because test projects set GenerateDocumentationFile=false.
+dotnet_diagnostic.SA0001.severity = none
+
+# SA1600: test elements are not public API and need no XML documentation.
+dotnet_diagnostic.SA1600.severity = none
+
+# CS1591: missing XML comment for publicly visible type or member; test types are not public API.
+dotnet_diagnostic.CS1591.severity = none
+
+# CA1707: identifiers may contain underscores for the xUnit Method_State_Expected naming convention.
+dotnet_diagnostic.CA1707.severity = none
+
+# CA1515: test types stay public because xUnit v2 discovers only public classes.
+dotnet_diagnostic.CA1515.severity = none
+
+# CA2007: ConfigureAwait is not meaningful in xUnit; xUnit1030 forbids ConfigureAwait(false).
+dotnet_diagnostic.CA2007.severity = none

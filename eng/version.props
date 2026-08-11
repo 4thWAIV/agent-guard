@@ -1,0 +1,9 @@
+<Project>
+
+  <!-- The single source of MAJOR.MINOR (decision 15). Day, Time, and the git hash are computed once per build
+       by the pre-solution target in Directory.Solution.targets (local) or supplied by CI; never hardcoded here. -->
+  <PropertyGroup>
+    <AgentGuardMajorMinor>0.1</AgentGuardMajorMinor>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,58 @@
+<Project>
+
+  <!--
+    Strong-naming + signed/unsigned build selection (decisions 20, 21, 35).
+
+    Signed build   = the strong-name key is present (the git-ignored local key from eng/generate-dev-keys,
+                     or a path a CI job points at). Assemblies are strong-named and the InternalsVisibleTo
+                     declarations get the public key injected.
+    Unsigned build = no key present. The build proceeds UNSIGNED (decision 20, reversed): InternalsVisibleTo
+                     stays keyless and nothing is strong-named, so a developer can build with no keys at all.
+    AGENTGUARD_REQUIRE_SIGNED (set in CI) turns a missing key into a hard failure, so CI never ships unsigned.
+
+    The analyzer and its tests (AgentGuardIsAnalyzerProject) are excluded: the Roslyn analyzer stays
+    netstandard2.0 and unsigned, and that folder is out of scope here.
+  -->
+
+  <PropertyGroup Condition="'$(AgentGuardIsAnalyzerProject)' != 'true'">
+    <!-- Key locations. CI overrides these to point at secret-provided material. -->
+    <AgentGuardKeyDir Condition="'$(AgentGuardKeyDir)' == ''">$(MSBuildThisFileDirectory)signing/local</AgentGuardKeyDir>
+    <AgentGuardStrongNameKey Condition="'$(AgentGuardStrongNameKey)' == ''">$(AgentGuardKeyDir)/agentguard-strongname.snk</AgentGuardStrongNameKey>
+    <AgentGuardPublicKeyFile Condition="'$(AgentGuardPublicKeyFile)' == ''">$(AgentGuardKeyDir)/agentguard-strongname.publickey</AgentGuardPublicKeyFile>
+
+    <!-- Signed iff the strong-name key file exists (unless a caller forced the value). -->
+    <AgentGuardSigned Condition="'$(AgentGuardSigned)' == '' and Exists('$(AgentGuardStrongNameKey)')">true</AgentGuardSigned>
+    <AgentGuardSigned Condition="'$(AgentGuardSigned)' == ''">false</AgentGuardSigned>
+  </PropertyGroup>
+
+  <!-- CI safety net (decision 20): required-signed but no key => fail hard, never silently unsigned. -->
+  <Target Name="AgentGuardRequireSignedGuard"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(AGENTGUARD_REQUIRE_SIGNED)' == 'true' and '$(AgentGuardSigned)' != 'true' and '$(AgentGuardIsAnalyzerProject)' != 'true'">
+    <Error Text="AGENTGUARD_REQUIRE_SIGNED is set but no strong-name key was found at '$(AgentGuardStrongNameKey)'. Run eng/generate-dev-keys.sh (macOS/Linux) or eng/generate-dev-keys.ps1 (Windows), or provide the CI signing key. CI must never ship an unsigned build." />
+  </Target>
+
+  <!-- Turn on strong-naming when signed. -->
+  <PropertyGroup Condition="'$(AgentGuardSigned)' == 'true' and '$(AgentGuardIsAnalyzerProject)' != 'true'">
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>$(AgentGuardStrongNameKey)</AssemblyOriginatorKeyFile>
+  </PropertyGroup>
+
+  <!--
+    InternalsVisibleTo transform (decision 35): source keeps plain <InternalsVisibleTo Include="X" /> with no
+    key. On a signed build this target reads the public key and stamps it onto every such item before the SDK
+    turns them into assembly attributes, so a strong-named friend reference is valid. On an unsigned build the
+    target does nothing and the friend reference stays keyless.
+  -->
+  <Target Name="AgentGuardInjectStrongNameKey"
+          BeforeTargets="GetAssemblyAttributes"
+          Condition="'$(AgentGuardSigned)' == 'true' and '@(InternalsVisibleTo)' != ''">
+    <PropertyGroup>
+      <AgentGuardPublicKey>$([System.IO.File]::ReadAllText('$(AgentGuardPublicKeyFile)').Trim())</AgentGuardPublicKey>
+    </PropertyGroup>
+    <ItemGroup>
+      <InternalsVisibleTo Update="@(InternalsVisibleTo)" Key="$(AgentGuardPublicKey)" />
+    </ItemGroup>
+  </Target>
+
+</Project>
