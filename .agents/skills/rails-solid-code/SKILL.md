@@ -62,6 +62,11 @@ If the code's state makes SOLID hard in a way the plan didn't cover, STOP and pr
 - **Violation:** The cheaper wrong approach was shipped — often disguised as a neutral "your call" flag when the right choice was actually clear.
 - **Fix:** Implement the correct approach and report it. Reserve flagging for a genuine unresolved trade-off.
 
+### 10. Dependencies point one way
+- **Practice:** A lower, depended-upon assembly never needs a service injected from a higher assembly that depends on it. Keep the dependency flow one-directional by placing each service in the assembly that uses it. This rail enforces best-practices guide principle 2d (Boundary abstraction), which owns the rule.
+- **Violation:** A service is injected UP — a dependent assembly hands it into the very assembly it depends on (for example `AgentGuard.Boundaries` passing a service into `AgentGuard.CrossPlatform`, which `Boundaries` references), or a rule is bypassed to permit the backwards call. This is a top-line finding.
+- **Fix:** Reorder so the flow is one-directional — usually MOVE the needed service DOWN into the lower assembly that uses it. Reordering is the default; only Tim rules whether the reorder cost is too high, and any such violation needs Tim's personal, explicit sign-off (anywhere, any repo).
+
 ## The gate (answer before acting)
 
 - Does exactly one module/process own this invariant, and did I fix the owner — not a symptom?
@@ -70,5 +75,6 @@ If the code's state makes SOLID hard in a way the plan didn't cover, STOP and pr
 - Is the fix guarded by a fixture / regression / replay / proof command wired into the normal workflow, not left to human memory?
 - Did I meet the requirement as written (never weakened it), build the full general seam (no one-case hack, no speculative hatch), and take the correct approach rather than the cheaper wrong one?
 - When SOLID and DRY pulled apart, did SOLID win?
+- Do all dependencies point one way — no service injected up from a dependent into the assembly it depends on?
 
 If any answer is no, the structure is wrong. STOP and fix it before acting. For the SOLID adversary: any one confirmed Violation is a FAIL.

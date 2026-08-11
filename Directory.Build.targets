@@ -3,6 +3,16 @@
   <!-- Shared build-id resolution (one MSBuild copy of the formula). -->
   <Import Project="$(MSBuildThisFileDirectory)eng/version.compute.targets" />
 
+  <!-- Coverage scope (decision covered-assemblies). The analyzer test project carries no coverlet.collector by
+       design, so clear the default RunSettingsFilePath (set in Directory.Build.props) for it — otherwise every
+       `dotnet test` of it prints "Unable to find a datacollector with friendly name 'XPlat Code Coverage'". This
+       lives in targets, not props, because it is set in the analyzer test project's own body, which MSBuild
+       evaluates after the props import but before this targets import — the same reason the version-stamp target
+       below conditions on `$(AgentGuardIsAnalyzerProject)`. -->
+  <PropertyGroup Condition="'$(AgentGuardIsAnalyzerProject)' == 'true'">
+    <RunSettingsFilePath />
+  </PropertyGroup>
+
   <!--
     Stamp the two version forms (decisions 15-17) after the id is resolved, before the SDK turns them into
     assembly attributes.

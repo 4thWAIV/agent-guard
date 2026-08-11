@@ -5,6 +5,7 @@ using System.IO;
 using System.Text.Json.Nodes;
 using AgentGuard.CrossPlatform;
 using AgentGuard.Setup;
+using AgentGuard.TestSupport;
 
 namespace AgentGuard.Tests;
 
@@ -16,6 +17,7 @@ namespace AgentGuard.Tests;
 public sealed class SetupHarness : IDisposable
 {
     private readonly string _root;
+    private readonly AgentGuardLayout _layout;
 
     public SetupHarness()
     {
@@ -24,7 +26,7 @@ public sealed class SetupHarness : IDisposable
         Project = Path.Combine(_root, "project");
         Directory.CreateDirectory(Home);
         Directory.CreateDirectory(Project);
-        ShellProfilePath = Path.Combine(Home, ".zshrc");
+        _layout = new AgentGuardLayout(Home, Project);
     }
 
     /// <summary>Gets the isolated HOME directory.</summary>
@@ -34,45 +36,45 @@ public sealed class SetupHarness : IDisposable
     public string Project { get; }
 
     /// <summary>Gets the shell profile the PATH line is written to.</summary>
-    public string ShellProfilePath { get; }
+    public string ShellProfilePath => _layout.ShellProfilePath;
 
     /// <summary>Gets the managed, native-free platform file system the setup commands run against in tests.</summary>
     public IPlatformFileSystem FileSystem { get; } = new ManagedPlatformFileSystem();
 
     /// <summary>Gets the machine install root.</summary>
-    public string AgentGuardRoot => Path.Combine(Home, ".agentguard");
+    public string AgentGuardRoot => _layout.AgentGuardRoot;
 
     /// <summary>Gets the launcher path.</summary>
-    public string BinGuard => Path.Combine(AgentGuardRoot, "bin", "guard");
+    public string BinGuard => _layout.BinGuard;
 
     /// <summary>Gets the machine state record path.</summary>
-    public string MachineStateFile => Path.Combine(AgentGuardRoot, "state.json");
+    public string MachineStateFile => _layout.MachineStateFile;
 
     /// <summary>Gets the <c>current</c> symlink path.</summary>
-    public string Current => Path.Combine(AgentGuardRoot, "current");
+    public string Current => _layout.Current;
 
     /// <summary>Gets the binary reached through <c>current</c>.</summary>
-    public string CurrentBinary => Path.Combine(Current, "guard");
+    public string CurrentBinary => _layout.CurrentBinary;
 
     /// <summary>Gets the project's <c>.claude/settings.json</c> path.</summary>
-    public string ClaudeSettings => Path.Combine(Project, ".claude", "settings.json");
+    public string ClaudeSettings => _layout.ClaudeSettings;
 
     /// <summary>Gets the project's <c>.gitignore</c> path.</summary>
-    public string Gitignore => Path.Combine(Project, ".gitignore");
+    public string Gitignore => _layout.Gitignore;
 
     /// <summary>Gets the project's guard directory.</summary>
-    public string ProjectAgentGuard => Path.Combine(Project, ".agentguard");
+    public string ProjectAgentGuard => _layout.ProjectAgentGuard;
 
     /// <summary>Gets the project's config path.</summary>
-    public string ProjectConfig => Path.Combine(ProjectAgentGuard, "config.json");
+    public string ProjectConfig => _layout.ProjectConfig;
 
     /// <summary>Gets the project's state path.</summary>
-    public string ProjectStateFile => Path.Combine(ProjectAgentGuard, "state.json");
+    public string ProjectStateFile => _layout.ProjectStateFile;
 
     /// <summary>Returns a version directory's binary path.</summary>
     /// <param name="version">The normalized version.</param>
     /// <returns>The version binary path.</returns>
-    public string VersionBinary(string version) => Path.Combine(AgentGuardRoot, "versions", version, "guard");
+    public string VersionBinary(string version) => _layout.VersionBinary(version);
 
     /// <summary>Creates a fresh source binary file with the given content and returns its path.</summary>
     /// <param name="content">The binary content.</param>
@@ -153,19 +155,5 @@ public sealed class SetupHarness : IDisposable
     }
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        try
-        {
-            Directory.Delete(_root, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Best-effort cleanup.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Best-effort cleanup.
-        }
-    }
+    public void Dispose() => TestTempDirectory.DeleteBestEffort(_root);
 }

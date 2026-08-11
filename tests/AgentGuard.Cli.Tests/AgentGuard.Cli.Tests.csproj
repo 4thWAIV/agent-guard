@@ -1,8 +1,12 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- Exercises the CLI entry point (guard.dll / Program.cs) end to end: it invokes the real process entry point
+       with a redirected HOME, working directory, and console, so every command handler runs the production wiring
+       against a throwaway machine and project. This is the only project that loads and covers the CLI assembly. -->
   <PropertyGroup>
     <AgentGuardIsTestProject>true</AgentGuardIsTestProject>
-    <RootNamespace>AgentGuard.Tests</RootNamespace>
+    <RootNamespace>AgentGuard.Cli.Tests</RootNamespace>
+    <AssemblyName>AgentGuard.Cli.Tests</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,12 +15,10 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="coverlet.collector" />
-    <PackageReference Include="BouncyCastle.Cryptography" />
-    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/AgentGuard.Engine/AgentGuard.Engine.csproj" />
+    <ProjectReference Include="../../src/AgentGuard.Cli/AgentGuard.Cli.csproj" />
   </ItemGroup>
 
   <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->

@@ -95,6 +95,10 @@ jobs:
         run: |
           bash "$RUNNER_TEMP/dotnet-install.sh" --version 10.0.100 --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
           DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed"
+      - name: Coverage gate — macOS implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # `dotnet test` collected cobertura coverage by default (the shared .runsettings). Gate the per-OS macOS
+        # implementation on its own leg; the aggregate is gated once on the Linux leg.
+        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.MacOS
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -201,6 +205,11 @@ jobs:
       - name: Test win-x64 (win-arm64 is build-only, accepted risk)
         shell: bash
         run: dotnet test -c Release $AG
+      - name: Coverage gate — Windows implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # bash so the shared gate script runs identically to the mac/linux legs. It gates the per-OS Windows
+        # implementation on its own leg; the aggregate is gated once on the Linux leg.
+        shell: bash
+        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.Windows
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -299,6 +308,10 @@ jobs:
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-x64 --self-contained $AG
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
         run: dotnet test -c Release $AG
+      - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # The Linux leg is where the aggregate of Engine + Cli (guard) + CrossPlatform is gated (computed once),
+        # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
+        run: eng/coverage-gate.sh . aggregate AgentGuard.CrossPlatform.Linux
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)

@@ -1,7 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System;
 using System.IO;
+using AgentGuard.TestSupport;
 
 namespace AgentGuard.Tests;
 
@@ -64,19 +64,5 @@ public sealed class FixtureProject : IDisposable
     public bool Exists(string relative) => File.Exists(PathOf(relative));
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        try
-        {
-            _root.Delete(recursive: true);
-        }
-        catch (IOException)
-        {
-            // Best-effort cleanup of a temporary directory.
-        }
-        catch (UnauthorizedAccessException)
-        {
-            // Best-effort cleanup of a temporary directory.
-        }
-    }
+    public void Dispose() => TestTempDirectory.DeleteBestEffort(_root.FullName);
 }
