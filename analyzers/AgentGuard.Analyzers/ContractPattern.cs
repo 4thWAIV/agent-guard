@@ -44,24 +44,7 @@ internal static class ContractPattern
     /// <returns><see langword="true"/> if a contract implementation class appears within the type.</returns>
     internal static bool ReferencesContractImplementation(ITypeSymbol? type)
     {
-        return ReferencesContractImplementation(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
-    }
-
-    private static bool ReferencesContractImplementation(ITypeSymbol? type, HashSet<ITypeSymbol> visited)
-    {
-        if (type is null || !visited.Add(type))
-        {
-            return false;
-        }
-
-        return type switch
-        {
-            INamedTypeSymbol named => IsContractImplementation(named)
-                || named.TypeArguments.Any(argument => ReferencesContractImplementation(argument, visited)),
-            IArrayTypeSymbol array => ReferencesContractImplementation(array.ElementType, visited),
-            IPointerTypeSymbol pointer => ReferencesContractImplementation(pointer.PointedAtType, visited),
-            _ => false,
-        };
+        return TypeTree.Any(type, IsContractImplementation);
     }
 
     private static bool IsUnderAbstractionsContracts(INamespaceSymbol? containingNamespace)

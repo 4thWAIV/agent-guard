@@ -35,6 +35,21 @@ internal static class TestAssembly
     }
 
     /// <summary>
+    /// Gets a value indicating whether <paramref name="compilation"/> is part of the test system — the
+    /// <c>AgentGuard.TestHelpers</c> assembly or any test project (name ending in <c>.Tests</c>). The single owner of
+    /// the "TestHelpers OR .Tests" predicate: AG0025 skips these compilations (a fake and a proxy legitimately
+    /// co-implement an owner interface there), AG0018's TestHelpers gate reuses it, and NoCoverageOptOutAnalyzer's
+    /// coverage-scope-out check reuses it, so the disjunction is spelled in exactly one place.
+    /// </summary>
+    /// <param name="compilation">The compilation under analysis.</param>
+    /// <returns><see langword="true"/> when the assembly is the test-only helpers or a test project.</returns>
+    internal static bool IsTestSystemAssembly(Compilation compilation)
+    {
+        return string.Equals(compilation.AssemblyName, TestHelpersName, StringComparison.Ordinal)
+            || IsTestAssembly(compilation);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether <paramref name="symbol"/> is declared in the <c>AgentGuard.TestHelpers</c>
     /// assembly — the test-only helpers whose types shipping code may not reference.
     /// </summary>

@@ -32,6 +32,18 @@ internal static class CrossPlatformBoundary
         RootName + ".Windows");
 
     /// <summary>
+    /// The exact assembly names of the three per-OS implementation libraries — <c>.MacOS</c>, <c>.Linux</c>, and
+    /// <c>.Windows</c> — WITHOUT the core <c>AgentGuard.CrossPlatform</c> contract assembly. AG0029 uses this to gate
+    /// a call from <c>AgentGuard.Boundaries</c> into a per-OS assembly (allowed only as <c>Platform.Create()</c>),
+    /// which is a different door from AG0023's call into the core assembly.
+    /// </summary>
+    private static readonly ImmutableHashSet<string> PerOsImplementationAssemblyNames = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        RootName + ".MacOS",
+        RootName + ".Linux",
+        RootName + ".Windows");
+
+    /// <summary>
     /// Gets a value indicating whether <paramref name="compilation"/> is one of the four
     /// <c>AgentGuard.CrossPlatform</c> platform implementation libraries, where native interop and
     /// platform-specific code are permitted. The match is exact: only the contract assembly and its three
@@ -44,5 +56,17 @@ internal static class CrossPlatformBoundary
     {
         string? assemblyName = compilation.AssemblyName;
         return assemblyName is not null && PlatformAssemblyNames.Contains(assemblyName);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="assemblyName"/> is one of the three per-OS implementation
+    /// libraries (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>), excluding the core <c>AgentGuard.CrossPlatform</c>
+    /// contract assembly. AG0029 uses this to identify a call from Boundaries into a per-OS assembly.
+    /// </summary>
+    /// <param name="assemblyName">The assembly name to test.</param>
+    /// <returns><see langword="true"/> when the assembly is a per-OS implementation library.</returns>
+    internal static bool IsPerOsImplementationAssembly(string? assemblyName)
+    {
+        return assemblyName is not null && PerOsImplementationAssemblyNames.Contains(assemblyName);
     }
 }

@@ -9,9 +9,11 @@ namespace AgentGuard.Analyzers;
 /// <summary>
 /// Reports a platform factory — a static <c>Create</c> method on the <c>Platform</c> type in the
 /// <c>AgentGuard.CrossPlatform</c> namespace — whose return type is not the <c>IPlatformServices</c> container.
-/// The factory must always hand back the container so new capabilities can be added without restructuring how
-/// services are located or changing callers; it must never be collapsed to a bare service such as
-/// <c>IPlatformFileSystem</c>.
+/// The container return type resolves from <c>AgentGuard.Abstractions.Contracts</c> (where <c>IPlatformServices</c>
+/// lives alongside the other boundary interfaces), while the <c>Platform</c> factory class itself stays in
+/// <c>AgentGuard.CrossPlatform</c>. The factory must always hand back the container so new capabilities can be
+/// added without restructuring how services are located or changing callers; it must never be collapsed to a bare
+/// service such as <c>IPlatformFileSystem</c>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class PlatformFactoryMustReturnContainerAnalyzer : DiagnosticAnalyzer
@@ -22,8 +24,6 @@ public sealed class PlatformFactoryMustReturnContainerAnalyzer : DiagnosticAnaly
     public const string DiagnosticId = "AG0010";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string FactoryTypeName = "Platform";
-    private const string FactoryMethodName = "Create";
     private const string ContainerTypeName = "IPlatformServices";
 
     private static readonly DiagnosticDescriptor Rule = new(
@@ -57,18 +57,14 @@ public sealed class PlatformFactoryMustReturnContainerAnalyzer : DiagnosticAnaly
     {
         var method = (IMethodSymbol)context.Symbol;
 
-        if (!method.IsStatic
-            || !string.Equals(method.Name, FactoryMethodName, StringComparison.Ordinal))
+        // Is this the static Platform.Create factory at all? The identity lives once in PlatformFactory.
+        if (!PlatformFactory.Is(method))
         {
             return;
         }
 
-        if (!WellKnownType.Is(method.ContainingType, CrossPlatformBoundary.RootName, FactoryTypeName))
-        {
-            return;
-        }
-
-        if (!WellKnownType.Is(method.ReturnType as INamedTypeSymbol, CrossPlatformBoundary.RootName, ContainerTypeName))
+        // AG0010's own concern: the factory must hand back the IPlatformServices container, never a bare service.
+        if (!WellKnownType.Is(method.ReturnType as INamedTypeSymbol, KnownNamespaces.AgentGuardAbstractionsContracts, ContainerTypeName))
         {
             context.ReportDiagnostic(Diagnostic.Create(Rule, method.Locations[0], method.ReturnType.ToDisplayString()));
         }

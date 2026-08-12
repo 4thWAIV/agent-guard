@@ -48,27 +48,28 @@ public class EnvironmentOnlyInBoundariesAnalyzerTests
 
     // The single-owner proof: a stub owning interface in AgentGuard.Abstractions, and TWO classes in the SAME
     // assembly — the owner implementing IEnvironment (its Environment.GetFolderPath is exempt) and a sibling that
-    // does not implement it (its single-arg Path.GetFullPath is RED). This proves the tightening from an
-    // assembly-wide exemption to the one owner class.
+    // does not implement it (its Directory.GetCurrentDirectory is RED). This proves the tightening from an
+    // assembly-wide exemption to the one owner class. (The sibling uses an AG0012-owned member; Path is owned
+    // entirely by AG0020 now, so it is not used to prove AG0012's single-owner exemption.)
     private const string OwnerAndSiblingSource = """
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IEnvironment { }
         }
 
         namespace Engine
         {
-            public sealed class EnvironmentAdapter : AgentGuard.Abstractions.IEnvironment
+            public sealed class EnvironmentAdapter : AgentGuard.Abstractions.Contracts.IEnvironment
             {
                 public string Home() => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
 
             public sealed class Sibling
             {
-                public string Full(string path) => Path.GetFullPath(path);
+                public string Cwd() => Directory.GetCurrentDirectory();
             }
         }
         """;
@@ -78,14 +79,14 @@ public class EnvironmentOnlyInBoundariesAnalyzerTests
     private const string EnvironmentAdapterOwnerSource = """
         using System;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IEnvironment { }
         }
 
         namespace Boundaries
         {
-            public sealed class EnvironmentAdapter : AgentGuard.Abstractions.IEnvironment
+            public sealed class EnvironmentAdapter : AgentGuard.Abstractions.Contracts.IEnvironment
             {
                 public string Home() => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             }
@@ -102,17 +103,17 @@ public class EnvironmentOnlyInBoundariesAnalyzerTests
     }
 
     [Fact]
-    public async Task SingleArgGetFullPath_OutsideBoundaries_IsReported()
+    public async Task SingleArgGetFullPath_IsNotClaimedByThisRule_ItBelongsToAG0020()
     {
-        Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<EnvironmentOnlyInBoundariesAnalyzer>(SingleArgGetFullPathSource, "AgentGuard.Engine"));
-        Assert.Equal("AG0012", diagnostic.Id);
+        // The single-argument Path.GetFullPath clause folded out of AG0012 into the default-deny Path-purity rule
+        // AG0020 (pure-methods-only-default-deny-path); AG0012 no longer claims any System.IO.Path member.
+        Assert.Empty(await AnalyzerRunner.RunAsync<EnvironmentOnlyInBoundariesAnalyzer>(SingleArgGetFullPathSource, "AgentGuard.Engine"));
     }
 
     [Fact]
     public async Task TwoArgGetFullPath_IsNotReported()
     {
-        // The pure two-argument overload is the sanctioned replacement and stays legal everywhere.
+        // Path is owned by AG0020; the pure two-argument overload stays legal everywhere and AG0012 never claims it.
         Assert.Empty(await AnalyzerRunner.RunAsync<EnvironmentOnlyInBoundariesAnalyzer>(TwoArgGetFullPathSource, "AgentGuard.Engine"));
     }
 
@@ -162,13 +163,13 @@ public class EnvironmentOnlyInBoundariesAnalyzerTests
     {
         // one-owner-class-per-primitive: only the class implementing IEnvironment is exempt, resolved structurally.
         // Compiled into AgentGuard.Boundaries to prove assembly membership no longer grants the exemption — the
-        // owner's Environment.GetFolderPath is clean, but the sibling's single-arg Path.GetFullPath in the SAME
+        // owner's Environment.GetFolderPath is clean, but the sibling's Directory.GetCurrentDirectory in the SAME
         // assembly is still RED.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<EnvironmentOnlyInBoundariesAnalyzer>(OwnerAndSiblingSource, "AgentGuard.Boundaries"));
         Assert.Equal("AG0012", diagnostic.Id);
         Assert.Contains(
-            "GetFullPath", AnalyzerRunner.SpanText(OwnerAndSiblingSource, diagnostic), System.StringComparison.Ordinal);
+            "GetCurrentDirectory", AnalyzerRunner.SpanText(OwnerAndSiblingSource, diagnostic), System.StringComparison.Ordinal);
     }
 
     [Fact]

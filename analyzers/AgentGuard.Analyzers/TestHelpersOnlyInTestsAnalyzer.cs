@@ -54,9 +54,9 @@ public sealed class TestHelpersOnlyInTestsAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         // Test assemblies are the one place the helpers are allowed; the helpers assembly itself references its own
-        // types freely. Everything else is shipping code and must not touch the helpers.
-        if (TestAssembly.IsTestAssembly(context.Compilation)
-            || string.Equals(context.Compilation.AssemblyName, TestAssembly.TestHelpersName, StringComparison.Ordinal))
+        // types freely. Everything else is shipping code and must not touch the helpers. The "TestHelpers OR .Tests"
+        // disjunction is the shared TestAssembly.IsTestSystemAssembly predicate, owned once so it cannot drift.
+        if (TestAssembly.IsTestSystemAssembly(context.Compilation))
         {
             return;
         }

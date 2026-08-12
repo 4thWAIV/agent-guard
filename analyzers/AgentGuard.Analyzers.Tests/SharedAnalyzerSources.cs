@@ -11,15 +11,17 @@ namespace AgentGuard.Analyzers.Tests;
 internal static class SharedAnalyzerSources
 {
     /// <summary>
-    /// A <c>FileInfo.LinkTarget</c> read — an OS-divergent symlink member on an inert <c>FileInfo</c> construction.
-    /// AG0011 must not report it (it belongs to AG0101); AG0101 must report it outside the platform libraries.
+    /// A <c>FileInfo.LinkTarget</c> read — an OS-divergent symlink member. It reads the member off a passed-in
+    /// <c>FileInfo</c> so this fixture isolates the member-read partition: AG0011 must not report it (it belongs to
+    /// AG0101), AG0101 must report it outside the platform libraries, and neither is entangled with the separately
+    /// owned <c>*Info</c> construction (info-construction-behind-getfileinfo), which has its own tests.
     /// </summary>
     internal const string LinkTargetSource = """
         using System.IO;
 
         public class Sample
         {
-            public string? Read(string path) => new FileInfo(path).LinkTarget;
+            public string? Read(FileInfo info) => info.LinkTarget;
         }
         """;
 }

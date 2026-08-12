@@ -23,4 +23,14 @@ AG0015  | AgentGuard.Architecture | Warning | TimeMustUseTimeProviderAnalyzer
 AG0016  | AgentGuard.Architecture | Warning | ConsoleOnlyInBoundariesAnalyzer
 AG0017  | AgentGuard.Architecture | Warning | SystemServicesCreateOnlyAtCompositionAnalyzer
 AG0018  | AgentGuard.Architecture | Warning | TestHelpersOnlyInTestsAnalyzer
+AG0019  | AgentGuard.Architecture | Warning | BuilderCompletenessAnalyzer
+AG0020  | AgentGuard.Architecture | Warning | PathPurityAnalyzer
+AG0021  | AgentGuard.Architecture | Warning | CryptoOnlyInSignatureVerifierAnalyzer
+AG0023  | AgentGuard.Architecture | Warning | BoundariesToCrossPlatformOneDoorAnalyzer
+AG0024  | AgentGuard.Architecture | Warning | NoStaticServiceHolderAnalyzer
+AG0025  | AgentGuard.Architecture | Warning | OneOwnerPerInterfaceAnalyzer
+AG0028  | AgentGuard.Architecture | Warning | VersionReadsOwnedAnalyzer
+AG0029  | AgentGuard.Architecture | Warning | BoundariesToPerOsOneDoorAnalyzer
+AG0031  | AgentGuard.Architecture | Warning | NoServiceAsParameterAnalyzer
+AG0032  | AgentGuard.Architecture | Warning | NoCoverageOptOutAnalyzer
 AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer

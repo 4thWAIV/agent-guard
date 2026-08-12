@@ -7,11 +7,14 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports a call to <c>SystemServices.Create()</c> made anywhere but the two allowed composition points: the
-/// single <c>Program</c> composition method and the test <c>SystemServicesBuilder</c>. The container is built once
+/// Reports a call to a static factory that hands back the <c>ISystemServices</c> container, made anywhere but the two
+/// allowed composition points: the single <c>Program</c> composition method and the test
+/// <c>SystemServicesBuilder</c>. That is the literal <c>SystemServices.Create()</c> AND any sibling static factory
+/// whose RETURN TYPE is <c>ISystemServices</c> (a <c>CreateDefault()</c>/<c>Build()</c> returning the container would
+/// otherwise bypass the single-construction-point rule by not being named <c>Create</c>). The container is built once
 /// at the top and threaded down by constructor injection, so there is exactly one place to mock. This is the second
 /// of the two walls that stop the container being reconstructed deep in the chain (the first is the adapters being
-/// <c>internal</c> with private constructors): calling <c>Create()</c> deep in the graph — instead of passing the
+/// <c>internal</c> with private constructors): calling such a factory deep in the graph — instead of passing the
 /// container through the constructors — is a build error, not a matter of discipline.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -25,8 +28,6 @@ public sealed class SystemServicesCreateOnlyAtCompositionAnalyzer : DiagnosticAn
     private const string Category = "AgentGuard.Architecture";
     private const string FactoryTypeName = "SystemServices";
     private const string FactoryMethodName = "Create";
-    private const string CompositionTypeName = "Program";
-    private const string BuilderTypeName = "SystemServicesBuilder";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -57,7 +58,10 @@ public sealed class SystemServicesCreateOnlyAtCompositionAnalyzer : DiagnosticAn
 
     private static void Inspect(OperationAnalysisContext context, ISymbol member, INamedTypeSymbol type)
     {
-        if (!IsSystemServicesCreate(member, type) || IsInsideAllowedCompositionPoint(context.ContainingSymbol))
+        // The allowed composition points (Program in AgentGuard.Cli, SystemServicesBuilder in AgentGuard.TestHelpers)
+        // live in the shared CompositionPoint owner, which anchors on namespace + name AND assembly so a nominal
+        // collision cannot self-grant.
+        if (!IsContainerFactory(member, type) || CompositionPoint.Encloses(context.ContainingSymbol))
         {
             return;
         }
@@ -65,46 +69,30 @@ public sealed class SystemServicesCreateOnlyAtCompositionAnalyzer : DiagnosticAn
         context.ReportDiagnostic(Diagnostic.Create(Rule, context.Operation.Syntax.GetLocation()));
     }
 
+    private static bool IsContainerFactory(ISymbol member, INamedTypeSymbol type)
+    {
+        // Pin the bypass two ways: the literal SystemServices.Create(), and — because a sibling static factory could
+        // return the container under a different name (CreateDefault/Build) — ANY static method whose return type is
+        // the ISystemServices container (ag0017-edit-factory-by-return-type). Both go through the one type-identity
+        // owner WellKnownType.Is (namespace + name), never a bare name.
+        return IsSystemServicesCreate(member, type) || IsStaticFactoryReturningContainer(member);
+    }
+
     private static bool IsSystemServicesCreate(ISymbol member, INamedTypeSymbol type)
     {
-        // Identify the banned call by full type identity (namespace + name) through the codebase's one type-identity
-        // owner, not a bare name-plus-assembly match: it is the static Create() on AgentGuard.Boundaries.SystemServices.
+        // The static Create() on AgentGuard.Boundaries.SystemServices, matched by full type identity, not a bare
+        // name-plus-assembly match.
         return member is IMethodSymbol { IsStatic: true }
             && string.Equals(member.Name, FactoryMethodName, StringComparison.Ordinal)
             && WellKnownType.Is(type, BoundaryAssembly.Name, FactoryTypeName);
     }
 
-    private static bool IsInsideAllowedCompositionPoint(ISymbol containingSymbol)
+    private static bool IsStaticFactoryReturningContainer(ISymbol member)
     {
-        for (INamedTypeSymbol? enclosing = OwnerClass.EnclosingType(containingSymbol);
-             enclosing is not null;
-             enclosing = enclosing.ContainingType)
-        {
-            if (IsProgramInCli(enclosing) || IsBuilderInTestHelpers(enclosing))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    // The exemption is bound to full type identity (namespace + name via the one type-identity owner WellKnownType.Is)
-    // AND assembly identity, like every sibling gate — a conjunction. A type merely NAMED 'Program' or
-    // 'SystemServicesBuilder' in a DIFFERENT namespace of the right assembly (a nominal collision) cannot self-grant
-    // the right to reconstruct the container, and neither can one in another assembly. The real composition points are
-    // Program in namespace AgentGuard.Cli and SystemServicesBuilder in namespace AgentGuard.TestHelpers; the CLI and
-    // test-helpers root namespaces equal their assembly names, so the shared CliAssembly / TestAssembly constants own
-    // both the namespace and the assembly literal.
-    private static bool IsProgramInCli(INamedTypeSymbol enclosing)
-    {
-        return WellKnownType.Is(enclosing, CliAssembly.Name, CompositionTypeName)
-            && string.Equals(enclosing.ContainingAssembly?.Name, CliAssembly.Name, StringComparison.Ordinal);
-    }
-
-    private static bool IsBuilderInTestHelpers(INamedTypeSymbol enclosing)
-    {
-        return WellKnownType.Is(enclosing, TestAssembly.TestHelpersName, BuilderTypeName)
-            && string.Equals(enclosing.ContainingAssembly?.Name, TestAssembly.TestHelpersName, StringComparison.Ordinal);
+        // Any static method that returns AgentGuard.Abstractions.Contracts.ISystemServices, regardless of its name or declaring
+        // type — the return-type pin that stops a differently-named sibling factory from bypassing the wall.
+        return member is IMethodSymbol { IsStatic: true } method
+            && WellKnownType.Is(
+                method.ReturnType as INamedTypeSymbol, KnownNamespaces.AgentGuardAbstractionsContracts, BoundaryServices.ContainerName);
     }
 }

@@ -24,8 +24,6 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
     public const string DiagnosticId = "AG0009";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string SystemNamespace = "System";
-    private const string InteropNamespace = "System.Runtime.InteropServices";
     private const string OperatingSystemTypeName = "OperatingSystem";
     private const string RuntimeInformationTypeName = "RuntimeInformation";
     private const string OsPlatformQueryMethodName = "IsOSPlatform";
@@ -86,10 +84,10 @@ public sealed class NoOsBranchingOutsideCrossPlatformAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        bool isOperatingSystemBranch = WellKnownType.Is(containingType, SystemNamespace, OperatingSystemTypeName)
+        bool isOperatingSystemBranch = WellKnownType.Is(containingType, KnownNamespaces.System, OperatingSystemTypeName)
             && method.Name.StartsWith(OperatingSystemQueryPrefix, StringComparison.Ordinal);
 
-        bool isRuntimeInformationBranch = WellKnownType.Is(containingType, InteropNamespace, RuntimeInformationTypeName)
+        bool isRuntimeInformationBranch = WellKnownType.Is(containingType, KnownNamespaces.SystemRuntimeInteropServices, RuntimeInformationTypeName)
             && string.Equals(method.Name, OsPlatformQueryMethodName, StringComparison.Ordinal);
 
         if (isOperatingSystemBranch || isRuntimeInformationBranch)

@@ -9,7 +9,7 @@ namespace AgentGuard.Analyzers;
 /// <summary>
 /// Reports a raw <c>System.Console</c> use — a call such as <c>Console.WriteLine</c> or a read of <c>Console.Out</c>,
 /// <c>Console.Error</c>, or <c>Console.In</c> — made anywhere but the single owner class that implements
-/// <c>AgentGuard.Abstractions.IConsole</c>. The one exemption is the class implementing <c>IConsole</c> AND compiled
+/// <c>AgentGuard.Abstractions.Contracts.IConsole</c>. The one exemption is the class implementing <c>IConsole</c> AND compiled
 /// into <c>AgentGuard.Boundaries</c> (where the <c>ConsoleAdapter</c> lives); the raw use is a build error in another
 /// class of the same assembly and in the same class self-granting from another assembly. Every other type writes and reads the console
 /// through <c>IConsole</c> pulled off <c>ISystemServices</c>, which mirrors <c>System.Console</c>'s shape, so console
@@ -29,7 +29,7 @@ public sealed class ConsoleOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
     // (one-owner-class-per-primitive). Matched structurally by full name against the enclosing type's implemented
     // interfaces, never by a class-name literal.
     private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces = ImmutableArray.Create(
-        (KnownNamespaces.AgentGuardAbstractions, "IConsole"));
+        (KnownNamespaces.AgentGuardAbstractionsContracts, "IConsole"));
 
     // The owner assembly: AgentGuard.Boundaries, where the ConsoleAdapter lives — nothing below Boundaries consumes
     // the console, so it stays there (owners-live-at-lowest-consumer). Half of the conjunction OwnerClass.IsOwner
@@ -45,7 +45,7 @@ public sealed class ConsoleOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A use of System.Console is allowed only in the single class that implements AgentGuard.Abstractions.IConsole — not merely somewhere in its assembly. Every other type writes and reads the console through IConsole on ISystemServices so console output is captured in tests instead of hitting the real streams.");
+        description: "A use of System.Console is allowed only in the single class that implements AgentGuard.Abstractions.Contracts.IConsole — not merely somewhere in its assembly. Every other type writes and reads the console through IConsole on ISystemServices so console output is captured in tests instead of hitting the real streams.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

@@ -35,14 +35,14 @@ public class ConsoleOnlyInBoundariesAnalyzerTests
     private const string OwnerAndSiblingSource = """
         using System;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IConsole { }
         }
 
         namespace Boundaries
         {
-            public sealed class ConsoleAdapter : AgentGuard.Abstractions.IConsole
+            public sealed class ConsoleAdapter : AgentGuard.Abstractions.Contracts.IConsole
             {
                 public void Say() => Console.WriteLine("hi");
             }
@@ -59,14 +59,14 @@ public class ConsoleOnlyInBoundariesAnalyzerTests
     private const string ConsoleAdapterOwnerSource = """
         using System;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IConsole { }
         }
 
         namespace Boundaries
         {
-            public sealed class ConsoleAdapter : AgentGuard.Abstractions.IConsole
+            public sealed class ConsoleAdapter : AgentGuard.Abstractions.Contracts.IConsole
             {
                 public void Say() => Console.WriteLine("hi");
             }

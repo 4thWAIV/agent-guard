@@ -31,8 +31,10 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
         }
         """;
 
-    // The real composition point: Program in its real namespace AgentGuard.Cli. The tightened exemption anchors on
-    // full type identity (namespace + name) AND the assembly, so the namespace here must be the real one.
+    // The real composition point: the Program type in its real namespace AgentGuard.Cli, compiled into the CLI's REAL
+    // assembly name "guard" (<AssemblyName>guard</AssemblyName> in AgentGuard.Cli.csproj). The tightened exemption
+    // anchors on the Program TYPE by namespace + name AND the ASSEMBLY by its real compiled name "guard" — the two
+    // identities differ, so both must be the real ones for the exemption to match the actual compiled Program.
     private const string CallFromProgramSource = """
         using AgentGuard.Boundaries;
 
@@ -101,8 +103,11 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
     [Fact]
     public async Task CreateCall_InProgramCompositionMethod_IsNotReported()
     {
+        // Compiled into the CLI's REAL assembly name "guard" — this is the one legitimate composition point and must
+        // NOT be reported. (Compiling into "AgentGuard.Cli", the root namespace, would be the masking bug; see
+        // CreateCall_InProgramNamespaceButAssemblyNamedAsTheRootNamespace_IsReported.)
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
-            CallFromProgramSource, "AgentGuard.Cli", BoundariesSource, "AgentGuard.Boundaries"));
+            CallFromProgramSource, "guard", BoundariesSource, "AgentGuard.Boundaries"));
     }
 
     [Fact]
@@ -124,6 +129,21 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
     }
 
     [Fact]
+    public async Task CreateCall_InProgramNamespaceButAssemblyNamedAsTheRootNamespace_IsReported()
+    {
+        // LESSON 1 regression guard: the CLI's real compiled assembly name is "guard", NOT its root namespace
+        // "AgentGuard.Cli". The real Program compiled into an assembly literally named "AgentGuard.Cli" is not the real
+        // composition point, so it IS reported — the assembly half of the match must be the real compiled name, never
+        // the namespace literal. Before the fix, this masked the bug by making the fabricated Program falsely exempt.
+        ImmutableArray<Diagnostic> diagnostics =
+            await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
+                CallFromProgramSource, "AgentGuard.Cli", BoundariesSource, "AgentGuard.Boundaries");
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("AG0017", diagnostic.Id);
+    }
+
+    [Fact]
     public async Task CreateCall_InSystemServicesBuilderNamedTypeInNonAllowedAssembly_IsReported()
     {
         ImmutableArray<Diagnostic> diagnostics =
@@ -135,13 +155,14 @@ public class SystemServicesCreateOnlyAtCompositionAnalyzerTests
     }
 
     [Fact]
-    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfCliAssembly_IsReported()
+    public async Task CreateCall_InProgramNamedTypeInDifferentNamespaceOfGuardAssembly_IsReported()
     {
-        // Nominal collision: a second class named Program in a DIFFERENT namespace of the right assembly
-        // (AgentGuard.Cli) cannot self-grant the container. The exemption anchors on namespace + name, so this is RED.
+        // Nominal collision: a second class named Program in a DIFFERENT namespace of the CLI's real assembly
+        // ("guard") cannot self-grant the container. The exemption anchors on namespace + name, so this is RED even in
+        // the real assembly.
         ImmutableArray<Diagnostic> diagnostics =
             await AnalyzerRunner.RunWithReferenceAsync<SystemServicesCreateOnlyAtCompositionAnalyzer>(
-                CallFromProgramInDifferentNamespaceSource, "AgentGuard.Cli", BoundariesSource, "AgentGuard.Boundaries");
+                CallFromProgramInDifferentNamespaceSource, "guard", BoundariesSource, "AgentGuard.Boundaries");
 
         Diagnostic diagnostic = Assert.Single(diagnostics);
         Assert.Equal("AG0017", diagnostic.Id);

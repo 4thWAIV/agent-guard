@@ -9,7 +9,7 @@ namespace AgentGuard.Analyzers;
 /// <summary>
 /// Reports a raw randomness call — a use of <c>System.Random</c>, <c>Guid.NewGuid()</c>, or
 /// <c>RandomNumberGenerator</c> — made anywhere but the single owner class that implements
-/// <c>AgentGuard.Abstractions.IGuidFactory</c>. The one place randomness enters the codebase is the temporary-file
+/// <c>AgentGuard.Abstractions.Contracts.IGuidFactory</c>. The one place randomness enters the codebase is the temporary-file
 /// name built from a fresh GUID; it is abstracted behind <c>IGuidFactory</c> (the same way time is abstracted behind
 /// <c>TimeProvider</c>) so tests are deterministic. The raw <c>Guid.NewGuid()</c> lives only in the class that
 /// implements <c>IGuidFactory</c> — the <c>GuidFactory</c> adapter, which sits in <c>AgentGuard.CrossPlatform</c>
@@ -24,13 +24,23 @@ public sealed class RandomnessOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
     public const string DiagnosticId = "AG0014";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string NewGuidMethodName = "NewGuid";
+
+    // The impure Guid-factory method set — every non-deterministic Guid factory, not just NewGuid. .NET 10 added
+    // CreateVersion7/CreateVersion1, equally non-deterministic, which a name-only check on "NewGuid" would miss
+    // (ag0014-edit-impure-guid-set); a future CreateVersionN added deliberately is never legal by omission.
+    // IGuidFactory grows no method for these — they are banned with no owner. Building a Guid from bytes or parsing
+    // text stays legal (those names are not in this set).
+    private static readonly ImmutableHashSet<string> ImpureGuidFactoryMethods = ImmutableHashSet.Create(
+        StringComparer.Ordinal,
+        "NewGuid",
+        "CreateVersion7",
+        "CreateVersion1");
 
     // The owning interface whose single implementing class is the only place a raw randomness call is allowed
     // (one-owner-class-per-primitive). Matched structurally by full name against the enclosing type's implemented
     // interfaces, never by a class-name literal.
     private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces = ImmutableArray.Create(
-        (KnownNamespaces.AgentGuardAbstractions, "IGuidFactory"));
+        (KnownNamespaces.AgentGuardAbstractionsContracts, "IGuidFactory"));
 
     // The owner assembly: AgentGuard.CrossPlatform, because the GuidFactory adapter lives there
     // (guid-seam-lives-in-crossplatform) — PlatformFileSystemShared needs a GUID and CrossPlatform cannot receive a
@@ -47,7 +57,7 @@ public sealed class RandomnessOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A use of System.Random, Guid.NewGuid(), or RandomNumberGenerator is allowed only in the single class that implements AgentGuard.Abstractions.IGuidFactory — not merely somewhere in its assembly. Every other type obtains a GUID through IGuidFactory on ISystemServices, keeping randomness at one seam and tests deterministic.");
+        description: "A use of System.Random, Guid.NewGuid(), or RandomNumberGenerator is allowed only in the single class that implements AgentGuard.Abstractions.Contracts.IGuidFactory — not merely somewhere in its assembly. Every other type obtains a GUID through IGuidFactory on ISystemServices, keeping randomness at one seam and tests deterministic.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -98,8 +108,9 @@ public sealed class RandomnessOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        // Guid.NewGuid() — the non-deterministic factory. Building a GUID from bytes or parsing text stays legal.
+        // The impure Guid-factory set (Guid.NewGuid / CreateVersion7 / CreateVersion1) — every non-deterministic
+        // factory. Building a GUID from bytes or parsing text stays legal.
         return WellKnownType.Is(type, KnownNamespaces.System, "Guid")
-            && string.Equals(member.Name, NewGuidMethodName, StringComparison.Ordinal);
+            && ImpureGuidFactoryMethods.Contains(member.Name);
     }
 }

@@ -15,12 +15,12 @@ namespace AgentGuard.Analyzers;
 /// in another class of the same assembly or the same class in another assembly. The exemption is a CONJUNCTION,
 /// resolved once in <see cref="IsOwner"/>: the enclosing type is an owner of the primitive (it implements one of the
 /// owning interfaces, matched structurally through the semantic model against the type's
-/// <see cref="ITypeSymbol.AllInterfaces"/> by full name, or — for AG0101 — an additional named-helper owner) AND the
-/// compilation compiles into an owner assembly (matched by <see cref="InAssembly"/> against a shared name constant,
-/// or by <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/> for the platform set). Both halves are required,
-/// so a class cannot self-grant by declaring <c>: IFileReader</c> in the wrong assembly, and an assembly cannot
-/// self-grant by declaring a same-named helper. This is the one place that conjunction lives, so the five rules do
-/// not each spell it out.
+/// <see cref="ITypeSymbol.AllInterfaces"/> by full name) AND the compilation compiles into an owner assembly (matched
+/// by <see cref="InAssembly"/> against a shared name constant, or by a <see cref="CrossPlatformBoundary"/> predicate
+/// scoped to the owner's assemblies — e.g. <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for
+/// AG0101's per-OS owner). Both halves are required, so a
+/// class cannot self-grant by declaring <c>: IFileReader</c> in the wrong assembly. This is the one place that
+/// conjunction lives, so the five rules do not each spell it out.
 /// </summary>
 internal static class OwnerClass
 {
@@ -84,24 +84,20 @@ internal static class OwnerClass
     /// Gets a value indicating whether the analyzed operation is inside the single owner of its primitive — the
     /// conjunction that every OS-primitive boundary rule shares. Both halves are required: the compilation compiles
     /// into an owner assembly (<paramref name="compilesIntoOwnerAssembly"/>) AND the enclosing type is an owner of
-    /// the primitive — it implements one of the <paramref name="owningInterfaces"/>, or the optional
-    /// <paramref name="additionalOwner"/> predicate matches it (AG0101's shared helper). Requiring both closes the
-    /// self-grant hole: implementing the owning interface in the wrong assembly is not exempt, and declaring a
-    /// same-named helper in the wrong assembly is not exempt.
+    /// the primitive — it implements one of the <paramref name="owningInterfaces"/>. Requiring both closes the
+    /// self-grant hole: implementing the owning interface in the wrong assembly is not exempt.
     /// </summary>
     /// <param name="context">The operation analysis context.</param>
     /// <param name="owningInterfaces">The (namespace, name) pairs of the interfaces whose implementer is exempt.</param>
     /// <param name="compilesIntoOwnerAssembly">The assembly gate — the compilation must compile into an owner
-    /// assembly. Built with <see cref="InAssembly"/> for the single-owner-assembly rules, or
-    /// <see cref="CrossPlatformBoundary.IsCrossPlatformLibrary"/> for the platform set.</param>
-    /// <param name="additionalOwner">An optional extra owner-type predicate for a non-interface owner (AG0101's
-    /// <c>PlatformFileSystemShared</c> helper); <see langword="null"/> for the interface-only rules.</param>
+    /// assembly. Built with <see cref="InAssembly"/> for the single-owner-assembly rules, or a
+    /// <see cref="CrossPlatformBoundary"/> predicate scoped to the owner's assemblies, such as
+    /// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/> for AG0101's per-OS owner.</param>
     /// <returns><see langword="true"/> when the operation is inside the owner class in the owner assembly.</returns>
     internal static bool IsOwner(
         OperationAnalysisContext context,
         ImmutableArray<(string Namespace, string Name)> owningInterfaces,
-        Func<Compilation, bool> compilesIntoOwnerAssembly,
-        Func<INamedTypeSymbol?, bool>? additionalOwner = null)
+        Func<Compilation, bool> compilesIntoOwnerAssembly)
     {
         if (!compilesIntoOwnerAssembly(context.Compilation))
         {
@@ -109,7 +105,6 @@ internal static class OwnerClass
         }
 
         INamedTypeSymbol? enclosingType = EnclosingType(context);
-        return Implements(enclosingType, owningInterfaces)
-            || (additionalOwner is not null && additionalOwner(enclosingType));
+        return Implements(enclosingType, owningInterfaces);
     }
 }

@@ -53,14 +53,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     private const string OwnerAndSiblingSource = """
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileReader { }
         }
 
         namespace Engine
         {
-            public sealed class FileReader : AgentGuard.Abstractions.IFileReader
+            public sealed class FileReader : AgentGuard.Abstractions.Contracts.IFileReader
             {
                 public bool Check(string path) => File.Exists(path);
             }
@@ -78,14 +78,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     private const string FileWriterOwnerCallingFileExistsSource = """
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileWriter { }
         }
 
         namespace Boundaries
         {
-            public sealed class FileWriter : AgentGuard.Abstractions.IFileWriter
+            public sealed class FileWriter : AgentGuard.Abstractions.Contracts.IFileWriter
             {
                 public bool Check(string path) => File.Exists(path);
             }
@@ -97,14 +97,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     private const string FileWriterOwnerCallingCreateDirectorySource = """
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileWriter { }
         }
 
         namespace Boundaries
         {
-            public sealed class FileWriter : AgentGuard.Abstractions.IFileWriter
+            public sealed class FileWriter : AgentGuard.Abstractions.Contracts.IFileWriter
             {
                 public void Make(string path) => Directory.CreateDirectory(path);
             }
@@ -118,7 +118,7 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System.Collections.Generic;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileReader { }
             public interface IDirectoryEnumerator { }
@@ -128,25 +128,25 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
 
         namespace Boundaries
         {
-            public sealed class FileReader : AgentGuard.Abstractions.IFileReader
+            public sealed class FileReader : AgentGuard.Abstractions.Contracts.IFileReader
             {
                 public bool Check(string path) => File.Exists(path);
                 public string Read(string path) => File.ReadAllText(path);
             }
 
-            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.IDirectoryEnumerator
+            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.Contracts.IDirectoryEnumerator
             {
                 public bool Has(string path) => Directory.Exists(path);
                 public IEnumerable<string> List(string path) => Directory.EnumerateFiles(path, "*");
             }
 
-            public sealed class FileWriter : AgentGuard.Abstractions.IFileWriter
+            public sealed class FileWriter : AgentGuard.Abstractions.Contracts.IFileWriter
             {
                 public void Write(string path, string text) => File.WriteAllText(path, text);
                 public void Remove(string path) => File.Delete(path);
             }
 
-            public sealed class DirectoryWriter : AgentGuard.Abstractions.IDirectoryWriter
+            public sealed class DirectoryWriter : AgentGuard.Abstractions.Contracts.IDirectoryWriter
             {
                 public void Make(string path) => Directory.CreateDirectory(path);
                 public void Drop(string path) => Directory.Delete(path, true);
@@ -161,14 +161,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     private const string FileReaderOwnerCallingFileExistsSource = """
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileReader { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class FileReader : AgentGuard.Abstractions.IFileReader
+            public sealed class FileReader : AgentGuard.Abstractions.Contracts.IFileReader
             {
                 public bool Check(string path) => File.Exists(path);
             }
@@ -183,14 +183,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     private const string DirectoryWriterOwnerCallingDirectoryMoveSource = """
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IDirectoryWriter { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class DirectoryWriter : AgentGuard.Abstractions.IDirectoryWriter
+            public sealed class DirectoryWriter : AgentGuard.Abstractions.Contracts.IDirectoryWriter
             {
                 public void Rename(string from, string to) => Directory.Move(from, to);
             }
@@ -205,14 +205,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileReader { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class FileReader : AgentGuard.Abstractions.IFileReader
+            public sealed class FileReader : AgentGuard.Abstractions.Contracts.IFileReader
             {
                 public DateTime When(string path) => File.GetLastWriteTimeUtc(path);
             }
@@ -238,14 +238,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IDirectoryEnumerator { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.IDirectoryEnumerator
+            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.Contracts.IDirectoryEnumerator
             {
                 public DateTime When(string path) => File.GetLastWriteTimeUtc(path);
             }
@@ -258,14 +258,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IDirectoryEnumerator { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.IDirectoryEnumerator
+            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.Contracts.IDirectoryEnumerator
             {
                 public DateTime When(string path) => Directory.GetLastWriteTimeUtc(path);
             }
@@ -278,14 +278,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileReader { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class FileReader : AgentGuard.Abstractions.IFileReader
+            public sealed class FileReader : AgentGuard.Abstractions.Contracts.IFileReader
             {
                 public DateTime When(string path) => Directory.GetLastWriteTimeUtc(path);
             }
@@ -301,14 +301,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IFileWriter { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class FileWriter : AgentGuard.Abstractions.IFileWriter
+            public sealed class FileWriter : AgentGuard.Abstractions.Contracts.IFileWriter
             {
                 public void Touch(string path, DateTime time) => File.SetLastWriteTimeUtc(path, time);
             }
@@ -321,14 +321,14 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
         using System;
         using System.IO;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IDirectoryWriter { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class DirectoryWriter : AgentGuard.Abstractions.IDirectoryWriter
+            public sealed class DirectoryWriter : AgentGuard.Abstractions.Contracts.IDirectoryWriter
             {
                 public void Touch(string path, DateTime time) => Directory.SetLastWriteTimeUtc(path, time);
             }
@@ -474,17 +474,37 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     [Fact]
     public async Task LinkTargetRead_IsNotReported_ItBelongsToAG0101()
     {
-        // The *Info construction and the LinkTarget member are OS-divergent — AG0101 owns them, not AG0011. Uses the
-        // one shared LinkTargetSource fixture the AG0101 test also reads (byte-identical, hoisted to one owner).
+        // The LinkTarget member is OS-divergent — AG0101 owns it, not AG0011. Uses the one shared LinkTargetSource
+        // fixture the AG0101 test also reads (byte-identical, hoisted to one owner); it reads LinkTarget off a passed-in
+        // FileInfo, so this proves AG0011 ignores the member alone. The *Info construction is proved separately below.
         Assert.Empty(await AnalyzerRunner.RunAsync<FilesystemOnlyInBoundariesAnalyzer>(
             SharedAnalyzerSources.LinkTargetSource, "AgentGuard.Engine"));
     }
 
     [Fact]
+    public async Task InfoConstruction_IsNotReported_ItBelongsToAG0101()
+    {
+        // info-construction-behind-getfileinfo: a raw new FileInfo / new DirectoryInfo is a banned primitive AG0101
+        // owns, not AG0011 — exactly like the symlink and Unix-mode members are carved out here. AG0011 stays silent on
+        // the bare construction; the OS-uniform member read is what AG0011 catches.
+        const string source = """
+            using System.IO;
+
+            public class Sample
+            {
+                public FileInfo File(string path) => new FileInfo(path);
+                public DirectoryInfo Dir(string path) => new DirectoryInfo(path);
+            }
+            """;
+
+        Assert.Empty(await AnalyzerRunner.RunAsync<FilesystemOnlyInBoundariesAnalyzer>(source, "AgentGuard.Engine"));
+    }
+
+    [Fact]
     public async Task DirectoryInfoEnumerateMember_OutsideBoundaries_IsReported()
     {
-        // The construction is inert, but the GetFileSystemInfos member is an OS-uniform read — reported outside
-        // Boundaries so the directory-enumerator adapter is forced to move there.
+        // The construction is carved out to AG0101, but the GetFileSystemInfos member is an OS-uniform read — reported
+        // outside Boundaries so the directory-enumerator adapter is forced to move there.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<FilesystemOnlyInBoundariesAnalyzer>(DirectoryInfoEnumerateSource, "AgentGuard.Engine"));
         Assert.Equal("AG0011", diagnostic.Id);
@@ -494,18 +514,17 @@ public class FilesystemOnlyInBoundariesAnalyzerTests
     public async Task DirectoryEnumeratorOwner_WalkingDirectoryInfo_IsNotReported()
     {
         // The DirectoryInfo walk is green in the class that implements IDirectoryEnumerator — the owner — when it is
-        // compiled into its owner assembly AgentGuard.CrossPlatform. The inert construction and the OS-uniform member
-        // are both allowed in the owner. This is the case the inert-construction rule protects, now bound to the
-        // owning interface AND the owner assembly.
+        // compiled into its owner assembly AgentGuard.CrossPlatform. The GetFileSystemInfos member is exempt in the
+        // owner; the bare construction is carved out to AG0101, so AG0011 never reports it here regardless of assembly.
         const string source = """
             using System.IO;
 
-            namespace AgentGuard.Abstractions
+            namespace AgentGuard.Abstractions.Contracts
             {
                 public interface IDirectoryEnumerator { }
             }
 
-            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.IDirectoryEnumerator
+            public sealed class SystemDirectoryEnumerator : AgentGuard.Abstractions.Contracts.IDirectoryEnumerator
             {
                 public FileSystemInfo[] Walk(string path) => new DirectoryInfo(path).GetFileSystemInfos();
             }

@@ -11,7 +11,7 @@ namespace AgentGuard.Analyzers;
 /// <c>DirectoryInfo</c>, <c>FileSystemInfo</c>, <c>DriveInfo</c>, <c>FileStream</c>, <c>StreamReader</c>,
 /// <c>StreamWriter</c>, <c>FileSystemWatcher</c>, or a <c>System.IO.Enumeration</c> type — made anywhere but the
 /// single owner class that implements the filesystem interface that specific member belongs to. Each banned member
-/// maps to exactly ONE of <c>AgentGuard.Abstractions.IFileReader</c>, <c>IDirectoryEnumerator</c>,
+/// maps to exactly ONE of <c>AgentGuard.Abstractions.Contracts.IFileReader</c>, <c>IDirectoryEnumerator</c>,
 /// <c>IFileWriter</c>, or <c>IDirectoryWriter</c> (<see cref="FilesystemMembers.OwningInterfaceFor"/>), and only the
 /// class implementing THAT one interface — AND compiled into <c>AgentGuard.CrossPlatform</c>, where the file-op
 /// adapters live because the platform code consumes them (owners-live-at-lowest-consumer) — is exempt for it. A class
@@ -21,8 +21,9 @@ namespace AgentGuard.Analyzers;
 /// owner assembly. Every other type reaches the filesystem through those owned interfaces pulled off <c>ISystemServices</c>, so the whole
 /// engine stays mockable and nothing touches the disk unwatched. The OS-divergent members (symlink and Unix-mode)
 /// route to AG0101 and the current-directory members route to AG0012; those are carved out here so exactly one rule
-/// owns each. Constructing a <c>FileInfo</c>/<c>DirectoryInfo</c> is inert (no OS access until a member is touched),
-/// so the bare <c>new</c> is not flagged — the member read is.
+/// owns each. Constructing a <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c> is a banned primitive AG0101
+/// owns (info-construction-behind-getfileinfo), so the bare <c>new</c> is carved out here too — AG0011 stays silent on
+/// it and AG0101 fires — exactly as the symlink and Unix-mode members are.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FilesystemOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
@@ -55,7 +56,7 @@ public sealed class FilesystemOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A use of File, Directory, FileInfo, DirectoryInfo, FileSystemInfo, DriveInfo, FileStream, StreamReader, StreamWriter, FileSystemWatcher, or a System.IO.Enumeration type is allowed only in the single class that implements AgentGuard.Abstractions.IFileReader, IDirectoryEnumerator, IFileWriter, or IDirectoryWriter — not merely somewhere in its assembly. Every other type reaches the filesystem through the owned interfaces on ISystemServices so the engine stays mockable and no code touches the disk unwatched.");
+        description: "A use of File, Directory, FileInfo, DirectoryInfo, FileSystemInfo, DriveInfo, FileStream, StreamReader, StreamWriter, FileSystemWatcher, or a System.IO.Enumeration type is allowed only in the single class that implements AgentGuard.Abstractions.Contracts.IFileReader, IDirectoryEnumerator, IFileWriter, or IDirectoryWriter — not merely somewhere in its assembly. Every other type reaches the filesystem through the owned interfaces on ISystemServices so the engine stays mockable and no code touches the disk unwatched.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -77,11 +78,11 @@ public sealed class FilesystemOnlyInBoundariesAnalyzer : DiagnosticAnalyzer
 
     private static void Inspect(OperationAnalysisContext context, ISymbol member, INamedTypeSymbol type)
     {
-        // The OS-divergent members are AG0101's and the current-directory members are AG0012's; carve them out so
-        // exactly one rule owns each site. The bare *Info construction is inert and flagged by neither rule.
+        // The OS-divergent members are AG0101's, the current-directory members are AG0012's, and the *Info construction
+        // is AG0101's too (info-construction-behind-getfileinfo); carve all three out so exactly one rule owns each site.
         if (FilesystemMembers.IsOsDivergentMember(member)
             || FilesystemMembers.IsCurrentDirectoryMember(member)
-            || FilesystemMembers.IsInertInfoConstruction(member, type))
+            || FilesystemMembers.IsInfoConstruction(member, type))
         {
             return;
         }

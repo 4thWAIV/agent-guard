@@ -23,7 +23,6 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     public const string DiagnosticId = "AG0008";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string InteropNamespace = "System.Runtime.InteropServices";
     private const string AttributeSuffix = "Attribute";
 
     private static readonly DiagnosticDescriptor Rule = new(
@@ -83,8 +82,8 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
         // reject a same-named attribute declared in a different namespace: if the symbol resolves to a type
         // that is NOT the interop attribute, it is not native interop and is left alone.
         if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
-            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, PInvoke.DllImportAttributeName)
-            && !WellKnownType.Is(constructor.ContainingType, InteropNamespace, PInvoke.LibraryImportAttributeName))
+            && !WellKnownType.Is(constructor.ContainingType, KnownNamespaces.SystemRuntimeInteropServices, PInvoke.DllImportAttributeName)
+            && !WellKnownType.Is(constructor.ContainingType, KnownNamespaces.SystemRuntimeInteropServices, PInvoke.LibraryImportAttributeName))
         {
             return;
         }

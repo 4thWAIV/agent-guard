@@ -26,14 +26,14 @@ public class RandomnessOnlyInBoundariesAnalyzerTests
     private const string OwnerAndSiblingSource = """
         using System;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IGuidFactory { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class GuidFactory : AgentGuard.Abstractions.IGuidFactory
+            public sealed class GuidFactory : AgentGuard.Abstractions.Contracts.IGuidFactory
             {
                 public string Name() => Guid.NewGuid().ToString("N");
             }
@@ -50,14 +50,14 @@ public class RandomnessOnlyInBoundariesAnalyzerTests
     private const string GuidFactoryOwnerSource = """
         using System;
 
-        namespace AgentGuard.Abstractions
+        namespace AgentGuard.Abstractions.Contracts
         {
             public interface IGuidFactory { }
         }
 
         namespace CrossPlatform
         {
-            public sealed class GuidFactory : AgentGuard.Abstractions.IGuidFactory
+            public sealed class GuidFactory : AgentGuard.Abstractions.Contracts.IGuidFactory
             {
                 public string Name() => Guid.NewGuid().ToString("N");
             }

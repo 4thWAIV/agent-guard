@@ -10,12 +10,11 @@ namespace AgentGuard.Analyzers;
 /// rules that share it, so no member falls through every rule (allowed everywhere) or trips two at once. The
 /// OS-uniform filesystem rule (AG0011) owns the family below except the members the other two claim; the
 /// environment rule (AG0012) claims the current-directory members; and the OS-divergent rule (AG0101) claims the
-/// symlink and Unix-mode members. Constructing a <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c> is
-/// inert — it opens no handle and reads nothing until a member is touched — so it is not a boundary call for
-/// either rule; the OS access is the member that is read, and that member is what each rule catches. (This is
-/// what lets the same construction stand both in the CrossPlatform directory-enumerator adapter and in the
-/// CrossPlatform link-target reader.) Both AG0011 and AG0101 read these sets, so the boundary between them is
-/// defined once.
+/// symlink and Unix-mode members AND the CONSTRUCTION of a <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
+/// (info-construction-behind-getfileinfo): a raw <c>new</c> is a banned primitive, legal only inside the one per-OS
+/// class implementing <c>IPlatformFileSystem</c>, where <c>GetFileInfo</c>/<c>GetDirectoryInfo</c> are the owned
+/// construction point. Both AG0011 and AG0101 read these sets — AG0011 carves the construction out to AG0101 and
+/// AG0101 fires on it — so the boundary between them is defined once.
 /// </summary>
 internal static class FilesystemMembers
 {
@@ -46,20 +45,20 @@ internal static class FilesystemMembers
         (KnownNamespaces.SystemIO, "StreamWriter"),
         (KnownNamespaces.SystemIO, "FileSystemWatcher"));
 
-    // The four OS-uniform filesystem interfaces in AgentGuard.Abstractions, each the single owner of the members
+    // The four OS-uniform filesystem interfaces in AgentGuard.Abstractions.Contracts, each the single owner of the members
     // mapped to it below (one-owner-class-per-primitive). Held as one-element sets so AG0011 can pass the resolved
     // owner straight to OwnerClass.IsOwner without allocating a new array per analyzed operation.
     private static readonly ImmutableArray<(string Namespace, string Name)> FileReaderOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractions, "IFileReader"));
+        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IFileReader"));
 
     private static readonly ImmutableArray<(string Namespace, string Name)> DirectoryEnumeratorOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractions, "IDirectoryEnumerator"));
+        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IDirectoryEnumerator"));
 
     private static readonly ImmutableArray<(string Namespace, string Name)> FileWriterOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractions, "IFileWriter"));
+        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IFileWriter"));
 
     private static readonly ImmutableArray<(string Namespace, string Name)> DirectoryWriterOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractions, "IDirectoryWriter"));
+        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IDirectoryWriter"));
 
     // No owning interface: the raw call is banned everywhere and stays a build error until an interface member is
     // deliberately grown for it. Reused wherever one side of a shared name (or a whole shared name) has no interface
@@ -155,9 +154,10 @@ internal static class FilesystemMembers
         "CreateDirectory");
 
     /// <summary>
-    /// The <c>*Info</c> types whose <em>construction</em> is inert — it opens no handle and performs no OS access
-    /// until a member is touched — so the bare <c>new</c> is flagged by neither AG0011 nor AG0101. The member that
-    /// is later read carries the boundary meaning and is what the rules catch.
+    /// The <c>*Info</c> types whose <em>construction</em> AG0101 owns (info-construction-behind-getfileinfo): a raw
+    /// <c>new FileInfo</c>/<c>new DirectoryInfo</c>/<c>new FileSystemInfo</c> is a banned OS-divergent primitive, legal
+    /// only inside the one per-OS class implementing <c>IPlatformFileSystem</c>. AG0101 reads this set to fire on the
+    /// construction; AG0011 reads it to carve the construction out, so exactly one rule owns the bare <c>new</c>.
     /// </summary>
     private static readonly ImmutableArray<(string Namespace, string Name)> InfoTypes = ImmutableArray.Create(
         (KnownNamespaces.SystemIO, "FileInfo"),
@@ -204,12 +204,13 @@ internal static class FilesystemMembers
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/> is a constructor of one of the <c>*Info</c> types
-    /// whose construction is inert, so neither filesystem rule flags the bare <c>new</c>.
+    /// whose construction AG0101 owns (info-construction-behind-getfileinfo). AG0101 fires on it outside the one
+    /// per-OS owner; AG0011 carves it out so only AG0101 owns the bare <c>new</c>.
     /// </summary>
     /// <param name="member">The referenced member.</param>
     /// <param name="declaringType">The type that declares the member.</param>
-    /// <returns><see langword="true"/> when the member is an inert <c>*Info</c> constructor.</returns>
-    internal static bool IsInertInfoConstruction(ISymbol member, INamedTypeSymbol declaringType)
+    /// <returns><see langword="true"/> when the member is a constructor of a <c>*Info</c> type.</returns>
+    internal static bool IsInfoConstruction(ISymbol member, INamedTypeSymbol declaringType)
     {
         return member is IMethodSymbol { MethodKind: MethodKind.Constructor }
             && WellKnownType.IsAnyOf(declaringType, InfoTypes);
