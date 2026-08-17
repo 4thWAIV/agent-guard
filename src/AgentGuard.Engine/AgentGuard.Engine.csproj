@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BouncyCastle.Cryptography" />
     <PackageReference Include="NuGet.Versioning" />
   </ItemGroup>
 
@@ -15,10 +14,12 @@
     <InternalsVisibleTo Include="AgentGuard.Tests" />
   </ItemGroup>
 
-  <!-- The engine consumes platform capabilities through IPlatformServices; this references the
-       AgentGuard.CrossPlatform contract and exactly one per-OS implementation, selected by RuntimeIdentifier
-       (falling back to the build-host OS), so the atomic symlink swap and the executable bit stay behind the
-       interface and NO native interop lives in the engine. -->
-  <Import Project="../AgentGuard.CrossPlatform/PlatformImplementation.targets" />
+  <!-- The engine consumes every OS/CLR capability through the interfaces it owns in AgentGuard.Abstractions,
+       received by constructor injection off ISystemServices at the one composition point. It references only the
+       Abstractions assembly (dependencies point one way): it does not reference Boundaries, CrossPlatform, or any
+       per-OS assembly. -->
+  <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
+  </ItemGroup>
 
 </Project>

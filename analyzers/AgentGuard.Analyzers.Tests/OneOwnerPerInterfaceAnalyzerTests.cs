@@ -10,14 +10,14 @@ namespace AgentGuard.Analyzers.Tests;
 
 public class OneOwnerPerInterfaceAnalyzerTests
 {
+    // The one ISystemServices container fixture the derived owner set (derive-service-set-from-isystemservices) walks
+    // is SharedAnalyzerSources.AbstractionsPrefix (IFileReader is the leaf service accessor, ISystemServices the
+    // container). It is prepended to every source below.
+
     // A Fake (InMemoryFileSystem) and a Wrap proxy base (RecordingFileReader) legitimately co-implement the same owner
     // interface — exactly what the test system (test-system decision) ships per service. In a shipping assembly this is
     // the second-implementer trick and RED; in the test/TestHelpers assemblies it is legitimate and gated off.
-    private const string FakeAndProxySource = """
-        namespace AgentGuard.Abstractions.Contracts
-        {
-            public interface IFileReader { }
-        }
+    private const string FakeAndProxySource = SharedAnalyzerSources.AbstractionsPrefix + """
 
         namespace AgentGuard.TestHelpers
         {
@@ -32,11 +32,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
         // Two source classes implement the owned interface IFileReader; the second is RED, closing the trick of adding
         // ': IFileReader' with stub members to an inconvenient class to launder a raw call past the single-owner
         // exemption.
-        const string source = """
-            namespace AgentGuard.Abstractions.Contracts
-            {
-                public interface IFileReader { }
-            }
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -54,11 +50,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
     [Fact]
     public async Task SingleImplementerOfOwnerInterface_IsNotReported()
     {
-        const string source = """
-            namespace AgentGuard.Abstractions.Contracts
-            {
-                public interface IFileReader { }
-            }
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -104,11 +96,7 @@ public class OneOwnerPerInterfaceAnalyzerTests
         // A struct (or record struct) declaring ': IFileReader' as a SECOND implementer must be caught too: the boundary
         // rules accept any named type implementing the owner interface as the exempt owner (no TypeKind gate), so a
         // struct owner would otherwise launder a raw call yet slip this duplicate scan. It is RED in a shipping assembly.
-        const string source = """
-            namespace AgentGuard.Abstractions.Contracts
-            {
-                public interface IFileReader { }
-            }
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -126,9 +114,11 @@ public class OneOwnerPerInterfaceAnalyzerTests
     [Fact]
     public async Task TwoImplementersOfNonOwnerInterface_IsNotReported()
     {
-        // The rule only guards the ten owned boundary interfaces; an ordinary interface may have any number of
-        // implementers.
-        const string source = """
+        // The rule only guards the owned boundary interfaces derived from ISystemServices; an ordinary interface may
+        // have any number of implementers. The container is present (so the derived owner set is the non-empty
+        // {IFileReader}) yet IWidget — not reached from it — is correctly excluded.
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
+
             namespace App
             {
                 public interface IWidget { }

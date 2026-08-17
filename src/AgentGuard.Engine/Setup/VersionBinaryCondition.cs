@@ -17,7 +17,7 @@ internal sealed class VersionBinaryCondition : MachineCondition
 
     /// <inheritdoc />
     protected override ConditionState DetectInstalled(SetupContext context, InstallState state) =>
-        File.Exists(MachinePaths.VersionBinary(context, state.Version))
+        context.FileReader.Exists(MachinePaths.VersionBinary(context, state.Version))
             ? ConditionState.Ok()
             : ConditionState.Broken($"versions/{state.Version}/guard is missing");
 }

@@ -10,18 +10,14 @@ namespace AgentGuard.Analyzers.Tests;
 
 public class NoServiceAsParameterAnalyzerTests
 {
-    private const string AbstractionsPrefix = """
-        namespace AgentGuard.Abstractions.Contracts
-        {
-            public interface IFileReader { }
-        }
-        """;
-
+    // AG0031's owner-interface set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so
+    // the fixture's container must expose IFileReader through an accessor for it to count as a service. The container
+    // fixture is SharedAnalyzerSources.AbstractionsPrefix. The assertions below are unchanged from the hand-list era.
     [Fact]
     public async Task OrdinaryMethodTakingService_IsReported()
     {
         // Passing a lone service into a method is the service-locator smell; inject it through the constructor instead.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -43,7 +39,7 @@ public class NoServiceAsParameterAnalyzerTests
     public async Task ConstructorTakingService_IsNotReported()
     {
         // Constructor injection is the sanctioned mechanism, so a constructor parameter is never flagged.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -65,7 +61,7 @@ public class NoServiceAsParameterAnalyzerTests
         // The composition method (the Program type in namespace AgentGuard.Cli) legitimately takes a service. It is
         // compiled into the CLI's REAL assembly name "guard" (<AssemblyName>guard</AssemblyName>), the name the
         // composition-point exemption matches on — not the root namespace.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace AgentGuard.Cli
             {

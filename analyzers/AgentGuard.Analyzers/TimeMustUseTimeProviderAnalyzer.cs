@@ -11,7 +11,7 @@ namespace AgentGuard.Analyzers;
 /// <c>DateTimeOffset.Now</c>/<c>UtcNow</c>, a <c>Stopwatch</c>, or <c>Environment.TickCount</c> — and a direct
 /// <c>TimeProvider</c> acquisition (<c>TimeProvider.System</c>, or any static member of <c>System.TimeProvider</c>
 /// that hands back a <c>TimeProvider</c>). The raw wall-clock reads are banned everywhere; the direct acquisition is
-/// legal only at the one composition point — the <c>Program</c> method or the test <c>SystemServicesBuilder</c> —
+/// legal only at the one <c>SystemServices.Create()</c> composition point and the test <c>SystemServicesBuilder</c>,
 /// because that is where the clock is wired into <c>ISystemServices</c> (timeprovider-on-the-container). Everywhere
 /// else reads time off the injected clock <c>ISystemServices.Clock</c>, so tests control it. An instance call on an
 /// already-injected clock (<c>clock.GetUtcNow()</c>) is not an acquisition and is never caught; constructing or
@@ -62,12 +62,13 @@ public sealed class TimeMustUseTimeProviderAnalyzer : DiagnosticAnalyzer
 
     private static void Inspect(OperationAnalysisContext context, ISymbol member, INamedTypeSymbol type)
     {
-        // A direct TimeProvider acquisition (TimeProvider.System) is legal only at the one composition point and the
-        // test builder — that is where the clock is wired into ISystemServices; everywhere else reads it off
-        // ISystemServices.Clock (timeprovider-on-the-container, AG0015 tightened from preventive to active).
+        // A direct TimeProvider acquisition (TimeProvider.System) is legal only at the clock construction site —
+        // SystemServices.Create() (where the clock is wired into the container) and the test SystemServicesBuilder —
+        // and is a build error everywhere else (clock-legal-in-create-and-builder). Not the composition CALLERS
+        // (Program + builder): Program only calls the already-built factory, it does not acquire the clock.
         if (IsClockAcquisition(member, type))
         {
-            if (!CompositionPoint.Encloses(context.ContainingSymbol))
+            if (!CompositionPoint.EnclosesConstructionSite(context.ContainingSymbol))
             {
                 context.ReportDiagnostic(Diagnostic.Create(
                     Rule, context.Operation.Syntax.GetLocation(), MemberUseScanner.Describe(member, type)));

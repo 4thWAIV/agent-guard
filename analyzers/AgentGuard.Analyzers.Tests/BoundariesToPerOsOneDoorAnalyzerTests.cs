@@ -10,12 +10,12 @@ namespace AgentGuard.Analyzers.Tests;
 
 public class BoundariesToPerOsOneDoorAnalyzerTests
 {
-    // A per-OS implementation assembly exposing the one allowed door (Platform.Create) and another internal-ish member
-    // Boundaries must NOT reach directly.
+    // A per-OS implementation assembly exposing the one allowed door (PlatformServices.Create) and another
+    // internal-ish member Boundaries must NOT reach directly.
     private const string PerOsSource = """
         namespace AgentGuard.CrossPlatform
         {
-            public static class Platform
+            public static class PlatformServices
             {
                 public static object Create() => null!;
             }
@@ -27,12 +27,12 @@ public class BoundariesToPerOsOneDoorAnalyzerTests
         }
         """;
 
-    private const string CallPlatformCreateSource = """
+    private const string CallPlatformServicesCreateSource = """
         using AgentGuard.CrossPlatform;
 
         public class Composition
         {
-            public object Build() => Platform.Create();
+            public object Build() => PlatformServices.Create();
         }
         """;
 
@@ -46,10 +46,10 @@ public class BoundariesToPerOsOneDoorAnalyzerTests
         """;
 
     [Fact]
-    public async Task CallPlatformCreate_FromBoundaries_IsNotReported()
+    public async Task CallPlatformServicesCreate_FromBoundaries_IsNotReported()
     {
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<BoundariesToPerOsOneDoorAnalyzer>(
-            CallPlatformCreateSource, "AgentGuard.Boundaries", PerOsSource, "AgentGuard.CrossPlatform.MacOS"));
+            CallPlatformServicesCreateSource, "AgentGuard.Boundaries", PerOsSource, "AgentGuard.CrossPlatform.MacOS"));
     }
 
     [Fact]
@@ -70,5 +70,40 @@ public class BoundariesToPerOsOneDoorAnalyzerTests
         // The rule gates only the AgentGuard.Boundaries compilation.
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<BoundariesToPerOsOneDoorAnalyzer>(
             CallOtherPerOsMemberSource, "AgentGuard.Engine", PerOsSource, "AgentGuard.CrossPlatform.MacOS"));
+    }
+
+    [Fact]
+    public async Task CallOldPlatformDoor_FromBoundaries_IsReported()
+    {
+        // The now-old separate Platform factory is NO LONGER the door: after the retarget the one legal door is
+        // PlatformServices.Create(), so a Boundaries call to Platform.Create() into a per-OS assembly is reported.
+        // This is the exact current-tree violation SystemServices.Create() carries until the IMPLEMENT worker
+        // collapses Platform into the self-building PlatformServices.
+        const string perOsWithOldPlatformDoor = """
+            namespace AgentGuard.CrossPlatform
+            {
+                public static class Platform
+                {
+                    public static object Create() => null!;
+                }
+            }
+            """;
+
+        const string callOldPlatformDoor = """
+            using AgentGuard.CrossPlatform;
+
+            public class Composition
+            {
+                public object Build() => Platform.Create();
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics =
+            await AnalyzerRunner.RunWithReferenceAsync<BoundariesToPerOsOneDoorAnalyzer>(
+                callOldPlatformDoor, "AgentGuard.Boundaries", perOsWithOldPlatformDoor, "AgentGuard.CrossPlatform.MacOS");
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("AG0029", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 }

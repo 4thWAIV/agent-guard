@@ -25,14 +25,17 @@ internal static class ContractPattern
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="type"/> is a class that implements at least one
-    /// contract interface.
+    /// contract interface. A record that implements a contract interface is included — the records-skip hole is
+    /// closed (containers-are-locked-classes-not-records), so a container/contract type declared as a <c>record</c>
+    /// is still held to the private-constructor rule; a plain data record that implements no contract interface stays
+    /// out through the <see cref="ITypeSymbol.AllInterfaces"/> gate. Record structs are excluded by the
+    /// <see cref="TypeKind.Class"/> gate (they are <see cref="TypeKind.Struct"/>).
     /// </summary>
     /// <param name="type">The type to test.</param>
-    /// <returns><see langword="true"/> if it is a contract implementation class.</returns>
+    /// <returns><see langword="true"/> if it is a contract implementation class or record.</returns>
     internal static bool IsContractImplementation(INamedTypeSymbol type)
     {
         return type.TypeKind == TypeKind.Class
-            && !type.IsRecord
             && type.AllInterfaces.Any(IsContractInterface);
     }
 

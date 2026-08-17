@@ -35,10 +35,11 @@ internal static class GitignoreWiring
     /// <summary>
     /// Ensures every required ignore line is present, appending only the missing ones.
     /// </summary>
+    /// <param name="append">The owned idempotent appender that performs the read-and-write.</param>
     /// <param name="gitignorePath">The <c>.gitignore</c> path.</param>
     /// <returns><see langword="true"/> when a line was appended; <see langword="false"/> when all were present.</returns>
-    internal static bool Ensure(string gitignorePath) =>
-        IdempotentAppend.Ensure(gitignorePath, existing =>
+    internal static bool Ensure(IdempotentAppend append, string gitignorePath) =>
+        append.Ensure(gitignorePath, existing =>
         {
             List<string> missing = RequiredLines.Where(line => !ContainsLine(existing, line)).ToList();
             if (missing.Count == 0)

@@ -3,18 +3,21 @@
 using System;
 using System.CommandLine;
 using System.Diagnostics.CodeAnalysis;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
+using AgentGuard.Boundaries;
 using AgentGuard.Setup;
 
 namespace AgentGuard.Cli;
 
 /// <summary>
-/// Hosts the entry point for the AgentGuard command-line interface. It exposes the whole surface —
-/// <c>hook</c>, <c>install</c>, <c>init</c>, <c>remove</c>, <c>doctor</c> — through System.CommandLine, with the
-/// setup logic living in the Engine behind these thin handlers. The <c>hook</c> handler fails closed: every
+/// Hosts the entry point for the AgentGuard command-line interface. It is the single composition point: it builds the
+/// one <see cref="ISystemServices"/> container with <see cref="SystemServices.Create"/> and threads it into every
+/// handler, so console, environment, version, and clock access all run through the owned services. It exposes the
+/// whole surface — <c>hook</c>, <c>install</c>, <c>init</c>, <c>remove</c>, <c>doctor</c> — through System.CommandLine,
+/// with the setup logic living in the Engine behind these thin handlers. The <c>hook</c> handler fails closed: every
 /// unhandled or unparsable condition denies (exit 2), so the host never reads a non-blocking code by mistake.
 /// </summary>
 internal static class Program
@@ -27,19 +30,20 @@ internal static class Program
     private static async Task<int> Main(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
-        RootCommand root = BuildRootCommand();
+        ISystemServices services = SystemServices.Create();
+        RootCommand root = BuildRootCommand(services);
         return await root.Parse(args).InvokeAsync().ConfigureAwait(false);
     }
 
-    private static RootCommand BuildRootCommand()
+    private static RootCommand BuildRootCommand(ISystemServices services)
     {
         var root = new RootCommand("AgentGuard — guards critical files from agent changes.");
-        root.Subcommands.Add(BuildHookCommand());
-        root.Subcommands.Add(BuildInstallCommand());
-        root.Subcommands.Add(BuildInitCommand());
-        root.Subcommands.Add(BuildRemoveCommand());
-        root.Subcommands.Add(BuildDoctorCommand());
-        root.Subcommands.Add(BuildVersionCommand());
+        root.Subcommands.Add(BuildHookCommand(services));
+        root.Subcommands.Add(BuildInstallCommand(services));
+        root.Subcommands.Add(BuildInitCommand(services));
+        root.Subcommands.Add(BuildRemoveCommand(services));
+        root.Subcommands.Add(BuildDoctorCommand(services));
+        root.Subcommands.Add(BuildVersionCommand(services));
         return root;
     }
 
@@ -47,24 +51,22 @@ internal static class Program
     /// Builds the <c>version</c> command, which prints the three versions this binary was built with
     /// (decision 18): the SemVer (informational), the AssemblyVersion, and the FileVersion.
     /// </summary>
+    /// <param name="services">The composition container the version and console owners are pulled off.</param>
     /// <returns>The configured <c>version</c> command.</returns>
-    private static Command BuildVersionCommand()
+    private static Command BuildVersionCommand(ISystemServices services)
     {
         var command = new Command("version", "Print the SemVer, AssemblyVersion, and FileVersion this binary was built with.");
         command.SetAction(_ =>
         {
-            Assembly assembly = typeof(Program).Assembly;
-            string semVer = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
-            string assemblyVersion = assembly.GetName().Version?.ToString() ?? "unknown";
-            string fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version ?? "unknown";
-            Console.WriteLine($"SemVer: {semVer}");
-            Console.WriteLine($"AssemblyVersion: {assemblyVersion}");
-            Console.WriteLine($"FileVersion: {fileVersion}");
+            IBuildInfo buildInfo = services.BuildInfo;
+            services.Console.WriteLine($"SemVer: {buildInfo.SemVer}");
+            services.Console.WriteLine($"AssemblyVersion: {buildInfo.AssemblyVersion}");
+            services.Console.WriteLine($"FileVersion: {buildInfo.FileVersion}");
         });
         return command;
     }
 
-    private static Command BuildHookCommand()
+    private static Command BuildHookCommand(ISystemServices services)
     {
         var eventArgument = new Argument<string?>("event")
         {
@@ -87,11 +89,11 @@ internal static class Program
         // hook run still executes rather than erroring.
         command.TreatUnmatchedTokensAsErrors = false;
         command.SetAction((parseResult, cancellationToken) =>
-            RunHookAsync(parseResult.GetValue(eventArgument), parseResult.GetValue(hostOption), cancellationToken));
+            RunHookAsync(services, parseResult.GetValue(eventArgument), parseResult.GetValue(hostOption), cancellationToken));
         return command;
     }
 
-    private static Command BuildInstallCommand()
+    private static Command BuildInstallCommand(ISystemServices services)
     {
         var allowDowngrade = new Option<bool>("--allow-downgrade")
         {
@@ -102,25 +104,25 @@ internal static class Program
             allowDowngrade,
         };
         command.SetAction(parseResult =>
-            RunCommand(() => SetupCommands.Install(SetupContext.ForCurrentProcess(), parseResult.GetValue(allowDowngrade))));
+            RunCommand(services, () => SetupCommands.Install(SetupContext.ForCurrentProcess(services), parseResult.GetValue(allowDowngrade))));
         return command;
     }
 
-    private static Command BuildInitCommand()
+    private static Command BuildInitCommand(ISystemServices services)
     {
         var command = new Command("init", "Wire the guard into the current repository.");
-        command.SetAction(_ => RunCommand(() => SetupCommands.Init(SetupContext.ForCurrentProcess())));
+        command.SetAction(_ => RunCommand(services, () => SetupCommands.Init(SetupContext.ForCurrentProcess(services))));
         return command;
     }
 
-    private static Command BuildRemoveCommand()
+    private static Command BuildRemoveCommand(ISystemServices services)
     {
         var command = new Command("remove", "Remove the guard's wiring from the current repository.");
-        command.SetAction(_ => RunCommand(() => SetupCommands.Remove(SetupContext.ForCurrentProcess())));
+        command.SetAction(_ => RunCommand(services, () => SetupCommands.Remove(SetupContext.ForCurrentProcess(services))));
         return command;
     }
 
-    private static Command BuildDoctorCommand()
+    private static Command BuildDoctorCommand(ISystemServices services)
     {
         var fix = new Option<bool>("--fix")
         {
@@ -130,7 +132,7 @@ internal static class Program
         {
             fix,
         };
-        command.SetAction(parseResult => RunDoctor(parseResult.GetValue(fix)));
+        command.SetAction(parseResult => RunDoctor(services, parseResult.GetValue(fix)));
         return command;
     }
 
@@ -138,24 +140,24 @@ internal static class Program
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Fail-closed boundary: any caught exception on a hook run must become a deny (exit 2).")]
-    private static async Task<int> RunHookAsync(string? eventToken, string? host, CancellationToken cancellationToken)
+    private static async Task<int> RunHookAsync(ISystemServices services, string? eventToken, string? host, CancellationToken cancellationToken)
     {
         try
         {
             if (!TryParseEvent(eventToken, out HookEvent hookEvent))
             {
-                await Console.Error.WriteLineAsync("Usage: guard hook <pre|post>").ConfigureAwait(false);
+                services.Console.ErrorWriteLine("Usage: guard hook <pre|post>");
                 return 2;
             }
 
-            string payload = await Console.In.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+            string payload = await services.Console.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
             HookExecution execution = await GuardHost
-                .ExecuteHookAsync(hookEvent, Environment.ProcessPath, payload, host ?? GuardHost.ClaudeCodeHost, cancellationToken)
+                .ExecuteHookAsync(hookEvent, services.Environment.GetProcessPath(), payload, host ?? GuardHost.ClaudeCodeHost, services, cancellationToken)
                 .ConfigureAwait(false);
 
             if (!string.IsNullOrEmpty(execution.Message))
             {
-                await Console.Error.WriteLineAsync(execution.Message).ConfigureAwait(false);
+                services.Console.ErrorWriteLine(execution.Message);
             }
 
             return execution.ExitCode;
@@ -166,7 +168,7 @@ internal static class Program
         }
         catch (Exception exception)
         {
-            await Console.Error.WriteLineAsync($"agentguard: failing closed — {exception.Message}").ConfigureAwait(false);
+            services.Console.ErrorWriteLine($"agentguard: failing closed — {exception.Message}");
             return 2;
         }
     }
@@ -175,21 +177,21 @@ internal static class Program
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Fail-closed boundary: a setup-command failure must exit non-zero, never success.")]
-    private static int RunCommand(Func<CommandOutcome> action)
+    private static int RunCommand(ISystemServices services, Func<CommandOutcome> action)
     {
         try
         {
             CommandOutcome outcome = action();
             foreach (string message in outcome.Messages)
             {
-                Console.Out.WriteLine(message);
+                services.Console.WriteLine(message);
             }
 
             return outcome.ExitCode;
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"agentguard: {exception.Message}");
+            services.Console.ErrorWriteLine($"agentguard: {exception.Message}");
             return 1;
         }
     }
@@ -198,25 +200,25 @@ internal static class Program
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Fail-closed boundary: a doctor failure must exit non-zero, never success.")]
-    private static int RunDoctor(bool fix)
+    private static int RunDoctor(ISystemServices services, bool fix)
     {
         try
         {
-            DoctorOutcome outcome = SetupCommands.Doctor(SetupContext.ForCurrentProcess(), fix);
+            DoctorOutcome outcome = SetupCommands.Doctor(SetupContext.ForCurrentProcess(services), fix);
             foreach (DoctorReport report in outcome.Reports)
             {
                 string line = report.Detail.Length == 0
                     ? $"[{report.Status}] ({report.Scope}) {report.Name}"
                     : $"[{report.Status}] ({report.Scope}) {report.Name} — {report.Detail}";
-                Console.Out.WriteLine(line);
+                services.Console.WriteLine(line);
             }
 
-            Console.Out.WriteLine(outcome.Healthy ? "doctor: healthy" : "doctor: not healthy");
+            services.Console.WriteLine(outcome.Healthy ? "doctor: healthy" : "doctor: not healthy");
             return outcome.ExitCode;
         }
         catch (Exception exception)
         {
-            Console.Error.WriteLine($"agentguard: {exception.Message}");
+            services.Console.ErrorWriteLine($"agentguard: {exception.Message}");
             return 1;
         }
     }

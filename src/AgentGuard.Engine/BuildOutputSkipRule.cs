@@ -3,6 +3,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -15,9 +16,9 @@ internal sealed class BuildOutputSkipRule : IDirectorySkipRule
 {
     private static readonly string[] OutputNames = { "bin", "obj" };
 
-    private BuildOutputSkipRule()
-    {
-    }
+    private readonly IDirectoryEnumerator _directories;
+
+    private BuildOutputSkipRule(IDirectoryEnumerator directories) => _directories = directories;
 
     /// <inheritdoc />
     public string Identity => "build-output:bin,obj@csproj";
@@ -40,7 +41,8 @@ internal sealed class BuildOutputSkipRule : IDirectorySkipRule
 
         try
         {
-            return Directory.EnumerateFiles(parent, "*.csproj", SearchOption.TopDirectoryOnly).Any();
+            var options = new EnumerationOptions { IgnoreInaccessible = false };
+            return _directories.EnumerateFiles(parent, "*.csproj", options).Any();
         }
         catch (IOException)
         {
@@ -53,8 +55,13 @@ internal sealed class BuildOutputSkipRule : IDirectorySkipRule
     }
 
     /// <summary>
-    /// Creates the C# build-output skip rule.
+    /// Creates the C# build-output skip rule, drawing the directory enumerator from the container.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the enumerator is drawn from.</param>
     /// <returns>The skip rule, as its interface.</returns>
-    internal static IDirectorySkipRule Create() => new BuildOutputSkipRule();
+    internal static IDirectorySkipRule Create(ISystemServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return new BuildOutputSkipRule(services.FileSystem.GetDirectoryReader());
+    }
 }

@@ -2,10 +2,11 @@
 
   <!-- Windows per-OS impl assembly. Authors its own source under Windows/ (the CreateFileW +
        DeviceIoControl(FSCTL_SET_REPARSE_POINT) bindings for the in-place atomic re-point, the IPlatformFileSystem
-       implementation, and the Platform.Create factory); it does NOT link the POSIX source because a version pointer
-       is a directory symlink that cannot be re-pointed by a rename, so it rewrites the existing link's reparse data
-       in place instead. The [LibraryImport] source generator for these P/Invokes requires unsafe blocks. One of the
-       four AgentGuard.CrossPlatform.* libraries the interop/OS-branching analyzers (AG0008/AG0009) exempt. -->
+       implementation, and the self-building PlatformServices.Create factory); it does NOT link the POSIX source
+       because a version pointer is a directory symlink that cannot be re-pointed by a rename, so it rewrites the
+       existing link's reparse data in place instead. The [LibraryImport] source generator for these P/Invokes
+       requires unsafe blocks. One of the four AgentGuard.CrossPlatform.* libraries the interop/OS-branching analyzers
+       (AG0008/AG0009) exempt. -->
   <PropertyGroup>
     <RootNamespace>AgentGuard.CrossPlatform.Windows</RootNamespace>
     <AssemblyName>AgentGuard.CrossPlatform.Windows</AssemblyName>
@@ -13,7 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
     <ProjectReference Include="../AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj" />
+  </ItemGroup>
+
+  <!-- PlatformServices.Create() is internal (platform-create-internal); AgentGuard.Boundaries reaches this one door
+       through the grant (AG0029). Keyless in source; the signing target injects the public key on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Boundaries" />
   </ItemGroup>
 
 </Project>

@@ -13,13 +13,20 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
     <ProjectReference Include="../AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="../AgentGuard.CrossPlatform.MacOS/Posix/PosixNativeMethods.cs" Link="Posix/PosixNativeMethods.cs" />
     <Compile Include="../AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs" Link="Posix/PosixFileSystem.cs" />
-    <Compile Include="../AgentGuard.CrossPlatform.MacOS/Posix/Platform.cs" Link="Posix/Platform.cs" />
+    <Compile Include="../AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs" Link="Posix/PlatformServices.cs" />
+  </ItemGroup>
+
+  <!-- PlatformServices.Create() is internal (platform-create-internal); AgentGuard.Boundaries reaches this one door
+       through the grant (AG0029). Keyless in source; the signing target injects the public key on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Boundaries" />
   </ItemGroup>
 
 </Project>

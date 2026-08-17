@@ -10,18 +10,14 @@ namespace AgentGuard.Analyzers.Tests;
 
 public class NoStaticServiceHolderAnalyzerTests
 {
-    private const string AbstractionsPrefix = """
-        namespace AgentGuard.Abstractions.Contracts
-        {
-            public interface IFileReader { }
-            public interface ISystemServices { }
-        }
-        """;
-
+    // AG0024's service-type set is now DERIVED from ISystemServices (derive-service-set-from-isystemservices), so the
+    // fixture's container must actually expose the service through an accessor — an empty ISystemServices would derive
+    // an empty set. The container fixture is SharedAnalyzerSources.AbstractionsPrefix. The assertions below are
+    // unchanged from the hand-list era.
     [Fact]
     public async Task StaticFieldTypedAsService_IsReported()
     {
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -42,7 +38,7 @@ public class NoStaticServiceHolderAnalyzerTests
     [Fact]
     public async Task StaticPropertyTypedAsContainer_IsReported()
     {
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {
@@ -65,7 +61,7 @@ public class NoStaticServiceHolderAnalyzerTests
         // The composition point (the Program type in namespace AgentGuard.Cli) is the one place a service type may sit
         // in a static. It is compiled into the CLI's REAL assembly name "guard" (<AssemblyName>guard</AssemblyName>),
         // the name the composition-point exemption matches on — not the root namespace.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace AgentGuard.Cli
             {
@@ -86,7 +82,7 @@ public class NoStaticServiceHolderAnalyzerTests
         // point. The walking Encloses form recognises the enclosing Program (AgentGuard.Cli, assembly "guard"), exactly
         // as the three sibling composition-point rules do; the single-level containing-type check it replaced would
         // have wrongly flagged the field because its immediate containing type is the nested Holder, not Program.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace AgentGuard.Cli
             {
@@ -107,7 +103,7 @@ public class NoStaticServiceHolderAnalyzerTests
     public async Task InstanceServiceField_IsNotReported()
     {
         // Only a static holder is the service-locator smell; an instance field arrives by construction and is fine.
-        string source = AbstractionsPrefix + """
+        string source = SharedAnalyzerSources.AbstractionsPrefix + """
 
             namespace App
             {

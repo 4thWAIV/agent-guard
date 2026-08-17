@@ -5,8 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -87,21 +87,22 @@ internal sealed class ProtectedFileScanner : IProtectedFileScanner
     /// <param name="protectedSet">The Protected Set each candidate is matched against.</param>
     /// <param name="regionRegistry">The region-map registry whose watched files join the after-check set.</param>
     /// <param name="skipRules">The directory skip rules that prune the walk.</param>
-    /// <param name="enumerator">The directory enumerator that walks the filesystem, failing closed on access errors.</param>
+    /// <param name="services">The OS/CLR service container the directory enumerator is drawn from; the walk fails
+    /// closed on access errors.</param>
     /// <returns>The scanner, as its interface.</returns>
     internal static IProtectedFileScanner Create(
         IPathCanonicalizer canonicalizer,
         IProtectedSet protectedSet,
         IRegionMapRegistry regionRegistry,
         IReadOnlyList<IDirectorySkipRule> skipRules,
-        IDirectoryEnumerator enumerator)
+        ISystemServices services)
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentNullException.ThrowIfNull(protectedSet);
         ArgumentNullException.ThrowIfNull(regionRegistry);
         ArgumentNullException.ThrowIfNull(skipRules);
-        ArgumentNullException.ThrowIfNull(enumerator);
-        return new ProtectedFileScanner(canonicalizer, protectedSet, regionRegistry, skipRules, enumerator);
+        ArgumentNullException.ThrowIfNull(services);
+        return new ProtectedFileScanner(canonicalizer, protectedSet, regionRegistry, skipRules, services.FileSystem.GetDirectoryReader());
     }
 
     private bool ShouldSkip(string directoryFullPath) =>

@@ -3,8 +3,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 

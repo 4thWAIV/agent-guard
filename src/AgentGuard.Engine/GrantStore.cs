@@ -6,18 +6,17 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Signers;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
 /// <summary>
 /// Loads the active Grants for the current repository: it reads every token in the grant directory,
-/// Ed25519-verifies each against the committed public key, drops any that are malformed, unverifiable, or
-/// expired, and returns the rest. It never mints. A missing key or an unreadable directory yields no active
-/// Grants, which fails closed — System writes stay denied and drift stays reverted.
+/// Ed25519-verifies each against the committed public key through the owned <see cref="ISignatureService"/>, drops
+/// any that are malformed, unverifiable, or expired, and returns the rest. It never mints. A missing key or an
+/// unreadable directory yields no active Grants, which fails closed — System writes stay denied and drift stays
+/// reverted. No cryptographic library type crosses into this class; verification is the owned service's concern.
 /// </summary>
 internal sealed class GrantStore : IGrantStore
 {
@@ -30,19 +29,28 @@ internal sealed class GrantStore : IGrantStore
     private readonly string _projectRoot;
     private readonly IPathCanonicalizer _canonicalizer;
     private readonly TimeProvider _timeProvider;
-    private readonly Ed25519PublicKeyParameters? _publicKey;
+    private readonly ISignatureService _signatures;
+    private readonly IFileReader _fileReader;
+    private readonly IDirectoryEnumerator _directories;
+    private readonly ReadOnlyMemory<byte> _publicKey;
 
     private GrantStore(
         string grantDirectory,
         string projectRoot,
         IPathCanonicalizer canonicalizer,
         TimeProvider timeProvider,
-        Ed25519PublicKeyParameters? publicKey)
+        ISignatureService signatures,
+        IFileReader fileReader,
+        IDirectoryEnumerator directories,
+        ReadOnlyMemory<byte> publicKey)
     {
         _grantDirectory = grantDirectory;
         _projectRoot = projectRoot;
         _canonicalizer = canonicalizer;
         _timeProvider = timeProvider;
+        _signatures = signatures;
+        _fileReader = fileReader;
+        _directories = directories;
         _publicKey = publicKey;
     }
 
@@ -50,13 +58,14 @@ internal sealed class GrantStore : IGrantStore
     public async Task<IReadOnlyList<Grant>> GetActiveGrantsAsync(CancellationToken cancellationToken)
     {
         var active = new List<Grant>();
-        if (_publicKey is null || !Directory.Exists(_grantDirectory))
+        if (_publicKey.IsEmpty || !_directories.DirectoryExists(_grantDirectory))
         {
             return active;
         }
 
         DateTimeOffset now = _timeProvider.GetUtcNow();
-        foreach (string file in Directory.EnumerateFiles(_grantDirectory, "*.token", SearchOption.TopDirectoryOnly))
+        var options = new EnumerationOptions { IgnoreInaccessible = false };
+        foreach (string file in _directories.EnumerateFiles(_grantDirectory, "*.token", options))
         {
             cancellationToken.ThrowIfCancellationRequested();
             Grant? grant = await TryLoadAsync(file, now, cancellationToken).ConfigureAwait(false);
@@ -70,36 +79,44 @@ internal sealed class GrantStore : IGrantStore
     }
 
     /// <summary>
-    /// Creates the grant store.
+    /// Creates the grant store, drawing its signature verifier, filesystem owners, and clock from the container.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the store verifies, reads, and times against.</param>
     /// <param name="grantDirectory">The absolute directory holding grant tokens.</param>
     /// <param name="projectRoot">The absolute project root a relative covered path resolves against.</param>
     /// <param name="publicKey">The raw 32-byte Ed25519 public key; empty or malformed disables grants.</param>
     /// <param name="canonicalizer">The canonicalizer used to resolve covered paths.</param>
-    /// <param name="timeProvider">The time source used to drop expired grants.</param>
     /// <returns>The grant store, as its interface.</returns>
     internal static IGrantStore Create(
+        ISystemServices services,
         string grantDirectory,
         string projectRoot,
         ReadOnlyMemory<byte> publicKey,
-        IPathCanonicalizer canonicalizer,
-        TimeProvider timeProvider)
+        IPathCanonicalizer canonicalizer)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrEmpty(grantDirectory);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
         ArgumentNullException.ThrowIfNull(canonicalizer);
-        ArgumentNullException.ThrowIfNull(timeProvider);
-        Ed25519PublicKeyParameters? parameters = publicKey.Length == Ed25519PublicKeyLength
-            ? new Ed25519PublicKeyParameters(publicKey.ToArray(), 0)
-            : null;
-        return new GrantStore(grantDirectory, projectRoot, canonicalizer, timeProvider, parameters);
+        ReadOnlyMemory<byte> validatedKey = publicKey.Length == Ed25519PublicKeyLength
+            ? publicKey
+            : ReadOnlyMemory<byte>.Empty;
+        return new GrantStore(
+            grantDirectory,
+            projectRoot,
+            canonicalizer,
+            services.Clock,
+            services.Signatures,
+            services.FileSystem.GetFileReader(),
+            services.FileSystem.GetDirectoryReader(),
+            validatedKey);
     }
 
     private async Task<Grant?> TryLoadAsync(string file, DateTimeOffset now, CancellationToken cancellationToken)
     {
         try
         {
-            string text = await File.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
+            string text = await _fileReader.ReadAllTextAsync(file, cancellationToken).ConfigureAwait(false);
             GrantToken token = GrantTokenCodec.Deserialize(text);
             if (!IsSignatureValid(token))
             {
@@ -131,10 +148,7 @@ internal sealed class GrantStore : IGrantStore
     {
         byte[] message = GrantTokenCodec.CanonicalBytes(token.Payload);
         byte[] signature = Convert.FromBase64String(token.Signature);
-        var verifier = new Ed25519Signer();
-        verifier.Init(forSigning: false, _publicKey);
-        verifier.BlockUpdate(message, 0, message.Length);
-        return verifier.VerifySignature(signature);
+        return _signatures.Verify(_publicKey, message, signature);
     }
 
     private Grant BuildGrant(GrantTokenPayload payload)

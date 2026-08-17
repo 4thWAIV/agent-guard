@@ -1,7 +1,7 @@
 <Project>
 
   <!--
-    Shared platform-implementation selection, imported by every project that calls Platform.Create()
+    Shared platform-implementation selection, imported by every project that calls PlatformServices.Create()
     (the engine and the one OS-agnostic spec test project). It references the contract assembly always and
     EXACTLY ONE per-OS implementation, so calling code stays identical and OS-agnostic.
 

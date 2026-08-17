@@ -2,8 +2,8 @@
 
 using System;
 using System.Collections.Generic;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -28,8 +28,10 @@ internal sealed class SealedRuleSource : IRuleSource
     /// </summary>
     /// <param name="canonicalizer">The canonicalizer used to resolve the store directories.</param>
     /// <param name="projectRoot">The absolute project root.</param>
+    /// <param name="directorySeparator">The OS directory separator (owned by <c>IPlatformFileSystem</c>), threaded
+    /// through to the directory-prefix matchers.</param>
     /// <returns>The rule source, as its interface.</returns>
-    internal static IRuleSource Create(IPathCanonicalizer canonicalizer, string projectRoot)
+    internal static IRuleSource Create(IPathCanonicalizer canonicalizer, string projectRoot, char directorySeparator)
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
@@ -39,12 +41,12 @@ internal sealed class SealedRuleSource : IRuleSource
             new(
                 "sealed:snapshot-store",
                 RuleOrigin.Sealed,
-                DirectoryPrefixMatcher.Create(canonicalizer, CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.SnapshotStoreRelative)),
+                DirectoryPrefixMatcher.Create(canonicalizer, CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.SnapshotStoreRelative), directorySeparator),
                 verifier),
             new(
                 "sealed:grant-store",
                 RuleOrigin.Sealed,
-                DirectoryPrefixMatcher.Create(canonicalizer, CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.GrantStoreRelative)),
+                DirectoryPrefixMatcher.Create(canonicalizer, CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.GrantStoreRelative), directorySeparator),
                 verifier),
         };
         return new SealedRuleSource(rules);

@@ -6,8 +6,8 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -185,7 +185,7 @@ internal sealed class FileGuard : IGuard
             ReadOnlyMemory<byte> bytes;
             try
             {
-                bytes = await _fileReader.ReadAsync(pathValue, cancellationToken).ConfigureAwait(false);
+                bytes = await _fileReader.ReadAllBytesAsync(pathValue, cancellationToken).ConfigureAwait(false);
             }
             catch (IOException exception)
             {
@@ -412,7 +412,7 @@ internal sealed class FileGuard : IGuard
         var map = new Dictionary<string, ReadOnlyMemory<byte>>(StringComparer.Ordinal);
         foreach (string pathValue in paths.Select(path => path.Value))
         {
-            map[pathValue] = await _fileReader.ReadAsync(pathValue, cancellationToken).ConfigureAwait(false);
+            map[pathValue] = await _fileReader.ReadAllBytesAsync(pathValue, cancellationToken).ConfigureAwait(false);
         }
 
         return map;

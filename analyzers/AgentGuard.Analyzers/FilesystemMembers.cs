@@ -6,29 +6,26 @@ using Microsoft.CodeAnalysis;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// The single source of truth for how the <c>System.IO</c> filesystem surface is partitioned between the three
-/// rules that share it, so no member falls through every rule (allowed everywhere) or trips two at once. The
-/// OS-uniform filesystem rule (AG0011) owns the family below except the members the other two claim; the
-/// environment rule (AG0012) claims the current-directory members; and the OS-divergent rule (AG0101) claims the
-/// symlink and Unix-mode members AND the CONSTRUCTION of a <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
-/// (info-construction-behind-getfileinfo): a raw <c>new</c> is a banned primitive, legal only inside the one per-OS
-/// class implementing <c>IPlatformFileSystem</c>, where <c>GetFileInfo</c>/<c>GetDirectoryInfo</c> are the owned
-/// construction point. Both AG0011 and AG0101 read these sets — AG0011 carves the construction out to AG0101 and
-/// AG0101 fires on it — so the boundary between them is defined once.
+/// The single source of truth for how the <c>System.IO</c> <c>File</c>/<c>Directory</c> member surface is
+/// partitioned between the rules that share it, so no member falls through every rule (allowed everywhere) or trips
+/// two at once. The consolidated owner rule (AG0011) owns the split below through
+/// <see cref="OwningInterfaceFor"/> except the members another rule claims; that rule also routes the
+/// current-directory members to the environment owner and the OS-divergent static members to AG0101 by reading
+/// <see cref="IsCurrentDirectoryMember"/> and <see cref="IsOsDivergentMember"/> here. The OS-divergent rule (AG0101)
+/// reads the same OS-divergent set and fires on it. The <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
+/// wrappers are owned wholesale in <see cref="OwnedPrimitives"/> (fileinfo-abstraction-stays-in-ag0011), so their
+/// construction and instance members are no longer partitioned here.
 /// </summary>
 internal static class FilesystemMembers
 {
     /// <summary>
-    /// The <c>System.IO</c> types that carry both OS-uniform members (which route to AG0011) and OS-divergent
-    /// members (which route to AG0101): <c>File</c>, <c>Directory</c>, <c>FileInfo</c>, <c>DirectoryInfo</c>, and
-    /// their <c>FileSystemInfo</c> base (where <c>LinkTarget</c> and <c>UnixFileMode</c> are actually declared).
+    /// The two OS-uniform static filesystem types whose members are split per owner — <c>File</c> and
+    /// <c>Directory</c>. AG0101 reads this set to scope its OS-divergent static-member check to these two types; the
+    /// <c>*Info</c> types are owned wholesale in <see cref="OwnedPrimitives"/>, not here.
     /// </summary>
-    internal static readonly ImmutableArray<(string Namespace, string Name)> Family = ImmutableArray.Create(
+    internal static readonly ImmutableArray<(string Namespace, string Name)> FileAndDirectory = ImmutableArray.Create(
         (KnownNamespaces.SystemIO, "File"),
-        (KnownNamespaces.SystemIO, "Directory"),
-        (KnownNamespaces.SystemIO, "FileInfo"),
-        (KnownNamespaces.SystemIO, "DirectoryInfo"),
-        (KnownNamespaces.SystemIO, "FileSystemInfo"));
+        (KnownNamespaces.SystemIO, "Directory"));
 
     /// <summary>
     /// The stream, watcher, and drive <c>System.IO</c> types — <c>DriveInfo</c>, <c>FileStream</c>,
@@ -154,24 +151,14 @@ internal static class FilesystemMembers
         "CreateDirectory");
 
     /// <summary>
-    /// The <c>*Info</c> types whose <em>construction</em> AG0101 owns (info-construction-behind-getfileinfo): a raw
-    /// <c>new FileInfo</c>/<c>new DirectoryInfo</c>/<c>new FileSystemInfo</c> is a banned OS-divergent primitive, legal
-    /// only inside the one per-OS class implementing <c>IPlatformFileSystem</c>. AG0101 reads this set to fire on the
-    /// construction; AG0011 reads it to carve the construction out, so exactly one rule owns the bare <c>new</c>.
-    /// </summary>
-    private static readonly ImmutableArray<(string Namespace, string Name)> InfoTypes = ImmutableArray.Create(
-        (KnownNamespaces.SystemIO, "FileInfo"),
-        (KnownNamespaces.SystemIO, "DirectoryInfo"),
-        (KnownNamespaces.SystemIO, "FileSystemInfo"));
-
-    /// <summary>
-    /// The OS-divergent member names on the filesystem family that route to <c>IPlatformFileSystem</c> (AG0101),
-    /// not to the OS-uniform filesystem interfaces (AG0011): the symlink members and the Unix-mode members.
+    /// The OS-divergent STATIC member names on <c>File</c>/<c>Directory</c> that route to <c>IPlatformFileSystem</c>
+    /// (AG0101), not to the OS-uniform filesystem interfaces (AG0011): the static symlink members and the static
+    /// Unix-mode members. The instance <c>LinkTarget</c> and <c>UnixFileMode</c> members are declared on the
+    /// <c>*Info</c> types, which are owned wholesale in <see cref="OwnedPrimitives"/>
+    /// (fileinfo-abstraction-stays-in-ag0011), so they are NOT in this static set.
     /// </summary>
     private static readonly ImmutableHashSet<string> OsDivergentMemberNames = ImmutableHashSet.Create(
         StringComparer.Ordinal,
-        "LinkTarget",
-        "UnixFileMode",
         "CreateSymbolicLink",
         "ResolveLinkTarget",
         "SetUnixFileMode",
@@ -187,34 +174,20 @@ internal static class FilesystemMembers
         "SetCurrentDirectory");
 
     /// <summary>
-    /// Gets a value indicating whether <paramref name="member"/> is one of the OS-divergent symlink or Unix-mode
-    /// members that AG0101 owns.
+    /// Gets a value indicating whether <paramref name="member"/> is one of the OS-divergent STATIC symlink or
+    /// Unix-mode members on <c>File</c>/<c>Directory</c> that AG0101 owns.
     /// </summary>
     /// <param name="member">The referenced member.</param>
-    /// <returns><see langword="true"/> when the member name is an OS-divergent member name.</returns>
+    /// <returns><see langword="true"/> when the member name is an OS-divergent static member name.</returns>
     internal static bool IsOsDivergentMember(ISymbol member) => OsDivergentMemberNames.Contains(member.Name);
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/> is a current-directory member on
-    /// <c>Directory</c> that AG0012 owns.
+    /// <c>Directory</c> that the environment owner (<c>IEnvironment</c>) owns.
     /// </summary>
     /// <param name="member">The referenced member.</param>
     /// <returns><see langword="true"/> when the member name is a current-directory member name.</returns>
     internal static bool IsCurrentDirectoryMember(ISymbol member) => CurrentDirectoryMemberNames.Contains(member.Name);
-
-    /// <summary>
-    /// Gets a value indicating whether <paramref name="member"/> is a constructor of one of the <c>*Info</c> types
-    /// whose construction AG0101 owns (info-construction-behind-getfileinfo). AG0101 fires on it outside the one
-    /// per-OS owner; AG0011 carves it out so only AG0101 owns the bare <c>new</c>.
-    /// </summary>
-    /// <param name="member">The referenced member.</param>
-    /// <param name="declaringType">The type that declares the member.</param>
-    /// <returns><see langword="true"/> when the member is a constructor of a <c>*Info</c> type.</returns>
-    internal static bool IsInfoConstruction(ISymbol member, INamedTypeSymbol declaringType)
-    {
-        return member is IMethodSymbol { MethodKind: MethodKind.Constructor }
-            && WellKnownType.IsAnyOf(declaringType, InfoTypes);
-    }
 
     /// <summary>
     /// Resolves the single owning interface for a banned OS-uniform filesystem member — the one interface whose
@@ -245,13 +218,14 @@ internal static class FilesystemMembers
 
         // ONE general type-disambiguation pass over EVERY member name shared between File and Directory (Exists,
         // Delete, Move, and the whole timestamp getter/setter family). The declaring type decides the side
-        // (Directory/DirectoryInfo => the directory owner, File/FileInfo => the file owner); each side is the owning
-        // interface's member when one exists, else NoOwner (banned everywhere on that side). Run BEFORE the flat sets
-        // so no shared name can fall into a flat set and pick up the wrong owner.
+        // (Directory => the directory owner, File => the file owner); each side is the owning interface's member when
+        // one exists, else NoOwner (banned everywhere on that side). Run BEFORE the flat sets so no shared name can
+        // fall into a flat set and pick up the wrong owner. Only File and Directory ever reach here — the *Info types
+        // are owned wholesale in OwnedPrimitives and routed through ResolveInfoTypes before this method is called — so
+        // the side test checks Directory only.
         if (SharedNameOwners.TryGetValue(member.Name, out SharedNameOwner sharedOwners))
         {
-            bool directorySide = WellKnownType.Is(type, KnownNamespaces.SystemIO, "Directory")
-                || WellKnownType.Is(type, KnownNamespaces.SystemIO, "DirectoryInfo");
+            bool directorySide = WellKnownType.Is(type, KnownNamespaces.SystemIO, "Directory");
             return directorySide ? sharedOwners.DirectorySide : sharedOwners.FileSide;
         }
 

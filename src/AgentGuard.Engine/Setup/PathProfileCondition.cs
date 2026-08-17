@@ -20,12 +20,12 @@ internal sealed class PathProfileCondition : MachineCondition
     protected override ConditionState DetectInstalled(SetupContext context, InstallState state)
     {
         string profile = context.ShellProfilePath;
-        if (!File.Exists(profile))
+        if (!context.FileReader.Exists(profile))
         {
             return ConditionState.Broken($"the PATH line is missing (no profile at {profile})");
         }
 
-        if (!SafeRead.TryReadText(profile, out string content, out string error))
+        if (!SafeRead.For(context).TryReadText(profile, out string content, out string error))
         {
             return ConditionState.CannotVerify($"{profile} is unreadable: {error}");
         }

@@ -9,17 +9,18 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports a second named type in the same compilation that implements one of the ten owned boundary interfaces. Each
-/// of those interfaces has exactly one owner class; a second implementer — even one that structurally satisfies
+/// Reports a second named type in the same compilation that implements one of the owned boundary interfaces. Each of
+/// those interfaces has exactly one owner class; a second implementer — even one that structurally satisfies
 /// <c>OwnerClass.Implements</c> — is a build error (ag0025-one-owner-per-interface). This closes the trick of adding
 /// <c>: IFileReader</c> with stub members to an inconvenient type to launder a raw call past the single-owner
 /// exemption of the boundary rules: the second implementer is flagged here regardless of whether it would have been
 /// exempted. Every named-type kind counts — class, struct, record, and record struct — because the exemption predicate
 /// AG0025 polices (<c>OwnerClass.Implements</c>) has no <see cref="TypeKind"/> gate, so a struct declaring
-/// <c>: IFileReader</c> would otherwise launder a raw call yet be invisible to this scan. The owner-interface list is
-/// the shared hard-coded set in <see cref="BoundaryServices"/>. Only source types in the compilation are considered —
-/// <see cref="SymbolKind.NamedType"/> visits every declared named type (nested included) and excludes referenced-
-/// assembly types, so a referenced assembly's own single implementer never counts against a second one here.
+/// <c>: IFileReader</c> would otherwise launder a raw call yet be invisible to this scan. The owner-interface set is
+/// the one derived from <c>ISystemServices</c> by <see cref="BoundaryServices.Resolve"/>, captured once per
+/// compilation. Only source types in the compilation are considered — <see cref="SymbolKind.NamedType"/> visits every
+/// declared named type (nested included) and excludes referenced-assembly types, so a referenced assembly's own single
+/// implementer never counts against a second one here.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
@@ -38,7 +39,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "At most one type per compilation may implement a given owner interface (the ten owned boundary services). A second implementer of any named-type kind — class, struct, record, or record struct — is a build error even if it structurally satisfies the single-owner exemption, closing the trick of adding ': IFileReader' with stub members to an inconvenient type to launder a raw call. There is exactly one owner; route through it.",
+        description: "At most one type per compilation may implement a given owner interface (the owned boundary services derived from ISystemServices). A second implementer of any named-type kind — class, struct, record, or record struct — is a build error even if it structurally satisfies the single-owner exemption, closing the trick of adding ': IFileReader' with stub members to an inconvenient type to launder a raw call. There is exactly one owner; route through it.",
         customTags: WellKnownDiagnosticTags.CompilationEnd);
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
@@ -71,6 +72,10 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // Derive the owner-interface set from ISystemServices once per compilation, then capture it for the per-symbol
+        // accumulation — no hand-maintained list (derive-service-set-from-isystemservices).
+        DerivedServices services = BoundaryServices.Resolve(context.Compilation);
+
         // Accumulate, per owner interface, every named type in THIS compilation that implements it, then report the
         // second-and-later implementers at compilation end. The symbol action runs concurrently, so the per-compilation
         // accumulator is thread-safe; each compilation-start callback gets its own, so nothing leaks across
@@ -81,7 +86,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
             new ConcurrentDictionary<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>>();
 
         context.RegisterSymbolAction(
-            symbolContext => Accumulate((INamedTypeSymbol)symbolContext.Symbol, implementersByOwner),
+            symbolContext => Accumulate((INamedTypeSymbol)symbolContext.Symbol, services, implementersByOwner),
             SymbolKind.NamedType);
         context.RegisterCompilationEndAction(
             endContext => ReportSecondImplementers(endContext, implementersByOwner));
@@ -89,6 +94,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
 
     private static void Accumulate(
         INamedTypeSymbol type,
+        DerivedServices services,
         ConcurrentDictionary<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>> implementersByOwner)
     {
         // Route the "does this type implement the owner interface" decision through the one shared
@@ -96,7 +102,7 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
         // single owner interface — never a bespoke re-derivation of the AllInterfaces membership walk. No TypeKind
         // gate: any named-type kind (class, struct, record, record struct) that implements the owner interface is an
         // implementer here, exactly as the boundary rules accept it as the exempt owner.
-        foreach ((string Namespace, string Name) owner in BoundaryServices.OwnerInterfaces
+        foreach ((string Namespace, string Name) owner in services.ServiceInterfaces
             .Where(owner => OwnerClass.Implements(type, ImmutableArray.Create(owner))))
         {
             implementersByOwner.GetOrAdd(owner, _ => new ConcurrentBag<INamedTypeSymbol>()).Add(type);

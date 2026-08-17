@@ -30,6 +30,11 @@
     <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj">
       <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
     </ProjectReference>
+    <!-- The composition root builds the one ISystemServices via SystemServices.Create() (AG0017-pinned to Program),
+         so it references Boundaries directly. The same RID threading keeps the per-OS selection consistent. -->
+    <ProjectReference Include="../AgentGuard.Boundaries/AgentGuard.Boundaries.csproj">
+      <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

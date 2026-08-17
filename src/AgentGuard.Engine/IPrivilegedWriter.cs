@@ -3,7 +3,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 
 namespace AgentGuard.Engine;
 

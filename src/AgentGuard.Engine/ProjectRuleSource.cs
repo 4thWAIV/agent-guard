@@ -2,10 +2,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
@@ -31,21 +30,23 @@ internal sealed class ProjectRuleSource : IRuleSource
     /// <summary>
     /// Creates the Project rule source, loading patterns from the optional project config file.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the config file is read through.</param>
     /// <param name="canonicalizer">The canonicalizer used to resolve path patterns.</param>
     /// <param name="projectRoot">The absolute project root.</param>
     /// <returns>The rule source, as its interface.</returns>
-    internal static IRuleSource Create(IPathCanonicalizer canonicalizer, string projectRoot)
+    internal static IRuleSource Create(ISystemServices services, IPathCanonicalizer canonicalizer, string projectRoot)
     {
+        ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(canonicalizer);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
         string configPath = CoreSystemPaths.Absolute(projectRoot, CoreSystemPaths.ProjectConfigRelative);
         var rules = new List<Rule>();
-        if (!File.Exists(configPath))
+        if (!services.FileSystem.GetFileReader().Exists(configPath))
         {
             return new ProjectRuleSource(rules);
         }
 
-        string text = File.ReadAllText(configPath);
+        string text = services.FileSystem.GetFileReader().ReadAllText(configPath);
         ProjectConfig config = SetupJson.DeserializeProjectConfig(text)
             ?? throw new JsonException("Project config deserialized to null.");
         IVerifier verifier = NoChangeVerifier.Create();

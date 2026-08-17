@@ -73,5 +73,5 @@ internal static class ProjectPaths
     /// </summary>
     /// <param name="context">The setup context.</param>
     /// <returns><see langword="true"/> when the project is initialized.</returns>
-    internal static bool IsInitialized(SetupContext context) => Directory.Exists(AgentGuardDirectory(context));
+    internal static bool IsInitialized(SetupContext context) => context.Directories.DirectoryExists(AgentGuardDirectory(context));
 }

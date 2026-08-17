@@ -63,10 +63,10 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         """;
 
     // The shared helper class AgentGuard.CrossPlatform.PlatformFileSystemShared — NOT an owner under
-    // ag0101-one-owner-per-os. Its LinkTarget read is RED everywhere, including inside a CrossPlatform.* platform
-    // library: the shared-helper carve-out is gone, so its divergent logic must move into the one per-OS class. Reads
-    // LinkTarget off a passed-in FileInfo so this fixture isolates the member-read RED from the separately owned *Info
-    // construction (info-construction-behind-getfileinfo), which has its own tests.
+    // ag0101-one-owner-per-os. Its static OS-divergent call (File.SetUnixFileMode) is RED everywhere, including inside a
+    // CrossPlatform.* platform library: the shared-helper carve-out is gone, so its divergent logic must move into the
+    // one per-OS class. Uses a static member AG0101 still owns after the shrink (the *Info instance members and
+    // construction moved to AG0011, fileinfo-abstraction-stays-in-ag0011).
     private const string SharedHelperOnlySource = """
         using System.IO;
 
@@ -74,7 +74,7 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         {
             public static class PlatformFileSystemShared
             {
-                public static string? Read(FileInfo info) => info.LinkTarget;
+                public static void Chmod(string path) => File.SetUnixFileMode(path, UnixFileMode.UserRead);
             }
         }
         """;
@@ -110,27 +110,20 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     }
 
     [Fact]
-    public async Task LinkTargetRead_OutsideCrossPlatform_IsReported()
+    public async Task LinkTargetRead_IsNotReported_ItBelongsToAG0011()
     {
-        // The LinkTarget member read is the OS-divergent access this rule catches. Uses the one shared LinkTargetSource
-        // fixture the AG0011 test also reads (byte-identical, hoisted to one owner); it reads LinkTarget off a passed-in
-        // FileInfo so this proves the member-read RED alone, with the separately owned *Info construction tested below.
-        Diagnostic diagnostic = Assert.Single(
+        // After the shrink, the *Info instance member LinkTarget is owned wholesale by the wrapper interfaces under
+        // AG0011 (fileinfo-abstraction-stays-in-ag0011), not by AG0101 — so AG0101 no longer reports it.
+        Assert.Empty(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 SharedAnalyzerSources.LinkTargetSource, "AgentGuard.Engine"));
-        Assert.Equal("AG0101", diagnostic.Id);
-        Assert.Contains(
-            "LinkTarget",
-            AnalyzerRunner.SpanText(SharedAnalyzerSources.LinkTargetSource, diagnostic),
-            System.StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task InfoConstruction_OutsideOwner_IsReported()
+    public async Task InfoConstruction_IsNotReported_ItBelongsToAG0011()
     {
-        // info-construction-behind-getfileinfo: a raw new FileInfo / new DirectoryInfo is itself a banned OS-divergent
-        // primitive AG0101 owns. In a plain AgentGuard.Engine class — not the per-OS owner — each construction is RED,
-        // the forcing function that routes construction through IPlatformFileSystem.GetFileInfo/GetDirectoryInfo.
+        // After the shrink, a raw new FileInfo / new DirectoryInfo is owned wholesale by IFileInfo/IDirectoryInfo under
+        // AG0011, not AG0101 — so AG0101 no longer reports the construction.
         const string source = """
             using System.IO;
 
@@ -141,42 +134,8 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
             }
             """;
 
-        var diagnostics = await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.Engine");
-        Assert.Equal(2, diagnostics.Length);
-        Assert.All(diagnostics, diagnostic => Assert.Equal("AG0101", diagnostic.Id));
-        Assert.Contains(
-            diagnostics, diagnostic => AnalyzerRunner.SpanText(source, diagnostic).Contains("FileInfo", System.StringComparison.Ordinal));
-        Assert.Contains(
-            diagnostics, diagnostic => AnalyzerRunner.SpanText(source, diagnostic).Contains("DirectoryInfo", System.StringComparison.Ordinal));
-    }
-
-    [Fact]
-    public async Task InfoConstruction_InPerOsOwner_InCrossPlatformLibrary_IsExempt()
-    {
-        // The one legal place to construct a FileInfo/DirectoryInfo: inside the per-OS class implementing
-        // IPlatformFileSystem, compiled into a CrossPlatform.* platform library — where GetFileInfo/GetDirectoryInfo
-        // are the owned construction point. Both halves of the conjunction pass, so AG0101 stays silent.
-        const string source = """
-            using System.IO;
-
-            namespace AgentGuard.Abstractions.Contracts
-            {
-                public interface IPlatformFileSystem { }
-            }
-
-            namespace CrossPlatform
-            {
-                public sealed class PosixFileSystem : AgentGuard.Abstractions.Contracts.IPlatformFileSystem
-                {
-                    public FileInfo GetFileInfo(string path) => new FileInfo(path);
-
-                    public DirectoryInfo GetDirectoryInfo(string path) => new DirectoryInfo(path);
-                }
-            }
-            """;
-
         Assert.Empty(
-            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.Engine"));
     }
 
     [Fact]
@@ -257,15 +216,15 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
     public async Task PlatformFileSystemShared_InCrossPlatformLibrary_IsReported_NoSharedHelperCarveOut()
     {
         // ag0101-one-owner-per-os: the shared helper PlatformFileSystemShared is no longer an owner. Even compiled into
-        // a real CrossPlatform.* platform library, its LinkTarget read is RED — the shared-helper carve-out is gone, so
-        // its divergent logic must move into the one per-OS class implementing IPlatformFileSystem. This is the RED that
-        // forces PlatformFileSystemShared's divergent calls out.
+        // a real CrossPlatform.* platform library, its File.SetUnixFileMode call is RED — the shared-helper carve-out is
+        // gone, so its divergent logic must move into the one per-OS class implementing IPlatformFileSystem. This is the
+        // RED that forces PlatformFileSystemShared's divergent calls out.
         Diagnostic diagnostic = Assert.Single(
             await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(
                 SharedHelperOnlySource, "AgentGuard.CrossPlatform.MacOS"));
         Assert.Equal("AG0101", diagnostic.Id);
         Assert.Contains(
-            "LinkTarget", AnalyzerRunner.SpanText(SharedHelperOnlySource, diagnostic), System.StringComparison.Ordinal);
+            "SetUnixFileMode", AnalyzerRunner.SpanText(SharedHelperOnlySource, diagnostic), System.StringComparison.Ordinal);
     }
 
     [Fact]

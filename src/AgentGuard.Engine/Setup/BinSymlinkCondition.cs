@@ -19,7 +19,7 @@ internal sealed class BinSymlinkCondition : MachineCondition
     /// <inheritdoc />
     protected override ConditionState DetectInstalled(SetupContext context, InstallState state)
     {
-        if (!File.Exists(MachinePaths.BinGuard(context)))
+        if (!context.FileReader.Exists(MachinePaths.BinGuard(context)))
         {
             return ConditionState.Broken("bin/guard does not resolve to the current binary");
         }

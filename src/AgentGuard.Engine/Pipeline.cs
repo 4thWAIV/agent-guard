@@ -6,8 +6,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -23,12 +23,21 @@ internal sealed class Pipeline : IPipeline
     private readonly IGuardRegistry _registry;
     private readonly IContextStore _store;
     private readonly IPrivilegedWriter _privilegedWriter;
+    private readonly ISystemServices _services;
+    private readonly ContextStorePaths _paths;
 
-    private Pipeline(IGuardRegistry registry, IContextStore store, IPrivilegedWriter privilegedWriter)
+    private Pipeline(
+        IGuardRegistry registry,
+        IContextStore store,
+        IPrivilegedWriter privilegedWriter,
+        ISystemServices services,
+        ContextStorePaths paths)
     {
         _registry = registry;
         _store = store;
         _privilegedWriter = privilegedWriter;
+        _services = services;
+        _paths = paths;
     }
 
     /// <inheritdoc />
@@ -54,13 +63,22 @@ internal sealed class Pipeline : IPipeline
     /// <param name="registry">The registered Guards.</param>
     /// <param name="store">The Engine-owned Context store.</param>
     /// <param name="privilegedWriter">The privileged effect executor.</param>
+    /// <param name="services">The OS/CLR service container the per-call store inspector reads through.</param>
+    /// <param name="paths">The owned store-path layout the per-call store inspector uses.</param>
     /// <returns>The pipeline, as its interface.</returns>
-    internal static IPipeline Create(IGuardRegistry registry, IContextStore store, IPrivilegedWriter privilegedWriter)
+    internal static IPipeline Create(
+        IGuardRegistry registry,
+        IContextStore store,
+        IPrivilegedWriter privilegedWriter,
+        ISystemServices services,
+        ContextStorePaths paths)
     {
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(privilegedWriter);
-        return new Pipeline(registry, store, privilegedWriter);
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(paths);
+        return new Pipeline(registry, store, privilegedWriter, services, paths);
     }
 
     [SuppressMessage(
@@ -80,7 +98,7 @@ internal sealed class Pipeline : IPipeline
             foreach (IGuard guard in _registry.Guards)
             {
                 IContextStoreInspector inspector = ContextStoreInspector.Create(
-                    environment.ProjectRoot, toolCall.Id, guard.Name);
+                    _services, _paths, environment.ProjectRoot, toolCall.Id, guard.Name);
                 verdicts.Add(await guard.PrecheckAsync(toolCall, environment, inspector, cancellationToken)
                     .ConfigureAwait(false));
             }

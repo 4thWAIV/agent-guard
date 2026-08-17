@@ -2,7 +2,7 @@
 
 using System;
 using System.Collections.Generic;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 

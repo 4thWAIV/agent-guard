@@ -3,17 +3,17 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.CrossPlatform;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
 
 namespace AgentGuard.Setup;
 
 /// <summary>
 /// Runs the File Guard pipeline for a hook event: it resolves the host adapter, normalizes the payload, runs the
 /// pipeline, and renders the host decision. This is the unchanged hook behavior, lifted behind the CLI so the
-/// integrity gate can precede it and so it can be exercised directly.
+/// integrity gate can precede it and so it can be exercised directly. Every OS/CLR service — the integrity check's
+/// platform and filesystem, and the pipeline's clock and adapters — is drawn from the single container threaded in.
 /// </summary>
 public static class GuardHost
 {
@@ -31,28 +31,26 @@ public static class GuardHost
     /// <param name="resolvedBinaryPath">The resolved running binary path, for the integrity self-check.</param>
     /// <param name="rawPayload">The raw host payload from standard input.</param>
     /// <param name="host">The host identifier.</param>
+    /// <param name="services">The OS/CLR service container the integrity check and the pipeline draw every owned
+    /// service and the clock from; a test substitutes services through the builder.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <param name="fileSystem">The platform file system for the integrity self-check, or <see langword="null"/> to
-    /// use the real per-OS implementation. A test injects a managed test double so it never touches native, the same
-    /// optional-parameter injection seam <see cref="GuardEngine.CreatePipeline(GuardEngineOptions)"/> uses for its
-    /// directory enumerator.</param>
     /// <returns>The composed hook execution.</returns>
     public static async Task<HookExecution> ExecuteHookAsync(
         HookEvent hookEvent,
         string? resolvedBinaryPath,
         string rawPayload,
         string host,
-        CancellationToken cancellationToken,
-        IPlatformFileSystem? fileSystem = null)
+        ISystemServices services,
+        CancellationToken cancellationToken)
     {
-        IntegrityReport integrity = InstallIntegrity.Check(
-            fileSystem ?? Platform.Create().FileSystem, resolvedBinaryPath);
+        ArgumentNullException.ThrowIfNull(services);
+        IntegrityReport integrity = InstallIntegrity.Create(services).Check(resolvedBinaryPath);
         if (!integrity.IsAllowed)
         {
             return new HookExecution(2, integrity.Detail);
         }
 
-        HostDecision decision = await RunPipelineAsync(hookEvent, rawPayload, host, cancellationToken)
+        HostDecision decision = await RunPipelineAsync(hookEvent, rawPayload, host, services, cancellationToken)
             .ConfigureAwait(false);
         return new HookExecution(decision.ExitCode, decision.Message);
     }
@@ -64,25 +62,28 @@ public static class GuardHost
     /// <param name="hookEvent">The lifecycle event.</param>
     /// <param name="rawPayload">The raw host payload from standard input.</param>
     /// <param name="host">The host identifier.</param>
+    /// <param name="services">The OS/CLR service container the pipeline draws its clock and adapters from.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The host decision.</returns>
     public static async Task<HostDecision> RunPipelineAsync(
         HookEvent hookEvent,
         string rawPayload,
         string host,
+        ISystemServices services,
         CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(services);
         if (!string.Equals(host, ClaudeCodeHost, StringComparison.Ordinal))
         {
             return new HostDecision(2, $"Unknown host '{host}'; failing closed.");
         }
 
-        IHostAdapter adapter = GuardEngine.CreateClaudeCodeAdapter();
+        IHostAdapter adapter = GuardEngine.CreateClaudeCodeAdapter(services);
         HostReadResult read = adapter.Read(hookEvent, rawPayload);
         return read switch
         {
             HostReadUnparsable unparsable => adapter.Render(Verdict.Deny(unparsable.Reason), hookEvent),
-            HostReadParsed parsed => await RunAsync(adapter, parsed.Call, hookEvent, cancellationToken).ConfigureAwait(false),
+            HostReadParsed parsed => await RunAsync(adapter, parsed.Call, hookEvent, services, cancellationToken).ConfigureAwait(false),
             _ => adapter.Render(Verdict.Deny("The host payload could not be read; failing closed."), hookEvent),
         };
     }
@@ -91,9 +92,10 @@ public static class GuardHost
         IHostAdapter adapter,
         NormalizedCall call,
         HookEvent hookEvent,
+        ISystemServices services,
         CancellationToken cancellationToken)
     {
-        var options = new GuardEngineOptions(call.Environment.ProjectRoot, TimeProvider.System);
+        var options = new GuardEngineOptions(call.Environment.ProjectRoot, services);
         IPipeline pipeline = GuardEngine.CreatePipeline(options);
         Verdict verdict = await pipeline
             .RunAsync(hookEvent, call.Call, call.Environment, cancellationToken)

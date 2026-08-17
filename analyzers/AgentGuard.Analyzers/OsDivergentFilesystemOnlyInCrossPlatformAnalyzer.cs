@@ -18,18 +18,17 @@ namespace AgentGuard.Analyzers;
 /// assembly, which holds <c>PlatformFileSystemShared</c> (ag0101-one-owner-per-os): a class implementing
 /// <c>IPlatformFileSystem</c> in any other assembly, including the core assembly, stays RED (the self-grant is
 /// blocked). That covers the
-/// Unix-mode members (<c>File.SetUnixFileMode</c>/<c>GetUnixFileMode</c>,
-/// <c>FileInfo</c>/<c>DirectoryInfo.UnixFileMode</c>), the symlink members (<c>LinkTarget</c>,
-/// <c>CreateSymbolicLink</c>, <c>ResolveLinkTarget</c>), the construction of a
-/// <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>, <c>Marshal</c>, and the call site of a native P/Invoke
-/// method. The interface owner is resolved structurally (the enclosing type's implemented interfaces), paired with the
-/// platform-library assembly gate; the raw call is a build error even in another class of the same platform library
-/// (including <c>PlatformFileSystemShared</c>). Every other type reaches
-/// OS-divergent behavior through <c>IPlatformFileSystem</c>; the OS-uniform filesystem members are AG0011's, not this
-/// rule's. Constructing a <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c> is itself a banned primitive this
-/// rule owns (info-construction-behind-getfileinfo): a raw <c>new</c> is a build error outside the one per-OS owner,
-/// where <c>GetFileInfo</c>/<c>GetDirectoryInfo</c> are the owned construction point. This is the member-level,
-/// OS-divergent counterpart of AG0011, and the <c>0101</c> series is where further OS-divergent rules are added.
+/// STATIC Unix-mode members (<c>File.SetUnixFileMode</c>/<c>GetUnixFileMode</c>), the STATIC symlink members
+/// (<c>File</c>/<c>Directory.CreateSymbolicLink</c>, <c>File</c>/<c>Directory.ResolveLinkTarget</c>), <c>Marshal</c>,
+/// and the call site of a native P/Invoke method (including the native case-sensitivity query). The interface owner is
+/// resolved structurally (the enclosing type's implemented interfaces), paired with the platform-library assembly
+/// gate; the raw call is a build error even in another class of the same platform library (including
+/// <c>PlatformFileSystemShared</c>). Every other type reaches OS-divergent behavior through <c>IPlatformFileSystem</c>;
+/// the OS-uniform filesystem members are AG0011's, not this rule's. The <c>FileInfo</c>/<c>DirectoryInfo</c>/
+/// <c>FileSystemInfo</c> construction and their instance members (<c>LinkTarget</c>, <c>UnixFileMode</c>) are NO
+/// LONGER this rule's: the <c>*Info</c> types are owned wholesale by the wrapper interfaces under AG0011
+/// (fileinfo-abstraction-stays-in-ag0011). This is the member-level, OS-divergent counterpart of AG0011, and the
+/// <c>0101</c> series is where further OS-divergent rules are added.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : DiagnosticAnalyzer
@@ -116,7 +115,9 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
 
     private static bool IsOsDivergent(ISymbol member, INamedTypeSymbol type)
     {
-        // A call to a native P/Invoke method — the raw syscall site (AG0008 catches only the declaration).
+        // A call to a native P/Invoke method — the raw syscall site (AG0008 catches only the declaration). This is
+        // what confines the native case-sensitivity query (pathconf / GetFileInformationByHandleEx) to the per-OS
+        // owner too.
         if (member is IMethodSymbol method && PInvoke.IsPInvoke(method))
         {
             return true;
@@ -128,16 +129,11 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
             return true;
         }
 
-        // Constructing a FileInfo/DirectoryInfo/FileSystemInfo is a banned primitive this rule owns
-        // (info-construction-behind-getfileinfo): a raw new is legal only inside the one per-OS owner, where
-        // GetFileInfo/GetDirectoryInfo are the owned construction point.
-        if (FilesystemMembers.IsInfoConstruction(member, type))
-        {
-            return true;
-        }
-
-        // The Unix-mode and symlink members on the File/Directory/*Info family — the OS-divergent access is the member
-        // that is read, caught here.
-        return WellKnownType.IsAnyOf(type, FilesystemMembers.Family) && FilesystemMembers.IsOsDivergentMember(member);
+        // The OS-divergent STATIC symlink and Unix-mode members on File/Directory (CreateSymbolicLink,
+        // ResolveLinkTarget, Get/SetUnixFileMode). The *Info construction and the *Info instance members (LinkTarget,
+        // UnixFileMode) are no longer this rule's: they are owned wholesale by the wrapper interfaces under AG0011
+        // (fileinfo-abstraction-stays-in-ag0011).
+        return WellKnownType.IsAnyOf(type, FilesystemMembers.FileAndDirectory)
+            && FilesystemMembers.IsOsDivergentMember(member);
     }
 }

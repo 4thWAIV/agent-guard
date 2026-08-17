@@ -7,13 +7,14 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports a static (non-const) field or property typed <c>ISystemServices</c> or any of its eleven service types —
-/// the ten owned boundary interfaces plus <c>System.TimeProvider</c> — declared outside the composition point.
-/// AG0017 only stops re-calling <c>SystemServices.Create()</c>; nothing stopped stashing the result (or one service)
-/// in a static and reading it ambiently, which is the service-locator shortcut constructor injection forbids
-/// (ag0024-no-static-service-holder). Services arrive by constructor injection; the only place a service type may sit
-/// in a static is the composition point (the <c>Program</c> method or the test <c>SystemServicesBuilder</c>). A
-/// constant is exempt because a <c>const</c> cannot hold a service instance.
+/// Reports a static (non-const) field or property typed <c>ISystemServices</c> or any of its service types — the
+/// owned boundary interfaces derived from the container plus <c>System.TimeProvider</c> — declared outside the
+/// composition point. AG0017 only stops re-calling <c>SystemServices.Create()</c>; nothing stopped stashing the result
+/// (or one service) in a static and reading it ambiently, which is the service-locator shortcut constructor injection
+/// forbids (ag0024-no-static-service-holder). Services arrive by constructor injection; the only place a service type
+/// may sit in a static is the composition point (the <c>Program</c> method or the test <c>SystemServicesBuilder</c>).
+/// A constant is exempt because a <c>const</c> cannot hold a service instance. The service-type set is the one derived
+/// from <c>ISystemServices</c> by <see cref="BoundaryServices.Resolve"/>, captured once per compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
@@ -32,7 +33,7 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A static (non-const) field or property typed ISystemServices or one of its eleven service types (the ten owned boundary interfaces plus System.TimeProvider) is a build error outside the composition point. Reading a service ambiently off a static is the service-locator shortcut constructor injection forbids; services arrive through the constructor.");
+        description: "A static (non-const) field or property typed ISystemServices or one of its service types (the owned boundary interfaces derived from the container plus System.TimeProvider) is a build error outside the composition point. Reading a service ambiently off a static is the service-locator shortcut constructor injection forbids; services arrive through the constructor.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -49,11 +50,19 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
 
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeField, SymbolKind.Field);
-        context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
+        context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    private static void AnalyzeField(SymbolAnalysisContext context)
+    private static void OnCompilationStart(CompilationStartAnalysisContext context)
+    {
+        // Derive the service-type set from ISystemServices once per compilation, then capture it for the per-symbol
+        // callbacks — no hand-maintained list (derive-service-set-from-isystemservices).
+        DerivedServices services = BoundaryServices.Resolve(context.Compilation);
+        context.RegisterSymbolAction(symbolContext => AnalyzeField(symbolContext, services), SymbolKind.Field);
+        context.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, services), SymbolKind.Property);
+    }
+
+    private static void AnalyzeField(SymbolAnalysisContext context, DerivedServices services)
     {
         var field = (IFieldSymbol)context.Symbol;
 
@@ -63,10 +72,10 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        Report(context, field, field.Type as INamedTypeSymbol);
+        Report(context, services, field, field.Type as INamedTypeSymbol);
     }
 
-    private static void AnalyzeProperty(SymbolAnalysisContext context)
+    private static void AnalyzeProperty(SymbolAnalysisContext context, DerivedServices services)
     {
         var property = (IPropertySymbol)context.Symbol;
 
@@ -75,10 +84,11 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        Report(context, property, property.Type as INamedTypeSymbol);
+        Report(context, services, property, property.Type as INamedTypeSymbol);
     }
 
-    private static void Report(SymbolAnalysisContext context, ISymbol holder, INamedTypeSymbol? holderType)
+    private static void Report(
+        SymbolAnalysisContext context, DerivedServices services, ISymbol holder, INamedTypeSymbol? holderType)
     {
         // The composition point (the Program method / the SystemServicesBuilder) is the one place a service type may
         // sit in a static; everywhere else is RED. Walk the holder's enclosing types with the same Encloses form the
@@ -89,7 +99,7 @@ public sealed class NoStaticServiceHolderAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (BoundaryServices.IsServiceType(holderType))
+        if (services.IsServiceType(holderType))
         {
             context.ReportDiagnostic(Diagnostic.Create(Rule, holder.Locations[0], holder.Name));
         }

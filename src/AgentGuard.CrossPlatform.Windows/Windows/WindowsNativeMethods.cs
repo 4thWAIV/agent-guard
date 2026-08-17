@@ -21,6 +21,20 @@ internal static partial class WindowsNativeMethods
     /// <summary>Right to write data/attributes, required to set a reparse point.</summary>
     internal const uint GenericWrite = 0x40000000;
 
+    /// <summary>FILE_READ_ATTRIBUTES: the minimal right needed to query a directory's case-sensitivity flag.</summary>
+    internal const uint FileReadAttributes = 0x00000080;
+
+    /// <summary>
+    /// FileCaseSensitiveInfo: the FILE_INFO_BY_HANDLE_CLASS value (23) that reads the per-directory case-sensitivity
+    /// flag through <see cref="GetFileInformationByHandleEx"/>.
+    /// </summary>
+    internal const int FileCaseSensitiveInfo = 23;
+
+    /// <summary>
+    /// FILE_CS_FLAG_CASE_SENSITIVE_DIR: the flag in FILE_CASE_SENSITIVE_INFO set when the directory is case-sensitive.
+    /// </summary>
+    internal const uint FileCsFlagCaseSensitiveDir = 0x00000001;
+
     /// <summary>FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE.</summary>
     internal const uint FileShareReadWriteDelete = 0x00000001 | 0x00000002 | 0x00000004;
 
@@ -84,4 +98,23 @@ internal static partial class WindowsNativeMethods
         uint outBufferSize,
         out uint bytesReturned,
         IntPtr overlapped);
+
+    /// <summary>
+    /// Reads a file/directory information class off an open handle — here <see cref="FileCaseSensitiveInfo"/>, whose
+    /// FILE_CASE_SENSITIVE_INFO payload is a single ULONG of flags marshalled as <paramref name="fileInformation"/>.
+    /// </summary>
+    /// <param name="handle">The open handle to the directory.</param>
+    /// <param name="fileInformationClass">The FILE_INFO_BY_HANDLE_CLASS value (for example
+    /// <see cref="FileCaseSensitiveInfo"/>).</param>
+    /// <param name="fileInformation">Receives the returned flags (the FILE_CASE_SENSITIVE_INFO ULONG).</param>
+    /// <param name="bufferSize">The byte length of <paramref name="fileInformation"/> (four bytes).</param>
+    /// <returns><see langword="true"/> on success; otherwise <see langword="false"/> with the last Win32 error set.</returns>
+    [LibraryImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
+    [DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetFileInformationByHandleEx(
+        SafeFileHandle handle,
+        int fileInformationClass,
+        out uint fileInformation,
+        uint bufferSize);
 }

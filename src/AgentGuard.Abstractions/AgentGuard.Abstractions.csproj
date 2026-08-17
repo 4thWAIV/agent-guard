@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The lowest assembly: every interface the codebase owns and the data types they use, and nothing else.
+       ZERO implementations and ZERO OS/CLR calls live here; the boundary and per-OS adapters implement these
+       interfaces in the assemblies above. Every other assembly references this one. -->
+  <PropertyGroup>
+    <RootNamespace>AgentGuard.Abstractions</RootNamespace>
+    <AssemblyName>AgentGuard.Abstractions</AssemblyName>
+  </PropertyGroup>
+
+</Project>

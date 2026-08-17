@@ -33,7 +33,7 @@ public sealed class BuilderCompletenessAnalyzer : DiagnosticAnalyzer
 
     // Compose the metadata names from the single owners of each part rather than re-spelling the literals: the
     // container is AgentGuard.Abstractions.Contracts.ISystemServices (KnownNamespaces.AgentGuardAbstractionsContracts +
-    // BoundaryServices.ContainerName — the same two owners SystemServicesCreateOnlyAtCompositionAnalyzer matches the
+    // BoundaryServices.ContainerName — the same two owners GuardedConstructionAnalyzer matches the
     // container by) and the builder is AgentGuard.TestHelpers.SystemServicesBuilder (TestAssembly.TestHelpersName +
     // the builder type name).
     private const string ContainerMetadataName =
@@ -83,7 +83,7 @@ public sealed class BuilderCompletenessAnalyzer : DiagnosticAnalyzer
         // the rule is preventive and simply does not fire (nothing can fall behind a container that is not there yet).
         INamedTypeSymbol? builder = context.Compilation.GetTypeByMetadataName(BuilderMetadataName);
         if (builder is null
-            || !SymbolEqualityComparer.Default.Equals(builder.ContainingAssembly, context.Compilation.Assembly))
+            || !WellKnownType.IsDeclaredInCompilation(builder, context.Compilation))
         {
             return;
         }

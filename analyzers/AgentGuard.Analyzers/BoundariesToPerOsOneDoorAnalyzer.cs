@@ -8,12 +8,13 @@ namespace AgentGuard.Analyzers;
 
 /// <summary>
 /// Reports a call from <c>AgentGuard.Boundaries</c> into a per-OS implementation assembly
-/// (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>) that is not <c>Platform.Create()</c>. The per-OS
+/// (<c>.MacOS</c>/<c>.Linux</c>/<c>.Windows</c>) that is not <c>PlatformServices.Create()</c>. The per-OS
 /// <c>InternalsVisibleTo</c> grants (platform-create-internal) otherwise expose every internal member to Boundaries;
 /// AG0023 pins only the core CrossPlatform assembly, so this rule pins the per-OS door
-/// (ag0029-boundaries-to-per-os-one-door). The one legal call is the static <c>Platform.Create()</c> that
-/// <c>SystemServices.Create()</c> uses to obtain the OS-divergent <c>IPlatformFileSystem</c>; any other
-/// Boundaries → per-OS call is a build error.
+/// (ag0029-boundaries-to-per-os-one-door). The one legal call is the static <c>PlatformServices.Create()</c> that
+/// <c>SystemServices.Create()</c> uses to obtain the OS-divergent platform container — the self-building factory the
+/// <c>container-is-one-class-with-its-own-create</c> mandate makes the one door, replacing the separate
+/// <c>Platform</c> factory; any other Boundaries → per-OS call is a build error.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class BoundariesToPerOsOneDoorAnalyzer : DiagnosticAnalyzer
@@ -27,12 +28,12 @@ public sealed class BoundariesToPerOsOneDoorAnalyzer : DiagnosticAnalyzer
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
-        title: "Boundaries may call a per-OS assembly only through Platform.Create()",
-        messageFormat: "Call from AgentGuard.Boundaries into per-OS member '{0}' is not Platform.Create(); the one legal door into a per-OS assembly is Platform.Create()",
+        title: "Boundaries may call a per-OS assembly only through PlatformServices.Create()",
+        messageFormat: "Call from AgentGuard.Boundaries into per-OS member '{0}' is not PlatformServices.Create(); the one legal door into a per-OS assembly is PlatformServices.Create()",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A call from AgentGuard.Boundaries into a per-OS implementation assembly (.MacOS/.Linux/.Windows) is legal only as Platform.Create(). The per-OS InternalsVisibleTo grants otherwise expose every internal member; the single door is the static Platform.Create() that SystemServices.Create() uses to obtain the OS-divergent IPlatformFileSystem.");
+        description: "A call from AgentGuard.Boundaries into a per-OS implementation assembly (.MacOS/.Linux/.Windows) is legal only as PlatformServices.Create(). The per-OS InternalsVisibleTo grants otherwise expose every internal member; the single door is the static PlatformServices.Create() that SystemServices.Create() uses to obtain the OS-divergent platform container.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -66,8 +67,8 @@ public sealed class BoundariesToPerOsOneDoorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // The one legal door: the static Platform.Create() factory, matched by full type identity in PlatformFactory,
-        // never a bare name. Any other Boundaries → per-OS call is a build error.
+        // The one legal door: the static PlatformServices.Create() factory, matched by full type identity in
+        // PlatformFactory, never a bare name. Any other Boundaries → per-OS call is a build error.
         if (PlatformFactory.Is(member, type))
         {
             return;

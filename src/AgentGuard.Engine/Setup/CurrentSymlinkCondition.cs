@@ -19,7 +19,7 @@ internal sealed class CurrentSymlinkCondition : MachineCondition
     /// <inheritdoc />
     protected override ConditionState DetectInstalled(SetupContext context, InstallState state)
     {
-        if (!File.Exists(MachinePaths.CurrentBinary(context)))
+        if (!context.FileReader.Exists(MachinePaths.CurrentBinary(context)))
         {
             return ConditionState.Broken("current does not resolve to an installed version's binary");
         }

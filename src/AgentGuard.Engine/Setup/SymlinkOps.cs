@@ -1,7 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using AgentGuard.CrossPlatform;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Setup;
 
@@ -15,17 +15,15 @@ internal sealed class SymlinkOps
 {
     private readonly IPlatformFileSystem _fileSystem;
 
-    private SymlinkOps(IPlatformFileSystem fileSystem) => _fileSystem = fileSystem;
-
     /// <summary>
-    /// Creates the symlink policy over the given platform file system.
+    /// Initializes a new instance of the <see cref="SymlinkOps"/> class over the given platform file system, received
+    /// by constructor injection.
     /// </summary>
     /// <param name="fileSystem">The platform file-system capability.</param>
-    /// <returns>The symlink policy.</returns>
-    internal static SymlinkOps Create(IPlatformFileSystem fileSystem)
+    internal SymlinkOps(IPlatformFileSystem fileSystem)
     {
         ArgumentNullException.ThrowIfNull(fileSystem);
-        return new SymlinkOps(fileSystem);
+        _fileSystem = fileSystem;
     }
 
     /// <summary>

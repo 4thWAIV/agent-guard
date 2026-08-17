@@ -107,32 +107,51 @@ public class TimeMustUseTimeProviderAnalyzerTests
     }
 
     [Fact]
-    public async Task TimeProviderSystem_AtCompositionPoint_IsNotReported()
+    public async Task TimeProviderSystem_InSystemServicesCreate_IsNotReported()
     {
-        // TimeProvider.System is legal at the one composition point: the Program type in namespace AgentGuard.Cli,
-        // compiled into the CLI's REAL assembly name "guard" (<AssemblyName>guard</AssemblyName>), where the clock is
-        // wired into ISystemServices.
+        // clock-legal-in-create-and-builder: TimeProvider.System is legal inside SystemServices in
+        // AgentGuard.Boundaries — whose Create() wires the clock into the container. This is the construction site the
+        // clock is acquired at, distinct from the composition CALLERS (Program + builder) that only call the factory.
         const string source = """
             using System;
 
-            namespace AgentGuard.Cli
+            namespace AgentGuard.Boundaries
             {
-                internal static class Program
+                internal static class SystemServices
                 {
                     private static TimeProvider Compose() => TimeProvider.System;
                 }
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "guard"));
+        Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "AgentGuard.Boundaries"));
     }
 
     [Fact]
-    public async Task TimeProviderSystem_InProgramNamespaceButAssemblyNamedAsTheRootNamespace_IsReported()
+    public async Task TimeProviderSystem_InSystemServicesBuilder_IsNotReported()
     {
-        // LESSON 1 regression guard: the CLI's real compiled assembly name is "guard", NOT its root namespace
-        // "AgentGuard.Cli". A Program compiled into an assembly literally named "AgentGuard.Cli" is not the real
-        // composition point, so the direct TimeProvider acquisition IS reported.
+        // The other construction site: the test SystemServicesBuilder in AgentGuard.TestHelpers.
+        const string source = """
+            using System;
+
+            namespace AgentGuard.TestHelpers
+            {
+                public sealed class SystemServicesBuilder
+                {
+                    private TimeProvider Compose() => TimeProvider.System;
+                }
+            }
+            """;
+
+        Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "AgentGuard.TestHelpers"));
+    }
+
+    [Fact]
+    public async Task TimeProviderSystem_InProgramCaller_IsReported()
+    {
+        // The composition CALLER (Program in AgentGuard.Cli, compiled into the real assembly name "guard") is NOT the
+        // clock construction site: Program calls the already-built factory, it does not acquire the clock. So a direct
+        // TimeProvider.System there is RED (clock-legal-in-create-and-builder — the "painted into a corner" fix).
         const string source = """
             using System;
 
@@ -146,7 +165,7 @@ public class TimeMustUseTimeProviderAnalyzerTests
             """;
 
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "AgentGuard.Cli"));
+            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "guard"));
         Assert.Equal("AG0015", diagnostic.Id);
     }
 

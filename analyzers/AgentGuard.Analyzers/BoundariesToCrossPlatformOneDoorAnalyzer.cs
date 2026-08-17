@@ -70,13 +70,19 @@ public sealed class BoundariesToCrossPlatformOneDoorAnalyzer : DiagnosticAnalyze
     {
         // Only a call into the CORE AgentGuard.CrossPlatform assembly is in scope. A per-OS assembly is AG0029's; a
         // call within Boundaries, or into any other assembly (including the relocated interfaces now in
-        // AgentGuard.Abstractions), is neither rule's.
+        // AgentGuard.Abstractions), is neither rule's. This is an assembly-only SCOPE gate, not the identity-plus-
+        // assembly conjunction: it filters every Boundaries member-use down to CrossPlatform-core types before the
+        // door is considered, so it cannot fold into WellKnownType.IsInAssembly (which also pins a type name).
         if (!string.Equals(type.ContainingAssembly?.Name, CrossPlatformBoundary.RootName, StringComparison.Ordinal))
         {
             return;
         }
 
-        if (WellKnownType.Is(type, CrossPlatformBoundary.RootName, AdapterFactoryTypeName))
+        // The one allowed door — CrossPlatformAdapters in the CrossPlatform-core assembly, matched by identity AND
+        // assembly through the shared WellKnownType.IsInAssembly conjunction, so a same-named decoy elsewhere cannot
+        // pose as the door.
+        if (WellKnownType.IsInAssembly(
+            type, CrossPlatformBoundary.RootName, AdapterFactoryTypeName, CrossPlatformBoundary.RootName))
         {
             return;
         }

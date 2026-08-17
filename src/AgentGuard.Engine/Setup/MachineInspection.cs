@@ -19,7 +19,7 @@ internal static class MachineInspection
     internal static MachineFacts Read(SetupContext context)
     {
         string path = MachinePaths.StateFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return new MachineFacts(
                 MachineStateStatus.Missing, null, "the machine is not installed; run `guard install`");
@@ -28,7 +28,7 @@ internal static class MachineInspection
         string json;
         try
         {
-            json = File.ReadAllText(path);
+            json = context.FileReader.ReadAllText(path);
         }
         catch (IOException exception)
         {

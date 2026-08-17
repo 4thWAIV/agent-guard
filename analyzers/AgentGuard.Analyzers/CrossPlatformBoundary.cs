@@ -34,14 +34,12 @@ internal static class CrossPlatformBoundary
     /// <summary>
     /// The exact assembly names of the three per-OS implementation libraries — <c>.MacOS</c>, <c>.Linux</c>, and
     /// <c>.Windows</c> — WITHOUT the core <c>AgentGuard.CrossPlatform</c> contract assembly. AG0029 uses this to gate
-    /// a call from <c>AgentGuard.Boundaries</c> into a per-OS assembly (allowed only as <c>Platform.Create()</c>),
-    /// which is a different door from AG0023's call into the core assembly.
+    /// a call from <c>AgentGuard.Boundaries</c> into a per-OS assembly (allowed only as <c>PlatformServices.Create()</c>),
+    /// which is a different door from AG0023's call into the core assembly. Derived from
+    /// <see cref="PlatformAssemblyNames"/> by removing the core assembly, so the per-OS suffixes are spelled once.
     /// </summary>
-    private static readonly ImmutableHashSet<string> PerOsImplementationAssemblyNames = ImmutableHashSet.Create(
-        StringComparer.Ordinal,
-        RootName + ".MacOS",
-        RootName + ".Linux",
-        RootName + ".Windows");
+    private static readonly ImmutableHashSet<string> PerOsImplementationAssemblyNames =
+        PlatformAssemblyNames.Remove(RootName);
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="compilation"/> is one of the four

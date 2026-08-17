@@ -8,13 +8,14 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Reports a boundary service interface used as a method parameter — one of the ten owned abstractions passed as a
-/// lone argument to an ordinary method. Constructor injection is the one way a class receives a service, so a
-/// constructor parameter is fine; passing a lone service into a method is the service-locator smell
+/// Reports a boundary service interface used as a method parameter — one of the owned abstractions passed as a lone
+/// argument to an ordinary method. Constructor injection is the one way a class receives a service, so a constructor
+/// parameter is fine; passing a lone service into a method is the service-locator smell
 /// constructor-injection-no-container forbids, which no other rule checked (ag0031-no-service-as-parameter). The two
 /// exceptions are the single <c>Program</c> composition method and the test <c>SystemServicesBuilder</c>, whose
 /// <c>With(...)</c> overloads legitimately take a service to substitute. Every other class injects the service
-/// through its constructor, not a method argument.
+/// through its constructor, not a method argument. The owner-interface set is the one derived from
+/// <c>ISystemServices</c> by <see cref="BoundaryServices.Resolve"/>, captured once per compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class NoServiceAsParameterAnalyzer : DiagnosticAnalyzer
@@ -33,7 +34,7 @@ public sealed class NoServiceAsParameterAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A boundary service interface (one of the ten owned abstractions) may not be a method parameter, except on the single Program composition method and the test SystemServicesBuilder. Passing a lone service into a method is the service-locator shortcut constructor injection forbids; every class receives the service through its constructor. A constructor parameter is the injection mechanism and is exempt.");
+        description: "A boundary service interface (one of the owned abstractions derived from ISystemServices) may not be a method parameter, except on the single Program composition method and the test SystemServicesBuilder. Passing a lone service into a method is the service-locator shortcut constructor injection forbids; every class receives the service through its constructor. A constructor parameter is the injection mechanism and is exempt.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -50,10 +51,18 @@ public sealed class NoServiceAsParameterAnalyzer : DiagnosticAnalyzer
 
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
+        context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    private static void AnalyzeMethod(SymbolAnalysisContext context)
+    private static void OnCompilationStart(CompilationStartAnalysisContext context)
+    {
+        // Derive the owner-interface set from ISystemServices once per compilation, then capture it for the per-method
+        // callback — no hand-maintained list (derive-service-set-from-isystemservices).
+        DerivedServices services = BoundaryServices.Resolve(context.Compilation);
+        context.RegisterSymbolAction(symbolContext => AnalyzeMethod(symbolContext, services), SymbolKind.Method);
+    }
+
+    private static void AnalyzeMethod(SymbolAnalysisContext context, DerivedServices services)
     {
         var method = (IMethodSymbol)context.Symbol;
 
@@ -72,7 +81,7 @@ public sealed class NoServiceAsParameterAnalyzer : DiagnosticAnalyzer
         }
 
         bool takesServiceParameter = method.Parameters.Any(
-            parameter => BoundaryServices.IsOwnerInterface(parameter.Type as INamedTypeSymbol));
+            parameter => services.IsOwnerInterface(parameter.Type as INamedTypeSymbol));
         if (takesServiceParameter)
         {
             context.ReportDiagnostic(Diagnostic.Create(Rule, method.Locations[0], method.Name));
