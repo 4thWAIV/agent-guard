@@ -57,4 +57,43 @@ public sealed class ProcessArchitectureTests
             Assert.Equal(want, process);
         }
     }
+
+    /// <summary>
+    /// Proves the <see cref="SystemServicesBuilder.Fake"/> default environment reports the REAL host CPU architecture —
+    /// the builder sources it once through <see cref="SystemServicesBuilder.Real"/> — rather than the hardcoded
+    /// <c>Architecture.X64</c> the fake used to default to. The rest of the fake environment stays controlled; only the
+    /// two architecture values are delegated to the real host.
+    /// </summary>
+    [Fact]
+    public void FakeDefaultEnvironmentReportsRealHostArchitecture()
+    {
+        IEnvironment real = SystemServicesBuilder.Real().Build().Environment;
+        IEnvironment fake = SystemServicesBuilder.Fake().Build().Environment;
+
+        Assert.Equal(real.GetProcessArchitecture(), fake.GetProcessArchitecture());
+        Assert.Equal(real.GetOSArchitecture(), fake.GetOSArchitecture());
+    }
+
+    /// <summary>
+    /// Proves the architecture stays overridable: a test that substitutes its own <see cref="FakeEnvironment"/> through
+    /// the builder's <c>With</c> reports the simulated architecture, which wins over the real-host default.
+    /// </summary>
+    [Fact]
+    public void FakeEnvironmentArchitectureOverrideWins()
+    {
+        Architecture host = SystemServicesBuilder.Real().Build().Environment.GetProcessArchitecture();
+        Architecture simulated = host == Architecture.Arm64 ? Architecture.X64 : Architecture.Arm64;
+        Assert.NotEqual(host, simulated);
+
+        IEnvironment fake = SystemServicesBuilder.Fake()
+            .With(FakeEnvironment.Create(
+                "/agentguard-fake-home",
+                processArchitecture: simulated,
+                osArchitecture: simulated))
+            .Build()
+            .Environment;
+
+        Assert.Equal(simulated, fake.GetProcessArchitecture());
+        Assert.Equal(simulated, fake.GetOSArchitecture());
+    }
 }

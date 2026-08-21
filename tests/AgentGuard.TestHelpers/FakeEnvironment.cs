@@ -53,14 +53,16 @@ public sealed class FakeEnvironment : IEnvironment
     /// <paramref name="home"/>.</param>
     /// <param name="processPath">The process executable path the fake reports, or <see langword="null"/>.</param>
     /// <param name="variables">The environment variables the fake reports, or <see langword="null"/> for none.</param>
-    /// <param name="processArchitecture">The process CPU architecture the fake reports. It defaults to
-    /// <see cref="Architecture.X64"/>; a unit test simulating another architecture injects it here. The real host
-    /// architecture is served by the real adapter under <see cref="SystemServicesBuilder.Real"/> (an in-memory fake in
-    /// AgentGuard.TestHelpers cannot read <c>RuntimeInformation</c>, which AG0011 owns to the real
-    /// <c>EnvironmentAdapter</c>), so the one test that asserts the true process architecture runs on <c>Real()</c>.</param>
-    /// <param name="osArchitecture">The operating-system CPU architecture the fake reports. It defaults to
-    /// <see cref="Architecture.X64"/> and is injectable for the same reasons as
-    /// <paramref name="processArchitecture"/>.</param>
+    /// <param name="processArchitecture">The process CPU architecture the fake reports. The parameter default is
+    /// <see cref="Architecture.X64"/>, but the <see cref="SystemServicesBuilder.Fake"/> default environment no longer
+    /// relies on that hardcoded value: the builder reads the REAL host process architecture once through the real adapter
+    /// under <see cref="SystemServicesBuilder.Real"/> (an in-memory fake in AgentGuard.TestHelpers cannot read
+    /// <c>RuntimeInformation</c>, which AG0011 owns to the real <c>EnvironmentAdapter</c>) and passes it here, so a
+    /// <c>Fake()</c> run reports the true host architecture. A unit test simulating another architecture still injects it
+    /// here (through the builder's <c>With(IEnvironment)</c>), which wins over the default.</param>
+    /// <param name="osArchitecture">The operating-system CPU architecture the fake reports. The parameter default is
+    /// <see cref="Architecture.X64"/>; like <paramref name="processArchitecture"/>, the <see cref="SystemServicesBuilder.Fake"/>
+    /// default sources the real host value from the builder, and it is injectable for the same reasons.</param>
     /// <returns>The environment fake, as its interface.</returns>
     public static IEnvironment Create(
         string home,

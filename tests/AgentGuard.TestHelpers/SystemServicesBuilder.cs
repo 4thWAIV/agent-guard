@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using System.Runtime.InteropServices;
 using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Boundaries;
 using Microsoft.Extensions.Time.Testing;
@@ -23,6 +24,13 @@ public sealed class SystemServicesBuilder
 {
     private const string DefaultFakeHome = "/agentguard-fake-home";
     private const string DefaultFakeTempRoot = "/agentguard-fake-temp";
+
+    // The real host CPU architecture, read ONCE through the single sanctioned Boundaries entrypoint
+    // (SystemServices.Create(), the same door Real() uses) and cached as two Architecture VALUES — never the container
+    // or a service, so no per-build reconstruction and no AG0024 static service holder. The Fake() default environment
+    // reports these true host values instead of a hardcoded X64, while its home, current directory, temp, and
+    // environment variables stay controlled (fake).
+    private static readonly HostArchitecture RealHostArchitecture = ReadRealHostArchitecture();
 
     private readonly bool _isFake;
     private readonly ISystemServices? _real;
@@ -223,7 +231,12 @@ public sealed class SystemServicesBuilder
             _store is not null ? ManagedPlatformFileSystem.Create(_store) : _real!.Platform.FileSystem;
 
         IEnvironment environment = _environment.Resolve(() =>
-            _isFake ? FakeEnvironment.Create(DefaultFakeHome) : _real!.Environment);
+            _isFake
+                ? FakeEnvironment.Create(
+                    DefaultFakeHome,
+                    processArchitecture: RealHostArchitecture.Process,
+                    osArchitecture: RealHostArchitecture.Os)
+                : _real!.Environment);
         IRandomGenerator random = _random.Resolve(() => _isFake ? FixedGuidFactory.Create() : _real!.Random);
         IConsole console = _console.Resolve(() => _isFake ? new RecordingConsole().Console : _real!.Console);
         TimeProvider clock = _clock.Resolve(() => _isFake ? new FakeTimeProvider() : _real!.Clock);
@@ -250,6 +263,16 @@ public sealed class SystemServicesBuilder
         IFileReader? baseReader, IDirectoryEnumerator? baseEnumerator, IPlatformFileSystem? basePlatform) =>
         new(baseReader, baseEnumerator, basePlatform, comparer: null, tempRoot: DefaultFakeTempRoot, caseSensitive: true);
 
+    // Reads the real host architecture ONCE through the one sanctioned Boundaries door (SystemServices.Create(), the same
+    // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017), then discards
+    // the container and keeps only the two Architecture VALUES. Caching the values, not the container or a service, keeps
+    // clear of the static-service-holder rule (AG0024).
+    private static HostArchitecture ReadRealHostArchitecture()
+    {
+        IEnvironment environment = SystemServices.Create().Environment;
+        return new HostArchitecture(environment.GetProcessArchitecture(), environment.GetOSArchitecture());
+    }
+
     // A service with no built-in fake (signatures, build-info): resolve its override or, in Real mode, the real base; in
     // Fake mode with no override return null so the container accessor throws only when the service is actually used.
     private T? ResolveOptional<T>(Slot<T> slot, Func<T> realBase)
@@ -259,6 +282,12 @@ public sealed class SystemServicesBuilder
     private InMemoryFileSystemStore RequireStore() =>
         _store ?? throw new InvalidOperationException(
             "The per-path failure seam needs a simulated or fake filesystem; call Fake() or Real().SimulateFileSystem() first.");
+
+    // The two real host architecture VALUES (process + OS) the Fake() default sources from the real environment: a value
+    // type over two enums, not a service, so caching it in a static is not an AG0024 static service holder. LayoutKind.Auto
+    // (MA0008): this is a managed-only value holder, never used for interop, so the runtime picks the layout.
+    [StructLayout(LayoutKind.Auto)]
+    private readonly record struct HostArchitecture(Architecture Process, Architecture Os);
 
     /// <summary>
     /// The filesystem sub-builder: substitutes and wraps the four filesystem leaves on the correct nested scope (AG0019),
