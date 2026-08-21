@@ -26,7 +26,7 @@ public sealed class SetupHarness : IDisposable
 
     public SetupHarness()
     {
-        SystemServicesBuilder builder = SystemServicesBuilder.Fake();
+        SystemServicesBuilder builder = TestSupport.FakeServices();
         builder.OnPlatform().SimulateExecutableFlag(true);
         _services = builder.Build();
 
@@ -49,6 +49,11 @@ public sealed class SetupHarness : IDisposable
 
     /// <summary>Gets the managed, native-free platform file system the setup commands run against in tests.</summary>
     public IPlatformFileSystem FileSystem => _services.Platform.FileSystem;
+
+    /// <summary>Gets the one simulator-backed service container the hook surface runs the integrity check and the
+    /// pipeline through, so a composed-hook test drives everything against the same in-memory overlay the install
+    /// wrote to.</summary>
+    public ISystemServices Services => _services;
 
     /// <summary>Gets the install-integrity checker wired to the simulator container, for the integrity tests.</summary>
     public InstallIntegrity Integrity => InstallIntegrity.Create(_services);

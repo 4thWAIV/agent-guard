@@ -559,7 +559,15 @@ internal sealed class InMemoryFileSystemStore
             }
 
             string parent = Path.GetDirectoryName(current) ?? current;
-            current = Path.GetFullPath(target, parent);
+            string spliced = Path.GetFullPath(target, parent);
+
+            // A relative target can itself route through an intermediate symlink component (production's launcher is a
+            // two-hop chain: bin/guard -> ../current/guard, and current -> versions/{v}). Re-resolve the spliced path's
+            // parent so those intermediate links are followed, not just the entry the target names directly.
+            string? splicedParent = Path.GetDirectoryName(spliced);
+            current = splicedParent is null || splicedParent.Length == 0
+                ? spliced
+                : Path.Combine(Resolve(splicedParent, followFinal: true), Path.GetFileName(spliced));
         }
 
         throw new IOException($"Too many levels of symbolic links resolving '{path}'.");

@@ -14,6 +14,18 @@ namespace AgentGuard.Tests;
 internal static class TestSupport
 {
     /// <summary>
+    /// Starts a builder over the in-memory fakes for a pipeline test, supplying the one service the pipeline touches
+    /// at construction that <c>Fake()</c> has no built-in for — the real Ed25519 signature service. It is never
+    /// exercised in these tests (no grant tokens are present, so grant verification short-circuits before the
+    /// verifier is called), so this reaches the real trust anchor without masking anything. The fake filesystem's
+    /// syntactic-identity canonicalization (no base platform resolving symlinks) is what lets a test key
+    /// <c>Handle</c>/<c>MarkInaccessible</c> on a raw path.
+    /// </summary>
+    /// <returns>A fake builder with the real signature service supplied.</returns>
+    internal static SystemServicesBuilder FakeServices() =>
+        SystemServicesBuilder.Fake().With(SystemServicesBuilder.Real().Build().Signatures);
+
+    /// <summary>
     /// Builds pipeline options for a project root with no grant key, using the given clock.
     /// </summary>
     /// <param name="root">The project root.</param>

@@ -33,7 +33,7 @@ public sealed class ShellProfileTests
         // A second install re-runs the PATH ensure; it must not duplicate the line.
         harness.Install("0.2.0").Success.Should().BeTrue();
 
-        string profile = File.ReadAllText(harness.ShellProfilePath);
+        string profile = harness.Files.ReadAllText(harness.ShellProfilePath);
         CountOccurrences(profile, ShellProfile.Marker).Should().Be(1);
     }
 

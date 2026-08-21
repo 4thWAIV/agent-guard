@@ -1,5 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,15 +19,14 @@ public sealed class AcceptanceFailClosedTests
     [Fact]
     public async Task Acceptance_f_PreScanCannotEnumerate_DeniesAndWritesNoSnapshot()
     {
+        // The scanner reaches the filesystem through IDirectoryEnumerator; a directory it cannot enumerate must
+        // surface as a denial with no snapshot, never a silent partial walk. MarkInaccessible on the project root
+        // reproduces the un-enumerable directory OS-agnostically (no chmod, no OS branch), through the public pipeline.
         using var fixture = new FixtureProject();
-
-        // The scanner reaches the filesystem through IDirectoryEnumerator; injecting one that throws stands in for
-        // an un-enumerable directory, so this proves the fail-closed guarantee OS-agnostically (no chmod, no OS
-        // branch) — the real per-OS enumeration is proven elsewhere.
-        IPipeline pipeline = GuardEngine.CreatePipeline(
-            TestSupport.Options(fixture.Root, new FakeTimeProvider()),
-            regionMapRegistry: null,
-            directoryEnumerator: new ThrowingDirectoryEnumerator());
+        SystemServicesBuilder builder = TestSupport.FakeServices();
+        ISystemServices services = builder.Build();
+        builder.OnFileSystem().MarkInaccessible(fixture.Root);
+        IPipeline pipeline = GuardEngine.CreatePipeline(new GuardEngineOptions(fixture.Root, services));
 
         Verdict verdict = await pipeline.RunAsync(
             HookEvent.PreToolUse,
@@ -35,7 +35,7 @@ public sealed class AcceptanceFailClosedTests
             CancellationToken.None);
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
-        SnapshotRecordCount(fixture.Root).Should().Be(0);
+        SnapshotRecordCount(services, fixture.Root).Should().Be(0);
     }
 
     [Fact]
@@ -58,7 +58,9 @@ public sealed class AcceptanceFailClosedTests
     public async Task Acceptance_h_CaptureFailure_DeniesAndWritesNoSnapshot()
     {
         using var fixture = new FixtureProject();
-        IPipeline pipeline = GuardEngine.CreatePipeline(TestSupport.OptionsWithCeiling(fixture.Root, new FakeTimeProvider(), perFileCeiling: 4));
+        ISystemServices services = SystemServicesBuilder.Real().With((TimeProvider)new FakeTimeProvider()).Build();
+        IPipeline pipeline = GuardEngine.CreatePipeline(
+            new GuardEngineOptions(fixture.Root, services, PerFileSnapshotByteCeiling: 4));
 
         Verdict verdict = await pipeline.RunAsync(
             HookEvent.PreToolUse,
@@ -68,14 +70,15 @@ public sealed class AcceptanceFailClosedTests
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
         verdict.Message.Should().Contain("Capture failed");
-        SnapshotRecordCount(fixture.Root).Should().Be(0);
+        SnapshotRecordCount(services, fixture.Root).Should().Be(0);
     }
 
-    private static int SnapshotRecordCount(string root)
+    private static int SnapshotRecordCount(ISystemServices services, string root)
     {
-        string directory = GuardEngine.SnapshotStoreDirectory(root);
-        return Directory.Exists(directory)
-            ? Directory.GetFiles(directory, "*.bin", SearchOption.AllDirectories).Length
+        string directory = GuardEngine.SnapshotStoreDirectory(services, root);
+        IDirectoryEnumerator directories = services.FileSystem.GetDirectoryReader();
+        return directories.DirectoryExists(directory)
+            ? directories.EnumerateFiles(directory, "*.bin", new EnumerationOptions { RecurseSubdirectories = true }).Count
             : 0;
     }
 }

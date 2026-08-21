@@ -18,11 +18,10 @@ public sealed class HookExecutionTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        using var fixture = new FixtureProject();
-        string payload = TestPayloads.Edit(fixture.Root, fixture.PathOf("Notes.txt"));
+        string payload = TestPayloads.Edit(harness.Project, Path.Combine(harness.Project, "Notes.txt"));
 
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, harness.BinGuard, payload, GuardHost.ClaudeCodeHost, CancellationToken.None, harness.FileSystem);
+            HookEvent.PreToolUse, harness.BinGuard, payload, GuardHost.ClaudeCodeHost, harness.Services, CancellationToken.None);
 
         execution.ExitCode.Should().Be(0);
     }
@@ -32,12 +31,11 @@ public sealed class HookExecutionTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        await File.WriteAllTextAsync(harness.MachineStateFile, "{\"version\":\"0.1.0-alpha\",\"sha256\":\"deadbeef\"}");
-        using var fixture = new FixtureProject();
-        string benignPayload = TestPayloads.Edit(fixture.Root, fixture.PathOf("Notes.txt"));
+        harness.FileWriter.WriteAllText(harness.MachineStateFile, "{\"version\":\"0.1.0-alpha\",\"sha256\":\"deadbeef\"}");
+        string benignPayload = TestPayloads.Edit(harness.Project, Path.Combine(harness.Project, "Notes.txt"));
 
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, harness.BinGuard, benignPayload, GuardHost.ClaudeCodeHost, CancellationToken.None, harness.FileSystem);
+            HookEvent.PreToolUse, harness.BinGuard, benignPayload, GuardHost.ClaudeCodeHost, harness.Services, CancellationToken.None);
 
         execution.ExitCode.Should().Be(2);
         execution.Message.Should().Contain("hash");
@@ -47,7 +45,7 @@ public sealed class HookExecutionTests
     public async Task ComposedHook_UnresolvableBinary_Denies()
     {
         HookExecution execution = await GuardHost.ExecuteHookAsync(
-            HookEvent.PreToolUse, null, "{}", GuardHost.ClaudeCodeHost, CancellationToken.None, new ManagedPlatformFileSystem());
+            HookEvent.PreToolUse, null, "{}", GuardHost.ClaudeCodeHost, SystemServicesBuilder.Fake().Build(), CancellationToken.None);
 
         execution.ExitCode.Should().Be(2);
     }
