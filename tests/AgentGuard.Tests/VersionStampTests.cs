@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using AgentGuard.Abstractions;
 using Xunit;
@@ -11,6 +12,10 @@ namespace AgentGuard.Tests;
 /// Verifies the build-version stamp (decisions 15-18): the scheme's shape and field ranges, and that every
 /// project in a build carries the one shared id. The cross-CI-job hard fail (decision 25) is a CI step, not here.
 /// </summary>
+[SuppressMessage(
+    "AgentGuard.Architecture",
+    "AG0011:RawPrimitiveOnlyInOwner",
+    Justification = "This build-stamp-hygiene test reads arbitrary assembly version metadata via reflection (AssemblyName.Version and AssemblyInformationalVersionAttribute.InformationalVersion across the engine and test assemblies). AG0011 owns those reflection reads to IBuildInfo, which reports only the guard's own version, so it cannot express this cross-assembly consistency check. Tim approved this ordinary interim suppression on 2026-08-21 per the interim-suppression model (interim-suppression-model-and-ag0101-exec-test), monitored manually until the signed-exception system lands, when it migrates to a signed exception (issue #33).")]
 public sealed class VersionStampTests
 {
     /// <summary>

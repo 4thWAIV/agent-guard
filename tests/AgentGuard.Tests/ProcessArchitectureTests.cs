@@ -2,6 +2,8 @@
 
 using System;
 using System.Runtime.InteropServices;
+using AgentGuard.Abstractions.Contracts;
+using AgentGuard.TestHelpers;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -10,10 +12,12 @@ namespace AgentGuard.Tests;
 /// <summary>
 /// Proves which CPU architecture the test process is actually executing as (decision intel-mac-via-rosetta,
 /// contract item 8 / Acceptance 6). Building the osx-x64 binary does NOT make the tests run as x64 — only
-/// launching the x64 .NET under Rosetta does. This test PRINTS <see cref="RuntimeInformation.ProcessArchitecture"/>
-/// so the Rosetta CI leg's log shows <c>ProcessArchitecture=X64</c>, and ASSERTS it: membership always, and an
-/// exact match when the leg pins the expectation via <c>AGENTGUARD_EXPECT_ARCH</c> (the Rosetta step sets X64,
-/// so a leg that silently fell back to arm64 fails the test instead of quietly passing).
+/// launching the x64 .NET under Rosetta does. This test PRINTS the process architecture (read through the owned
+/// <see cref="IEnvironment.GetProcessArchitecture"/>) so the Rosetta CI leg's log shows <c>ProcessArchitecture=X64</c>,
+/// and ASSERTS it: membership always, and an exact match when the leg pins the expectation via
+/// <c>AGENTGUARD_EXPECT_ARCH</c> (the Rosetta step sets X64, so a leg that silently fell back to arm64 fails the test
+/// instead of quietly passing). It runs on <see cref="SystemServicesBuilder.Real"/> so the architecture, the env-var
+/// read, and the stdout write all hit the real host.
 /// </summary>
 public sealed class ProcessArchitectureTests
 {
@@ -24,15 +28,17 @@ public sealed class ProcessArchitectureTests
     [Fact]
     public void ProcessArchitectureIsReportedAndAsserted()
     {
-        Architecture process = RuntimeInformation.ProcessArchitecture;
-        Architecture os = RuntimeInformation.OSArchitecture;
+        ISystemServices services = SystemServicesBuilder.Real().Build();
+        Architecture process = services.Environment.GetProcessArchitecture();
+        Architecture os = services.Environment.GetOSArchitecture();
 
-        // Printed to both the xUnit sink and stdout so the leg log shows it under `-l "console;verbosity=detailed"`.
+        // Printed to both the xUnit sink and real stdout (a Real() console) so the leg log shows it under
+        // `-l "console;verbosity=detailed"`.
         string line = $"ProcessArchitecture={process}";
         this.output.WriteLine(line);
         this.output.WriteLine($"OSArchitecture={os}");
-        Console.WriteLine(line);
-        Console.WriteLine($"OSArchitecture={os}");
+        services.Console.WriteLine(line);
+        services.Console.WriteLine($"OSArchitecture={os}");
 
         // Membership teeth: we only ever build/test the two 64-bit RIDs; anything else (e.g. X86) is a real bug.
         Assert.True(
@@ -42,7 +48,7 @@ public sealed class ProcessArchitectureTests
 
         // Exact teeth when a leg pins its expectation. The osx-x64 Rosetta leg sets AGENTGUARD_EXPECT_ARCH=X64,
         // so a run that did not actually land on x64 FAILS here rather than passing on a log grep alone.
-        string? expected = Environment.GetEnvironmentVariable("AGENTGUARD_EXPECT_ARCH");
+        string? expected = services.Environment.GetEnvironmentVariable("AGENTGUARD_EXPECT_ARCH");
         if (!string.IsNullOrWhiteSpace(expected))
         {
             Assert.True(

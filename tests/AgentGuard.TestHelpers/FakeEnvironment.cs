@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.TestHelpers;
@@ -20,19 +21,25 @@ public sealed class FakeEnvironment : IEnvironment
     private readonly string _temp;
     private readonly string? _processPath;
     private readonly IReadOnlyDictionary<string, string> _variables;
+    private readonly Architecture _processArchitecture;
+    private readonly Architecture _osArchitecture;
 
     private FakeEnvironment(
         string home,
         string current,
         string temp,
         string? processPath,
-        IReadOnlyDictionary<string, string> variables)
+        IReadOnlyDictionary<string, string> variables,
+        Architecture processArchitecture,
+        Architecture osArchitecture)
     {
         _home = home;
         _current = current;
         _temp = temp;
         _processPath = processPath;
         _variables = variables;
+        _processArchitecture = processArchitecture;
+        _osArchitecture = osArchitecture;
     }
 
     /// <summary>
@@ -46,19 +53,31 @@ public sealed class FakeEnvironment : IEnvironment
     /// <paramref name="home"/>.</param>
     /// <param name="processPath">The process executable path the fake reports, or <see langword="null"/>.</param>
     /// <param name="variables">The environment variables the fake reports, or <see langword="null"/> for none.</param>
+    /// <param name="processArchitecture">The process CPU architecture the fake reports. It defaults to
+    /// <see cref="Architecture.X64"/>; a unit test simulating another architecture injects it here. The real host
+    /// architecture is served by the real adapter under <see cref="SystemServicesBuilder.Real"/> (an in-memory fake in
+    /// AgentGuard.TestHelpers cannot read <c>RuntimeInformation</c>, which AG0011 owns to the real
+    /// <c>EnvironmentAdapter</c>), so the one test that asserts the true process architecture runs on <c>Real()</c>.</param>
+    /// <param name="osArchitecture">The operating-system CPU architecture the fake reports. It defaults to
+    /// <see cref="Architecture.X64"/> and is injectable for the same reasons as
+    /// <paramref name="processArchitecture"/>.</param>
     /// <returns>The environment fake, as its interface.</returns>
     public static IEnvironment Create(
         string home,
         string? currentDirectory = null,
         string? tempDirectory = null,
         string? processPath = null,
-        IReadOnlyDictionary<string, string>? variables = null) =>
+        IReadOnlyDictionary<string, string>? variables = null,
+        Architecture processArchitecture = Architecture.X64,
+        Architecture osArchitecture = Architecture.X64) =>
         new FakeEnvironment(
             home,
             currentDirectory ?? home,
             tempDirectory ?? home,
             processPath,
-            variables ?? new Dictionary<string, string>(System.StringComparer.Ordinal));
+            variables ?? new Dictionary<string, string>(System.StringComparer.Ordinal),
+            processArchitecture,
+            osArchitecture);
 
     /// <inheritdoc />
     public string GetCurrentDirectory() => _current;
@@ -75,4 +94,10 @@ public sealed class FakeEnvironment : IEnvironment
 
     /// <inheritdoc />
     public string GetTempDirectory() => _temp;
+
+    /// <inheritdoc />
+    public Architecture GetProcessArchitecture() => _processArchitecture;
+
+    /// <inheritdoc />
+    public Architecture GetOSArchitecture() => _osArchitecture;
 }

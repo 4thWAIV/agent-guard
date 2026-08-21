@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using AgentGuard.Abstractions;
 using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Setup;
 
@@ -29,6 +30,23 @@ public static class GuardEngine
     /// <returns>The pipeline, as its interface.</returns>
     public static IPipeline CreatePipeline(GuardEngineOptions options) =>
         CreatePipeline(options, regionMapRegistry: null);
+
+    /// <summary>
+    /// Canonicalizes a path to the single form every match is done against — absolute, with <c>.</c> and <c>..</c>
+    /// segments and symlinks resolved — drawing the environment and platform file system from the container. It is the
+    /// public entry point to the engine's canonicalization capability, wrapping the internal
+    /// <see cref="PathCanonicalizer"/> so a caller reaches it through the engine, not the internal sub-component.
+    /// </summary>
+    /// <param name="services">The OS/CLR service container the canonicalizer draws its environment and platform file
+    /// system from.</param>
+    /// <param name="path">The path to canonicalize.</param>
+    /// <returns>The canonical form of <paramref name="path"/>.</returns>
+    public static CanonicalPath Canonicalize(ISystemServices services, string path)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        return PathCanonicalizer.Create(services).Canonicalize(path);
+    }
 
     /// <summary>
     /// Creates the Claude Code host adapter, drawing the owned environment from the container.

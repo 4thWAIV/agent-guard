@@ -3,6 +3,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Runtime.InteropServices;
 using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Boundaries;
@@ -40,6 +41,12 @@ internal sealed class EnvironmentAdapter : IEnvironment
         "S5443:Using publicly writable directories is security-sensitive",
         Justification = "This owner returns the temp ROOT as the decided owned read (GetTempDirectory wraps Path.GetTempPath); callers never write into the shared root directly — they create an atomic, uniquely-named subdirectory through IDirectoryWriter.CreateTempSubdirectory.")]
     public string GetTempDirectory() => Path.GetTempPath();
+
+    /// <inheritdoc />
+    public Architecture GetProcessArchitecture() => RuntimeInformation.ProcessArchitecture;
+
+    /// <inheritdoc />
+    public Architecture GetOSArchitecture() => RuntimeInformation.OSArchitecture;
 
     /// <summary>
     /// Creates the environment adapter.

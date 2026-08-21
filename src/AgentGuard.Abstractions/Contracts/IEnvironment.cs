@@ -1,5 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using System.Runtime.InteropServices;
+
 namespace AgentGuard.Abstractions.Contracts;
 
 /// <summary>
@@ -41,4 +43,20 @@ public interface IEnvironment
     /// </summary>
     /// <returns>The absolute path of the system's temporary-directory root.</returns>
     string GetTempDirectory();
+
+    /// <summary>
+    /// Gets the CPU architecture the running process is executing as — an ambient environment read that wraps
+    /// <c>System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture</c>. It is the process architecture, not
+    /// the build target: an x64 process launched under Rosetta reports <see cref="Architecture.X64"/> even on Arm64
+    /// hardware.
+    /// </summary>
+    /// <returns>The CPU architecture of the running process.</returns>
+    Architecture GetProcessArchitecture();
+
+    /// <summary>
+    /// Gets the CPU architecture of the operating system — an ambient environment read that wraps
+    /// <c>System.Runtime.InteropServices.RuntimeInformation.OSArchitecture</c>.
+    /// </summary>
+    /// <returns>The CPU architecture of the operating system.</returns>
+    Architecture GetOSArchitecture();
 }
