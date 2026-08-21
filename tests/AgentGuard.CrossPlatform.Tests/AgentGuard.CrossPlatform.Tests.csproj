@@ -20,6 +20,10 @@
     <PackageReference Include="coverlet.collector" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\AgentGuard.TestHelpers\AgentGuard.TestHelpers.csproj" />
+  </ItemGroup>
+
   <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
   <Import Project="../../src/AgentGuard.CrossPlatform/PlatformImplementation.targets" />
 

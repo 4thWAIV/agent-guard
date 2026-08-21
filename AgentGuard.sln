@@ -35,6 +35,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentGuard.Abstractions", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentGuard.Boundaries", "src\AgentGuard.Boundaries\AgentGuard.Boundaries.csproj", "{B978560E-0B86-4A5C-A408-2A22E9006802}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AgentGuard.TestHelpers", "tests\AgentGuard.TestHelpers\AgentGuard.TestHelpers.csproj", "{32777804-FEE6-45FC-B307-BC2CCA250B47}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -201,6 +203,18 @@ Global
 		{B978560E-0B86-4A5C-A408-2A22E9006802}.Release|x64.Build.0 = Release|Any CPU
 		{B978560E-0B86-4A5C-A408-2A22E9006802}.Release|x86.ActiveCfg = Release|Any CPU
 		{B978560E-0B86-4A5C-A408-2A22E9006802}.Release|x86.Build.0 = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|x64.Build.0 = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Debug|x86.Build.0 = Debug|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|x64.ActiveCfg = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|x64.Build.0 = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|x86.ActiveCfg = Release|Any CPU
+		{32777804-FEE6-45FC-B307-BC2CCA250B47}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -219,5 +233,6 @@ Global
 		{F6F10A39-4D64-449C-AB5D-7A79724B381B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{C15C99CA-E948-426F-A469-1DB25CEAFAE6} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{B978560E-0B86-4A5C-A408-2A22E9006802} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
+		{32777804-FEE6-45FC-B307-BC2CCA250B47} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal

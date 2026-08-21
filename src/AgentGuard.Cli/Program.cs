@@ -24,7 +24,15 @@ internal sealed class Program
 {
     private readonly string[] _args;
 
-    private Program(string[] args) => _args = args;
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Program"/> class holding the command-line arguments. It is
+    /// <c>internal</c> (not private) so <c>AgentGuard.Cli.Tests</c> can construct it through the
+    /// <c>InternalsVisibleTo</c> grant and drive <see cref="Run(ISystemServices)"/> with a test-built container
+    /// (program-run-seam: an instantiable internal class; cli-tests-reach-run-via-ivt). <see cref="Main"/> is the
+    /// only in-assembly caller.
+    /// </summary>
+    /// <param name="args">The command-line arguments.</param>
+    internal Program(string[] args) => _args = args;
 
     /// <summary>
     /// Parses the arguments and invokes the matched command, threading the given container into every handler. This is

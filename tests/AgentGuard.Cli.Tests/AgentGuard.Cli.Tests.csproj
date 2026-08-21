@@ -19,11 +19,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/AgentGuard.Cli/AgentGuard.Cli.csproj" />
+    <ProjectReference Include="..\AgentGuard.TestHelpers\AgentGuard.TestHelpers.csproj" />
   </ItemGroup>
 
-  <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->
+  <!-- Shared test-support source, linked (one owner) into each test project that needs it. The harness creates and
+       removes its isolated directories through the owned IDirectoryWriter off the builder's container, so it no
+       longer links the raw-System.IO TestTempDirectory helper. -->
   <ItemGroup>
-    <Compile Include="../Shared/TestTempDirectory.cs" Link="TestTempDirectory.cs" />
     <Compile Include="../Shared/AgentGuardLayout.cs" Link="AgentGuardLayout.cs" />
   </ItemGroup>
 

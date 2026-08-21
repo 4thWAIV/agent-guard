@@ -6,9 +6,10 @@ using Xunit;
 namespace AgentGuard.Cli.Tests;
 
 /// <summary>
-/// Drives the CLI entry point through every command handler in <c>Program.cs</c>. Each test invokes the real
-/// process entry point against an isolated HOME and working directory, so the production command wiring runs end
-/// to end without a real install and without touching the developer's machine.
+/// Drives the CLI through every command handler in <c>Program.cs</c> by way of the internal <c>Program.Run</c>
+/// seam. Each test runs a command against a throwaway isolated machine and project whose environment and console
+/// are injected fakes, so the production command wiring runs end to end without a real install and without touching
+/// the developer's machine — on every OS.
 /// </summary>
 public sealed class ProgramCliTests
 {
@@ -59,7 +60,7 @@ public sealed class ProgramCliTests
         result.StandardError.Should().Contain("Usage: guard hook <pre|post>");
     }
 
-    [PosixOnlyFact]
+    [Fact]
     public void Init_WhenTheMachineIsNotInstalled_FailsWithGuidance()
     {
         CliResult result = CliRunner.Run("init");
@@ -77,7 +78,7 @@ public sealed class ProgramCliTests
         result.StandardOutput.Should().Contain("removed .agentguard/");
     }
 
-    [PosixOnlyFact]
+    [Fact]
     public void Doctor_OnAnUninstalledMachine_ReportsNotHealthy()
     {
         CliResult result = CliRunner.Run("doctor");
