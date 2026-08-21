@@ -1,8 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 
@@ -20,7 +18,8 @@ namespace AgentGuard.Analyzers;
 /// the one derived from <c>ISystemServices</c> by <see cref="BoundaryServices.Resolve"/>, captured once per
 /// compilation. Only source types in the compilation are considered — <see cref="SymbolKind.NamedType"/> visits every
 /// declared named type (nested included) and excludes referenced-assembly types, so a referenced assembly's own single
-/// implementer never counts against a second one here.
+/// implementer never counts against a second one here. The accumulate-and-report-second-implementer algorithm is the
+/// one shared with the container rule (AG0022) through <see cref="SecondImplementerGuard"/>.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
@@ -67,64 +66,15 @@ public sealed class OneOwnerPerInterfaceAnalyzer : DiagnosticAnalyzer
         // IFileReader) per service in AgentGuard.TestHelpers — two legitimate implementers of the same owner interface
         // in one compilation — and the test projects reference them, so the test/TestHelpers assemblies are not gated.
         // The "TestHelpers OR .Tests" predicate is the one owned by TestAssembly, shared with NoCoverageOptOutAnalyzer.
+        // The container rule (AG0022) shares the SAME accumulation but deliberately does NOT take this early-return.
         if (TestAssembly.IsTestSystemAssembly(context.Compilation))
         {
             return;
         }
 
-        // Derive the owner-interface set from ISystemServices once per compilation, then capture it for the per-symbol
-        // accumulation — no hand-maintained list (derive-service-set-from-isystemservices).
+        // Derive the owner-interface set from ISystemServices once per compilation, then delegate to the shared
+        // second-implementer accumulation — no hand-maintained list (derive-service-set-from-isystemservices).
         DerivedServices services = BoundaryServices.Resolve(context.Compilation);
-
-        // Accumulate, per owner interface, every named type in THIS compilation that implements it, then report the
-        // second-and-later implementers at compilation end. The symbol action runs concurrently, so the per-compilation
-        // accumulator is thread-safe; each compilation-start callback gets its own, so nothing leaks across
-        // compilations. SymbolKind.NamedType visits every declared named type — nested included — and excludes
-        // referenced-assembly types, so a referenced assembly's legitimate single implementer never combines with a
-        // source one to false-positive.
-        var implementersByOwner =
-            new ConcurrentDictionary<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>>();
-
-        context.RegisterSymbolAction(
-            symbolContext => Accumulate((INamedTypeSymbol)symbolContext.Symbol, services, implementersByOwner),
-            SymbolKind.NamedType);
-        context.RegisterCompilationEndAction(
-            endContext => ReportSecondImplementers(endContext, implementersByOwner));
-    }
-
-    private static void Accumulate(
-        INamedTypeSymbol type,
-        DerivedServices services,
-        ConcurrentDictionary<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>> implementersByOwner)
-    {
-        // Route the "does this type implement the owner interface" decision through the one shared
-        // OwnerClass.Implements (WellKnownType.IsAnyOf over AllInterfaces) every boundary rule uses, scoped to this
-        // single owner interface — never a bespoke re-derivation of the AllInterfaces membership walk. No TypeKind
-        // gate: any named-type kind (class, struct, record, record struct) that implements the owner interface is an
-        // implementer here, exactly as the boundary rules accept it as the exempt owner.
-        foreach ((string Namespace, string Name) owner in services.ServiceInterfaces
-            .Where(owner => OwnerClass.Implements(type, ImmutableArray.Create(owner))))
-        {
-            implementersByOwner.GetOrAdd(owner, _ => new ConcurrentBag<INamedTypeSymbol>()).Add(type);
-        }
-    }
-
-    private static void ReportSecondImplementers(
-        CompilationAnalysisContext context,
-        ConcurrentDictionary<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>> implementersByOwner)
-    {
-        foreach (KeyValuePair<(string Namespace, string Name), ConcurrentBag<INamedTypeSymbol>> entry in
-            implementersByOwner)
-        {
-            // The bag's order is nondeterministic under concurrency, so order the implementers to make the reported set
-            // stable: keep the first as the one owner and flag the second and later.
-            foreach (INamedTypeSymbol secondOrLater in entry.Value
-                .OrderBy(type => type.ToDisplayString(), StringComparer.Ordinal)
-                .Skip(1))
-            {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    Rule, secondOrLater.Locations[0], secondOrLater.Name, entry.Key.Namespace + "." + entry.Key.Name));
-            }
-        }
+        SecondImplementerGuard.Register(context, services.ServiceInterfaces, Rule);
     }
 }

@@ -30,6 +30,51 @@ CHECKS=("$@")
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
+# The aggregate counted set — the single source of truth, shared by the counted-set self-check below and the gate math
+# at the end. AgentGuard.Cli builds as `guard.dll`, so its assembly name is `guard`.
+AGGREGATE=(AgentGuard.Engine guard AgentGuard.CrossPlatform)
+
+# Resolve the Python used for the self-check, report selection, and the gate math below.
+PYTHON="python3"
+command -v python3 >/dev/null 2>&1 || PYTHON="python"
+
+# Counted-set consistency self-check (decision counted-set-consistency-check). Every instrumented product assembly must
+# be gated SOMEWHERE, or it is measured and then silently ignored (under-measured). Parse the .runsettings <Include>
+# set, split it into the per-OS implementations (the .MacOS/.Linux/.Windows suffix, each gated on its own OS leg) and
+# everything else, and assert "everything else" is exactly the AGGREGATE list — so the instrumented set equals the union
+# of the aggregate-gated set and the per-OS-gated set. Runs before any report work so a drift fails the gate fast, with
+# no coverage run needed. This is the direction the report-presence check does NOT catch (that one fails on a gated but
+# un-instrumented assembly; this fails on an instrumented but un-gated one).
+RUNSETTINGS="$REPO_ROOT/.runsettings"
+"$PYTHON" - "$RUNSETTINGS" "${AGGREGATE[*]}" <<'PY'
+import re, sys
+
+runsettings_path, aggregate_joined = sys.argv[1], sys.argv[2]
+aggregate = set(aggregate_joined.split())
+
+text = open(runsettings_path).read()
+match = re.search(r"<Include>(.*?)</Include>", text, re.DOTALL)
+if not match:
+    sys.stderr.write("::error::counted-set: could not find <Include> in %s.\n" % runsettings_path)
+    sys.exit(1)
+
+# Each instrumented assembly appears as `[Name]*`.
+included = set(re.findall(r"\[([^\]]+)\]\*", match.group(1)))
+per_os = {name for name in included if name.endswith((".MacOS", ".Linux", ".Windows"))}
+everything_else = included - per_os
+
+if everything_else != aggregate:
+    sys.stderr.write(
+        "::error::counted-set consistency: the non-per-OS Include set %s does not equal the AGGREGATE set %s "
+        "(an instrumented assembly would be measured but gated nowhere).\n"
+        % (sorted(everything_else), sorted(aggregate)))
+    sys.exit(1)
+
+sys.stderr.write(
+    "coverage-gate: counted-set consistency OK (non-per-OS Include == AGGREGATE == %s; per-OS == %s).\n"
+    % (sorted(aggregate), sorted(per_os)))
+PY
+
 # Make a globally-installed ReportGenerator reachable regardless of whether the tools directory is on PATH.
 add_tools_dir_to_path() {
   for candidate in "$HOME/.dotnet/tools" "${USERPROFILE:-}/.dotnet/tools"; do
@@ -57,10 +102,6 @@ if ! command -v reportgenerator >/dev/null 2>&1; then
   echo "::error::reportgenerator is not installed and could not be installed." >&2
   exit 1
 fi
-
-# Resolve the Python used for report selection and the gate math below.
-PYTHON="python3"
-command -v python3 >/dev/null 2>&1 || PYTHON="python"
 
 # Gather the cobertura reports. coverlet writes one per run into
 # <test-project>/TestResults/<guid>/coverage.cobertura.xml, and prior runs accumulate beside the fresh one in the
@@ -111,17 +152,16 @@ trap 'rm -rf "$WORK"' EXIT
 IFS=';'; JOINED="${REPORTS[*]}"; unset IFS
 reportgenerator "-reports:$JOINED" "-targetdir:$WORK" "-reporttypes:JsonSummary" >/dev/null
 
-"$PYTHON" - "$WORK/Summary.json" "$MIN" "${CHECKS[@]}" <<'PY'
+"$PYTHON" - "$WORK/Summary.json" "$MIN" "${AGGREGATE[*]}" "${CHECKS[@]}" <<'PY'
 import json, sys
 
 summary_path, min_pct = sys.argv[1], int(sys.argv[2])
-checks = sys.argv[3:]
+# The aggregate set is passed in from the one bash AGGREGATE definition, so the self-check and the gate never drift.
+AGGREGATE = sys.argv[3].split()
+checks = sys.argv[4:]
 
 data = json.load(open(summary_path))
 asm = {a["name"]: (a["coveredlines"], a["coverablelines"]) for a in data["coverage"]["assemblies"]}
-
-# The aggregate set. AgentGuard.Cli's assembly name is `guard`.
-AGGREGATE = ["AgentGuard.Engine", "guard", "AgentGuard.CrossPlatform"]
 
 failed = False
 

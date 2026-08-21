@@ -20,57 +20,74 @@ namespace AgentGuard.Analyzers.Tests;
 /// </summary>
 public class DerivedBoundaryServicesTests
 {
-    // A synthetic ISystemServices mirroring the REAL shipped container: the IFileSystem sub-container (whose no-arg
-    // accessors expose the four filesystem services and whose parameterized factories return IFileInfo/IDirectoryInfo),
-    // environment, guids, console, signatures, build-info, the platform sub-container (which nests IPlatformFileSystem),
-    // and the TimeProvider clock. The four filesystem services are reached THROUGH IFileSystem's accessors, not as
-    // direct container properties (the pre-bridge four-property shape is gone). IFileInfo/IDirectoryInfo exist only as
-    // the return of the parameterized factories on IFileSystem, so they are reachable but NOT accessors. Deriving over
-    // this must yield exactly the ten.
-    private const string RealShapeContainer = """
-        namespace AgentGuard.Abstractions.Contracts
-        {
-            public interface IFileReader { }
-            public interface IDirectoryEnumerator { }
-            public interface IFileWriter { }
-            public interface IDirectoryWriter { }
-            public interface IEnvironment { }
-            public interface IGuidFactory { }
-            public interface IConsole { }
-            public interface ISignatureService { }
-            public interface IBuildInfo { }
-            public interface IFileInfo { }
-            public interface IDirectoryInfo { }
-            public interface IFileSystem
-            {
-                IFileInfo GetFileInfo(string path);
-                IDirectoryInfo GetDirectoryInfo(string path);
-                IFileReader GetFileReader();
-                IDirectoryEnumerator GetDirectoryReader();
-                IFileWriter GetFileWriter();
-                IDirectoryWriter GetDirectoryWriter();
-            }
-            public interface IPlatformFileSystem
-            {
-                bool NeedsExecutableFlag();
-            }
-            public interface IPlatformServices
-            {
-                IPlatformFileSystem FileSystem { get; }
-            }
-            public interface ISystemServices
-            {
-                IFileSystem FileSystem { get; }
-                IEnvironment Environment { get; }
-                IGuidFactory Guids { get; }
-                IConsole Console { get; }
-                IPlatformServices Platform { get; }
-                ISignatureService Signatures { get; }
-                IBuildInfo BuildInfo { get; }
-                System.TimeProvider Clock { get; }
-            }
-        }
-        """;
+    // The synthetic ISystemServices mirroring the REAL shipped container lives once in
+    // SharedAnalyzerSources.RealShapeContainer (shared byte-identical with the AG0034 whole-tree test): the IFileSystem
+    // sub-container (whose no-arg accessors expose the four filesystem services and whose parameterized factories return
+    // IFileInfo/IDirectoryInfo), environment, guids, console, signatures, build-info, the platform sub-container (which
+    // nests IPlatformFileSystem), and the TimeProvider clock. The four filesystem services are reached THROUGH
+    // IFileSystem's accessors, not as direct container properties; IFileInfo/IDirectoryInfo exist only as the return of
+    // the parameterized factories on IFileSystem, so they are reachable but NOT accessors; IPlatformFileSystem's
+    // char DirectorySeparator is a non-service leaf member, so it does not change the derived set. Deriving over this
+    // must yield exactly the ten leaves and the three containers.
+    private const string RealShapeContainer = SharedAnalyzerSources.RealShapeContainer;
+
+    // The exact ordered leaf service interfaces the walk yields over the real shape — the pre-order DFS through
+    // FileSystem's four sub-services, then Environment/Guids/Console, then Platform's nested IPlatformFileSystem, then
+    // Signatures/BuildInfo. Held here as the regression oracle so the tree extraction (BoundaryServices.ResolveTree +
+    // flatten) is proven BYTE-IDENTICAL to the former hand-rolled recursion (contract rule-phase item 1), which is what
+    // keeps AG0024/AG0025/AG0031 provably unaffected.
+    private static readonly ImmutableArray<(string Namespace, string Name)> ExpectedServiceInterfaces =
+        ImmutableArray.Create(
+            ("AgentGuard.Abstractions.Contracts", "IFileReader"),
+            ("AgentGuard.Abstractions.Contracts", "IDirectoryEnumerator"),
+            ("AgentGuard.Abstractions.Contracts", "IFileWriter"),
+            ("AgentGuard.Abstractions.Contracts", "IDirectoryWriter"),
+            ("AgentGuard.Abstractions.Contracts", "IEnvironment"),
+            ("AgentGuard.Abstractions.Contracts", "IGuidFactory"),
+            ("AgentGuard.Abstractions.Contracts", "IConsole"),
+            ("AgentGuard.Abstractions.Contracts", "IPlatformFileSystem"),
+            ("AgentGuard.Abstractions.Contracts", "ISignatureService"),
+            ("AgentGuard.Abstractions.Contracts", "IBuildInfo"));
+
+    [Fact]
+    public async Task Resolve_OverRealShape_YieldsByteIdenticalServiceInterfacesAndTypes()
+    {
+        // Drive the internal BoundaryServices.Resolve directly (through the InternalsVisibleTo grant) and pin the EXACT
+        // ordered arrays: ServiceInterfaces is the ten leaves in pre-order, ServiceTypes is those ten plus the container
+        // ISystemServices and the System.TimeProvider clock, in that order. This is the byte-identical regression guard
+        // the tree extraction must never break.
+        Compilation compilation = await AnalyzerRunner.CompileAsync(RealShapeContainer, "AgentGuard.Abstractions");
+        DerivedServices services = BoundaryServices.Resolve(compilation);
+
+        Assert.Equal<(string, string)>(ExpectedServiceInterfaces, services.ServiceInterfaces);
+
+        ImmutableArray<(string Namespace, string Name)> expectedServiceTypes = ExpectedServiceInterfaces
+            .Add(("AgentGuard.Abstractions.Contracts", "ISystemServices"))
+            .Add(("System", "TimeProvider"));
+        Assert.Equal<(string, string)>(expectedServiceTypes, services.ServiceTypes);
+    }
+
+    [Fact]
+    public async Task ContainerInterfaces_OverRealShape_AreExactlyTheTriple()
+    {
+        // AG0022's checked container set is DERIVED from the ONE tree walk (BoundaryServices.ResolveTree), not a
+        // hardcoded triple: it is the root container plus every nested container reached through a Container accessor,
+        // in pre-order. Over the real shape that is exactly ISystemServices, then IFileSystem (via the FileSystem
+        // accessor), then IPlatformServices (via the Platform accessor). The leaf services and the clock are never
+        // containers, so none of them appears. This proves the derivation yields the triple today AND would pick up a
+        // future nested container with no edit to AG0022.
+        Compilation compilation = await AnalyzerRunner.CompileAsync(RealShapeContainer, "AgentGuard.Abstractions");
+        ContainerNode root = Assert.IsType<ContainerNode>(BoundaryServices.ResolveTree(compilation));
+
+        ImmutableArray<(string Namespace, string Name)> containers = BoundaryServices.ContainerInterfaces(root);
+
+        Assert.Equal<(string, string)>(
+            ImmutableArray.Create(
+                ("AgentGuard.Abstractions.Contracts", "ISystemServices"),
+                ("AgentGuard.Abstractions.Contracts", "IFileSystem"),
+                ("AgentGuard.Abstractions.Contracts", "IPlatformServices")),
+            containers);
+    }
 
     [Fact]
     public async Task DerivedServiceInterfaces_OverRealShape_AreExactlyTheTen()

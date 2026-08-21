@@ -245,7 +245,28 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
         }
         """;
 
-    private const string GuidFactoryOwnerSource = """
+    // The randomness owner after the rename (iguidfactory-renamed-to-irandomgenerator): a class implementing
+    // IRandomGenerator in AgentGuard.CrossPlatform is the one place a raw Guid.NewGuid() is legal.
+    private const string RandomGeneratorOwnerSource = """
+        using System;
+
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IRandomGenerator { }
+        }
+
+        namespace CrossPlatform
+        {
+            public sealed class RandomGeneratorAdapter : AgentGuard.Abstractions.Contracts.IRandomGenerator
+            {
+                public string Name() => Guid.NewGuid().ToString("N");
+            }
+        }
+        """;
+
+    // The OLD owner interface, IGuidFactory, no longer grants the exemption after the rename: a class implementing
+    // IGuidFactory and calling Guid.NewGuid() is RED — the forcing function for renaming GuidFactoryAdapter.
+    private const string OldGuidFactoryOwnerSource = """
         using System;
 
         namespace AgentGuard.Abstractions.Contracts
@@ -255,9 +276,27 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
 
         namespace CrossPlatform
         {
-            public sealed class GuidFactory : AgentGuard.Abstractions.Contracts.IGuidFactory
+            public sealed class GuidFactoryAdapter : AgentGuard.Abstractions.Contracts.IGuidFactory
             {
                 public string Name() => Guid.NewGuid().ToString("N");
+            }
+        }
+        """;
+
+    // The Directory.CreateTempSubdirectory owner: a class implementing IDirectoryWriter in AgentGuard.CrossPlatform.
+    private const string CreateTempSubdirectoryOwnerSource = """
+        using System.IO;
+
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IDirectoryWriter { }
+        }
+
+        namespace CrossPlatform
+        {
+            public sealed class DirectoryWriter : AgentGuard.Abstractions.Contracts.IDirectoryWriter
+            {
+                public DirectoryInfo Make(string prefix) => Directory.CreateTempSubdirectory(prefix);
             }
         }
         """;
@@ -698,18 +737,58 @@ public class RawPrimitiveOnlyInOwnerAnalyzerTests
     }
 
     [Fact]
-    public async Task GuidFactoryOwner_InOwnerAssembly_IsExempt()
+    public async Task RandomGeneratorOwner_InOwnerAssembly_IsExempt()
     {
         Assert.Empty(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(GuidFactoryOwnerSource, "AgentGuard.CrossPlatform"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(RandomGeneratorOwnerSource, "AgentGuard.CrossPlatform"));
     }
 
     [Fact]
-    public async Task GuidFactoryOwner_InWrongAssembly_IsReported_SelfGrantBlocked()
+    public async Task RandomGeneratorOwner_InWrongAssembly_IsReported_SelfGrantBlocked()
     {
         Diagnostic diagnostic = Assert.Single(
-            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(GuidFactoryOwnerSource, "AgentGuard.Boundaries"));
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(RandomGeneratorOwnerSource, "AgentGuard.Boundaries"));
         Assert.Equal("AG0011", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task OldGuidFactoryOwner_IsNoLongerExempt_AfterRename()
+    {
+        // After the owner rename (IGuidFactory -> IRandomGenerator), a class implementing the OLD IGuidFactory calling
+        // Guid.NewGuid() is no longer exempt and goes RED — the forcing function for renaming GuidFactoryAdapter to
+        // RandomGeneratorAdapter in the IMPLEMENT pass.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(OldGuidFactoryOwnerSource, "AgentGuard.CrossPlatform"));
+        Assert.Equal("AG0011", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task CreateTempSubdirectory_InDirectoryWriterOwner_IsExempt()
+    {
+        // Directory.CreateTempSubdirectory is reused behind IDirectoryWriter: legal inside the IDirectoryWriter
+        // implementer in AgentGuard.CrossPlatform.
+        Assert.Empty(
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(CreateTempSubdirectoryOwnerSource, "AgentGuard.CrossPlatform"));
+    }
+
+    [Fact]
+    public async Task CreateTempSubdirectory_OutsideOwner_IsReported()
+    {
+        // Outside the IDirectoryWriter owner it is RED — the existing raw calls in the test harness stay RED until
+        // IMPLEMENT routes them through IDirectoryWriter.CreateTempSubdirectory.
+        const string source = """
+            using System.IO;
+
+            public class Sample
+            {
+                public DirectoryInfo Make(string prefix) => Directory.CreateTempSubdirectory(prefix);
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<RawPrimitiveOnlyInOwnerAnalyzer>(source, "AgentGuard.CrossPlatform"));
+        Assert.Equal("AG0011", diagnostic.Id);
+        Assert.Contains("CreateTempSubdirectory", diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture), StringComparison.Ordinal);
     }
 
     [Fact]

@@ -306,6 +306,77 @@ public class GuardedConstructionAnalyzerTests
         }
         """;
 
+    // ---- AG0027 store construction ----
+
+    // The shared overlay InMemoryFileSystemStore (internal to AgentGuard.TestHelpers) constructed in TWO places: inside
+    // SystemServicesBuilder (the one legal site) and inside a sibling type (the off-site second construction AG0027
+    // reports). Both live in the AgentGuard.TestHelpers namespace, matching the namespace+name pin. Compiled into the
+    // AgentGuard.TestHelpers assembly, the gate AG0027 is scoped to.
+    private const string StoreConstructedInsideAndOutsideBuilderSource = """
+        namespace AgentGuard.TestHelpers
+        {
+            internal sealed class InMemoryFileSystemStore { }
+
+            public sealed class SystemServicesBuilder
+            {
+                private static InMemoryFileSystemStore MakeInBuilder() => new InMemoryFileSystemStore();
+            }
+
+            public sealed class SomethingElse
+            {
+                private static InMemoryFileSystemStore MakeOutside() => new InMemoryFileSystemStore();
+            }
+        }
+        """;
+
+    // The store constructed ONLY inside SystemServicesBuilder — the one legal site — so nothing is reported.
+    private const string StoreConstructedInsideBuilderOnlySource = """
+        namespace AgentGuard.TestHelpers
+        {
+            internal sealed class InMemoryFileSystemStore { }
+
+            public sealed class SystemServicesBuilder
+            {
+                private static InMemoryFileSystemStore Make() => new InMemoryFileSystemStore();
+            }
+        }
+        """;
+
+    [Fact]
+    public async Task StoreConstruction_OutsideBuilder_InTestHelpers_IsReported()
+    {
+        // AG0027: a second InMemoryFileSystemStore construction outside SystemServicesBuilder, in the TestHelpers
+        // compilation, is a build error; the construction inside the builder is the one legal site and stays silent —
+        // so exactly one diagnostic fires, the off-site one.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
+                StoreConstructedInsideAndOutsideBuilderSource, "AgentGuard.TestHelpers"));
+        Assert.Equal("AG0027", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains(
+            "InMemoryFileSystemStore",
+            AnalyzerRunner.SpanText(StoreConstructedInsideAndOutsideBuilderSource, diagnostic),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task StoreConstruction_InsideBuilderOnly_IsNotReported()
+    {
+        // The one legal site: constructing the store inside SystemServicesBuilder is never flagged.
+        Assert.Empty(await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
+            StoreConstructedInsideBuilderOnlySource, "AgentGuard.TestHelpers"));
+    }
+
+    [Fact]
+    public async Task StoreConstruction_OutsideBuilder_InNonTestHelpersAssembly_IsNotReported()
+    {
+        // AG0027 is gated to the AgentGuard.TestHelpers compilation. The identical off-site construction compiled into a
+        // DIFFERENT assembly is not reported — the store is internal to TestHelpers, so this within-TestHelpers rule
+        // does not reach across assemblies.
+        Assert.Empty(await AnalyzerRunner.RunAsync<GuardedConstructionAnalyzer>(
+            StoreConstructedInsideAndOutsideBuilderSource, "AgentGuard.Engine"));
+    }
+
     [Fact]
     public async Task CreateCall_DeepInTheChain_IsReported()
     {

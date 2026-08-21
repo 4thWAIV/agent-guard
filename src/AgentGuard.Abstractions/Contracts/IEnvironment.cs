@@ -33,4 +33,12 @@ public interface IEnvironment
     /// </summary>
     /// <returns>The process's executable path, or <see langword="null"/> when it cannot be determined.</returns>
     string? GetProcessPath();
+
+    /// <summary>
+    /// Gets the system's temporary-directory root — an ambient environment read that wraps
+    /// <c>System.IO.Path.GetTempPath()</c>. It is the standalone temp-root tool; an atomic, uniquely-named temp
+    /// subdirectory is created through <see cref="IDirectoryWriter.CreateTempSubdirectory(string)"/>.
+    /// </summary>
+    /// <returns>The absolute path of the system's temporary-directory root.</returns>
+    string GetTempDirectory();
 }

@@ -1,0 +1,14 @@
+# The documentation-rules exception for AgentGuard.TestHelpers (Surfaces decision). The shared test-analyzer
+# relaxations global config turns the documentation rules off for every test project; this project re-enables
+# them so its public builder and fake API must carry XML docs. A path-scoped .editorconfig section overrides a
+# global analyzer config entry for the files it matches, so these win over the relaxations for this project.
+[*.cs]
+
+# SA0001: XML comment analysis is re-enabled because this project sets GenerateDocumentationFile=true.
+dotnet_diagnostic.SA0001.severity = warning
+
+# SA1600: elements must be documented — the public builder and fake API are the reused test surface.
+dotnet_diagnostic.SA1600.severity = warning
+
+# CS1591: missing XML comment for a publicly visible type or member — re-enabled for the public API here.
+dotnet_diagnostic.CS1591.severity = warning

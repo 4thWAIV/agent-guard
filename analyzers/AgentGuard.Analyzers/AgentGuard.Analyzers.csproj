@@ -20,4 +20,11 @@
     <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
   </ItemGroup>
 
+  <!-- The analyzer is unsigned (signing.props excludes AgentGuardIsAnalyzerProject), so the test project reaches the
+       internal container walk (BoundaryServices.Resolve / DerivedServices) to assert it is byte-identical after the
+       tree extraction, with no public-key injection. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Analyzers.Tests" />
+  </ItemGroup>
+
 </Project>

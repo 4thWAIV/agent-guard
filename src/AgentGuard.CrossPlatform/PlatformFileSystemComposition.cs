@@ -29,7 +29,7 @@ internal static class PlatformFileSystemComposition
             adapters.Directories,
             adapters.FileWriter,
             adapters.DirectoryWriter,
-            adapters.Guids);
+            adapters.Random);
 
         return new PlatformFileSystemParts(shared, FileInfoFactory.Create());
     }

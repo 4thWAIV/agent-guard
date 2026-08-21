@@ -47,7 +47,9 @@ internal sealed class PosixFileSystem : PlatformFileSystemBase, IPlatformFileSys
     }
 
     /// <inheritdoc/>
-    public char DirectorySeparator => '/';
+    // The BCL already gives the answer; this is now an owned read of the raw Path.DirectorySeparatorChar field
+    // (AG0020 owner: the IPlatformFileSystem implementers), not a hardcode.
+    public char DirectorySeparator => Path.DirectorySeparatorChar;
 
     /// <inheritdoc />
     // The wrapper factory this per-OS class injects directly (fileinfo-factory-breaks-the-cycle); the shared base reads

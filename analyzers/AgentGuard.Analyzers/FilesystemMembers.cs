@@ -146,9 +146,14 @@ internal static class FilesystemMembers
         "Copy",
         "OpenWrite");
 
+    // CreateDirectory and CreateTempSubdirectory both map to IDirectoryWriter. Directory.CreateTempSubdirectory is an
+    // atomic, uniquely-named directory write owned by IDirectoryWriter (temp-and-random-primitives-reused-behind-owners),
+    // unambiguous (declared on Directory, not File); the existing raw calls in the test harness stay RED until IMPLEMENT
+    // routes them through IDirectoryWriter.CreateTempSubdirectory.
     private static readonly ImmutableHashSet<string> DirectoryWriterMemberNames = ImmutableHashSet.Create(
         StringComparer.Ordinal,
-        "CreateDirectory");
+        "CreateDirectory",
+        "CreateTempSubdirectory");
 
     /// <summary>
     /// The OS-divergent STATIC member names on <c>File</c>/<c>Directory</c> that route to <c>IPlatformFileSystem</c>

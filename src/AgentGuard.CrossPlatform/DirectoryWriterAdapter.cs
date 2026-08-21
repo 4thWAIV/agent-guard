@@ -29,6 +29,13 @@ internal sealed class DirectoryWriterAdapter : IDirectoryWriter
     public void SetLastWriteTimeUtc(string path, DateTimeOffset time) =>
         Directory.SetLastWriteTimeUtc(path, time.UtcDateTime);
 
+    /// <inheritdoc />
+    // Directory.CreateTempSubdirectory is the atomic, uniquely-named directory write owned here (AG0011). Its result is
+    // a raw DirectoryInfo whose FullName is owned by IFileSystemInfo, so the path is read back through the owned
+    // IFileSystemInfo view (AbstractedFileSystemInfo, the one owner of that read) rather than a raw *Info member access.
+    public string CreateTempSubdirectory(string prefix) =>
+        AbstractedFileSystemInfo.Wrap(Directory.CreateTempSubdirectory(prefix)).FullName;
+
     /// <summary>
     /// Creates the directory writer.
     /// </summary>

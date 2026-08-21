@@ -8,6 +8,17 @@ It supersedes the two source contracts:
 
 Anything that is a correction rather than a Tim decision is labelled **Correction** and attributed to the pass that found it, never to Tim.
 
+## Status and the bridge (2026-08-19)
+
+The RULE-PHASE and the source-tree IMPLEMENT of this contract shipped through the **bridge contract** (`bridge-contract.md` in this folder), committed as `8367242` on branch `clr-primitive-lockdown`. `src/` builds `-c Release` 0/0 under the rules and the analyzer suite is green; the test tree is still red and is the remaining work below. The bridge is the record for the shipped work, and where it changed a decision in this file, the bridge's version supersedes it. The supersessions:
+
+- **Container shape** — `container-is-one-class-with-its-own-create` (bridge): `SystemServices` and each per-OS `PlatformServices` are ONE `internal sealed` class with a private constructor and its own static `Create()`. This refines `single-construction-point` and `two-walls-stop-the-bypass` below.
+- **Filesystem abstraction** — the filesystem is reached through one `IFileSystem` on `ISystemServices` (bridge `ifilesystem-single-entry-point`), and `FileInfo`/`DirectoryInfo` are owned behind `IFileInfo`/`IDirectoryInfo` wrappers built only by `FileInfoFactory` (bridge `fileinfo-directoryinfo-owned-interface`). This extends `eight-boundary-interfaces` and `abstractions-assembly-holds-all-interfaces` below.
+- **Analyzer set** — the per-primitive rules fold into one owner rule keeping id AG0011; AG0017 + AG0033 are the construction rules; AG0034 guards the container surface; AG0024/AG0025/AG0031 derive their service set from `ISystemServices`; the per-OS door is retargeted to `PlatformServices.Create` (AG0010/AG0029). See the bridge's Group C and `derive-service-set-from-isystemservices`.
+- **Interface homes** — `IPlatformServices` and `IPlatformFileSystem` live in `AgentGuard.Abstractions.Contracts`.
+
+**What remains of this contract (the next L1 run):** the test system — `AgentGuard.TestHelpers` with `SystemServicesBuilder` and the fakes, plus AG0018 and AG0019 — every test updated to the new interfaces and namespaces, `PosixOnlyFactAttribute` deleted so the CLI tests run on every OS, and the coverage gate wired to 75%.
+
 ## The one design (why these are one contract)
 
 There is a single root defect: code reaches OS/CLR primitives **raw** instead of through an owned, injected interface. Fixing it at the root is what lets both gates pass on the one branch.

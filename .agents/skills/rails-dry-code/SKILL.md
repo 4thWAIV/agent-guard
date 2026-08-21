@@ -52,6 +52,11 @@ Run the gate at the bottom before acting. If the work trips any rail below, STOP
 - **Violation:** The search stopped at a single top-N result, leaving copies the chain would have found in place.
 - **Fix:** Run the full chain per capability; never trust a single top-N result.
 
+### 8. Reimplementing a primitive instead of reusing it behind an owner
+- **Practice:** When work needs a capability a BCL, OS, or OSS primitive already provides, default to reusing that primitive — reuse holds until the existing one is proven insufficient. The one-owner rule (a raw primitive is legal only inside its owner) is a forcing function to pick the deliberate owner, never a bar to reuse. It requires three decisions — reuse vs compose, how to abstract it, and which one class owns it — which you bring to the human as a conversation, get approved, and record in the contract's Decisions section before building; RULE-PHASE then carves the owner exemption so the raw call is legal in that owner and banned everywhere else.
+- **Violation:** A tested BCL/OS/OSS primitive was reimplemented from scratch or hand-composed from lower-level calls to avoid giving it an owner — more work, more risk, reuse defeated — or its owner and abstraction were chosen and built without the human's recorded decision, so a bad ownership choice becomes load-bearing before anyone approved it.
+- **Fix:** Reuse the primitive behind its one deliberate owner; bring the reuse, abstraction, and owner choice to the human, get sign-off, and record it in the Decisions section before building. RULE-PHASE carves the owner exemption.
+
 ## The gate (answer before acting)
 
 - Does every new capability — including one-off helpers — carry a prior-art-ledger ruling of reuse / extract / new?
@@ -59,5 +64,6 @@ Run the gate at the bottom before acting. If the work trips any rail below, STOP
 - Is every "new" genuinely empty on every lens, and did every "reuse" / "extract" call the owner instead of a fresh copy?
 - Is every duplicated value, block, and whole function — including copies across modules the analyzers can't see — collapsed to one owner?
 - Did I chain the lenses (semantic → shared primitive → CodeGraph callers → read the callers) instead of trusting a single top-N result?
+- When a capability is already provided by a BCL/OS/OSS primitive, am I reusing it behind a deliberate owner the human approved and the contract records — not reimplementing it to dodge the owner rule?
 
 If any answer is no, there is duplication. Stop and collapse it to one owner.

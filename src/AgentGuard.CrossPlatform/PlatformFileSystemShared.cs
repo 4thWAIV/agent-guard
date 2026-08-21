@@ -14,7 +14,7 @@ namespace AgentGuard.CrossPlatform;
 /// inheriting it through a shared base class. It makes ZERO raw boundary calls: every filesystem operation goes through
 /// the owned adapters it receives by constructor injection (<see cref="IFileReader"/>, <see cref="IDirectoryEnumerator"/>,
 /// <see cref="IFileWriter"/>, <see cref="IDirectoryWriter"/>), and every GUID through the injected
-/// <see cref="IGuidFactory"/>. The OS-DIVERGENT primitives (the symlink reads/writes, the executable bit, the atomic
+/// <see cref="IRandomGenerator"/>. The OS-DIVERGENT primitives (the symlink reads/writes, the executable bit, the atomic
 /// re-point, and constructing a <c>FileInfo</c>/<c>DirectoryInfo</c>) do NOT live here — they live only in the one
 /// per-OS class (AG0101, ag0101-one-owner-per-os).
 /// </summary>
@@ -24,7 +24,7 @@ internal sealed class PlatformFileSystemShared
     private readonly IDirectoryEnumerator _directories;
     private readonly IFileWriter _fileWriter;
     private readonly IDirectoryWriter _directoryWriter;
-    private readonly IGuidFactory _guids;
+    private readonly IRandomGenerator _random;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PlatformFileSystemShared"/> class, wired to the owned adapters
@@ -34,31 +34,31 @@ internal sealed class PlatformFileSystemShared
     /// <param name="directories">The owned read-only directory enumerator.</param>
     /// <param name="fileWriter">The owned file-write side of the filesystem primitive.</param>
     /// <param name="directoryWriter">The owned directory-write side of the filesystem primitive.</param>
-    /// <param name="guids">The owned GUID factory.</param>
+    /// <param name="random">The owned random generator.</param>
     internal PlatformFileSystemShared(
         IFileReader fileReader,
         IDirectoryEnumerator directories,
         IFileWriter fileWriter,
         IDirectoryWriter directoryWriter,
-        IGuidFactory guids)
+        IRandomGenerator random)
     {
         _fileReader = fileReader;
         _directories = directories;
         _fileWriter = fileWriter;
         _directoryWriter = directoryWriter;
-        _guids = guids;
+        _random = random;
     }
 
     /// <summary>
     /// Builds a unique temporary sibling path beside <paramref name="path"/> — a <c>.tmp-</c> name in the same
     /// directory, so an atomic create-and-swap stays on one filesystem. The unique suffix comes from the injected
-    /// GUID factory, not a raw <c>Guid.NewGuid()</c>.
+    /// random generator, not a raw <c>Guid.NewGuid()</c>.
     /// </summary>
     /// <param name="path">The destination path.</param>
     /// <returns>The temporary sibling path in the destination's directory.</returns>
     internal string TemporarySiblingPath(string path) => Path.Combine(
         Path.GetDirectoryName(path)!,
-        Path.GetFileName(path) + ".tmp-" + _guids.NewGuid().ToString("N"));
+        Path.GetFileName(path) + ".tmp-" + _random.NewGuid().ToString("N"));
 
     /// <summary>
     /// Throws when <paramref name="linkPath"/> holds a real file or directory rather than a symlink, so a re-point

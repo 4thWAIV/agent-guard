@@ -62,9 +62,9 @@ public sealed record SetupContext
     public required IDirectoryEnumerator Directories { get; init; }
 
     /// <summary>
-    /// Gets the owned GUID factory used to name atomic temporary files.
+    /// Gets the owned random generator used to name atomic temporary files.
     /// </summary>
-    public required IGuidFactory Guids { get; init; }
+    public required IRandomGenerator Random { get; init; }
 
     /// <summary>
     /// Gets the platform file-system capability the setup commands use for the version-pointer symlinks and the
@@ -99,7 +99,7 @@ public sealed record SetupContext
             FileWriter = services.FileSystem.GetFileWriter(),
             DirectoryWriter = services.FileSystem.GetDirectoryWriter(),
             Directories = services.FileSystem.GetDirectoryReader(),
-            Guids = services.Guids,
+            Random = services.Random,
             FileSystem = services.Platform.FileSystem,
         };
     }

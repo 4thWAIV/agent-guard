@@ -20,14 +20,14 @@ internal sealed class CrossPlatformAdapters
         IDirectoryEnumerator directories,
         IFileWriter fileWriter,
         IDirectoryWriter directoryWriter,
-        IGuidFactory guids,
+        IRandomGenerator random,
         IFileSystem fileSystem)
     {
         FileReader = fileReader;
         Directories = directories;
         FileWriter = fileWriter;
         DirectoryWriter = directoryWriter;
-        Guids = guids;
+        Random = random;
         FileSystem = fileSystem;
     }
 
@@ -52,9 +52,9 @@ internal sealed class CrossPlatformAdapters
     public IDirectoryWriter DirectoryWriter { get; }
 
     /// <summary>
-    /// Gets the owned GUID factory — the one seam through which a GUID enters the codebase.
+    /// Gets the owned random generator — the one seam through which a GUID or random file name enters the codebase.
     /// </summary>
-    public IGuidFactory Guids { get; }
+    public IRandomGenerator Random { get; }
 
     /// <summary>
     /// Gets the single filesystem entry point — the <see cref="IFileSystem"/> the composition exposes on
@@ -79,7 +79,7 @@ internal sealed class CrossPlatformAdapters
             fileSystem.GetDirectoryReader(),
             fileSystem.GetFileWriter(),
             fileSystem.GetDirectoryWriter(),
-            GuidFactoryAdapter.Create(),
+            RandomGeneratorAdapter.Create(),
             fileSystem);
     }
 }

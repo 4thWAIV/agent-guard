@@ -12,7 +12,7 @@ namespace AgentGuard.Analyzers;
 /// (<c>File</c>/<c>Directory</c> split per member across <c>IFileReader</c>/<c>IDirectoryEnumerator</c>/
 /// <c>IFileWriter</c>/<c>IDirectoryWriter</c>, and the <c>FileInfo</c>/<c>DirectoryInfo</c>/<c>FileSystemInfo</c>
 /// wrappers owned wholesale by <c>IFileInfo</c>/<c>IDirectoryInfo</c>/<c>IFileSystemInfo</c>), environment
-/// (<c>IEnvironment</c>), randomness (<c>IGuidFactory</c>), console (<c>IConsole</c>), crypto
+/// (<c>IEnvironment</c>), randomness (<c>IRandomGenerator</c>), console (<c>IConsole</c>), crypto
 /// (<c>ISignatureService</c>), version reflection (<c>IBuildInfo</c>), and the ownerless primitives banned everywhere
 /// (<c>Process</c>, the stream/drive/watcher types). Every mapping lives once in <see cref="OwnedPrimitives"/>; a raw
 /// call is legal only in the class that implements the owning interface AND compiles into the owner assembly — the
@@ -38,7 +38,7 @@ public sealed class RawPrimitiveOnlyInOwnerAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A raw OS/CLR primitive — a System.IO filesystem type, System.Environment, a version-reflection read, System.Random/Guid.NewGuid/RandomNumberGenerator, System.Console, or a BouncyCastle Ed25519 type — is allowed only in the single class that implements its owning interface (IFileReader/IDirectoryEnumerator/IFileWriter/IDirectoryWriter, IFileInfo/IDirectoryInfo/IFileSystemInfo, IEnvironment, IGuidFactory, IConsole, ISignatureService, IBuildInfo), compiled into the assembly where that owner lives — not merely somewhere in that assembly. Every other type reaches the primitive through the owned interface on ISystemServices so the engine stays mockable. A primitive with no owner (Process, the stream/drive/watcher types) is a build error everywhere; the OS-divergent static members are governed by AG0101.");
+        description: "A raw OS/CLR primitive — a System.IO filesystem type, System.Environment, a version-reflection read, System.Random/Guid.NewGuid/RandomNumberGenerator, System.Console, or a BouncyCastle Ed25519 type — is allowed only in the single class that implements its owning interface (IFileReader/IDirectoryEnumerator/IFileWriter/IDirectoryWriter, IFileInfo/IDirectoryInfo/IFileSystemInfo, IEnvironment, IRandomGenerator, IConsole, ISignatureService, IBuildInfo), compiled into the assembly where that owner lives — not merely somewhere in that assembly. Every other type reaches the primitive through the owned interface on ISystemServices so the engine stays mockable. A primitive with no owner (Process, the stream/drive/watcher types) is a build error everywhere; the OS-divergent static members are governed by AG0101.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

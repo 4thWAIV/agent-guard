@@ -117,7 +117,7 @@ internal sealed class ContextStore : IContextStore
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(paths);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
-        var atomicFile = new AtomicFile(services.FileSystem.GetFileWriter(), services.FileSystem.GetDirectoryWriter(), services.Guids);
+        var atomicFile = new AtomicFile(services.FileSystem.GetFileWriter(), services.FileSystem.GetDirectoryWriter(), services.Random);
         return new ContextStore(
             projectRoot,
             services.Clock,

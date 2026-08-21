@@ -22,9 +22,9 @@ public interface ISystemServices
     IEnvironment Environment { get; }
 
     /// <summary>
-    /// Gets the GUID factory.
+    /// Gets the randomness generator — the one seam through which a GUID or a random file name enters the codebase.
     /// </summary>
-    IGuidFactory Guids { get; }
+    IRandomGenerator Random { get; }
 
     /// <summary>
     /// Gets the console service.

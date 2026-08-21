@@ -76,6 +76,25 @@ internal static class AnalyzerRunner
     }
 
     /// <summary>
+    /// Compiles <paramref name="source"/> against the net9.0 reference assemblies and returns the raw
+    /// <see cref="Compilation"/>, so a test can drive an internal helper (for example
+    /// <c>BoundaryServices.Resolve</c>) directly rather than only through an analyzer's diagnostics.
+    /// </summary>
+    /// <param name="source">The C# source to compile.</param>
+    /// <param name="assemblyName">The assembly name to compile the source into.</param>
+    /// <returns>The compilation.</returns>
+    internal static async Task<Compilation> CompileAsync(string source, string assemblyName = "AnalyzerUnderTest")
+    {
+        ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+
+        return CSharpCompilation.Create(
+            assemblyName: assemblyName,
+            syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+            references: references,
+            options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+    }
+
+    /// <summary>
     /// Returns the exact source text a diagnostic points at, so a test can assert its location.
     /// </summary>
     /// <param name="source">The source that was analyzed.</param>

@@ -130,11 +130,11 @@ public class SystemServicesMemberMustBeServiceAccessorAnalyzerTests
     }
 
     [Fact]
-    public async Task SubContainerWithParameterizedFactory_IsNotChecked()
+    public async Task SubContainerInfoFactory_IsAllowed()
     {
-        // The rule is scoped to ISystemServices only. A sub-container (IFileSystem) legitimately mixes a service
-        // accessor and a parameterized factory; its parameterized factory is NOT flagged, because AG0034 checks only
-        // the container's own members. On ISystemServices, FileSystem is a service accessor, so nothing fires.
+        // AG0034 now recurses every container node (ag0034-recurses-every-container). A sub-container (IFileSystem)
+        // legitimately mixes a service accessor and an owned per-path *Info factory: GetFileInfo(string) returns
+        // IFileInfo, which is an allowed *Info factory at a sub-container, so nothing fires.
         const string source = """
             namespace AgentGuard.Abstractions.Contracts
             {
@@ -150,5 +150,70 @@ public class SystemServicesMemberMustBeServiceAccessorAnalyzerTests
             """;
 
         Assert.Empty(await AnalyzerRunner.RunAsync<SystemServicesMemberMustBeServiceAccessorAnalyzer>(source));
+    }
+
+    [Fact]
+    public async Task OffConventionMemberOnSubContainer_IsReported()
+    {
+        // A sub-container member that is neither a service accessor nor an owned *Info factory — here a parameterized
+        // factory returning a non-*Info interface — is a build error, because it adds surface the walk cannot classify
+        // and would silently break the mirror-at-every-level guarantee. AG0034 recurses into IFileSystem and fires.
+        const string source = """
+            namespace AgentGuard.Abstractions.Contracts
+            {
+                public interface IFileReader { }
+                public interface IWidget { }
+                public interface IFileSystem
+                {
+                    IFileReader GetFileReader();
+                    IWidget GetWidget(string key);
+                }
+                public interface ISystemServices { IFileSystem FileSystem { get; } }
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<SystemServicesMemberMustBeServiceAccessorAnalyzer>(source));
+        Assert.Equal("AG0034", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Contains("GetWidget", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Contains("IFileSystem", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ClockOnSubContainer_IsReported()
+    {
+        // The TimeProvider clock is allowed only at the ROOT. A TimeProvider member on a sub-container is off-convention
+        // — the derived walk collects the clock as a root service type only — so it fires.
+        const string source = """
+            namespace AgentGuard.Abstractions.Contracts
+            {
+                public interface IFileReader { }
+                public interface IFileSystem
+                {
+                    IFileReader GetFileReader();
+                    System.TimeProvider Clock { get; }
+                }
+                public interface ISystemServices { IFileSystem FileSystem { get; } }
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<SystemServicesMemberMustBeServiceAccessorAnalyzer>(source));
+        Assert.Equal("AG0034", diagnostic.Id);
+        Assert.Contains("Clock", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+        Assert.Contains("IFileSystem", diagnostic.GetMessage(CultureInfo.InvariantCulture), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task WellFormedRealShape_IsNotReported()
+    {
+        // The whole real-shape tree — the root with its leaves plus the TimeProvider clock, the IFileSystem
+        // sub-container mixing accessors and *Info factories, and the IPlatformServices sub-container nesting
+        // IPlatformFileSystem (a leaf whose non-service members are not guarded) — is clean, so AG0034 is preventive on
+        // the production container at every level. The fixture is the one shared with DerivedBoundaryServicesTests
+        // (SharedAnalyzerSources.RealShapeContainer), so this byte-identical container is spelled exactly once.
+        Assert.Empty(await AnalyzerRunner.RunAsync<SystemServicesMemberMustBeServiceAccessorAnalyzer>(
+            SharedAnalyzerSources.RealShapeContainer));
     }
 }

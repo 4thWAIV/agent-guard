@@ -21,12 +21,17 @@ AG0017  | AgentGuard.Architecture | Warning | GuardedConstructionAnalyzer (conta
 AG0018  | AgentGuard.Architecture | Warning | TestHelpersOnlyInTestsAnalyzer
 AG0019  | AgentGuard.Architecture | Warning | BuilderCompletenessAnalyzer
 AG0020  | AgentGuard.Architecture | Warning | PathPurityAnalyzer
+AG0022  | AgentGuard.Architecture | Warning | ContainerInterfaceSingleOwnerAnalyzer
 AG0023  | AgentGuard.Architecture | Warning | BoundariesToCrossPlatformOneDoorAnalyzer
 AG0024  | AgentGuard.Architecture | Warning | NoStaticServiceHolderAnalyzer
 AG0025  | AgentGuard.Architecture | Warning | OneOwnerPerInterfaceAnalyzer
+AG0026  | AgentGuard.Architecture | Warning | NoOsSkipInTestsAnalyzer
+AG0027  | AgentGuard.Architecture | Warning | GuardedConstructionAnalyzer (InMemoryFileSystemStore single construction)
 AG0029  | AgentGuard.Architecture | Warning | BoundariesToPerOsOneDoorAnalyzer
+AG0030  | AgentGuard.Architecture | Warning | LeafPlatformSingleImplementerAnalyzer
 AG0031  | AgentGuard.Architecture | Warning | NoServiceAsParameterAnalyzer
 AG0032  | AgentGuard.Architecture | Warning | NoCoverageOptOutAnalyzer
 AG0033  | AgentGuard.Architecture | Warning | GuardedConstructionAnalyzer (*Info wrapper construction)
 AG0034  | AgentGuard.Architecture | Warning | SystemServicesMemberMustBeServiceAccessorAnalyzer
 AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer (shrunk to static OS-divergent members, Marshal, and P/Invoke)
+AGS5443 | AgentGuard.Architecture | Warning | TempRootBackDoorAnalyzer (IEnvironment.GetTempDirectory call sites; owned equivalent of Sonar S5443)

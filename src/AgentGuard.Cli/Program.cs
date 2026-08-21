@@ -20,19 +20,38 @@ namespace AgentGuard.Cli;
 /// with the setup logic living in the Engine behind these thin handlers. The <c>hook</c> handler fails closed: every
 /// unhandled or unparsable condition denies (exit 2), so the host never reads a non-blocking code by mistake.
 /// </summary>
-internal static class Program
+internal sealed class Program
 {
+    private readonly string[] _args;
+
+    private Program(string[] args) => _args = args;
+
     /// <summary>
-    /// Parses the arguments and invokes the matched command.
+    /// Parses the arguments and invokes the matched command, threading the given container into every handler. This is
+    /// the seam that owns the real work: production passes the real container from <see cref="Main"/>, and a test passes
+    /// a container built by the test <c>SystemServicesBuilder</c> whose fake environment points at a test directory.
+    /// </summary>
+    /// <param name="services">The OS/CLR service container every handler draws its owned services from.</param>
+    /// <returns>The process exit code.</returns>
+    internal async Task<int> Run(ISystemServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        RootCommand root = BuildRootCommand(services);
+        return await root.Parse(_args).InvokeAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Builds the real service container and runs the CLI. The static entry point owns only the composition — building
+    /// the one <see cref="ISystemServices"/> container with <see cref="SystemServices.Create"/> — and delegates every
+    /// bit of real work to <see cref="Run(ISystemServices)"/>, which a test drives with a container built by the test
+    /// <c>SystemServicesBuilder</c>, so <see cref="Main"/> itself is never under test.
     /// </summary>
     /// <param name="args">The command-line arguments.</param>
     /// <returns>The process exit code.</returns>
-    private static async Task<int> Main(string[] args)
+    private static Task<int> Main(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
-        ISystemServices services = SystemServices.Create();
-        RootCommand root = BuildRootCommand(services);
-        return await root.Parse(args).InvokeAsync().ConfigureAwait(false);
+        return new Program(args).Run(SystemServices.Create());
     }
 
     private static RootCommand BuildRootCommand(ISystemServices services)

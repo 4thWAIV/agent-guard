@@ -28,4 +28,13 @@ public interface IDirectoryWriter
     /// <param name="path">The absolute directory path whose last-write time is set.</param>
     /// <param name="time">The last-write time to set, in UTC.</param>
     void SetLastWriteTimeUtc(string path, DateTimeOffset time);
+
+    /// <summary>
+    /// Creates a uniquely-named temporary subdirectory under the system temp root and returns its absolute path. It
+    /// wraps <c>System.IO.Directory.CreateTempSubdirectory</c> — an atomic, uniquely-named directory write whose
+    /// atomicity IS the uniqueness guarantee, so no GUID composition is involved.
+    /// </summary>
+    /// <param name="prefix">An optional name prefix on the created directory.</param>
+    /// <returns>The absolute path of the created temporary subdirectory.</returns>
+    string CreateTempSubdirectory(string prefix);
 }

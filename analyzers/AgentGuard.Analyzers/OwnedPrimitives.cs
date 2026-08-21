@@ -38,14 +38,33 @@ internal static class OwnedPrimitives
     internal static readonly ImmutableArray<(string Namespace, string Name)> DirectoryInfoOwner =
         ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IDirectoryInfo"));
 
-    // The two assembly gates every owned OS-uniform primitive uses (owners-live-at-lowest-consumer): the file-op
-    // adapters, the *Info wrappers, and the GUID factory live in AgentGuard.CrossPlatform; the environment, console,
-    // signature, and build-info owners live in AgentGuard.Boundaries. Cached once so no delegate is allocated per
-    // analyzed operation.
-    private static readonly Func<Compilation, bool> InCrossPlatform =
+    /// <summary>
+    /// The two owned <c>*Info</c> wrapper interfaces (<c>IFileInfo</c> + <c>IDirectoryInfo</c>) as one combined set,
+    /// composed once from <see cref="FileInfoOwner"/> and <see cref="DirectoryInfoOwner"/> so the
+    /// <c>FileInfoOwner.AddRange(DirectoryInfoOwner)</c> is spelled exactly once. Both AG0033's wrapper-construction pin
+    /// (<see cref="GuardedConstructionAnalyzer"/>) and AG0034's sub-container <c>*Info</c>-factory allowance
+    /// (<see cref="SystemServicesMemberMustBeServiceAccessorAnalyzer"/>) reference this instead of each recomputing the
+    /// same union.
+    /// </summary>
+    internal static readonly ImmutableArray<(string Namespace, string Name)> InfoWrapperInterfaces =
+        FileInfoOwner.AddRange(DirectoryInfoOwner);
+
+    /// <summary>
+    /// The assembly gate for the owners that live in AgentGuard.CrossPlatform (owners-live-at-lowest-consumer): the
+    /// file-op adapters, the <c>*Info</c> wrappers, and the randomness adapter. Cached once so no delegate is allocated
+    /// per analyzed operation. Internal so AG0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its
+    /// randomness owner exemption (<c>GetRandomFileName</c>) rather than reconstructing an identical one.
+    /// </summary>
+    internal static readonly Func<Compilation, bool> InCrossPlatform =
         OwnerClass.InAssembly(CrossPlatformBoundary.RootName);
 
-    private static readonly Func<Compilation, bool> InBoundaries =
+    /// <summary>
+    /// The assembly gate for the owners that live in AgentGuard.Boundaries (owners-live-at-lowest-consumer): the
+    /// environment, console, signature, and build-info owners. Cached once so no delegate is allocated per analyzed
+    /// operation. Internal so AG0020 (<see cref="PathPurityAnalyzer"/>) references this exact gate for its temp-path
+    /// owner exemption (<c>GetTempPath</c>) rather than reconstructing an identical one.
+    /// </summary>
+    internal static readonly Func<Compilation, bool> InBoundaries =
         OwnerClass.InAssembly(BoundaryAssembly.Name);
 
     // The FileSystemInfo base owner (fileinfo-abstraction-stays-in-ag0011): the FileSystemInfo base is owned wholesale by
@@ -56,11 +75,19 @@ internal static class OwnedPrimitives
     private static readonly ImmutableArray<(string Namespace, string Name)> FileSystemInfoOwner =
         ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IFileSystemInfo"));
 
+    // The environment owner (IEnvironment) — the identity is spelled once in ContractInterfaces because AG0020 shares
+    // it for the Path.GetTempPath owner exemption.
     private static readonly ImmutableArray<(string Namespace, string Name)> EnvironmentOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IEnvironment"));
+        ContractInterfaces.Environment;
 
-    private static readonly ImmutableArray<(string Namespace, string Name)> GuidFactoryOwner =
-        ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IGuidFactory"));
+    // The randomness owner (IRandomGenerator, renamed from IGuidFactory: the owner is the randomness concern, so a
+    // random file name has a home beside NewGuid — iguidfactory-renamed-to-irandomgenerator). It owns Guid.NewGuid,
+    // System.Random, and RandomNumberGenerator here; the identity is spelled once in ContractInterfaces because AG0020
+    // shares it for the Path.GetRandomFileName owner exemption. Until IMPLEMENT renames the adapter, the old
+    // GuidFactoryAdapter (which implements IGuidFactory) no longer matches this owner and its Guid.NewGuid() goes RED —
+    // the forcing function for the rename.
+    private static readonly ImmutableArray<(string Namespace, string Name)> RandomGeneratorOwner =
+        ContractInterfaces.RandomGenerator;
 
     private static readonly ImmutableArray<(string Namespace, string Name)> ConsoleOwner =
         ImmutableArray.Create((KnownNamespaces.AgentGuardAbstractionsContracts, "IConsole"));
@@ -255,21 +282,21 @@ internal static class OwnedPrimitives
             : (OwnedPrimitive?)null;
     }
 
-    // System.Random / RandomNumberGenerator / the impure Guid factory set → IGuidFactory (the one randomness seam).
+    // System.Random / RandomNumberGenerator / the impure Guid factory set → IRandomGenerator (the one randomness seam).
     private static OwnedPrimitive? ResolveRandomness(ISymbol member, INamedTypeSymbol type)
     {
         if (WellKnownType.Is(type, KnownNamespaces.System, "Random")
             || WellKnownType.Is(type, KnownNamespaces.SystemSecurityCryptography, "RandomNumberGenerator"))
         {
-            return OwnedPrimitive.OwnedBy(GuidFactoryOwner, InCrossPlatform);
+            return OwnedPrimitive.OwnedBy(RandomGeneratorOwner, InCrossPlatform);
         }
 
-        // Guid.NewGuid / CreateVersion7 / CreateVersion1 → IGuidFactory; building a GUID from bytes or parsing text
+        // Guid.NewGuid / CreateVersion7 / CreateVersion1 → IRandomGenerator; building a GUID from bytes or parsing text
         // stays legal (those names are not in the impure set).
         if (WellKnownType.Is(type, KnownNamespaces.System, "Guid"))
         {
             return ImpureGuidFactoryMethods.Contains(member.Name)
-                ? OwnedPrimitive.OwnedBy(GuidFactoryOwner, InCrossPlatform)
+                ? OwnedPrimitive.OwnedBy(RandomGeneratorOwner, InCrossPlatform)
                 : (OwnedPrimitive?)null;
         }
 

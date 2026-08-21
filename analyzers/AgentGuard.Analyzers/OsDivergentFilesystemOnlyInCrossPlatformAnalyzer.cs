@@ -42,9 +42,10 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
 
     // The owning interface whose implementing class is the only place a raw OS-divergent filesystem call is allowed
     // (one-owner-class-per-primitive, ag0101-one-owner-per-os — no shared-helper carve-out). Matched structurally by
-    // full name against the enclosing type's implemented interfaces, never by a class-name literal.
-    private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces = ImmutableArray.Create(
-        (KnownNamespaces.AgentGuardAbstractionsContracts, "IPlatformFileSystem"));
+    // full name against the enclosing type's implemented interfaces, never by a class-name literal. The identity is
+    // spelled once in ContractInterfaces because AG0020 shares it for the Path.DirectorySeparatorChar owner exemption.
+    private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces =
+        ContractInterfaces.PlatformFileSystem;
 
     // The assembly gate: the THREE per-OS implementation libraries (AgentGuard.CrossPlatform.MacOS/.Linux/.Windows),
     // where PosixFileSystem/WindowsFileSystem live — NOT the core AgentGuard.CrossPlatform contract assembly, which

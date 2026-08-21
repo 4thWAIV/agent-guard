@@ -12,26 +12,26 @@ namespace AgentGuard.Setup;
 /// Writes a regular file atomically by writing a temporary sibling and renaming it over the destination, so a
 /// reader never sees a half-written record. The temporary file is created in the destination directory so the
 /// rename stays on one filesystem. It writes through the owned <see cref="IFileWriter"/> and
-/// <see cref="IDirectoryWriter"/> and names the temporary sibling with the owned <see cref="IGuidFactory"/>, so no
+/// <see cref="IDirectoryWriter"/> and names the temporary sibling with the owned <see cref="IRandomGenerator"/>, so no
 /// raw filesystem or randomness call lives here; it is built from the container at the composition point.
 /// </summary>
 internal sealed class AtomicFile
 {
     private readonly IFileWriter _fileWriter;
     private readonly IDirectoryWriter _directoryWriter;
-    private readonly IGuidFactory _guids;
+    private readonly IRandomGenerator _random;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AtomicFile"/> class over the owned write services.
     /// </summary>
     /// <param name="fileWriter">The owned file-write side of the filesystem.</param>
     /// <param name="directoryWriter">The owned directory-write side of the filesystem.</param>
-    /// <param name="guids">The owned GUID factory used to name the temporary sibling.</param>
-    internal AtomicFile(IFileWriter fileWriter, IDirectoryWriter directoryWriter, IGuidFactory guids)
+    /// <param name="random">The owned random generator used to name the temporary sibling.</param>
+    internal AtomicFile(IFileWriter fileWriter, IDirectoryWriter directoryWriter, IRandomGenerator random)
     {
         _fileWriter = fileWriter;
         _directoryWriter = directoryWriter;
-        _guids = guids;
+        _random = random;
     }
 
     /// <summary>
@@ -42,7 +42,7 @@ internal sealed class AtomicFile
     internal static AtomicFile For(SetupContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        return new AtomicFile(context.FileWriter, context.DirectoryWriter, context.Guids);
+        return new AtomicFile(context.FileWriter, context.DirectoryWriter, context.Random);
     }
 
     /// <summary>
@@ -76,7 +76,7 @@ internal sealed class AtomicFile
     /// <returns>The temporary sibling path in the destination's directory.</returns>
     internal string TemporarySiblingPath(string path) => Path.Combine(
         Path.GetDirectoryName(path)!,
-        Path.GetFileName(path) + ".tmp-" + _guids.NewGuid().ToString("N"));
+        Path.GetFileName(path) + ".tmp-" + _random.NewGuid().ToString("N"));
 
     /// <summary>
     /// Atomically copies a source file over a destination, creating parent directories. The source is never

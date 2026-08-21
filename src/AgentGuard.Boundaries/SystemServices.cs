@@ -32,7 +32,7 @@ internal sealed class SystemServices : ISystemServices
     private SystemServices(
         IFileSystem fileSystem,
         IEnvironment environment,
-        IGuidFactory guids,
+        IRandomGenerator random,
         IConsole console,
         IPlatformServices platform,
         ISignatureService signatures,
@@ -41,7 +41,7 @@ internal sealed class SystemServices : ISystemServices
     {
         FileSystem = fileSystem;
         Environment = environment;
-        Guids = guids;
+        Random = random;
         Console = console;
         Platform = platform;
         Signatures = signatures;
@@ -56,7 +56,7 @@ internal sealed class SystemServices : ISystemServices
     public IEnvironment Environment { get; }
 
     /// <inheritdoc />
-    public IGuidFactory Guids { get; }
+    public IRandomGenerator Random { get; }
 
     /// <inheritdoc />
     public IConsole Console { get; }
@@ -98,7 +98,7 @@ internal sealed class SystemServices : ISystemServices
         return new SystemServices(
             adapters.FileSystem,
             environment,
-            adapters.Guids,
+            adapters.Random,
             console,
             platform,
             signatures,
