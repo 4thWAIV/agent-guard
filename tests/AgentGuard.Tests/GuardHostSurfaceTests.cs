@@ -2,8 +2,9 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 using AgentGuard.Setup;
+using AgentGuard.TestHelpers;
 using FluentAssertions;
 using Xunit;
 

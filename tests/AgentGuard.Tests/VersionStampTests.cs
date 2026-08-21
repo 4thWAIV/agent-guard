@@ -2,7 +2,7 @@
 
 using System;
 using System.Reflection;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 using Xunit;
 
 namespace AgentGuard.Tests;

@@ -14,10 +14,11 @@ namespace AgentGuard.TestHelpers;
 /// <c>InternalsVisibleTo</c> from <c>AgentGuard.CrossPlatform</c> — a pure fake over the overlay, not a double that
 /// reaches into production code. <see cref="MakeLinkTarget"/> mirrors the per-OS refuse-if-a-real-entry-exists and
 /// auto-create-parent behavior, evaluated against the overlay. Its <see cref="DirectorySeparator"/> is the authorized
-/// pass-through to <c>Path.DirectorySeparatorChar</c> (directoryseparator-owned-passthrough); it reports
-/// <see cref="NeedsExecutableFlag"/> as <see langword="false"/>, so the engine never touches the executable bit in a fake
-/// run. It does not own the overlay — the temp-path uniqueness counter lives on the shared overlay, never here. Its
-/// constructor is private (AG0003) and it is handed out only as its interface.
+/// pass-through to <c>Path.DirectorySeparatorChar</c> (directoryseparator-owned-passthrough); its executable-bit and
+/// case-sensitivity behavior are builder-controlled options that read from the shared overlay
+/// (copy-on-write-simulator-design), so a unit test can simulate POSIX or Windows and a case-(in)sensitive filesystem. It
+/// does not own the overlay — the temp-path uniqueness counter, the executable-flag mode, and the case mode all live on
+/// the shared overlay, never here. Its constructor is private (AG0003) and it is handed out only as its interface.
 /// </summary>
 internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
 {
@@ -42,19 +43,16 @@ internal sealed class ManagedPlatformFileSystem : IPlatformFileSystem
     public void RemoveLinkTarget(string linkPath) => _store.RemoveLinkTarget(linkPath);
 
     /// <inheritdoc />
-    public bool NeedsExecutableFlag() => false;
+    public bool NeedsExecutableFlag() => _store.NeedsExecutableFlag;
 
     /// <inheritdoc />
-    public bool IsExecutable(string path) =>
-        throw new PlatformNotSupportedException("The managed test double does not model the executable bit.");
+    public bool IsExecutable(string path) => _store.IsExecutable(path);
 
     /// <inheritdoc />
-    public void MakeExecutable(string path) =>
-        throw new PlatformNotSupportedException("The managed test double does not model the executable bit.");
+    public void MakeExecutable(string path) => _store.MakeExecutable(path);
 
     /// <inheritdoc />
-    public void MakeNonExecutable(string path) =>
-        throw new PlatformNotSupportedException("The managed test double does not model the executable bit.");
+    public void MakeNonExecutable(string path) => _store.MakeNonExecutable(path);
 
     /// <inheritdoc />
     public bool IsCaseSensitive(string path) => _store.CaseSensitive;

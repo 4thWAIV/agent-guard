@@ -399,6 +399,35 @@ public sealed class SystemServicesBuilder
             _parent._platform.AddWrap(proxy);
             return this;
         }
+
+        /// <summary>
+        /// Sets the value the platform fake's <c>NeedsExecutableFlag()</c> returns (copy-on-write-simulator-design),
+        /// overriding the default that follows the running OS through the real platform — so a unit test can simulate
+        /// POSIX (<see langword="true"/>) or Windows (<see langword="false"/>) and exercise the executable-bit path either
+        /// way. Requires a simulated or fake filesystem.
+        /// </summary>
+        /// <param name="needsExecutableFlag">The simulated executable-bit support.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder SimulateExecutableFlag(bool needsExecutableFlag)
+        {
+            _parent.RequireStore().SetNeedsExecutableFlag(needsExecutableFlag);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the simulator's case mode (copy-on-write-simulator-design), which drives BOTH the platform fake's
+        /// <c>IsCaseSensitive</c> and the overlay's path comparer from the one place they both read. Switching to
+        /// case-insensitive first scans the current store and throws when two existing paths collide under case-folding.
+        /// Requires a simulated or fake filesystem.
+        /// </summary>
+        /// <param name="caseSensitive"><see langword="true"/> for a case-sensitive filesystem; <see langword="false"/>
+        /// for a case-insensitive one.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder SimulateCaseSensitivity(bool caseSensitive)
+        {
+            _parent.RequireStore().SetCaseSensitive(caseSensitive);
+            return this;
+        }
     }
 
     /// <summary>

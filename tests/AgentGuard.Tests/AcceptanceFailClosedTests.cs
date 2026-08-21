@@ -3,9 +3,10 @@
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;

@@ -37,6 +37,10 @@ public sealed class FixtureProject : IDisposable
     /// <summary>Gets the absolute root of the fixture project.</summary>
     public string Root => _root;
 
+    /// <summary>Gets the real home directory the container reports, for deriving the machine launcher path a test
+    /// cross-checks against the pipeline's own launcher.</summary>
+    public string HomeDirectory => _services.Environment.GetHomeDirectory();
+
     /// <summary>Resolves a project-relative path to its absolute form.</summary>
     /// <param name="relative">The project-relative path.</param>
     /// <returns>The absolute path.</returns>
@@ -66,6 +70,18 @@ public sealed class FixtureProject : IDisposable
     /// <param name="relative">The project-relative path.</param>
     /// <returns><see langword="true"/> when the file exists.</returns>
     public bool Exists(string relative) => _services.FileSystem.GetFileReader().Exists(PathOf(relative));
+
+    /// <summary>Deletes a project-relative file through the owned file writer.</summary>
+    /// <param name="relative">The project-relative path.</param>
+    public void Delete(string relative) => _services.FileSystem.GetFileWriter().DeleteFile(PathOf(relative));
+
+    /// <summary>Creates a real symlink at an absolute path pointing at an absolute target, through the owned platform
+    /// file system (the real per-OS implementation), so an integration test drives a genuine on-disk symlink without a
+    /// raw <c>System.IO</c> call.</summary>
+    /// <param name="linkAbsolute">The absolute symlink path to create.</param>
+    /// <param name="targetAbsolute">The absolute target the link points at.</param>
+    public void MakeSymlink(string linkAbsolute, string targetAbsolute) =>
+        _services.Platform.FileSystem.MakeLinkTarget(linkAbsolute, targetAbsolute);
 
     /// <inheritdoc />
     public void Dispose()

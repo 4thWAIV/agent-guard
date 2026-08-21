@@ -1,31 +1,40 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using System.IO;
 using System.Text.Json.Nodes;
-using AgentGuard.CrossPlatform;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Setup;
+using AgentGuard.TestHelpers;
 using AgentGuard.TestSupport;
 
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// A throwaway machine and project fixture for the setup commands. It owns a disposable temporary tree holding an
-/// isolated HOME, a project root, and per-install source binaries, and derives the on-disk paths independently of
-/// the production helpers so the tests cross-check the real layout.
+/// A throwaway machine and project fixture for the setup commands, layered over the copy-on-write simulator
+/// (copy-on-write-simulator-design) rather than real disk: an isolated HOME, a project root, and per-install source
+/// binaries all live in the one shared in-memory overlay, so the setup logic (idempotency compare, condition
+/// detection, install/doctor flow, version-pointer symlinks) runs against it with no real-disk mutation and no
+/// per-test cleanup. The executable-flag option is set so the install exercises the POSIX <c>chmod +x</c> path
+/// uniformly on every CI leg. The layout paths are derived independently of the production helpers so the tests
+/// cross-check the real layout, and every filesystem touch routes through an owned interface off the container.
 /// </summary>
 public sealed class SetupHarness : IDisposable
 {
+    private readonly ISystemServices _services;
     private readonly string _root;
     private readonly AgentGuardLayout _layout;
 
     public SetupHarness()
     {
-        _root = Directory.CreateTempSubdirectory("agentguard-setup-").FullName;
-        Home = Path.Combine(_root, "home");
-        Project = Path.Combine(_root, "project");
-        Directory.CreateDirectory(Home);
-        Directory.CreateDirectory(Project);
+        SystemServicesBuilder builder = SystemServicesBuilder.Fake();
+        builder.OnPlatform().SimulateExecutableFlag(true);
+        _services = builder.Build();
+
+        _root = DirectoryWriter.CreateTempSubdirectory("agentguard-setup-");
+        Home = System.IO.Path.Combine(_root, "home");
+        Project = System.IO.Path.Combine(_root, "project");
+        DirectoryWriter.CreateDirectory(Home);
+        DirectoryWriter.CreateDirectory(Project);
         _layout = new AgentGuardLayout(Home, Project);
     }
 
@@ -39,7 +48,22 @@ public sealed class SetupHarness : IDisposable
     public string ShellProfilePath => _layout.ShellProfilePath;
 
     /// <summary>Gets the managed, native-free platform file system the setup commands run against in tests.</summary>
-    public IPlatformFileSystem FileSystem { get; } = new ManagedPlatformFileSystem();
+    public IPlatformFileSystem FileSystem => _services.Platform.FileSystem;
+
+    /// <summary>Gets the install-integrity checker wired to the simulator container, for the integrity tests.</summary>
+    public InstallIntegrity Integrity => InstallIntegrity.Create(_services);
+
+    /// <summary>Gets the owned file reader over the overlay, for asserting the files a command wrote.</summary>
+    public IFileReader Files => _services.FileSystem.GetFileReader();
+
+    /// <summary>Gets the owned directory enumerator over the overlay, for asserting the directories a command wrote.</summary>
+    public IDirectoryEnumerator Directories => _services.FileSystem.GetDirectoryReader();
+
+    /// <summary>Gets the owned file writer over the overlay, for arranging files a test tampers with.</summary>
+    public IFileWriter FileWriter => _services.FileSystem.GetFileWriter();
+
+    /// <summary>Gets the owned directory writer over the overlay, for arranging directories a test removes.</summary>
+    public IDirectoryWriter DirectoryWriter => _services.FileSystem.GetDirectoryWriter();
 
     /// <summary>Gets the machine install root.</summary>
     public string AgentGuardRoot => _layout.AgentGuardRoot;
@@ -81,10 +105,9 @@ public sealed class SetupHarness : IDisposable
     /// <returns>The source binary path.</returns>
     public string MakeSourceBinary(string content)
     {
-        string directory = Path.Combine(_root, "src-" + Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(directory);
-        string path = Path.Combine(directory, "guard");
-        File.WriteAllText(path, content);
+        string directory = DirectoryWriter.CreateTempSubdirectory("agentguard-src-");
+        string path = System.IO.Path.Combine(directory, "guard");
+        FileWriter.WriteAllText(path, content);
         return path;
     }
 
@@ -99,6 +122,11 @@ public sealed class SetupHarness : IDisposable
         ResolvedBinaryPath = binaryPath,
         RunningVersion = version,
         ShellProfilePath = ShellProfilePath,
+        FileReader = Files,
+        FileWriter = FileWriter,
+        DirectoryWriter = DirectoryWriter,
+        Directories = Directories,
+        Random = _services.Random,
         FileSystem = FileSystem,
     };
 
@@ -132,14 +160,14 @@ public sealed class SetupHarness : IDisposable
 
     /// <summary>Reads and parses <c>.claude/settings.json</c>.</summary>
     /// <returns>The parsed settings root.</returns>
-    public JsonObject ReadSettings() => (JsonObject)JsonNode.Parse(File.ReadAllText(ClaudeSettings))!;
+    public JsonObject ReadSettings() => (JsonObject)JsonNode.Parse(Files.ReadAllText(ClaudeSettings))!;
 
     /// <summary>Writes raw <c>.claude/settings.json</c> content, creating the directory.</summary>
     /// <param name="json">The content.</param>
     public void WriteSettings(string json)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(ClaudeSettings)!);
-        File.WriteAllText(ClaudeSettings, json);
+        DirectoryWriter.CreateDirectory(System.IO.Path.GetDirectoryName(ClaudeSettings)!);
+        FileWriter.WriteAllText(ClaudeSettings, json);
     }
 
     /// <summary>Relocates the guard hook entry's command to a stale launcher path, keeping it a guard command.</summary>
@@ -150,10 +178,26 @@ public sealed class SetupHarness : IDisposable
         JsonObject group = SettingsProbe.GuardGroup(settings, eventKey)!;
         string current = SettingsProbe.CommandOf(group)!;
         group["hooks"]![0]!["command"] =
-            current.Replace(BinGuard, "/old/relocated/.agentguard/bin/guard", System.StringComparison.Ordinal);
-        File.WriteAllText(ClaudeSettings, settings.ToJsonString());
+            current.Replace(BinGuard, "/old/relocated/.agentguard/bin/guard", StringComparison.Ordinal);
+        FileWriter.WriteAllText(ClaudeSettings, settings.ToJsonString());
     }
 
     /// <inheritdoc />
-    public void Dispose() => TestTempDirectory.DeleteBestEffort(_root);
+    public void Dispose()
+    {
+        // The overlay is discarded with the container, so there is no real disk to clean; the best-effort delete
+        // keeps the in-memory store tidy when a single harness is reused across arrange/act/assert.
+        try
+        {
+            DirectoryWriter.DeleteDirectory(_root, recursive: true);
+        }
+        catch (System.IO.IOException)
+        {
+            // Best-effort cleanup of a throwaway in-memory tree.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Best-effort cleanup of a throwaway in-memory tree.
+        }
+    }
 }

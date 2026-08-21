@@ -34,6 +34,11 @@ internal sealed class OverlayNode
     /// throws <see cref="UnauthorizedAccessException"/>, standing in for a directory the process cannot read.</summary>
     internal bool Inaccessible { get; set; }
 
+    /// <summary>Gets or sets a value indicating whether a file entry carries the POSIX executable bit. It is the single
+    /// boolean flag the simulator models (copy-on-write-simulator-design), NOT a full Unix-mode model; a base file that
+    /// gets its bit set materializes an overlay node (copy-on-write), so the real fixture is never touched.</summary>
+    internal bool Executable { get; set; }
+
     /// <summary>Creates a file node holding the given bytes.</summary>
     /// <param name="content">The file bytes.</param>
     /// <param name="lastWriteUtc">The entry's last-write time, in UTC.</param>

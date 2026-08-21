@@ -28,12 +28,13 @@ internal sealed class InMemoryFileSystemStore
 
     private static readonly DateTimeOffset DefaultTimestamp = new(2020, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
-    private readonly Dictionary<string, OverlayNode> _nodes;
-    private readonly Dictionary<string, PathHandler> _handlers;
-    private readonly IEqualityComparer<string> _comparer;
     private readonly IFileReader? _baseReader;
     private readonly IDirectoryEnumerator? _baseEnumerator;
     private readonly IPlatformFileSystem? _basePlatform;
+    private Dictionary<string, OverlayNode> _nodes;
+    private Dictionary<string, PathHandler> _handlers;
+    private IEqualityComparer<string> _comparer;
+    private bool? _executableOverride;
     private int _tempCounter;
 
     /// <summary>
@@ -73,8 +74,21 @@ internal sealed class InMemoryFileSystemStore
     /// <summary>Gets the absolute root under which unique temp subdirectories are allocated.</summary>
     internal string TempRoot { get; }
 
-    /// <summary>Gets a value indicating whether the platform fake reports the backing store as case-sensitive.</summary>
-    internal bool CaseSensitive { get; }
+    /// <summary>
+    /// Gets a value indicating whether the platform fake reports the backing store as case-sensitive. It is the ONE place
+    /// the case mode lives (copy-on-write-simulator-design): both <c>IPlatformFileSystem.IsCaseSensitive</c> and this
+    /// overlay's path comparer read it here, so the two can never disagree. Changed only through
+    /// <see cref="SetCaseSensitive"/>, which keeps the comparer in step.
+    /// </summary>
+    internal bool CaseSensitive { get; private set; }
+
+    /// <summary>
+    /// Gets a value indicating whether this simulated OS uses (or supports) the executable bit — the value the platform
+    /// fake's <c>NeedsExecutableFlag()</c> returns. It defaults to the real platform's answer (following the running OS
+    /// through the injected base, never a raw OS branch) and is overridden by <see cref="SetNeedsExecutableFlag"/> so a
+    /// unit test can simulate POSIX or Windows; with no base and no override it is <see langword="false"/>.
+    /// </summary>
+    internal bool NeedsExecutableFlag => _executableOverride ?? (_basePlatform?.NeedsExecutableFlag() ?? false);
 
     /// <summary>Installs a per-path handler — the first link in the resolution chain for that path.</summary>
     /// <param name="path">The path the handler takes control of.</param>
@@ -101,6 +115,88 @@ internal sealed class InMemoryFileSystemStore
 
         node.Inaccessible = true;
     }
+
+    /// <summary>
+    /// Sets the value the platform fake's <c>NeedsExecutableFlag()</c> returns, overriding the default that follows the
+    /// running OS through the injected base — so a unit test can simulate POSIX (<see langword="true"/>) or Windows
+    /// (<see langword="false"/>) and exercise the executable-bit path either way.
+    /// </summary>
+    /// <param name="needsExecutableFlag">The simulated executable-bit support.</param>
+    internal void SetNeedsExecutableFlag(bool needsExecutableFlag) => _executableOverride = needsExecutableFlag;
+
+    /// <summary>
+    /// Switches the simulator's case mode, keeping the platform fake's <c>IsCaseSensitive</c> and this overlay's path
+    /// comparer in step (they are the same value). Switching to case-insensitive first scans the current store and throws
+    /// when two existing paths collide under case-folding, because an insensitive filesystem cannot hold both.
+    /// </summary>
+    /// <param name="caseSensitive"><see langword="true"/> for a case-sensitive filesystem; <see langword="false"/> for a
+    /// case-insensitive one.</param>
+    internal void SetCaseSensitive(bool caseSensitive)
+    {
+        if (caseSensitive == CaseSensitive)
+        {
+            return;
+        }
+
+        IEqualityComparer<string> comparer = caseSensitive ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase;
+        if (!caseSensitive)
+        {
+            var folded = new Dictionary<string, string>(comparer);
+            foreach (string key in _nodes.Keys)
+            {
+                if (folded.TryGetValue(key, out string? existing) && !StringComparer.Ordinal.Equals(existing, key))
+                {
+                    throw new InvalidOperationException(
+                        $"Cannot switch the simulator to case-insensitive: '{existing}' and '{key}' collide under case-folding.");
+                }
+
+                folded[key] = key;
+            }
+        }
+
+        _comparer = comparer;
+        _nodes = Rekey(_nodes, comparer);
+        _handlers = Rekey(_handlers, comparer);
+        CaseSensitive = caseSensitive;
+    }
+
+    /// <summary>
+    /// Determines whether the file at the path carries the executable bit (symlinks followed). Throws
+    /// <see cref="PlatformNotSupportedException"/> when the simulated OS has no executable bit, exactly as the real POSIX
+    /// implementation throws on Windows.
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    /// <returns><see langword="true"/> when the executable bit is set.</returns>
+    internal bool IsExecutable(string path)
+    {
+        RequireExecutableSupport();
+        string resolved = Resolve(path, followFinal: true);
+        if (_nodes.TryGetValue(Normalize(resolved), out OverlayNode? node))
+        {
+            return node.Kind == NodeKind.File
+                ? node.Executable
+                : throw new FileNotFoundException($"Could not find file '{resolved}'.", resolved);
+        }
+
+        return _baseReader is not null && _baseReader.Exists(resolved)
+            ? false
+            : throw new FileNotFoundException($"Could not find file '{resolved}'.", resolved);
+    }
+
+    /// <summary>
+    /// Adds the executable bit to the file at the path, materializing an overlay node for a base file so the real fixture
+    /// is never touched (copy-on-write). Throws <see cref="PlatformNotSupportedException"/> when the simulated OS has no
+    /// executable bit, exactly as the real POSIX implementation throws on Windows.
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    internal void MakeExecutable(string path) => SetExecutable(path, executable: true);
+
+    /// <summary>
+    /// Removes the executable bit from the file at the path. Throws <see cref="PlatformNotSupportedException"/> when the
+    /// simulated OS has no executable bit, exactly as the real POSIX implementation throws on Windows.
+    /// </summary>
+    /// <param name="path">The file path.</param>
+    internal void MakeNonExecutable(string path) => SetExecutable(path, executable: false);
 
     /// <summary>Determines whether a file exists at the path (symlinks followed).</summary>
     /// <param name="path">The path to test.</param>
@@ -325,6 +421,59 @@ internal sealed class InMemoryFileSystemStore
         return pattern.StartsWith('*')
             ? name.EndsWith(pattern[1..], StringComparison.Ordinal)
             : string.Equals(name, pattern, StringComparison.Ordinal);
+    }
+
+    // Re-key a map into a fresh dictionary under a new comparer, preserving every entry. The caller has already proven
+    // (for a case-folding switch) that no two keys collide, so no entry is lost.
+    private static Dictionary<string, TValue> Rekey<TValue>(
+        Dictionary<string, TValue> source, IEqualityComparer<string> comparer)
+    {
+        var rekeyed = new Dictionary<string, TValue>(comparer);
+        foreach (KeyValuePair<string, TValue> entry in source)
+        {
+            rekeyed[entry.Key] = entry.Value;
+        }
+
+        return rekeyed;
+    }
+
+    private void RequireExecutableSupport()
+    {
+        if (!NeedsExecutableFlag)
+        {
+            throw new PlatformNotSupportedException(
+                "The executable bit is a POSIX concept; the simulated OS reports NeedsExecutableFlag() as false.");
+        }
+    }
+
+    private void SetExecutable(string path, bool executable)
+    {
+        RequireExecutableSupport();
+        string resolved = Resolve(path, followFinal: true);
+        MaterializeFile(resolved).Executable = executable;
+    }
+
+    // The copy-on-write step behind the executable bit: return the overlay file node at the path, or materialize one from
+    // the base file's bytes so the flag has somewhere to live without touching the real fixture, throwing when neither
+    // exists.
+    private OverlayNode MaterializeFile(string resolved)
+    {
+        string key = Normalize(resolved);
+        if (_nodes.TryGetValue(key, out OverlayNode? node))
+        {
+            return node.Kind == NodeKind.File
+                ? node
+                : throw new FileNotFoundException($"Could not find file '{resolved}'.", resolved);
+        }
+
+        if (_baseReader is not null && _baseReader.Exists(resolved))
+        {
+            OverlayNode materialized = OverlayNode.ForFile(_baseReader.ReadAllBytes(resolved), DefaultTimestamp);
+            _nodes[key] = materialized;
+            return materialized;
+        }
+
+        throw new FileNotFoundException($"Could not find file '{resolved}'.", resolved);
     }
 
     private T Dispatch<T>(string path, FileSystemOperation operation, Func<string, T> core)

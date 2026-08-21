@@ -1,8 +1,9 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using AgentGuard.Abstractions;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.TestHelpers;
 using Microsoft.Extensions.Time.Testing;
 
 namespace AgentGuard.Tests;
@@ -19,7 +20,7 @@ internal static class TestSupport
     /// <param name="time">The clock.</param>
     /// <returns>The options.</returns>
     internal static GuardEngineOptions Options(string root, FakeTimeProvider time) =>
-        new(root, time, ReadOnlyMemory<byte>.Empty);
+        Options(root, time, ReadOnlyMemory<byte>.Empty);
 
     /// <summary>
     /// Builds pipeline options with an explicit grant public key.
@@ -29,7 +30,7 @@ internal static class TestSupport
     /// <param name="grantPublicKey">The grant public key.</param>
     /// <returns>The options.</returns>
     internal static GuardEngineOptions Options(string root, FakeTimeProvider time, ReadOnlyMemory<byte> grantPublicKey) =>
-        new(root, time, grantPublicKey);
+        new(root, SystemServicesBuilder.Real().With((TimeProvider)time).Build(), grantPublicKey);
 
     /// <summary>
     /// Builds pipeline options with a tiny per-file snapshot ceiling to exercise the capture-failure path.
@@ -39,7 +40,7 @@ internal static class TestSupport
     /// <param name="perFileCeiling">The per-file snapshot ceiling, in bytes.</param>
     /// <returns>The options.</returns>
     internal static GuardEngineOptions OptionsWithCeiling(string root, FakeTimeProvider time, long perFileCeiling) =>
-        new(root, time, ReadOnlyMemory<byte>.Empty, perFileCeiling);
+        new(root, SystemServicesBuilder.Real().With((TimeProvider)time).Build(), ReadOnlyMemory<byte>.Empty, perFileCeiling);
 
     /// <summary>
     /// Builds an Edit tool call over the given target paths.

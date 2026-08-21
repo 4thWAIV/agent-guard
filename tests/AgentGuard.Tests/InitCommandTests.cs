@@ -18,8 +18,8 @@ public sealed class InitCommandTests
         CommandOutcome outcome = harness.Init();
 
         outcome.Success.Should().BeFalse();
-        Directory.Exists(harness.ProjectAgentGuard).Should().BeFalse();
-        File.Exists(harness.ClaudeSettings).Should().BeFalse();
+        harness.Directories.DirectoryExists(harness.ProjectAgentGuard).Should().BeFalse();
+        harness.Files.Exists(harness.ClaudeSettings).Should().BeFalse();
     }
 
     [Fact]
@@ -43,10 +43,10 @@ public sealed class InitCommandTests
 
         harness.Init().Success.Should().BeTrue();
 
-        File.Exists(harness.ProjectConfig).Should().BeTrue();
-        File.ReadAllText(harness.ProjectConfig).Should().Contain("protectedPaths");
-        Directory.Exists(Path.Combine(harness.ProjectAgentGuard, "grants")).Should().BeTrue();
-        File.ReadAllText(harness.ProjectStateFile).Should().Contain("0.1.0-alpha");
+        harness.Files.Exists(harness.ProjectConfig).Should().BeTrue();
+        harness.Files.ReadAllText(harness.ProjectConfig).Should().Contain("protectedPaths");
+        harness.Directories.DirectoryExists(Path.Combine(harness.ProjectAgentGuard, "grants")).Should().BeTrue();
+        harness.Files.ReadAllText(harness.ProjectStateFile).Should().Contain("0.1.0-alpha");
     }
 
     [Fact]
@@ -116,7 +116,7 @@ public sealed class InitCommandTests
         CommandOutcome outcome = harness.Init();
 
         outcome.Success.Should().BeFalse();
-        File.ReadAllText(harness.ClaudeSettings).Should().Contain("not-an-object");
+        harness.Files.ReadAllText(harness.ClaudeSettings).Should().Contain("not-an-object");
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class InitCommandTests
         harness.Init().Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
 
-        string gitignore = File.ReadAllText(harness.Gitignore);
+        string gitignore = harness.Files.ReadAllText(harness.Gitignore);
         CountLines(gitignore, ".protected-snapshots/").Should().Be(1);
         CountLines(gitignore, ".agentguard/grants/").Should().Be(1);
         gitignore.Should().NotContain("config.json");
@@ -139,13 +139,13 @@ public sealed class InitCommandTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        var machineStamp = File.GetLastWriteTimeUtc(harness.MachineStateFile);
+        var machineStamp = harness.Files.GetLastWriteTimeUtc(harness.MachineStateFile);
 
         harness.Init().Success.Should().BeTrue();
 
-        File.GetLastWriteTimeUtc(harness.MachineStateFile).Should().Be(machineStamp);
-        Directory.Exists(harness.ProjectAgentGuard).Should().BeTrue();
-        File.Exists(harness.ClaudeSettings).Should().BeTrue();
+        harness.Files.GetLastWriteTimeUtc(harness.MachineStateFile).Should().Be(machineStamp);
+        harness.Directories.DirectoryExists(harness.ProjectAgentGuard).Should().BeTrue();
+        harness.Files.Exists(harness.ClaudeSettings).Should().BeTrue();
     }
 
     private static void AssertGuardCommand(JsonObject settings, string eventKey, SetupHarness harness, string token)

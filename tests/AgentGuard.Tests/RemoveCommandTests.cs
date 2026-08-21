@@ -36,7 +36,7 @@ public sealed class RemoveCommandTests
         SettingsProbe.HasAnyGuardHook(settings).Should().BeFalse();
         settings["permissions"]!["allow"]![0]!.GetValue<string>().Should().Be("Read");
         settings.ToJsonString().Should().Contain("echo user-hook");
-        Directory.Exists(harness.ProjectAgentGuard).Should().BeFalse();
+        harness.Directories.DirectoryExists(harness.ProjectAgentGuard).Should().BeFalse();
     }
 
     [Fact]
@@ -58,11 +58,11 @@ public sealed class RemoveCommandTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
-        var machineStamp = File.GetLastWriteTimeUtc(harness.MachineStateFile);
+        var machineStamp = harness.Files.GetLastWriteTimeUtc(harness.MachineStateFile);
 
         harness.Remove().Success.Should().BeTrue();
 
-        File.GetLastWriteTimeUtc(harness.MachineStateFile).Should().Be(machineStamp);
-        File.Exists(harness.BinGuard).Should().BeTrue();
+        harness.Files.GetLastWriteTimeUtc(harness.MachineStateFile).Should().Be(machineStamp);
+        harness.Files.Exists(harness.BinGuard).Should().BeTrue();
     }
 }

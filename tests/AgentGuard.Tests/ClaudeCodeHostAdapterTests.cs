@@ -1,8 +1,8 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
 using FluentAssertions;
 using Xunit;
 
