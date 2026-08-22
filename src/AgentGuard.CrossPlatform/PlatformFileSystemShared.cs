@@ -51,14 +51,13 @@ internal sealed class PlatformFileSystemShared
 
     /// <summary>
     /// Builds a unique temporary sibling path beside <paramref name="path"/> — a <c>.tmp-</c> name in the same
-    /// directory, so an atomic create-and-swap stays on one filesystem. The unique suffix comes from the injected
-    /// random generator, not a raw <c>Guid.NewGuid()</c>.
+    /// directory, so an atomic create-and-swap stays on one filesystem. Forwards to the one shared formula on the owned
+    /// <see cref="IRandomGenerator"/>, so the per-OS caller reaches it through this shared helper by design and the
+    /// formula is not spelled again here.
     /// </summary>
     /// <param name="path">The destination path.</param>
     /// <returns>The temporary sibling path in the destination's directory.</returns>
-    internal string TemporarySiblingPath(string path) => Path.Combine(
-        Path.GetDirectoryName(path)!,
-        Path.GetFileName(path) + ".tmp-" + _random.NewGuid().ToString("N"));
+    internal string TemporarySiblingPath(string path) => _random.TemporarySiblingPath(path);
 
     /// <summary>
     /// Throws when <paramref name="linkPath"/> holds a real file or directory rather than a symlink, so a re-point

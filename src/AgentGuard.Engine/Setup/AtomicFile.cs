@@ -69,16 +69,6 @@ internal sealed class AtomicFile
     }
 
     /// <summary>
-    /// Builds the temporary-sibling path — a unique <c>.tmp-</c> name beside the destination — for these atomic
-    /// write-and-rename operations. The name is made unique through the owned GUID factory.
-    /// </summary>
-    /// <param name="path">The destination path.</param>
-    /// <returns>The temporary sibling path in the destination's directory.</returns>
-    internal string TemporarySiblingPath(string path) => Path.Combine(
-        Path.GetDirectoryName(path)!,
-        Path.GetFileName(path) + ".tmp-" + _random.NewGuid().ToString("N"));
-
-    /// <summary>
     /// Atomically copies a source file over a destination, creating parent directories. The source is never
     /// moved and the destination is replaced by a rename.
     /// </summary>
@@ -103,7 +93,7 @@ internal sealed class AtomicFile
     private string BeginWrite(string path)
     {
         _directoryWriter.CreateDirectory(Path.GetDirectoryName(path)!);
-        return TemporarySiblingPath(path);
+        return _random.TemporarySiblingPath(path);
     }
 
     /// <summary>
