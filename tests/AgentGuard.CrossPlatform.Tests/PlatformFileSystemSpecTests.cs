@@ -226,6 +226,26 @@ public sealed class PlatformFileSystemSpecTests : IDisposable
     }
 
     [Fact]
+    public void IsCaseSensitive_MatchesTheFixtureFilesystemsObservedCaseFolding()
+    {
+        // Independently observe the fixture filesystem's real case behavior through the owned reader: create a
+        // lowercase-named file, then ask whether its case-flipped spelling resolves to an entry. A hit means the
+        // filesystem folded the case (case-insensitive); a miss means the exact case was required (case-sensitive).
+        // This is a real-disk fact the in-memory simulator cannot produce, and it is derived without assuming any
+        // particular OS default (macOS APFS is case-insensitive, Linux ext4 case-sensitive, NTFS case-insensitive).
+        string lower = Path.Combine(root, "casefixture.probe");
+        WriteText(lower, "probe");
+        string flipped = Path.Combine(root, "CASEFIXTURE.PROBE");
+        bool observedCaseSensitive = !FileExists(flipped);
+
+        // The real PosixFileSystem answers pathconf(_PC_CASE_SENSITIVE) natively on macOS (and falls back to the shared
+        // probe on Linux). Either way its verdict for the fixture directory must equal the case folding the filesystem
+        // was just observed to perform in that same directory — a wrong native answer or an inverted return would fail
+        // here. Exercises the real IsCaseSensitive and, on macOS, the PosixNativeMethods.PathConf P/Invoke.
+        fileSystem.IsCaseSensitive(root).Should().Be(observedCaseSensitive);
+    }
+
+    [Fact]
     [SuppressMessage(
         "AgentGuard.Architecture",
         "AG0101:OsDivergentFilesystemOnlyInCrossPlatform",
