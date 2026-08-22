@@ -15,7 +15,7 @@ namespace AgentGuard.TestHelpers;
 /// navigator that follows the container's own shape — <see cref="OnFileSystem"/> for the filesystem leaves and
 /// <see cref="OnPlatform"/> for the platform. It is the only class anywhere with <c>With</c>/<c>Wrap</c>, and — besides
 /// the one CLI composition method — the only caller of <c>SystemServices.Create()</c>. Its sub-builders are public nested
-/// types (a public navigator must return a public type); its fake container implementers are private nested types, so the
+/// types (a public navigator must return a public type); its fake container implementers are internal nested types, so the
 /// three container interfaces each have exactly one implementer here (AG0022). The one shared copy-on-write overlay
 /// (<see cref="InMemoryFileSystemStore"/>) is constructed only inside this class (AG0027), at the single site
 /// <see cref="NewOverlay"/>.
