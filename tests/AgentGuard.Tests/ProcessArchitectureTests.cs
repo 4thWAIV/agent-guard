@@ -81,13 +81,14 @@ public sealed class ProcessArchitectureTests
     [Fact]
     public void FakeEnvironmentArchitectureOverrideWins()
     {
-        Architecture host = SystemServicesBuilder.Real().Build().Environment.GetProcessArchitecture();
+        IEnvironment realEnvironment = SystemServicesBuilder.Real().Build().Environment;
+        Architecture host = realEnvironment.GetProcessArchitecture();
         Architecture simulated = host == Architecture.Arm64 ? Architecture.X64 : Architecture.Arm64;
         Assert.NotEqual(host, simulated);
 
         IEnvironment fake = SystemServicesBuilder.Fake()
             .With(FakeEnvironment.Create(
-                "/agentguard-fake-home",
+                realEnvironment.GetHomeDirectory(),
                 processArchitecture: simulated,
                 osArchitecture: simulated))
             .Build()

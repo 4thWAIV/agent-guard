@@ -55,13 +55,6 @@ public sealed class GuardedConstructionAnalyzer : DiagnosticAnalyzer
 
     private const string Category = "AgentGuard.Architecture";
 
-    // The shared copy-on-write overlay type AgentGuard.TestHelpers.InMemoryFileSystemStore. AG0027 pins its construction
-    // to SystemServicesBuilder within the TestHelpers compilation (store-single-construction-rule). Matched by
-    // namespace + name through WellKnownType; the namespace and the assembly are both "AgentGuard.TestHelpers"
-    // (TestAssembly.TestHelpersName), the same string CompositionPoint anchors SystemServicesBuilder on. The type is
-    // built in IMPLEMENT, so this is preventive today.
-    private const string StoreTypeName = "InMemoryFileSystemStore";
-
     // The two owned wrapper interfaces AgentGuard.Abstractions.Contracts.IFileInfo/IDirectoryInfo. AG0033 pins any
     // static factory whose RETURN TYPE is one of these to FileInfoFactory (ag0033-wrapper-construction-lock, "same shape
     // as AG0017"): AbstractedFileInfo/AbstractedDirectoryInfo.Create return exactly these, so the real wrappers are
@@ -153,7 +146,7 @@ public sealed class GuardedConstructionAnalyzer : DiagnosticAnalyzer
         // walk (CompositionPoint.Encloses) reduces to "inside SystemServicesBuilder" here: the only OTHER composition
         // caller it admits, Program, is anchored to the "guard" assembly and so never matches within the TestHelpers
         // compilation this branch is gated to.
-        if (IsStoreConstruction(context.Operation, type)
+        if (TestHelperTypes.IsStoreConstruction(context.Operation, type)
             && string.Equals(context.Compilation.AssemblyName, TestAssembly.TestHelpersName, StringComparison.Ordinal)
             && !CompositionPoint.Encloses(context.ContainingSymbol))
         {
@@ -196,13 +189,4 @@ public sealed class GuardedConstructionAnalyzer : DiagnosticAnalyzer
         ISymbol member, ImmutableArray<(string Namespace, string Name)> candidates)
         => member is IMethodSymbol { IsStatic: true } method
             && WellKnownType.IsAnyOf(method.ReturnType as INamedTypeSymbol, candidates);
-
-    // AG0027: an object creation whose created TYPE is the shared overlay AgentGuard.TestHelpers.InMemoryFileSystemStore,
-    // matched by namespace + name through the type-identity owner WellKnownType. The IObjectCreationOperation gate is
-    // what makes this a CONSTRUCTION branch (the AG0017/AG0033 static-factory calls are invocations, not creations, so
-    // the three branches are disjoint); the created type is the constructor's containing type MemberUseScanner already
-    // resolved into `type`.
-    private static bool IsStoreConstruction(IOperation operation, INamedTypeSymbol type)
-        => operation is IObjectCreationOperation
-            && WellKnownType.Is(type, TestAssembly.TestHelpersName, StoreTypeName);
 }

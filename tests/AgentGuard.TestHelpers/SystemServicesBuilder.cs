@@ -22,15 +22,15 @@ namespace AgentGuard.TestHelpers;
 /// </summary>
 public sealed class SystemServicesBuilder
 {
-    private const string DefaultFakeHome = "/agentguard-fake-home";
-    private const string DefaultFakeTempRoot = "/agentguard-fake-temp";
-
-    // The real host CPU architecture, read ONCE through the single sanctioned Boundaries entrypoint
-    // (SystemServices.Create(), the same door Real() uses) and cached as two Architecture VALUES — never the container
-    // or a service, so no per-build reconstruction and no AG0024 static service holder. The Fake() default environment
-    // reports these true host values instead of a hardcoded X64, while its home, current directory, temp, and
-    // environment variables stay controlled (fake).
-    private static readonly HostArchitecture RealHostArchitecture = ReadRealHostArchitecture();
+    // The real host VALUES — process + OS architecture, home directory, temp root, and filesystem case-sensitivity —
+    // read ONCE through the single sanctioned Boundaries entrypoint (SystemServices.Create(), the same door Real() uses)
+    // and cached as plain VALUES (two enums, two strings, a bool) — never the container or a service, so there is no
+    // per-build reconstruction and no AG0024 static service holder. The Fake() default environment reports these true
+    // host values instead of hardcoded roots: because the simulator is copy-on-write over a real read-only base and never
+    // writes to real disk, the real home and temp are safe to pass through to the fake (fake-reads-real-home-and-temp),
+    // and a real home/temp is fully-qualified on every OS, which is what keeps the fake correct on Windows. Its current
+    // directory and environment variables stay controlled (fake).
+    private static readonly RealHost Host = ReadRealHost();
 
     private readonly bool _isFake;
     private readonly ISystemServices? _real;
@@ -70,7 +70,15 @@ public sealed class SystemServicesBuilder
     /// </summary>
     /// <returns>A builder over the built-in fakes.</returns>
     public static SystemServicesBuilder Fake() =>
-        new(isFake: true, real: null, store: NewOverlay(baseReader: null, baseEnumerator: null, basePlatform: null));
+        new(
+            isFake: true,
+            real: null,
+            store: NewOverlay(
+                baseReader: null,
+                baseEnumerator: null,
+                basePlatform: null,
+                tempRoot: Host.Temp,
+                caseSensitive: Host.CaseSensitive));
 
     /// <summary>Substitutes the environment service.</summary>
     /// <param name="environment">The environment fake to install.</param>
@@ -205,10 +213,13 @@ public sealed class SystemServicesBuilder
                 "SimulateFileSystem() layers an overlay over the real filesystem; start from SystemServicesBuilder.Real().");
         }
 
+        string realHome = _real.Environment.GetHomeDirectory();
         _store = NewOverlay(
             _real.FileSystem.GetFileReader(),
             _real.FileSystem.GetDirectoryReader(),
-            _real.Platform.FileSystem);
+            _real.Platform.FileSystem,
+            tempRoot: _real.Environment.GetTempDirectory(),
+            caseSensitive: _real.Platform.FileSystem.IsCaseSensitive(realHome));
         return this;
     }
 
@@ -233,9 +244,10 @@ public sealed class SystemServicesBuilder
         IEnvironment environment = _environment.Resolve(() =>
             _isFake
                 ? FakeEnvironment.Create(
-                    DefaultFakeHome,
-                    processArchitecture: RealHostArchitecture.Process,
-                    osArchitecture: RealHostArchitecture.Os)
+                    Host.Home,
+                    tempDirectory: Host.Temp,
+                    processArchitecture: Host.Process,
+                    osArchitecture: Host.Os)
                 : _real!.Environment);
         IRandomGenerator random = _random.Resolve(() => _isFake ? FixedGuidFactory.Create() : _real!.Random);
         IConsole console = _console.Resolve(() => _isFake ? new RecordingConsole().Console : _real!.Console);
@@ -258,19 +270,35 @@ public sealed class SystemServicesBuilder
     }
 
     // The SINGLE construction site of the shared overlay (AG0027 pins new InMemoryFileSystemStore to this class). Fake()
-    // passes a null base (a pure in-memory filesystem); SimulateFileSystem() passes the real leaves as the read-only base.
+    // passes a null base (a pure in-memory filesystem); SimulateFileSystem() passes the real leaves as the read-only
+    // base. The tempRoot and caseSensitive seed VALUES are real-host-sourced by the caller (Fake() from the cached host
+    // values, SimulateFileSystem() from the injected real base), never a hardcoded literal (AG0035/AG0036).
     private static InMemoryFileSystemStore NewOverlay(
-        IFileReader? baseReader, IDirectoryEnumerator? baseEnumerator, IPlatformFileSystem? basePlatform) =>
-        new(baseReader, baseEnumerator, basePlatform, comparer: null, tempRoot: DefaultFakeTempRoot, caseSensitive: true);
+        IFileReader? baseReader,
+        IDirectoryEnumerator? baseEnumerator,
+        IPlatformFileSystem? basePlatform,
+        string tempRoot,
+        bool caseSensitive) =>
+        new(baseReader, baseEnumerator, basePlatform, comparer: null, tempRoot: tempRoot, caseSensitive: caseSensitive);
 
-    // Reads the real host architecture ONCE through the one sanctioned Boundaries door (SystemServices.Create(), the same
+    // Reads the real host VALUES ONCE through the one sanctioned Boundaries door (SystemServices.Create(), the same
     // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017), then discards
-    // the container and keeps only the two Architecture VALUES. Caching the values, not the container or a service, keeps
-    // clear of the static-service-holder rule (AG0024).
-    private static HostArchitecture ReadRealHostArchitecture()
+    // the container and keeps only plain VALUES: the two architectures, the home directory, the temp root, and the host
+    // filesystem's case-sensitivity (read through the case-sensitivity detection the platform already carries, keyed on
+    // the real home). GetTempDirectory() is the one AGS5443 owner-exempt call — SystemServicesBuilder is copy-on-write
+    // over the real host and reads the real temp root once here to seed the in-memory fake (temp-root-owner-exemption).
+    // Caching the values, not the container or a service, keeps clear of the static-service-holder rule (AG0024).
+    private static RealHost ReadRealHost()
     {
-        IEnvironment environment = SystemServices.Create().Environment;
-        return new HostArchitecture(environment.GetProcessArchitecture(), environment.GetOSArchitecture());
+        ISystemServices services = SystemServices.Create();
+        IEnvironment environment = services.Environment;
+        string home = environment.GetHomeDirectory();
+        return new RealHost(
+            environment.GetProcessArchitecture(),
+            environment.GetOSArchitecture(),
+            home,
+            environment.GetTempDirectory(),
+            services.Platform.FileSystem.IsCaseSensitive(home));
     }
 
     // A service with no built-in fake (signatures, build-info): resolve its override or, in Real mode, the real base; in
@@ -283,11 +311,14 @@ public sealed class SystemServicesBuilder
         _store ?? throw new InvalidOperationException(
             "The per-path failure seam needs a simulated or fake filesystem; call Fake() or Real().SimulateFileSystem() first.");
 
-    // The two real host architecture VALUES (process + OS) the Fake() default sources from the real environment: a value
-    // type over two enums, not a service, so caching it in a static is not an AG0024 static service holder. LayoutKind.Auto
-    // (MA0008): this is a managed-only value holder, never used for interop, so the runtime picks the layout.
+    // The real host VALUES the Fake() default and the overlay source from the real environment: process + OS
+    // architecture, home directory, temp root, and filesystem case-sensitivity. A value type over two enums, two
+    // strings, and a bool — not a service — so caching it in a static is not an AG0024 static service holder.
+    // LayoutKind.Auto (MA0008): this is a managed-only value holder, never used for interop, so the runtime picks the
+    // layout.
     [StructLayout(LayoutKind.Auto)]
-    private readonly record struct HostArchitecture(Architecture Process, Architecture Os);
+    private readonly record struct RealHost(
+        Architecture Process, Architecture Os, string Home, string Temp, bool CaseSensitive);
 
     /// <summary>
     /// The filesystem sub-builder: substitutes and wraps the four filesystem leaves on the correct nested scope (AG0019),

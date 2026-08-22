@@ -21,7 +21,7 @@ public class PosixSourceIsLinkSharedTests
     [Fact]
     public void LinuxProject_LinkSharesTheMacOsPosixSource()
     {
-        string repositoryRoot = FindRepositoryRoot();
+        string repositoryRoot = RepositoryFiles.FindRepositoryRoot();
         string linuxProjectPath = Path.Combine(
             repositoryRoot, "src", "AgentGuard.CrossPlatform.Linux", "AgentGuard.CrossPlatform.Linux.csproj");
 
@@ -38,8 +38,8 @@ public class PosixSourceIsLinkSharedTests
             .Where(element => string.Equals(element.Name.LocalName, "Compile", StringComparison.Ordinal)
                 && element.Attribute("Link") is not null
                 && element.Attribute("Include") is not null)
-            .Select(element => ResolvePath(linuxProjectDirectory, element.Attribute("Include")!.Value))
-            .Where(includePath => IsUnder(includePath, macOsProjectDirectory)
+            .Select(element => RepositoryFiles.ResolvePath(linuxProjectDirectory, element.Attribute("Include")!.Value))
+            .Where(includePath => RepositoryFiles.IsUnder(includePath, macOsProjectDirectory)
                 && includePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))
             .ToList();
 
@@ -53,33 +53,5 @@ public class PosixSourceIsLinkSharedTests
                 File.Exists(linkedSource),
                 $"The link-shared POSIX source must be a single authored file that exists on disk: {linkedSource}");
         }
-    }
-
-    private static string FindRepositoryRoot()
-    {
-        for (DirectoryInfo? directory = new(AppContext.BaseDirectory); directory is not null; directory = directory.Parent)
-        {
-            if (File.Exists(Path.Combine(directory.FullName, "AgentGuard.sln")))
-            {
-                return directory.FullName;
-            }
-        }
-
-        throw new InvalidOperationException(
-            "Could not locate the repository root (no AgentGuard.sln found above the test output directory).");
-    }
-
-    private static string ResolvePath(string baseDirectory, string relativeOrAbsolute)
-    {
-        string normalized = relativeOrAbsolute
-            .Replace('\\', Path.DirectorySeparatorChar)
-            .Replace('/', Path.DirectorySeparatorChar);
-        return Path.GetFullPath(Path.IsPathRooted(normalized) ? normalized : Path.Combine(baseDirectory, normalized));
-    }
-
-    private static bool IsUnder(string path, string directory)
-    {
-        string normalizedDirectory = Path.GetFullPath(directory) + Path.DirectorySeparatorChar;
-        return path.StartsWith(normalizedDirectory, StringComparison.OrdinalIgnoreCase);
     }
 }

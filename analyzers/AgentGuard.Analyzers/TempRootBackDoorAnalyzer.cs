@@ -23,9 +23,15 @@ namespace AgentGuard.Analyzers;
 /// container factory, so the capture-then-invoke shape cannot reopen the back door. It does NOT touch the raw
 /// <c>Path.GetTempPath()</c> — owned and pinned by <see cref="PathPurityAnalyzer"/> (AG0020) to
 /// <c>EnvironmentAdapter</c> — nor <c>IDirectoryWriter.CreateTempSubdirectory</c>, which creates a uniquely-named atomic
-/// subdirectory the caller owns rather than the shared root (which is why Sonar has no rule against it). Blast radius
-/// today is zero — nothing in <c>src</c> or <c>tests</c> calls <c>GetTempDirectory()</c> — so the rule is preventive:
-/// it is silent as shipped and starts firing the moment a caller reaches for the raw temp root.
+/// subdirectory the caller owns rather than the shared root (which is why Sonar has no rule against it).
+/// </para>
+/// <para>
+/// One owner is exempt (temp-root-owner-exemption): the test <c>SystemServicesBuilder</c> in
+/// <c>AgentGuard.TestHelpers</c> is copy-on-write over the real host, so it reads the real temp root through
+/// <c>GetTempDirectory()</c> once to seed the in-memory fake — the same single-owner shape the temp and random
+/// primitives already use. Inside <c>SystemServicesBuilder</c> the call is allowed; everywhere else it stays a build
+/// error. There is otherwise no caller in <c>src</c> or <c>tests</c>, so the rule remains preventive: silent as shipped
+/// except for the one owner, and firing the moment any other caller reaches for the raw temp root.
 /// </para>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -80,6 +86,14 @@ public sealed class TempRootBackDoorAnalyzer : DiagnosticAnalyzer
             && string.Equals(member.Name, GetTempDirectoryMethodName, StringComparison.Ordinal)
             && WellKnownType.IsAnyOf(type, ContractInterfaces.Environment))
         {
+            // temp-root-owner-exemption (AGS5443): the test SystemServicesBuilder is the ONE owner licensed to read
+            // the real host temp root through the abstraction to seed the copy-on-write fake; the back-door ban stands
+            // everywhere else, including the Program composition caller.
+            if (CompositionPoint.EnclosesTestBuilder(context.ContainingSymbol))
+            {
+                return;
+            }
+
             context.ReportDiagnostic(Diagnostic.Create(
                 Rule, context.Operation.Syntax.GetLocation(), MemberUseScanner.Describe(member, type)));
         }

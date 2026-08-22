@@ -33,5 +33,8 @@ AG0031  | AgentGuard.Architecture | Warning | NoServiceAsParameterAnalyzer
 AG0032  | AgentGuard.Architecture | Warning | NoCoverageOptOutAnalyzer
 AG0033  | AgentGuard.Architecture | Warning | GuardedConstructionAnalyzer (*Info wrapper construction)
 AG0034  | AgentGuard.Architecture | Warning | SystemServicesMemberMustBeServiceAccessorAnalyzer
+AG0035  | AgentGuard.Architecture | Warning | NoLiteralFakeRootAnalyzer
+AG0036  | AgentGuard.Architecture | Warning | NoLiteralCaseModeSeedAnalyzer
+AG0037  | AgentGuard.Architecture | Warning | NoOsBranchingOutsideCrossPlatformAnalyzer (single-OS branch inside a per-OS implementation library)
 AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer (shrunk to static OS-divergent members, Marshal, and P/Invoke)
 AGS5443 | AgentGuard.Architecture | Warning | TempRootBackDoorAnalyzer (IEnvironment.GetTempDirectory call sites; owned equivalent of Sonar S5443)

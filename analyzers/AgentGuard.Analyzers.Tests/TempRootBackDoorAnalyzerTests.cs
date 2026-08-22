@@ -117,6 +117,51 @@ public class TempRootBackDoorAnalyzerTests
         }
         """;
 
+    // temp-root-owner-exemption: a GetTempDirectory() call INSIDE the test SystemServicesBuilder in
+    // AgentGuard.TestHelpers — the one owner licensed to read the real host temp root to seed the copy-on-write fake.
+    // Compiled into the AgentGuard.TestHelpers assembly, this is exempt; elsewhere it stays a build error.
+    private const string GetTempDirectoryInsideSystemServicesBuilderSource = """
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IEnvironment
+            {
+                string GetTempDirectory();
+            }
+        }
+
+        namespace AgentGuard.TestHelpers
+        {
+            using AgentGuard.Abstractions.Contracts;
+
+            public sealed class SystemServicesBuilder
+            {
+                public string Seed(IEnvironment environment) => environment.GetTempDirectory();
+            }
+        }
+        """;
+
+    // A GetTempDirectory() call inside AgentGuard.TestHelpers but NOT in SystemServicesBuilder — the exemption is for
+    // the one owner, not the whole assembly, so this stays a build error.
+    private const string GetTempDirectoryElsewhereInTestHelpersSource = """
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IEnvironment
+            {
+                string GetTempDirectory();
+            }
+        }
+
+        namespace AgentGuard.TestHelpers
+        {
+            using AgentGuard.Abstractions.Contracts;
+
+            public sealed class SomeOtherHelper
+            {
+                public string Seed(IEnvironment environment) => environment.GetTempDirectory();
+            }
+        }
+        """;
+
     // A decoy IEnvironment in a FOREIGN namespace whose GetTempDirectory() is not the owned abstraction — the
     // namespace+name pin leaves it alone.
     private const string DecoyEnvironmentInForeignNamespaceSource = """
@@ -188,5 +233,33 @@ public class TempRootBackDoorAnalyzerTests
     public async Task GetTempDirectoryOnDecoyEnvironmentInForeignNamespace_IsNotReported()
     {
         Assert.Empty(await AnalyzerRunner.RunAsync<TempRootBackDoorAnalyzer>(DecoyEnvironmentInForeignNamespaceSource));
+    }
+
+    [Fact]
+    public async Task GetTempDirectoryInsideSystemServicesBuilder_IsExempt()
+    {
+        // temp-root-owner-exemption: SystemServicesBuilder in the AgentGuard.TestHelpers assembly is the one licensed
+        // owner, so its seed read of the real temp root is allowed.
+        Assert.Empty(await AnalyzerRunner.RunAsync<TempRootBackDoorAnalyzer>(
+            GetTempDirectoryInsideSystemServicesBuilderSource, "AgentGuard.TestHelpers"));
+    }
+
+    [Fact]
+    public async Task GetTempDirectoryElsewhereInTestHelpers_IsStillReported()
+    {
+        // The exemption is for the one owner, not the whole TestHelpers assembly — a different type there still fires.
+        Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<TempRootBackDoorAnalyzer>(
+            GetTempDirectoryElsewhereInTestHelpersSource, "AgentGuard.TestHelpers"));
+        Assert.Equal("AGS5443", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task GetTempDirectoryInSystemServicesBuilderOfAnotherAssembly_IsStillReported()
+    {
+        // The exemption keys on the AgentGuard.TestHelpers assembly too: a same-named SystemServicesBuilder compiled
+        // into a different assembly cannot self-grant it, so the ban still fires.
+        Diagnostic diagnostic = Assert.Single(await AnalyzerRunner.RunAsync<TempRootBackDoorAnalyzer>(
+            GetTempDirectoryInsideSystemServicesBuilderSource, "AgentGuard.Other"));
+        Assert.Equal("AGS5443", diagnostic.Id);
     }
 }

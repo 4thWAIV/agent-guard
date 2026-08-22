@@ -51,6 +51,20 @@ internal static class CompositionPoint
     }
 
     /// <summary>
+    /// Gets a value indicating whether the test <c>SystemServicesBuilder</c> in <c>AgentGuard.TestHelpers</c> — and it
+    /// alone, NOT the <c>Program</c> composition caller — encloses <paramref name="containingSymbol"/>. This is the one
+    /// owner licensed to read the shared OS temp root through <c>IEnvironment.GetTempDirectory()</c> to seed the
+    /// copy-on-write fake (temp-root-owner-exemption, AGS5443): the builder is copy-on-write over the real host, so it
+    /// passes the real temp root through once here and the AGS5443 ban stands everywhere else.
+    /// </summary>
+    /// <param name="containingSymbol">The symbol whose enclosing types are walked.</param>
+    /// <returns><see langword="true"/> when the test <c>SystemServicesBuilder</c> encloses the symbol.</returns>
+    internal static bool EnclosesTestBuilder(ISymbol containingSymbol)
+    {
+        return EnclosedBy(containingSymbol, IsBuilderInTestHelpers);
+    }
+
+    /// <summary>
     /// Gets a value indicating whether the clock construction site — <c>SystemServices</c> in
     /// <c>AgentGuard.Boundaries</c> (whose <c>Create()</c> wires the container) or the test
     /// <c>SystemServicesBuilder</c> — encloses <paramref name="containingSymbol"/>. This is where a direct

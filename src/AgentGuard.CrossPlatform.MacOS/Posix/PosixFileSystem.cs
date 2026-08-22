@@ -21,14 +21,8 @@ namespace AgentGuard.CrossPlatform.Posix;
 /// guard on each states the impl runs only on POSIX, which lets the managed Unix-mode calls be reached and satisfies the
 /// platform compatibility analyzer without a suppression.
 /// </summary>
-internal sealed class PosixFileSystem : PlatformFileSystemBase, IPlatformFileSystem
+internal sealed partial class PosixFileSystem : PlatformFileSystemBase, IPlatformFileSystem
 {
-    // The macOS pathconf name _PC_CASE_SENSITIVE, verified against the SDK header
-    // (/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/sys/unistd.h: "#define _PC_CASE_SENSITIVE 11").
-    // It is a macOS-specific constant; Linux has no such query, so it is used only under the OperatingSystem.IsMacOS()
-    // guard below.
-    private const int PosixCaseSensitiveName = 11;
-
     private const UnixFileMode ExecuteBits =
         UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
 
@@ -129,18 +123,16 @@ internal sealed class PosixFileSystem : PlatformFileSystemBase, IPlatformFileSys
     /// <inheritdoc/>
     public bool IsCaseSensitive(string path)
     {
-        // Native-first (case-sensitivity-detected-per-filesystem): macOS answers directly with
-        // pathconf(path, _PC_CASE_SENSITIVE). The constant is macOS-specific and Linux has no such query, so the native
-        // query runs only on macOS; on Linux, and whenever pathconf cannot answer (returns -1), the shared read-only
-        // probe is the fallback, and the probe's own documented case-sensitive default is the last resort.
-        if (OperatingSystem.IsMacOS())
+        // Native-first (case-sensitivity-detected-per-filesystem): the per-OS partial method answers directly where the
+        // OS has a native query — on macOS through pathconf(path, _PC_CASE_SENSITIVE) — and reports failure otherwise.
+        // The native query is OS-divergent, so it lives in an OS-specific file (PosixFileSystem.MacOS.cs /
+        // PosixFileSystem.Linux.cs) that only its own OS's project compiles, keeping this link-shared source free of any
+        // single-OS branch (AG0037). Whenever no native query answers — Linux always, and macOS when pathconf cannot
+        // answer — the shared read-only probe is the fallback, and the probe's own documented case-sensitive default is
+        // the last resort.
+        if (TryQueryNativeCaseSensitivity(path, out bool caseSensitive))
         {
-            long native = PosixNativeMethods.PathConf(path, PosixCaseSensitiveName);
-            if (native >= 0)
-            {
-                // pathconf returns 1 when the file system is case-sensitive, 0 when it is not.
-                return native == 1;
-            }
+            return caseSensitive;
         }
 
         return _shared.ProbeCaseSensitive(path);
@@ -161,6 +153,12 @@ internal sealed class PosixFileSystem : PlatformFileSystemBase, IPlatformFileSys
     // method reaches after this guard passes are proven safe to CA1416 without a suppression.
     [UnsupportedOSPlatformGuard("windows")]
     private static bool IsPosix() => !OperatingSystem.IsWindows();
+
+    // The OS-divergent native case-sensitivity query, supplied per OS by an OS-specific partial fragment
+    // (PosixFileSystem.MacOS.cs answers through pathconf; PosixFileSystem.Linux.cs has no native query and defers to the
+    // shared probe). It returns a value, so C# requires each per-OS project to supply a body or fail to build — the seam
+    // that keeps the macOS pathconf query out of the Linux build as dead, uncoverable code.
+    private static partial bool TryQueryNativeCaseSensitivity(string path, out bool caseSensitive);
 
     private void TryRemoveLink(string linkPath)
     {
