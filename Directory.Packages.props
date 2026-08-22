@@ -35,12 +35,9 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
   </ItemGroup>
 
-  <ItemGroup Label="Coverage report merge + threshold gate">
-    <!-- Single source of the ReportGenerator version. CI installs the tool at this exact version to merge the
-         per-project cobertura reports and emit a JsonSummary the coverage gate thresholds at 75%
-         (decisions threshold-75-hard-gate, covered-assemblies). It is a CLI tool, not a compile-time reference. -->
-    <PackageVersion Include="dotnet-reportgenerator-globaltool" Version="5.5.11" />
-  </ItemGroup>
+  <!-- ReportGenerator (the coverage report merge tool the gate runs) is pinned in the committed tool manifest
+       .config/dotnet-tools.json (decision reportgenerator-pinned) and restored with `dotnet tool restore`, not
+       package-referenced here — one pin, no drift. -->
 
   <ItemGroup Label="Runtime dependencies">
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />

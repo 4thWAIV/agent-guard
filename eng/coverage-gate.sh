@@ -5,7 +5,8 @@
 # set is below 75% — the same standing a failed test would.
 #
 # Checks (each argument after the report directory):
-#   aggregate                          Engine + guard (AgentGuard.Cli) + AgentGuard.CrossPlatform, together >= 75%.
+#   aggregate                          Engine + guard (AgentGuard.Cli) + AgentGuard.CrossPlatform + AgentGuard.Boundaries,
+#                                      together >= 75%.
 #   <AssemblyName>                     that single assembly (a per-OS implementation) >= 75% on its own OS leg.
 #
 # The Linux leg runs `aggregate AgentGuard.CrossPlatform.Linux`; the macOS and Windows legs run only their own
@@ -16,14 +17,19 @@
 # Usage: eng/coverage-gate.sh <report-dir> <check> [<check> ...]
 set -euo pipefail
 
-MIN="${COVERAGE_MIN:-75}"
+# The coverage floor is a HARD 75% with NO environment override (decisions threshold-75-hard-gate,
+# coverage-threshold-hard-no-override): a failing coverage run has the same standing as a failing test and cannot be
+# knobbed down for a green build.
+MIN=75
 
 if [ "$#" -lt 2 ]; then
   echo "usage: eng/coverage-gate.sh <report-dir> <check> [<check> ...]" >&2
   exit 2
 fi
 
-REPORT_DIR="$1"
+# Resolve the report directory to an absolute path so report paths survive the ReportGenerator run below regardless of
+# the working directory.
+REPORT_DIR="$(cd "$1" && pwd)"
 shift
 CHECKS=("$@")
 
@@ -32,7 +38,7 @@ REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 
 # The aggregate counted set — the single source of truth, shared by the counted-set self-check below and the gate math
 # at the end. AgentGuard.Cli builds as `guard.dll`, so its assembly name is `guard`.
-AGGREGATE=(AgentGuard.Engine guard AgentGuard.CrossPlatform)
+AGGREGATE=(AgentGuard.Engine guard AgentGuard.CrossPlatform AgentGuard.Boundaries)
 
 # Resolve the Python used for the self-check, report selection, and the gate math below.
 PYTHON="python3"
@@ -75,33 +81,11 @@ sys.stderr.write(
     % (sorted(aggregate), sorted(per_os)))
 PY
 
-# Make a globally-installed ReportGenerator reachable regardless of whether the tools directory is on PATH.
-add_tools_dir_to_path() {
-  for candidate in "$HOME/.dotnet/tools" "${USERPROFILE:-}/.dotnet/tools"; do
-    if [ -x "$candidate/reportgenerator" ] || [ -x "$candidate/reportgenerator.exe" ]; then
-      PATH="$candidate:$PATH"
-      return
-    fi
-  done
-}
-add_tools_dir_to_path
-
-# Install ReportGenerator at the single pinned version (Directory.Packages.props) when it is not already present,
-# so CI needs no separate install step and every run uses the identical version.
-if ! command -v reportgenerator >/dev/null 2>&1; then
-  RG_VERSION="$(grep -oE 'dotnet-reportgenerator-globaltool"[[:space:]]+Version="[^"]+"' "$REPO_ROOT/Directory.Packages.props" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
-  if [ -z "$RG_VERSION" ]; then
-    echo "::error::could not read the pinned dotnet-reportgenerator-globaltool version from Directory.Packages.props." >&2
-    exit 1
-  fi
-  echo "coverage-gate: installing dotnet-reportgenerator-globaltool $RG_VERSION"
-  dotnet tool install --global dotnet-reportgenerator-globaltool --version "$RG_VERSION"
-  add_tools_dir_to_path
-fi
-if ! command -v reportgenerator >/dev/null 2>&1; then
-  echo "::error::reportgenerator is not installed and could not be installed." >&2
-  exit 1
-fi
+# Restore ReportGenerator at the single pinned version from the committed tool manifest (.config/dotnet-tools.json,
+# decision reportgenerator-pinned) — one pin, no drift, and no on-demand global install. Every run uses the identical
+# version the manifest names, and CI needs no separate install step.
+echo "coverage-gate: restoring pinned tools from .config/dotnet-tools.json" >&2
+dotnet tool restore --tool-manifest "$REPO_ROOT/.config/dotnet-tools.json" >&2
 
 # Gather the cobertura reports. coverlet writes one per run into
 # <test-project>/TestResults/<guid>/coverage.cobertura.xml, and prior runs accumulate beside the fresh one in the
@@ -150,7 +134,9 @@ fi
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 IFS=';'; JOINED="${REPORTS[*]}"; unset IFS
-reportgenerator "-reports:$JOINED" "-targetdir:$WORK" "-reporttypes:JsonSummary" >/dev/null
+# Run the pinned local tool from the manifest root so `dotnet tool run` finds .config/dotnet-tools.json regardless of
+# the caller's working directory; the report paths and $WORK are absolute, so the subshell cd is safe.
+(cd "$REPO_ROOT" && dotnet tool run reportgenerator "-reports:$JOINED" "-targetdir:$WORK" "-reporttypes:JsonSummary") >/dev/null
 
 "$PYTHON" - "$WORK/Summary.json" "$MIN" "${AGGREGATE[*]}" "${CHECKS[@]}" <<'PY'
 import json, sys
@@ -186,7 +172,7 @@ for check in checks:
         if missing:
             print(f"::error::aggregate: required assemblies absent from the merged report: {missing}.")
             failed = True
-        gate("aggregate(Engine+Cli+CrossPlatform)", AGGREGATE)
+        gate("aggregate(Engine+Cli+CrossPlatform+Boundaries)", AGGREGATE)
     elif check in asm:
         gate(f"per-OS {check}", [check])
     else:
