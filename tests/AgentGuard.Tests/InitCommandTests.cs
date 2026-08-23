@@ -3,6 +3,7 @@
 using System.IO;
 using System.Text.Json.Nodes;
 using AgentGuard.Setup;
+using AgentGuard.TestSupport;
 using FluentAssertions;
 using Xunit;
 

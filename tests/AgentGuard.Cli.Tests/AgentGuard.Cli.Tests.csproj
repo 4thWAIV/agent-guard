@@ -27,6 +27,7 @@
        longer links the raw-System.IO TestTempDirectory helper. -->
   <ItemGroup>
     <Compile Include="../Shared/AgentGuardLayout.cs" Link="AgentGuardLayout.cs" />
+    <Compile Include="../Shared/SettingsProbe.cs" Link="SettingsProbe.cs" />
   </ItemGroup>
 
 </Project>

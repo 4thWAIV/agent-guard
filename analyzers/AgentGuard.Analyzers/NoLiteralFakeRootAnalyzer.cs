@@ -10,12 +10,15 @@ namespace AgentGuard.Analyzers;
 /// <summary>
 /// Reports a compile-time literal passed at a fake-filesystem-root seed site — the <c>home</c>,
 /// <c>currentDirectory</c>, or <c>tempDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>,
-/// or the <c>tempRoot</c> argument where the copy-on-write overlay <c>AgentGuard.TestHelpers.InMemoryFileSystemStore</c>
-/// is constructed. Those are the only places a fake root is seeded, and the copy-on-write simulator is correct on
-/// every OS only when each takes a real-host or abstraction-derived value (through <c>IEnvironment</c>), never a
-/// hardcoded string: a POSIX-shaped absolute literal (a bare <c>/</c>-rooted path) is not fully-qualified on Windows
-/// and throws there, and a <c>C:\</c> literal would break macOS/Linux the same way — a break invisible on the
-/// developer's machine and caught only in cross-OS CI.
+/// or the <c>tempRoot</c> argument of the single overlay factory <c>AgentGuard.TestHelpers.SystemServicesBuilder.NewOverlay</c>.
+/// The check targets the <c>NewOverlay</c> call, NOT the <c>InMemoryFileSystemStore</c> constructor: the constructor is
+/// only ever reached through <c>NewOverlay</c>, which forwards its own parameter, so the constructor call never carries
+/// a literal and a check there could never fire; a re-hardcode would be a literal at the <c>NewOverlay</c> call, which
+/// is what this rule catches. Those are the only places a fake root is seeded, and
+/// the copy-on-write simulator is correct on every OS only when each takes a real-host or abstraction-derived value
+/// (through <c>IEnvironment</c>), never a hardcoded string: a POSIX-shaped absolute literal (a bare <c>/</c>-rooted
+/// path) is not fully-qualified on Windows and throws there, and a <c>C:\</c> literal would break macOS/Linux the same
+/// way — a break invisible on the developer's machine and caught only in cross-OS CI.
 /// <para>
 /// The rule fires ONLY on a literal at those specific arguments, matched by the target member's identity (namespace +
 /// name AND the declaring assembly through <see cref="WellKnownType.IsInAssembly"/>) AND the parameter name, so it
@@ -52,7 +55,7 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A fake filesystem root is seeded only at FakeEnvironment.Create (home/currentDirectory/tempDirectory) and where the InMemoryFileSystemStore overlay is built (tempRoot). Each must take a real-host or abstraction-derived value through IEnvironment so the copy-on-write simulator is fully-qualified on every OS; a compile-time literal (a string literal or a const reference) is a build error there. The rule matches only those named arguments of those two members, so a data string elsewhere is never inspected, and only a value the caller explicitly wrote is checked.");
+        description: "A fake filesystem root is seeded only at FakeEnvironment.Create (home/currentDirectory/tempDirectory) and at the overlay factory SystemServicesBuilder.NewOverlay (tempRoot) — the one place a caller's tempRoot is visible, because NewOverlay forwards its own parameter to the InMemoryFileSystemStore constructor. The check targets the NewOverlay call, NOT the InMemoryFileSystemStore constructor: the constructor is only ever reached through NewOverlay, which forwards its own parameter, so a re-hardcode would be a literal at the NewOverlay call. Each must take a real-host or abstraction-derived value through IEnvironment so the copy-on-write simulator is fully-qualified on every OS; a compile-time literal (a string literal or a const reference) is a build error there. The rule matches only those named arguments of those members, so a data string elsewhere is never inspected, and only a value the caller explicitly wrote is checked.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 
@@ -78,15 +81,21 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
         {
             foreach (string parameterName in FakeEnvironmentRootParameters)
             {
-                ReportIfLiteral(context, parameterName);
+                SeedArgument.ReportIfLiteral(context, Rule, parameterName, parameterName);
             }
 
             return;
         }
 
-        if (TestHelperTypes.IsStoreConstruction(context.Operation, type))
+        // The tempRoot seed reaches the overlay through SystemServicesBuilder.NewOverlay, which forwards its own
+        // tempRoot parameter to the store constructor — so a caller's re-hardcoded value is visible only at the
+        // NewOverlay CALL (in Fake()/SimulateFileSystem), never at the constructor. The check targets the NewOverlay
+        // call, NOT the InMemoryFileSystemStore constructor: the constructor is only ever reached through NewOverlay,
+        // which forwards its own parameter, so the constructor call never carries a literal and a check there could
+        // never fire. Inspect that call's tempRoot argument here.
+        if (TestHelperTypes.IsOverlayFactory(context.Operation, member, type))
         {
-            ReportIfLiteral(context, StoreTempRootParameterName);
+            SeedArgument.ReportIfLiteral(context, Rule, StoreTempRootParameterName, StoreTempRootParameterName);
         }
     }
 
@@ -100,13 +109,4 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
             && string.Equals(member.Name, FakeEnvironmentFactoryName, StringComparison.Ordinal)
             && WellKnownType.IsInAssembly(
                 type, TestAssembly.TestHelpersName, TestHelperTypes.FakeEnvironmentTypeName, TestAssembly.TestHelpersName);
-
-    private static void ReportIfLiteral(OperationAnalysisContext context, string parameterName)
-    {
-        IArgumentOperation? argument = SeedArgument.ExplicitLiteral(SeedArgument.Of(context.Operation), parameterName);
-        if (argument is not null)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(Rule, argument.Syntax.GetLocation(), parameterName));
-        }
-    }
 }

@@ -10,30 +10,32 @@ namespace AgentGuard.Analyzers.Tests;
 
 /// <summary>
 /// AG0035 (no-literal-fake-root): a compile-time literal passed at a fake-root seed site — the
-/// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>
-/// or the <c>tempRoot</c> argument of the <c>InMemoryFileSystemStore</c> overlay — is a build error, so the
-/// copy-on-write simulator takes a real-host value on every OS. Only those named arguments of those two members, and
-/// only a value the caller explicitly wrote, are inspected; a runtime value, an omitted optional argument, and a
-/// same-named member on another type are all left alone.
+/// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>,
+/// or the <c>tempRoot</c> argument of the overlay factory <c>SystemServicesBuilder.NewOverlay</c> — is a build error, so
+/// the copy-on-write simulator takes a real-host value on every OS. The check targets the <c>NewOverlay</c> call, NOT
+/// the <c>InMemoryFileSystemStore</c> constructor: the constructor is only ever reached through <c>NewOverlay</c>, which
+/// forwards its own parameter, so a re-hardcode would be a literal at the <c>NewOverlay</c> call. Only those named
+/// arguments of those members, and only a value the caller explicitly wrote, are inspected; a runtime value, an omitted
+/// optional argument, and a same-named member on another type are all left alone.
 /// </summary>
 public class NoLiteralFakeRootAnalyzerTests
 {
-    // A minimal stand-in for AgentGuard.TestHelpers.FakeEnvironment and InMemoryFileSystemStore, matched by
-    // namespace + name AND the declaring assembly, plus a consumer whose body each test replaces. RunAsync compiles
-    // this preamble into an assembly named AgentGuard.TestHelpers so the seed types carry the identity the analyzer
-    // pins on (WellKnownType.IsInAssembly); a foreign-assembly stand-in is left alone, proven separately below.
-    private const string Preamble = """
+    // The overlay/store/NewOverlay stand-in is the shared owner SharedAnalyzerSources.OverlaySeedHelpers (spelled once,
+    // consumed by both seed-site rule test classes); this preamble prepends it with the FakeEnvironment stand-in — the
+    // extra seed site only AG0035 reads — matched by namespace + name AND the declaring assembly, plus a consumer whose
+    // body each test replaces. NewOverlay forwards its own tempRoot/caseSensitive parameters to the store constructor,
+    // exactly as the real builder does, so the preamble's own construction seeds from parameters (never a literal) and
+    // adds no diagnostic. RunAsync compiles this preamble into an assembly named AgentGuard.TestHelpers so the seed
+    // types carry the identity the analyzer pins on (WellKnownType.IsInAssembly); a foreign-assembly stand-in is left
+    // alone, proven separately below.
+    private const string Preamble = SharedAnalyzerSources.OverlaySeedHelpers + """
+
         namespace AgentGuard.TestHelpers
         {
             public sealed class FakeEnvironment
             {
                 public static FakeEnvironment Create(
                     string home, string currentDirectory = null, string tempDirectory = null) => new FakeEnvironment();
-            }
-
-            public sealed class InMemoryFileSystemStore
-            {
-                public InMemoryFileSystemStore(string tempRoot, bool caseSensitive) { }
             }
         }
         """;
@@ -96,9 +98,11 @@ public class NoLiteralFakeRootAnalyzerTests
     }
 
     [Fact]
-    public async Task LiteralTempRootAtStoreConstruction_IsReported()
+    public async Task LiteralTempRootAtNewOverlayCall_IsReported()
     {
-        const string body = """InMemoryFileSystemStore Make(bool cs) => new InMemoryFileSystemStore(tempRoot: "/literal-fake-temp", caseSensitive: cs);""";
+        // The tempRoot seed is visible only at the NewOverlay CALL — NewOverlay forwards its own parameter to the store
+        // constructor, so a re-hardcoded literal here is exactly the surface the constructor-site check cannot see.
+        const string body = """InMemoryFileSystemStore Make(bool cs) => SystemServicesBuilder.NewOverlay(tempRoot: "/literal-fake-temp", caseSensitive: cs);""";
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
@@ -106,9 +110,10 @@ public class NoLiteralFakeRootAnalyzerTests
     }
 
     [Fact]
-    public async Task RuntimeTempRootAtStoreConstruction_IsNotReported()
+    public async Task RuntimeTempRootAtNewOverlayCall_IsNotReported()
     {
-        const string body = "InMemoryFileSystemStore Make(string root, bool cs) => new InMemoryFileSystemStore(root, cs);";
+        // A real-host-valued tempRoot at the NewOverlay call — what Fake()/SimulateFileSystem actually pass — is left alone.
+        const string body = "InMemoryFileSystemStore Make(string root, bool cs) => SystemServicesBuilder.NewOverlay(root, cs);";
 
         Assert.Empty(await RunAsync(body));
     }
@@ -164,15 +169,8 @@ public class NoLiteralFakeRootAnalyzerTests
             consumerSource, "AnalyzerUnderTest", referenceSource, "AgentGuard.Engine"));
     }
 
-    // Wraps a consumer body in the shared preamble and runs the analyzer. The compilation is named
-    // AgentGuard.TestHelpers so the stand-in seed types carry the declaring-assembly identity the analyzer pins on
-    // (the real seed sites live inside that assembly), exactly as GuardedConstructionAnalyzerTests does for AG0027.
+    // Binds this rule's preamble and analyzer type to the shared seed-site wrapper (SeedSiteAnalyzerRunner), which owns
+    // the byte-identical source-construction-and-run logic once for both seed-site rule test classes.
     private static Task<ImmutableArray<Diagnostic>> RunAsync(string consumerBody)
-    {
-        string source = Preamble
-            + "\n\nnamespace App\n{\n    using AgentGuard.TestHelpers;\n    public class Consumer\n    {\n        "
-            + consumerBody
-            + "\n    }\n}\n";
-        return AnalyzerRunner.RunAsync<NoLiteralFakeRootAnalyzer>(source, "AgentGuard.TestHelpers");
-    }
+        => SeedSiteAnalyzerRunner.RunAsync<NoLiteralFakeRootAnalyzer>(Preamble, consumerBody);
 }

@@ -10,49 +10,31 @@ namespace AgentGuard.Analyzers.Tests;
 
 /// <summary>
 /// AG0036 (no-literal-case-mode-seed): a <c>true</c>/<c>false</c> literal passed as the <c>caseSensitive</c> argument
-/// of the <c>AgentGuard.TestHelpers.InMemoryFileSystemStore</c> overlay is a build error, so the simulator's case mode
-/// is seeded from the real host. Only the store constructor's <c>caseSensitive</c> argument is inspected; the
-/// deliberate <c>SetCaseSensitive</c>/<c>SimulateCaseSensitivity</c> entry points are methods, not the constructor, and
-/// are never flagged.
+/// of the overlay factory <c>SystemServicesBuilder.NewOverlay</c> is a build error, so the simulator's case mode is
+/// seeded from the real host. The check targets the <c>NewOverlay</c> call, NOT the <c>InMemoryFileSystemStore</c>
+/// constructor: the constructor is only ever reached through <c>NewOverlay</c>, which forwards its own parameter, so a
+/// re-hardcode would be a literal at the <c>NewOverlay</c> call. Only the <c>caseSensitive</c> argument at that site is
+/// inspected; the deliberate <c>SetCaseSensitive</c>/<c>SimulateCaseSensitivity</c> entry points are
+/// methods, neither the constructor nor <c>NewOverlay</c>, and are never flagged.
 /// </summary>
 public class NoLiteralCaseModeSeedAnalyzerTests
 {
-    // Stand-ins for the overlay and the builder entry points, matched by namespace + name AND the declaring assembly.
-    // RunAsync compiles this preamble into an assembly named AgentGuard.TestHelpers so the overlay carries the identity
-    // the analyzer pins on (WellKnownType.IsInAssembly); a foreign-assembly stand-in is left alone, proven separately
-    // below. SetCaseSensitive (on the store) and SimulateCaseSensitivity (on the builder) are the deliberate
-    // post-construction switches the rule must leave alone.
-    private const string Preamble = """
-        namespace AgentGuard.TestHelpers
-        {
-            public sealed class InMemoryFileSystemStore
-            {
-                public InMemoryFileSystemStore(string tempRoot, bool caseSensitive) { }
-                public void SetCaseSensitive(bool caseSensitive) { }
-            }
-
-            public sealed class SystemServicesBuilder
-            {
-                public void SimulateCaseSensitivity(bool caseSensitive) { }
-            }
-        }
-        """;
+    // Stand-ins for the overlay, the overlay factory NewOverlay, and the builder entry points come from the shared owner
+    // SharedAnalyzerSources.OverlaySeedHelpers (spelled once, consumed by both seed-site rule test classes), matched by
+    // namespace + name AND the declaring assembly. NewOverlay forwards its own tempRoot/caseSensitive parameters to the
+    // store constructor, exactly as the real builder does, so the preamble's own construction seeds from parameters
+    // (never a literal) and adds no diagnostic. RunAsync compiles this preamble into an assembly named
+    // AgentGuard.TestHelpers so the overlay carries the identity the analyzer pins on (WellKnownType.IsInAssembly).
+    // SetCaseSensitive (on the store) and SimulateCaseSensitivity (on the builder) are the deliberate post-construction
+    // switches the rule must leave alone.
+    private const string Preamble = SharedAnalyzerSources.OverlaySeedHelpers;
 
     [Fact]
-    public async Task LiteralTrueCaseSensitive_IsReported()
+    public async Task LiteralTrueCaseSensitiveAtNewOverlayCall_IsReported()
     {
-        const string body = "InMemoryFileSystemStore Make(string root) => new InMemoryFileSystemStore(root, caseSensitive: true);";
-
-        Diagnostic diagnostic = Assert.Single(await RunAsync(body));
-
-        Assert.Equal("AG0036", diagnostic.Id);
-        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
-    }
-
-    [Fact]
-    public async Task LiteralFalseCaseSensitive_IsReported()
-    {
-        const string body = "InMemoryFileSystemStore Make(string root) => new InMemoryFileSystemStore(root, false);";
+        // The case mode seed is visible only at the NewOverlay CALL — NewOverlay forwards its own parameter to the store
+        // constructor, so a re-hardcoded literal here is exactly the surface the constructor-site check cannot see.
+        const string body = "InMemoryFileSystemStore Make(string root) => SystemServicesBuilder.NewOverlay(root, caseSensitive: true);";
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 
@@ -60,9 +42,10 @@ public class NoLiteralCaseModeSeedAnalyzerTests
     }
 
     [Fact]
-    public async Task RuntimeCaseSensitive_IsNotReported()
+    public async Task RuntimeCaseSensitiveAtNewOverlayCall_IsNotReported()
     {
-        const string body = "InMemoryFileSystemStore Make(string root, bool cs) => new InMemoryFileSystemStore(root, cs);";
+        // A real-host-valued caseSensitive at the NewOverlay call — what Fake()/SimulateFileSystem actually pass — is left alone.
+        const string body = "InMemoryFileSystemStore Make(string root, bool cs) => SystemServicesBuilder.NewOverlay(root, cs);";
 
         Assert.Empty(await RunAsync(body));
     }
@@ -85,70 +68,8 @@ public class NoLiteralCaseModeSeedAnalyzerTests
         Assert.Empty(await RunAsync(body));
     }
 
-    [Fact]
-    public async Task LiteralCaseSensitiveOnDecoyStore_IsNotReported()
-    {
-        // A decoy store in a FOREIGN namespace whose caseSensitive is not the owned overlay — the namespace+name pin
-        // leaves it alone.
-        const string source = """
-            namespace Decoy
-            {
-                public sealed class InMemoryFileSystemStore
-                {
-                    public InMemoryFileSystemStore(string tempRoot, bool caseSensitive) { }
-                }
-
-                public sealed class Consumer
-                {
-                    public InMemoryFileSystemStore Make(string root) => new InMemoryFileSystemStore(root, true);
-                }
-            }
-            """;
-
-        Assert.Empty(await AnalyzerRunner.RunAsync<NoLiteralCaseModeSeedAnalyzer>(source));
-    }
-
-    [Fact]
-    public async Task LiteralCaseSensitiveOnStoreInForeignAssembly_IsNotReported()
-    {
-        // An InMemoryFileSystemStore with the SAME namespace + name but compiled into a DIFFERENT assembly than
-        // AgentGuard.TestHelpers cannot self-grant the rule: the identity now pins the declaring assembly through
-        // WellKnownType.IsInAssembly, so a same-named overlay elsewhere is left alone even with a literal caseSensitive
-        // (mirrors the sibling assembly-gate tests such as AG0027's InNonTestHelpersAssembly case).
-        const string referenceSource = """
-            namespace AgentGuard.TestHelpers
-            {
-                public sealed class InMemoryFileSystemStore
-                {
-                    public InMemoryFileSystemStore(string tempRoot, bool caseSensitive) { }
-                }
-            }
-            """;
-        const string consumerSource = """
-            namespace App
-            {
-                using AgentGuard.TestHelpers;
-                public class Consumer
-                {
-                    InMemoryFileSystemStore Make(string root) => new InMemoryFileSystemStore(root, caseSensitive: true);
-                }
-            }
-            """;
-
-        Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<NoLiteralCaseModeSeedAnalyzer>(
-            consumerSource, "AnalyzerUnderTest", referenceSource, "AgentGuard.Engine"));
-    }
-
-    // Wraps a consumer body in the shared preamble and runs the analyzer. The compilation is named
-    // AgentGuard.TestHelpers so the stand-in overlay carries the declaring-assembly identity the analyzer pins on
-    // (the real construction site lives inside that assembly), exactly as GuardedConstructionAnalyzerTests does for
-    // AG0027.
+    // Binds this rule's preamble and analyzer type to the shared seed-site wrapper (SeedSiteAnalyzerRunner), which owns
+    // the byte-identical source-construction-and-run logic once for both seed-site rule test classes.
     private static Task<ImmutableArray<Diagnostic>> RunAsync(string consumerBody)
-    {
-        string source = Preamble
-            + "\n\nnamespace App\n{\n    using AgentGuard.TestHelpers;\n    public class Consumer\n    {\n        "
-            + consumerBody
-            + "\n    }\n}\n";
-        return AnalyzerRunner.RunAsync<NoLiteralCaseModeSeedAnalyzer>(source, "AgentGuard.TestHelpers");
-    }
+        => SeedSiteAnalyzerRunner.RunAsync<NoLiteralCaseModeSeedAnalyzer>(Preamble, consumerBody);
 }

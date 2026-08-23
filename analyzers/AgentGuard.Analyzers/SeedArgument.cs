@@ -2,12 +2,13 @@
 
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace AgentGuard.Analyzers;
 
 /// <summary>
-/// Finds the argument bound to a named parameter of an invocation or object creation and answers whether the caller
+/// Finds the argument bound to a named parameter of an invocation and answers whether the caller
 /// wrote a compile-time literal there. This is the one home for the seed-site inspection the two literal-seed rules
 /// share: AG0035 (no literal fake root at <c>FakeEnvironment.Create</c>/the overlay's <c>tempRoot</c>) and AG0036
 /// (no literal case-mode at the overlay's <c>caseSensitive</c>) both match a target member, then ask this helper for
@@ -16,18 +17,17 @@ namespace AgentGuard.Analyzers;
 internal static class SeedArgument
 {
     /// <summary>
-    /// Gets the arguments of an invocation or an object creation, or an empty array for any other operation. Both
-    /// seed sites — the <c>FakeEnvironment.Create</c> invocation and the <c>InMemoryFileSystemStore</c> construction —
-    /// are read through this one accessor.
+    /// Gets the arguments of an invocation, or an empty array for any other operation. Both seed sites the literal-seed
+    /// rules check — the <c>FakeEnvironment.Create</c> invocation and the <c>NewOverlay</c> factory invocation — are
+    /// invocations, read through this one accessor.
     /// </summary>
     /// <param name="operation">The operation whose arguments are read.</param>
-    /// <returns>The operation's arguments, or an empty array when it is neither an invocation nor a creation.</returns>
+    /// <returns>The operation's arguments, or an empty array when it is not an invocation.</returns>
     internal static ImmutableArray<IArgumentOperation> Of(IOperation operation)
     {
         return operation switch
         {
             IInvocationOperation invocation => invocation.Arguments,
-            IObjectCreationOperation creation => creation.Arguments,
             _ => ImmutableArray<IArgumentOperation>.Empty,
         };
     }
@@ -59,5 +59,29 @@ internal static class SeedArgument
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Reports <paramref name="rule"/> at the argument the caller EXPLICITLY passed for the parameter named
+    /// <paramref name="parameterName"/> when that argument is a compile-time literal, and does nothing when it was
+    /// omitted or given a runtime value. This is the one report path both literal-seed rules share — AG0035 (fake root:
+    /// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> and the overlay's <c>tempRoot</c>) and AG0036 (case
+    /// mode: the overlay's <c>caseSensitive</c>) — after each has matched its target member. The diagnostic is placed
+    /// on the argument's syntax and carries <paramref name="messageArgs"/>, so a rule whose message names the offending
+    /// parameter (AG0035) passes it through and a rule whose message is fixed (AG0036) passes none.
+    /// </summary>
+    /// <param name="context">The operation analysis context whose operation is inspected and on which the diagnostic
+    /// is reported.</param>
+    /// <param name="rule">The descriptor to report when a literal is found.</param>
+    /// <param name="parameterName">The parameter name whose argument is inspected.</param>
+    /// <param name="messageArgs">The values that fill the rule's message format placeholders, if any.</param>
+    internal static void ReportIfLiteral(
+        OperationAnalysisContext context, DiagnosticDescriptor rule, string parameterName, params object[] messageArgs)
+    {
+        IArgumentOperation? argument = ExplicitLiteral(Of(context.Operation), parameterName);
+        if (argument is not null)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(rule, argument.Syntax.GetLocation(), messageArgs));
+        }
     }
 }

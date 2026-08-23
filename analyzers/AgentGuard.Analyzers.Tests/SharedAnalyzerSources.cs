@@ -100,4 +100,35 @@ internal static class SharedAnalyzerSources
             }
         }
         """;
+
+    /// <summary>
+    /// The <c>AgentGuard.TestHelpers</c> overlay stand-in — the copy-on-write store <c>InMemoryFileSystemStore</c> and
+    /// the overlay factory <c>SystemServicesBuilder.NewOverlay</c> — shared byte-identical by the two seed-site rule
+    /// test classes (<c>NoLiteralFakeRootAnalyzerTests</c> for AG0035 and <c>NoLiteralCaseModeSeedAnalyzerTests</c> for
+    /// AG0036), so this fixture is spelled exactly once instead of hand-copied into each preamble. <c>NewOverlay</c>
+    /// forwards its own <c>tempRoot</c>/<c>caseSensitive</c> parameters to the store constructor, exactly as the real
+    /// builder does, so the fixture's own construction seeds from parameters (never a literal) and adds no diagnostic;
+    /// the store carries the identity the analyzers pin on when the consuming compilation is named
+    /// <c>AgentGuard.TestHelpers</c> (<c>WellKnownType.IsInAssembly</c>). The deliberate post-construction switches
+    /// <c>SetCaseSensitive</c> (on the store) and <c>SimulateCaseSensitivity</c> (on the builder) are the entry points
+    /// AG0036 must leave alone; the AG0035 preamble prepends this fixture with its own <c>FakeEnvironment</c> stand-in,
+    /// the extra seed site only AG0035 reads.
+    /// </summary>
+    internal const string OverlaySeedHelpers = """
+        namespace AgentGuard.TestHelpers
+        {
+            public sealed class InMemoryFileSystemStore
+            {
+                public InMemoryFileSystemStore(string tempRoot, bool caseSensitive) { }
+                public void SetCaseSensitive(bool caseSensitive) { }
+            }
+
+            public sealed class SystemServicesBuilder
+            {
+                public static InMemoryFileSystemStore NewOverlay(string tempRoot, bool caseSensitive) =>
+                    new InMemoryFileSystemStore(tempRoot, caseSensitive);
+                public void SimulateCaseSensitivity(bool caseSensitive) { }
+            }
+        }
+        """;
 }

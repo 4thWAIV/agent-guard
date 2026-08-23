@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.Json.Nodes;
 using AgentGuard.Setup;
 
-namespace AgentGuard.Tests;
+namespace AgentGuard.TestSupport;
 
 /// <summary>
 /// Helpers for asserting over the guard's hook entries in a parsed <c>.claude/settings.json</c> tree. A guard

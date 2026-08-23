@@ -1,6 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Text.Json.Nodes;
+using AgentGuard.TestSupport;
 using FluentAssertions;
 using Xunit;
 
@@ -49,8 +50,9 @@ public sealed class CliCommandSuccessPathTests
         // from the PARSED settings, not the raw JSON text: on Windows the path's backslashes are JSON-escaped in the
         // serialized file, so matching the real path against that text would spuriously fail; the parsed value carries
         // the real path on every OS.
-        JsonNode settings = JsonNode.Parse(machine.Files.ReadAllText(machine.ClaudeSettings))!;
-        string preToolUseCommand = (string)settings["hooks"]!["PreToolUse"]![0]!["hooks"]![0]!["command"]!;
+        JsonObject settings = JsonNode.Parse(machine.Files.ReadAllText(machine.ClaudeSettings))!.AsObject();
+        JsonObject guardGroup = SettingsProbe.GuardGroup(settings, "PreToolUse")!;
+        string? preToolUseCommand = SettingsProbe.CommandOf(guardGroup);
         preToolUseCommand.Should().Contain(machine.BinGuard);
         machine.Files.Exists(machine.ProjectConfig).Should().BeTrue();
         machine.Files.ReadAllText(machine.ProjectConfig).Should().Contain("protectedPaths");
