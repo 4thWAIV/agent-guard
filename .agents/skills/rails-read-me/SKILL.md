@@ -10,6 +10,11 @@ agent-guard is a tool whose sole job is to stop a lazy AI from disabling or chea
 
 It has two layers: the **guard product** (protects a project's files and config, installed through the CLI, cross-platform, with signed releases) and the **rails** (the analyzer fence, the workflow, and these skills that keep the AI honest while building it). What is already shipped and what is next each have a home in "Where things live" below — the manifest for current status, `.dev/backlog/` for the roadmap.
 
+## The code and how to build it
+A C#/.NET solution — `AgentGuard.sln`, with the SDK pinned in `global.json`. The product is in `src/`: the guard `Engine`, the `Cli`, the `Abstractions` contracts, the `Boundaries`, and the `CrossPlatform` base with its per-OS `.Linux`/`.MacOS`/`.Windows` libraries. Tests are in `tests/`, the analyzer fence in `analyzers/`, the build/sign/coverage/release scripts in `eng/`, and CI in `.github/workflows/`. Build and test with `make build` and `make test` (equivalently `dotnet build` / `dotnet test`); the analyzers run as build errors.
+
+The **`gate`** referenced throughout is the required CI status check — green only when build, tests, coverage (`eng/coverage-gate.sh`, a 75% floor), and the analyzers all pass on macOS, Linux, and Windows, defined in `.github/workflows/ci.yml`. Locally, `make build && make test` runs build, tests, and the analyzers; the coverage floor and the cross-OS legs are enforced by CI, so run the local pass green before you push.
+
 ## The rules that get people fired if broken
 
 The universal form of these rules lives in `~/.codex/AGENTS.md`; the sections below are how they bind in agent-guard.
@@ -63,7 +68,7 @@ See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `refer
 
 **The roadmap is `.dev/backlog/`** — the planned-but-not-started work, with the design/plan docs for what is next (currently crypto minting + presence: mint and sign grants, and gate sensitive operations on an OS presence check). The manifest is the current state; `.dev/backlog/` is what is coming.
 
-**The rails skills are the checked-in source at `.agents/skills/rails-*`** (`.claude/skills` symlinks to it); the workflow scripts are `.agents/workflows/*.js`.
+**The rails skills are the checked-in source at `.agents/skills/rails-*`** (`.claude/skills` symlinks to it); the workflow scripts are `.agents/workflows/*.js` (`.claude/workflows` symlinks to it too, which is why some rules below cite `.claude/workflows/…`).
 
 ## Shipping and branch protection
 Work integrates on `dev` and is cut to `main` only at a milestone worth releasing — never just because `dev` is green and ahead. PRs into `dev`/`main` require one approving review and a green `gate` status check; **repo admins bypass both**, so a maintainer can direct-push a trivial docs or bookkeeping change, but real code always goes through the PR and the gate. **File the run-record inside the shipping PR, before merge** — the `inprocess/`→`completed/` move rides the same PR, and REPORT sweeps the whole `inprocess/` tree for any straggler whose work already shipped (detail in `rails-run-a-workflow`, Provenance). A run-record filed after the merge is an orphan that needs a second direct push and leaves shipped work rotting in `inprocess/`.
@@ -72,7 +77,7 @@ Work integrates on `dev` and is cut to `main` only at a milestone worth releasin
 
 `analyzers/**` (the enforcement rules) would normally sit **behind the guard we are building**, and will as soon as the guard supports both *enforcing* them **and** *allowing selective, controlled changes*. Until then a change is **decision-gated** — brought to the human first (new rules via `rails-run-a-workflow`'s RULE-PHASE). This is a placeholder for that coming protection, not a "never touch."
 
-`Abstractions/**` is **not** locked or frozen — it never was. Adding or changing a contract interface needs the human's sign-off (like any interface — a design element that outlives its function) and is held to the contract-pattern analyzers, but interfaces are **developed properly when that is the right design, not avoided.**
+`src/AgentGuard.Abstractions/**` is **not** locked or frozen — it never was. Adding or changing a contract interface needs the human's sign-off (like any interface — a design element that outlives its function) and is held to the contract-pattern analyzers, but interfaces are **developed properly when that is the right design, not avoided.**
 
 ## Rule-Driven Development — how architecture is enforced, and how new analyzer rules get added
 
