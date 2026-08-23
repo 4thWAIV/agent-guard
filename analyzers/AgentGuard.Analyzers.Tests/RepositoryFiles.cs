@@ -1,8 +1,10 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Linq;
 
 namespace AgentGuard.Analyzers.Tests;
 
@@ -77,5 +79,20 @@ internal static class RepositoryFiles
             .Split(DirectorySeparators)
             .Any(segment => string.Equals(segment, "bin", StringComparison.Ordinal)
                 || string.Equals(segment, "obj", StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// Gets the <c>&lt;Compile Include=…&gt;</c> elements of a project document — the compile items that name a source
+    /// path. The one place the "is this a Compile item carrying an Include" shape is spelled, so both the link-share
+    /// and cross-compile structural tests read it the same way; a caller that also needs <c>Link</c> filters further.
+    /// </summary>
+    /// <param name="project">The loaded project document.</param>
+    /// <returns>The Compile elements that carry an Include attribute.</returns>
+    internal static IEnumerable<XElement> CompileIncludeElements(XDocument project)
+    {
+        return project
+            .Descendants()
+            .Where(element => string.Equals(element.Name.LocalName, "Compile", StringComparison.Ordinal)
+                && element.Attribute("Include") is not null);
     }
 }

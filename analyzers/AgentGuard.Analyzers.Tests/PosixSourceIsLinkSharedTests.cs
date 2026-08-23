@@ -33,11 +33,8 @@ public class PosixSourceIsLinkSharedTests
         string linuxProjectDirectory = Path.GetDirectoryName(linuxProjectPath)!;
 
         XDocument project = XDocument.Load(linuxProjectPath);
-        List<string> linkedMacOsSources = project
-            .Descendants()
-            .Where(element => string.Equals(element.Name.LocalName, "Compile", StringComparison.Ordinal)
-                && element.Attribute("Link") is not null
-                && element.Attribute("Include") is not null)
+        List<string> linkedMacOsSources = RepositoryFiles.CompileIncludeElements(project)
+            .Where(element => element.Attribute("Link") is not null)
             .Select(element => RepositoryFiles.ResolvePath(linuxProjectDirectory, element.Attribute("Include")!.Value))
             .Where(includePath => RepositoryFiles.IsUnder(includePath, macOsProjectDirectory)
                 && includePath.EndsWith(".cs", StringComparison.OrdinalIgnoreCase))

@@ -82,10 +82,7 @@ public class OsSpecificFileNotCrossCompiledTests
         foreach (string projectFile in Directory.EnumerateFiles(projectDirectory, "*.csproj", SearchOption.TopDirectoryOnly))
         {
             XDocument project = XDocument.Load(projectFile);
-            IEnumerable<string> includes = project
-                .Descendants()
-                .Where(element => string.Equals(element.Name.LocalName, "Compile", StringComparison.Ordinal)
-                    && element.Attribute("Include") is not null)
+            IEnumerable<string> includes = RepositoryFiles.CompileIncludeElements(project)
                 .Select(element => element.Attribute("Include")!.Value);
 
             foreach (string include in includes)
