@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Exercises the CLI entry point (guard.dll / Program.cs) end to end: it invokes the real process entry point
+       with a redirected HOME, working directory, and console, so every command handler runs the production wiring
+       against a throwaway machine and project. This is the only project that loads and covers the CLI assembly. -->
+  <PropertyGroup>
+    <AgentGuardIsTestProject>true</AgentGuardIsTestProject>
+    <RootNamespace>AgentGuard.Cli.Tests</RootNamespace>
+    <AssemblyName>AgentGuard.Cli.Tests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/AgentGuard.Cli/AgentGuard.Cli.csproj" />
+    <ProjectReference Include="..\AgentGuard.TestHelpers\AgentGuard.TestHelpers.csproj" />
+  </ItemGroup>
+
+  <!-- Shared test-support source, linked (one owner) into each test project that needs it. The harness creates and
+       removes its isolated directories through the owned IDirectoryWriter off the builder's container, so it no
+       longer links the raw-System.IO TestTempDirectory helper. -->
+  <ItemGroup>
+    <Compile Include="../Shared/AgentGuardLayout.cs" Link="AgentGuardLayout.cs" />
+    <Compile Include="../Shared/SettingsProbe.cs" Link="SettingsProbe.cs" />
+  </ItemGroup>
+
+</Project>

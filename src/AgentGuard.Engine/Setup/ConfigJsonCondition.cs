@@ -20,12 +20,12 @@ internal sealed class ConfigJsonCondition : ISetupCondition
     public ConditionState Detect(SetupContext context)
     {
         string path = ProjectPaths.ConfigFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return ConditionState.Broken(".agentguard/config.json is missing");
         }
 
-        if (!SafeRead.TryReadText(path, out string content, out string error))
+        if (!SafeRead.For(context).TryReadText(path, out string content, out string error))
         {
             return ConditionState.CannotVerify($".agentguard/config.json is unreadable: {error}");
         }

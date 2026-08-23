@@ -33,12 +33,12 @@ internal sealed class VersionStampCondition : ISetupCondition
         }
 
         string path = ProjectPaths.StateFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return ConditionState.Broken(".agentguard/state.json version stamp is missing");
         }
 
-        if (!SafeRead.TryReadText(path, out string content, out string error))
+        if (!SafeRead.For(context).TryReadText(path, out string content, out string error))
         {
             return ConditionState.CannotVerify($".agentguard/state.json is unreadable: {error}");
         }

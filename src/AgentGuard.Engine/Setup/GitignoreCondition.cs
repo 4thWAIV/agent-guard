@@ -19,12 +19,12 @@ internal sealed class GitignoreCondition : ISetupCondition
     public ConditionState Detect(SetupContext context)
     {
         string path = ProjectPaths.GitignoreFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return ConditionState.Broken("the runtime-store lines are missing (no .gitignore)");
         }
 
-        if (!SafeRead.TryReadText(path, out string content, out string error))
+        if (!SafeRead.For(context).TryReadText(path, out string content, out string error))
         {
             return ConditionState.CannotVerify($".gitignore is unreadable: {error}");
         }

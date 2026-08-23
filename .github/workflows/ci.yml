@@ -47,8 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: id
-        # dev target (push to dev, or a PR based on dev) => channel 'dev'; main => '' (no prerelease).
-        run: eng/compute-build-id.sh "${{ (github.base_ref == 'dev' || github.ref == 'refs/heads/dev') && 'dev' || '' }}"
+        # pull_request => channel 'pr-<number>' (pr-build-version-channel: a PR build is not a pre-release, and the
+        # number makes each build's evidence identifiable). push to dev => 'dev'; push to main => '' (no prerelease).
+        run: eng/compute-build-id.sh "${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || (github.ref == 'refs/heads/dev' && 'dev' || '') }}"
 
   macos:
     needs: version
@@ -76,7 +77,8 @@ jobs:
           echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
       - name: Build + publish both mac RIDs (build = the lint/analyzer gate too)
         run: |
-          dotnet build -c Release $AG
+          mkdir -p evidence
+          dotnet build -c Release $AG -bl:evidence/macos-build.binlog
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-arm64 --self-contained $AG
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r osx-x64 --self-contained $AG
       - name: Cross-RID selects exactly one platform library (host != target)
@@ -85,7 +87,7 @@ jobs:
         # because each job's host matches its RID; this runs a TRUE cross-build (macOS host -> linux-x64 target).
         run: eng/check-single-platform-lib.sh linux-x64 $AG
       - name: Test osx-arm64 (native)
-        run: dotnet test -c Release $AG
+        run: dotnet test -c Release $AG --logger "trx;LogFileName=macos-native.trx"
       - name: Test osx-x64 under Rosetta (must run as X64)
         # The detailed console logger surfaces ProcessArchitectureTests' "ProcessArchitecture=X64" line in the
         # CI log (Acceptance 6); AGENTGUARD_EXPECT_ARCH=X64 makes the test itself fail if this leg did not truly
@@ -94,7 +96,25 @@ jobs:
           AGENTGUARD_EXPECT_ARCH: X64
         run: |
           bash "$RUNNER_TEMP/dotnet-install.sh" --version 10.0.100 --architecture x64 --install-dir "$RUNNER_TEMP/dotnet-x64"
-          DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed"
+          DOTNET_ROOT="$RUNNER_TEMP/dotnet-x64" arch -x86_64 "$RUNNER_TEMP/dotnet-x64/dotnet" test -c Release $AG -l "console;verbosity=detailed" --logger "trx;LogFileName=macos-rosetta.trx"
+      - name: Coverage gate — macOS implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # `dotnet test` collected cobertura coverage by default (the shared .runsettings). Gate the per-OS macOS
+        # implementation on its own leg; the aggregate is gated once on the Linux leg.
+        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.MacOS
+      - name: Upload build evidence (coverage + test results + binlog)
+        # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
+        # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
+        # binaries or signing material — a different risk class than the push-only signed artifacts below.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-macos
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            evidence/*.binlog
+            **/TestResults/**/coverage.cobertura.xml
+            **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -195,12 +215,32 @@ jobs:
         # under pwsh "$env:AG" is passed as ONE malformed argument and AgentGuardStampVersion fails the build.
         shell: bash
         run: |
-          dotnet build -c Release $AG
+          mkdir -p evidence
+          dotnet build -c Release $AG -bl:evidence/windows-build.binlog
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-x64 --self-contained $AG
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r win-arm64 --self-contained $AG
       - name: Test win-x64 (win-arm64 is build-only, accepted risk)
         shell: bash
-        run: dotnet test -c Release $AG
+        run: dotnet test -c Release $AG --logger "trx;LogFileName=windows.trx"
+      - name: Coverage gate — Windows implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # bash so the shared gate script runs identically to the mac/linux legs. It gates the per-OS Windows
+        # implementation on its own leg; the aggregate is gated once on the Linux leg.
+        shell: bash
+        run: eng/coverage-gate.sh . AgentGuard.CrossPlatform.Windows
+      - name: Upload build evidence (coverage + test results + binlog)
+        # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
+        # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
+        # binaries or signing material — a different risk class than the push-only signed artifacts below.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-windows
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            evidence/*.binlog
+            **/TestResults/**/coverage.cobertura.xml
+            **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -294,11 +334,30 @@ jobs:
           echo "AGENTGUARD_REQUIRE_SIGNED=true" >> "$GITHUB_ENV"
       - name: Build + publish both linux RIDs
         run: |
-          dotnet build -c Release $AG
+          mkdir -p evidence
+          dotnet build -c Release $AG -bl:evidence/linux-build.binlog
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-arm64 --self-contained $AG
           dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -c Release -r linux-x64 --self-contained $AG
       - name: Test linux-arm64 (linux-x64 is build-only, accepted risk)
-        run: dotnet test -c Release $AG
+        run: dotnet test -c Release $AG --logger "trx;LogFileName=linux.trx"
+      - name: Coverage gate — aggregate + Linux implementation ≥ 75% (decisions threshold-75-hard-gate, covered-assemblies)
+        # The Linux leg is where the aggregate of Engine + Cli (guard) + CrossPlatform is gated (computed once),
+        # alongside the per-OS Linux implementation. `dotnet test` collected coverage by default.
+        run: eng/coverage-gate.sh . aggregate AgentGuard.CrossPlatform.Linux
+      - name: Upload build evidence (coverage + test results + binlog)
+        # ci-uploads-build-evidence / evidence-on-pr-builds: runs on pull_request AND push, success AND failure
+        # (if: always(), never push-gated) so a failing leg's diagnostics are downloadable. Evidence carries no
+        # binaries or signing material — a different risk class than the push-only signed artifacts below.
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: evidence-linux
+          if-no-files-found: warn
+          retention-days: 7
+          path: |
+            evidence/*.binlog
+            **/TestResults/**/coverage.cobertura.xml
+            **/TestResults/**/*.trx
       - name: Install cosign (keyless signing)
         if: github.event_name == 'push'
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2 (installs cosign v3.1.3)
@@ -343,7 +402,8 @@ jobs:
 
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
   # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
-  # the mac codesign seals; cosign verify-blob covers all six.
+  # the mac codesign seals; cosign verify-blob covers all six. The assets are packaged as zips (release-zip-layout):
+  # one agentguard-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
   release:
     needs: [version, gate, macos, windows, linux]
     if: github.event_name == 'push'
@@ -377,6 +437,13 @@ jobs:
           pattern: verify-*
           path: verify
           merge-multiple: true
+      - name: Download the per-OS build evidence (for evidence.zip)
+        # No merge-multiple: each artifact lands in its own subdir (evidence-artifacts/evidence-<os>), which the
+        # packaging step reorganizes into evidence.zip's one-subdirectory-per-OS-build layout (release-zip-layout).
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: evidence-*
+          path: evidence-artifacts
       - name: Require every per-platform verify result present and PASS (verify-sigs-before-publish)
         # Each per-OS job proved its own native signatures and emitted verify-<os>.txt. Refuse to publish unless
         # all three exist and each ends with "RESULT: PASS" — a missing or non-PASS result blocks the release.
@@ -430,6 +497,28 @@ jobs:
           export_cer "$WIN_PFX_B64" "$WIN_PFX_PW" dist/agentguard-windows-public.cer
       - name: Stage the tester trust scripts
         run: cp eng/signing/trust-cert.sh eng/signing/trust-cert.ps1 dist/
+      - name: Package binaries and evidence as release zips (release-zip-layout)
+        # release-zip-layout: one agentguard-<rid>.zip per binary (the binary + its .sha256 checksum + its
+        # .cosign.bundle signature), and one evidence.zip organized with one subdirectory per OS/platform build.
+        # Signing already happened in the per-OS jobs, so the embedded native seal and the detached cosign bundle
+        # both travel inside the archive; chmod +x ran above, so the mac/linux executables keep their exec bit.
+        run: |
+          set -euo pipefail
+          cd dist
+          for rid in osx-arm64 osx-x64 win-x64 win-arm64 linux-arm64 linux-x64; do
+            case "$rid" in win-*) bin="guard-$rid.exe" ;; *) bin="guard-$rid" ;; esac
+            zip -j "agentguard-$rid.zip" "$bin" "guard-$rid.sha256" "guard-$rid.cosign.bundle"
+          done
+          cd ..
+          rm -rf evidence-zip-root
+          for os in macos windows linux; do
+            src="evidence-artifacts/evidence-$os"
+            if [ -d "$src" ]; then
+              mkdir -p "evidence-zip-root/$os"
+              cp -R "$src/." "evidence-zip-root/$os/"
+            fi
+          done
+          ( cd evidence-zip-root && zip -r "../dist/evidence.zip" . )
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -460,8 +549,7 @@ jobs:
             --title "$TITLE" \
             --notes-file "$NOTES" \
             $PRERELEASE \
-            guard-osx-arm64 guard-osx-x64 guard-win-x64.exe guard-win-arm64.exe guard-linux-arm64 guard-linux-x64 \
-            guard-osx-arm64.sha256 guard-osx-x64.sha256 guard-win-x64.sha256 guard-win-arm64.sha256 guard-linux-arm64.sha256 guard-linux-x64.sha256 \
-            guard-osx-arm64.cosign.bundle guard-osx-x64.cosign.bundle guard-win-x64.cosign.bundle guard-win-arm64.cosign.bundle guard-linux-arm64.cosign.bundle guard-linux-x64.cosign.bundle \
+            agentguard-osx-arm64.zip agentguard-osx-x64.zip agentguard-win-x64.zip agentguard-win-arm64.zip agentguard-linux-arm64.zip agentguard-linux-x64.zip \
+            evidence.zip \
             agentguard-macos-public.cer agentguard-windows-public.cer \
             trust-cert.sh trust-cert.ps1

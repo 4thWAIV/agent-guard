@@ -1,11 +1,11 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -67,7 +67,7 @@ public sealed class AcceptancePreBlockTests
         using var fixture = new FixtureProject();
         fixture.WriteFile(".claude/settings.json", "{ \"hooks\": {} }");
         string linkPath = fixture.PathOf("settings-link.json");
-        File.CreateSymbolicLink(linkPath, fixture.PathOf(".claude/settings.json"));
+        fixture.MakeSymlink(linkPath, fixture.PathOf(".claude/settings.json"));
         IPipeline pipeline = GuardEngine.CreatePipeline(TestSupport.Options(fixture.Root, new FakeTimeProvider()));
 
         Verdict verdict = await pipeline.RunAsync(

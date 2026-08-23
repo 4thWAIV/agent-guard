@@ -17,6 +17,13 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/AgentGuard.Engine/AgentGuard.Engine.csproj" />
+    <ProjectReference Include="../AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj" />
+  </ItemGroup>
+
+  <!-- Shared test-support source, linked (one owner) into each test project that needs it. -->
+  <ItemGroup>
+    <Compile Include="../Shared/AgentGuardLayout.cs" Link="AgentGuardLayout.cs" />
+    <Compile Include="../Shared/SettingsProbe.cs" Link="SettingsProbe.cs" />
   </ItemGroup>
 
 </Project>

@@ -1,7 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 
 namespace AgentGuard.Engine;
 

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The OS-uniform boundary layer: the EnvironmentAdapter/ConsoleAdapter owners, the ISignatureService and
+       IBuildInfo owners, the concrete ISystemServices container, and the one SystemServices.Create() composition
+       factory (boundaries-assembly). It references AgentGuard.Abstractions and AgentGuard.CrossPlatform. The
+       file-op adapters and GuidFactory live in AgentGuard.CrossPlatform (owners-live-at-lowest-consumer). -->
+  <PropertyGroup>
+    <RootNamespace>AgentGuard.Boundaries</RootNamespace>
+    <AssemblyName>AgentGuard.Boundaries</AssemblyName>
+  </PropertyGroup>
+
+  <!-- BouncyCastle Ed25519 is hidden entirely inside the ISignatureService owner in this assembly
+       (signature-verify-behind-isignatureverifier); AG0021 exempts that one owner and no BouncyCastle type
+       crosses the interface. The version is centrally managed in Directory.Packages.props. -->
+  <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" />
+  </ItemGroup>
+
+  <!-- The owners, the container, and the SystemServices.Create() factory are internal (Wall 1). The two legal
+       callers of SystemServices.Create() reach it through these grants (single-construction-point,
+       two-walls-stop-the-bypass): the CLI's Program composition method (compiled as "guard") and the test
+       SystemServicesBuilder. Keyless in source; the signing target injects the public key on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="guard" />
+    <InternalsVisibleTo Include="AgentGuard.TestHelpers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- Boundaries reaches the OS-uniform adapters through the one CrossPlatformAdapters factory (AG0023) and the
+       OS-divergent platform through exactly one per-OS PlatformServices.Create() (AG0029). This shared targets file
+       references the AgentGuard.CrossPlatform contract and exactly one per-OS implementation, selected by
+       RuntimeIdentifier (falling back to the build-host OS), so SystemServices.Create() stays OS-agnostic. -->
+  <Import Project="../AgentGuard.CrossPlatform/PlatformImplementation.targets" />
+
+</Project>

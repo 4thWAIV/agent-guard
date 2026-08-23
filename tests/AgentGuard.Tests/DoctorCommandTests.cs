@@ -21,7 +21,7 @@ public sealed class DoctorCommandTests
         outcome.Healthy.Should().BeTrue();
         outcome.ExitCode.Should().Be(0);
         outcome.Reports.Should().OnlyContain(report => report.Scope == "Machine");
-        Directory.Exists(harness.ProjectAgentGuard).Should().BeFalse();
+        harness.Directories.DirectoryExists(harness.ProjectAgentGuard).Should().BeFalse();
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class DoctorCommandTests
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
-        File.WriteAllText(harness.ProjectStateFile, "{\"guardVersion\":\"9.9.9\"}");
+        harness.FileWriter.WriteAllText(harness.ProjectStateFile, "{\"guardVersion\":\"9.9.9\"}");
 
         DoctorOutcome outcome = harness.Doctor(fix: false);
 
@@ -71,7 +71,7 @@ public sealed class DoctorCommandTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        File.WriteAllText(harness.MachineStateFile, "{\"version\":\"0.1.0-alpha\",\"sha256\":\"deadbeef\"}");
+        harness.FileWriter.WriteAllText(harness.MachineStateFile, "{\"version\":\"0.1.0-alpha\",\"sha256\":\"deadbeef\"}");
 
         DoctorOutcome outcome = harness.Doctor(fix: false);
 
@@ -84,7 +84,7 @@ public sealed class DoctorCommandTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        File.WriteAllText(harness.MachineStateFile, "{ this is not json");
+        harness.FileWriter.WriteAllText(harness.MachineStateFile, "{ this is not json");
 
         DoctorOutcome outcome = harness.Doctor(fix: false);
 
@@ -100,8 +100,8 @@ public sealed class DoctorCommandTests
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
         harness.Init().Success.Should().BeTrue();
         harness.MakeGuardEntryStale("PreToolUse");
-        File.WriteAllText(harness.Gitignore, "# nothing here\n");
-        File.Delete(harness.ProjectConfig);
+        harness.FileWriter.WriteAllText(harness.Gitignore, "# nothing here\n");
+        harness.FileWriter.DeleteFile(harness.ProjectConfig);
 
         harness.Doctor(fix: true);
 
@@ -116,13 +116,13 @@ public sealed class DoctorCommandTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        string recordedBefore = File.ReadAllText(harness.MachineStateFile);
-        File.WriteAllText(harness.VersionBinary("0.1.0-alpha"), "TAMPERED BYTES");
+        string recordedBefore = harness.Files.ReadAllText(harness.MachineStateFile);
+        harness.FileWriter.WriteAllText(harness.VersionBinary("0.1.0-alpha"), "TAMPERED BYTES");
 
         harness.Doctor(fix: true);
 
         StatusOf(harness.Doctor(fix: false), "binary hash").Should().Be("Broken");
-        File.ReadAllText(harness.MachineStateFile).Should().Be(recordedBefore);
+        harness.Files.ReadAllText(harness.MachineStateFile).Should().Be(recordedBefore);
     }
 
     [Fact]
@@ -130,12 +130,12 @@ public sealed class DoctorCommandTests
     {
         using var harness = new SetupHarness();
         harness.Install("0.1.0-alpha").Success.Should().BeTrue();
-        File.WriteAllText(harness.ShellProfilePath, string.Empty);
+        harness.FileWriter.WriteAllText(harness.ShellProfilePath, string.Empty);
 
         harness.Doctor(fix: true);
 
-        File.ReadAllText(harness.ShellProfilePath).Should().Contain(".agentguard/bin");
-        Directory.EnumerateFileSystemEntries(harness.Project).Should().BeEmpty();
+        harness.Files.ReadAllText(harness.ShellProfilePath).Should().Contain(".agentguard/bin");
+        harness.Directories.EnumerateChildren(harness.Project).Should().BeEmpty();
     }
 
     private static string StatusOf(DoctorOutcome outcome, string conditionName) =>

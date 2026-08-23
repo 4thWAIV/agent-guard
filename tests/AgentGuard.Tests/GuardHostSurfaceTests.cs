@@ -2,8 +2,9 @@
 
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 using AgentGuard.Setup;
+using AgentGuard.TestHelpers;
 using FluentAssertions;
 using Xunit;
 
@@ -15,7 +16,7 @@ public sealed class GuardHostSurfaceTests
     public async Task Hook_UnknownHost_FailsClosed()
     {
         HostDecision decision = await GuardHost.RunPipelineAsync(
-            HookEvent.PreToolUse, "{}", "codex", CancellationToken.None);
+            HookEvent.PreToolUse, "{}", "codex", SystemServicesBuilder.Real().Build(), CancellationToken.None);
 
         decision.ExitCode.Should().Be(2);
     }
@@ -24,7 +25,7 @@ public sealed class GuardHostSurfaceTests
     public async Task Hook_EmptyPayload_FailsClosed()
     {
         HostDecision decision = await GuardHost.RunPipelineAsync(
-            HookEvent.PreToolUse, string.Empty, GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, string.Empty, GuardHost.ClaudeCodeHost, SystemServicesBuilder.Real().Build(), CancellationToken.None);
 
         decision.ExitCode.Should().Be(2);
     }
@@ -36,7 +37,7 @@ public sealed class GuardHostSurfaceTests
         string payload = TestPayloads.Edit(fixture.Root, fixture.PathOf("Program.cs"));
 
         HostDecision decision = await GuardHost.RunPipelineAsync(
-            HookEvent.PreToolUse, payload, GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, payload, GuardHost.ClaudeCodeHost, SystemServicesBuilder.Real().Build(), CancellationToken.None);
 
         decision.ExitCode.Should().Be(0);
     }
@@ -49,7 +50,7 @@ public sealed class GuardHostSurfaceTests
         string payload = TestPayloads.Edit(fixture.Root, fixture.PathOf(".claude/settings.json"));
 
         HostDecision decision = await GuardHost.RunPipelineAsync(
-            HookEvent.PreToolUse, payload, GuardHost.ClaudeCodeHost, CancellationToken.None);
+            HookEvent.PreToolUse, payload, GuardHost.ClaudeCodeHost, SystemServicesBuilder.Real().Build(), CancellationToken.None);
 
         decision.ExitCode.Should().Be(2);
     }

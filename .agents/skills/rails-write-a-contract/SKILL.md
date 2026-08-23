@@ -28,7 +28,7 @@ Does this line tell the agent WHAT TO DO, what it MUST NOT do, HOW IT IS CHECKED
 
 ## Decisions must carry the human's sign-off
 
-A *decision* is anything that adds or reverses a design element: a mechanism, a data or wire format, an invariant, a file, a dependency, an interface, or a change to a previously-approved design. How a named thing is coded — a loop, a helper, a variable name — is implementation, not a decision and needs no sign-off.
+A *decision* is anything that adds or reverses a design element: a mechanism, a data or wire format, an invariant, a file, a dependency, an interface, the owner and abstraction chosen for a reused BCL/OS/OSS primitive, or a change to a previously-approved design. How a named thing is coded — a loop, a helper, a variable name — is implementation, not a decision and needs no sign-off.
 
 - Every decision in the contract carries, inline, the human's verbatim words approving that exact item. No quote next to it → it is not a decision → it does not appear as decided; it stays an open item until the human approves it.
 - Silence, moving to another topic, or a request to reword, clarify, or define an item is never approval.

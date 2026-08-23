@@ -4,9 +4,10 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -18,22 +19,32 @@ public sealed class ContextStoreSweepTests
     [Fact]
     public async Task SweepExpired_RemovesOrphanOlderThanTtl_KeepsFresh()
     {
+        // The orphan-snapshot sweep is the best-effort housekeeping a Pre run performs before the guards; it removes
+        // per-call snapshot directories older than the 24h orphan TTL and keeps fresher ones. This drives it through
+        // the public pipeline over the copy-on-write simulator: two orphan directories are seeded under the store base
+        // with backdated modified times, a Pre run sweeps, and the owned directory reader proves the outcome.
         using var fixture = new FixtureProject();
         var time = new FakeTimeProvider(new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero));
-        IContextStore store = ContextStore.Create(fixture.Root, time);
-        var oldKey = new ContextKey(new ToolCallId("orphan-old"), GuardEngine.FileGuardName, "snapshot");
-        var freshKey = new ContextKey(new ToolCallId("orphan-fresh"), GuardEngine.FileGuardName, "snapshot");
-        await store.WriteAsync(oldKey, new byte[] { 1 }, CancellationToken.None);
-        await store.WriteAsync(freshKey, new byte[] { 1 }, CancellationToken.None);
+        ISystemServices services = SystemServicesBuilder.Real().With((TimeProvider)time).SimulateFileSystem().Build();
 
-        string oldDir = ContextStorePaths.CallDirectory(fixture.Root, oldKey.ToolCall);
-        string freshDir = ContextStorePaths.CallDirectory(fixture.Root, freshKey.ToolCall);
-        Directory.SetLastWriteTimeUtc(oldDir, time.GetUtcNow().UtcDateTime.AddDays(-2));
-        Directory.SetLastWriteTimeUtc(freshDir, time.GetUtcNow().UtcDateTime.AddHours(-1));
+        string storeBase = GuardEngine.SnapshotStoreDirectory(services, fixture.Root);
+        IDirectoryWriter directoryWriter = services.FileSystem.GetDirectoryWriter();
+        string oldDir = Path.Combine(storeBase, "orphan-old");
+        string freshDir = Path.Combine(storeBase, "orphan-fresh");
+        directoryWriter.CreateDirectory(oldDir);
+        directoryWriter.CreateDirectory(freshDir);
+        directoryWriter.SetLastWriteTimeUtc(oldDir, time.GetUtcNow().AddDays(-2));
+        directoryWriter.SetLastWriteTimeUtc(freshDir, time.GetUtcNow().AddHours(-1));
 
-        await store.SweepExpiredAsync(TimeSpan.FromDays(1), CancellationToken.None);
+        IPipeline pipeline = GuardEngine.CreatePipeline(new GuardEngineOptions(fixture.Root, services));
+        await pipeline.RunAsync(
+            HookEvent.PreToolUse,
+            TestSupport.Bash("call-sweep", "echo hi"),
+            TestSupport.Env(fixture.Root, HookEvent.PreToolUse),
+            CancellationToken.None);
 
-        Directory.Exists(oldDir).Should().BeFalse();
-        Directory.Exists(freshDir).Should().BeTrue();
+        IDirectoryEnumerator directories = services.FileSystem.GetDirectoryReader();
+        directories.DirectoryExists(oldDir).Should().BeFalse();
+        directories.DirectoryExists(freshDir).Should().BeTrue();
     }
 }

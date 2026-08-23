@@ -5,19 +5,28 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
 /// <summary>
 /// The Engine-internal privileged writer. It restores a file to its pre-call bytes and deletes a file the call
 /// created, writing the working tree directly so the revert is never re-intercepted. It is best-effort: one
-/// effect's failure does not stop the others, and the deny verdict stands regardless.
+/// effect's failure does not stop the others, and the deny verdict stands regardless. Every write goes through an
+/// owned service received at construction, never a raw call.
 /// </summary>
 internal sealed class PrivilegedWriter : IPrivilegedWriter
 {
-    private PrivilegedWriter()
+    private readonly IFileReader _fileReader;
+    private readonly IFileWriter _fileWriter;
+    private readonly IDirectoryWriter _directoryWriter;
+
+    private PrivilegedWriter(IFileReader fileReader, IFileWriter fileWriter, IDirectoryWriter directoryWriter)
     {
+        _fileReader = fileReader;
+        _fileWriter = fileWriter;
+        _directoryWriter = directoryWriter;
     }
 
     /// <inheritdoc />
@@ -43,12 +52,17 @@ internal sealed class PrivilegedWriter : IPrivilegedWriter
     }
 
     /// <summary>
-    /// Creates the privileged writer.
+    /// Creates the privileged writer, drawing its owned write services from the container.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the writer draws its filesystem owners from.</param>
     /// <returns>The writer, as its interface.</returns>
-    internal static IPrivilegedWriter Create() => new PrivilegedWriter();
+    internal static IPrivilegedWriter Create(ISystemServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return new PrivilegedWriter(services.FileSystem.GetFileReader(), services.FileSystem.GetFileWriter(), services.FileSystem.GetDirectoryWriter());
+    }
 
-    private static async Task ExecuteOneAsync(Effect effect, CancellationToken cancellationToken)
+    private async Task ExecuteOneAsync(Effect effect, CancellationToken cancellationToken)
     {
         switch (effect)
         {
@@ -56,15 +70,15 @@ internal sealed class PrivilegedWriter : IPrivilegedWriter
                 string? directory = Path.GetDirectoryName(restore.Path);
                 if (!string.IsNullOrEmpty(directory))
                 {
-                    Directory.CreateDirectory(directory);
+                    _directoryWriter.CreateDirectory(directory);
                 }
 
-                await File.WriteAllBytesAsync(restore.Path, restore.Content, cancellationToken).ConfigureAwait(false);
+                await _fileWriter.WriteAllBytesAsync(restore.Path, restore.Content, cancellationToken).ConfigureAwait(false);
                 break;
             case DeleteFileEffect delete:
-                if (File.Exists(delete.Path))
+                if (_fileReader.Exists(delete.Path))
                 {
-                    File.Delete(delete.Path);
+                    _fileWriter.DeleteFile(delete.Path);
                 }
 
                 break;

@@ -1,36 +1,44 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.TestHelpers;
+using FluentAssertions;
 using Xunit;
 
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// Unit spec for <see cref="ProtectedFileScanner"/>'s fail-closed contract: an inaccessible directory surfaced by
-/// the enumerator must propagate out of the scan, never be swallowed, so an incomplete walk denies the call rather
-/// than hiding a protected file. It threads a <see cref="ThrowingDirectoryEnumerator"/> through the scanner and
-/// asserts the exception propagates from <see cref="ProtectedFileScanner.ScanAsync"/>.
+/// The protected-file scanner's fail-closed contract, observed through the public pipeline: an inaccessible
+/// directory encountered while walking the protected tree must surface as a denial (a capture failure), never be
+/// swallowed into a silent partial walk that could hide a protected file. Driven through
+/// <see cref="GuardEngine.CreatePipeline(GuardEngineOptions)"/> over the copy-on-write simulator, with a nested
+/// directory marked inaccessible so the recursive scan throws when it descends into it.
 /// </summary>
 public sealed class ProtectedFileScannerTests
 {
     [Fact]
-    public async Task ScanAsync_WhenADirectoryIsInaccessible_PropagatesRatherThanSwallowing()
+    public async Task Capture_WhenANestedDirectoryIsInaccessible_DeniesRatherThanSwallowing()
     {
-        IProtectedFileScanner scanner = ProtectedFileScanner.Create(
-            PathCanonicalizer.Create(),
-            ProtectedSet.Create(Array.Empty<IRuleSource>()),
-            new UnadjudicableRegionRegistry("never-matches"),
-            Array.Empty<IDirectorySkipRule>(),
-            new ThrowingDirectoryEnumerator());
-
         using var fixture = new FixtureProject();
+        SystemServicesBuilder builder = TestSupport.FakeServices();
+        ISystemServices services = builder.Build();
+        IDirectoryWriter directoryWriter = services.FileSystem.GetDirectoryWriter();
+        directoryWriter.CreateDirectory(fixture.Root);
+        string nested = System.IO.Path.Combine(fixture.Root, "nested");
+        directoryWriter.CreateDirectory(nested);
+        builder.OnFileSystem().MarkInaccessible(nested);
+        IPipeline pipeline = GuardEngine.CreatePipeline(new GuardEngineOptions(fixture.Root, services));
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            scanner.ScanAsync(TestSupport.Env(fixture.Root, HookEvent.PreToolUse), CancellationToken.None));
+        Verdict verdict = await pipeline.RunAsync(
+            HookEvent.PreToolUse,
+            TestSupport.Bash("call-scan", "echo hi"),
+            TestSupport.Env(fixture.Root, HookEvent.PreToolUse),
+            CancellationToken.None);
+
+        verdict.Kind.Should().Be(VerdictKind.Deny);
     }
 }

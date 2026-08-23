@@ -1,8 +1,7 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using System.IO;
-using AgentGuard.CrossPlatform;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
 
 namespace AgentGuard.Setup;
@@ -11,7 +10,8 @@ namespace AgentGuard.Setup;
 /// The single owner of the imperative creation and merge work: the version-store copy, the atomic <c>current</c>
 /// flip, the launcher symlink, the PATH line, the machine and project records, and the settings and gitignore
 /// merges. <c>install</c>, <c>init</c>, <c>remove</c>, and every condition's <c>Repair</c> route through here, so
-/// the layout logic is written once.
+/// the layout logic is written once. Every filesystem mutation goes through the owned services carried on the
+/// context, never a raw call.
 /// </summary>
 internal static class CreationHelper
 {
@@ -23,22 +23,22 @@ internal static class CreationHelper
     /// <returns>The repair outcome.</returns>
     internal static RepairOutcome EnsureVersionBinary(SetupContext context)
     {
-        if (string.IsNullOrEmpty(context.ResolvedBinaryPath) || !File.Exists(context.ResolvedBinaryPath))
+        if (string.IsNullOrEmpty(context.ResolvedBinaryPath) || !context.FileReader.Exists(context.ResolvedBinaryPath))
         {
             return RepairOutcome.NotRepairable("the running binary path could not be resolved");
         }
 
         string version = SemVer.Normalize(context.RunningVersion);
         string destination = MachinePaths.VersionBinary(context, version);
-        string sourceHash = Hashing.Sha256HexOfFile(context.ResolvedBinaryPath);
-        if (File.Exists(destination)
-            && string.Equals(Hashing.Sha256HexOfFile(destination), sourceHash, StringComparison.Ordinal))
+        string sourceHash = Hashing.Sha256Hex(context.FileReader.ReadAllBytes(context.ResolvedBinaryPath));
+        if (context.FileReader.Exists(destination)
+            && string.Equals(Hashing.Sha256Hex(context.FileReader.ReadAllBytes(destination)), sourceHash, StringComparison.Ordinal))
         {
             return RepairOutcome.NoChangeNeeded();
         }
 
-        Directory.CreateDirectory(MachinePaths.VersionDirectory(context, version));
-        AtomicFile.CopyOver(context.ResolvedBinaryPath, destination);
+        context.DirectoryWriter.CreateDirectory(MachinePaths.VersionDirectory(context, version));
+        AtomicFile.For(context).CopyOver(context.ResolvedBinaryPath, destination);
 
         // The version binary must be executable where the OS uses the executable bit; the platform interface both
         // decides whether the bit applies and sets it, so no OS branch lives here. Guard on both NeedsExecutableFlag
@@ -61,7 +61,7 @@ internal static class CreationHelper
     internal static RepairOutcome PointCurrent(SetupContext context)
     {
         string version = SemVer.Normalize(context.RunningVersion);
-        Directory.CreateDirectory(MachinePaths.VersionDirectory(context, version));
+        context.DirectoryWriter.CreateDirectory(MachinePaths.VersionDirectory(context, version));
         return RepairLink(
             context,
             MachinePaths.Current(context),
@@ -76,7 +76,7 @@ internal static class CreationHelper
     /// <returns>The repair outcome.</returns>
     internal static RepairOutcome EnsureBinGuard(SetupContext context)
     {
-        Directory.CreateDirectory(MachinePaths.BinDirectory(context));
+        context.DirectoryWriter.CreateDirectory(MachinePaths.BinDirectory(context));
         return RepairLink(
             context,
             MachinePaths.BinGuard(context),
@@ -91,7 +91,7 @@ internal static class CreationHelper
     /// <returns>The repair outcome.</returns>
     internal static RepairOutcome EnsurePathLine(SetupContext context)
     {
-        bool changed = PathProfileWiring.Ensure(context.ShellProfilePath);
+        bool changed = PathProfileWiring.Ensure(IdempotentAppend.For(context), context.ShellProfilePath);
         return changed ? RepairOutcome.Repaired($"added the PATH line to {context.ShellProfilePath}") : RepairOutcome.NoChangeNeeded();
     }
 
@@ -102,7 +102,7 @@ internal static class CreationHelper
     /// <param name="version">The normalized installed version.</param>
     /// <param name="sha256">The installed binary's SHA-256.</param>
     internal static void WriteMachineState(SetupContext context, string version, string sha256) =>
-        AtomicFile.WriteAllText(MachinePaths.StateFile(context), SetupJson.Serialize(new InstallState(version, sha256)));
+        AtomicFile.For(context).WriteAllText(MachinePaths.StateFile(context), SetupJson.Serialize(new InstallState(version, sha256)));
 
     /// <summary>
     /// Creates the project's <c>.agentguard/</c> base: the directory, the grant store, and (never generating one)
@@ -111,8 +111,8 @@ internal static class CreationHelper
     /// <param name="context">The setup context.</param>
     internal static void EnsureAgentGuardBase(SetupContext context)
     {
-        Directory.CreateDirectory(ProjectPaths.AgentGuardDirectory(context));
-        Directory.CreateDirectory(ProjectPaths.GrantsDirectory(context));
+        context.DirectoryWriter.CreateDirectory(ProjectPaths.AgentGuardDirectory(context));
+        context.DirectoryWriter.CreateDirectory(ProjectPaths.GrantsDirectory(context));
 
         // The public key is never generated here. A key already committed at the project path is left in place;
         // there is no other source in this build (grant minting and keys are a later build).
@@ -126,12 +126,12 @@ internal static class CreationHelper
     internal static RepairOutcome EnsureConfig(SetupContext context)
     {
         string path = ProjectPaths.ConfigFile(context);
-        if (File.Exists(path) && ParsesAsObject(path))
+        if (context.FileReader.Exists(path) && ParsesAsObject(context, path))
         {
             return RepairOutcome.NoChangeNeeded();
         }
 
-        AtomicFile.WriteAllText(path, SetupJson.Serialize(ProjectConfig.Default()));
+        AtomicFile.For(context).WriteAllText(path, SetupJson.Serialize(ProjectConfig.Default()));
         return RepairOutcome.Repaired("wrote .agentguard/config.json");
     }
 
@@ -141,7 +141,7 @@ internal static class CreationHelper
     /// <param name="context">The setup context.</param>
     /// <param name="version">The wired version.</param>
     internal static void WriteProjectState(SetupContext context, string version) =>
-        AtomicFile.WriteAllText(ProjectPaths.StateFile(context), SetupJson.Serialize(new ProjectState(version)));
+        AtomicFile.For(context).WriteAllText(ProjectPaths.StateFile(context), SetupJson.Serialize(new ProjectState(version)));
 
     /// <summary>
     /// Merges the guard's hook entries into <c>.claude/settings.json</c>, refusing (as not-repairable) on a real
@@ -163,7 +163,7 @@ internal static class CreationHelper
             return RepairOutcome.NotRepairable(result.Conflict ?? "the settings file could not be merged");
         }
 
-        AtomicFile.WriteAllText(ProjectPaths.ClaudeSettingsFile(context), result.Json!);
+        AtomicFile.For(context).WriteAllText(ProjectPaths.ClaudeSettingsFile(context), result.Json!);
         return RepairOutcome.Repaired("wired .claude/settings.json");
     }
 
@@ -174,12 +174,12 @@ internal static class CreationHelper
     internal static void UnwireSettings(SetupContext context)
     {
         string path = ProjectPaths.ClaudeSettingsFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return;
         }
 
-        if (!SafeRead.TryReadText(path, out string existing, out _))
+        if (!SafeRead.For(context).TryReadText(path, out string existing, out _))
         {
             return;
         }
@@ -187,7 +187,7 @@ internal static class CreationHelper
         SettingsMergeResult result = ClaudeSettingsWiring.RemoveGuardEntries(existing);
         if (result.Success && result.Json is not null)
         {
-            AtomicFile.WriteAllText(path, result.Json);
+            AtomicFile.For(context).WriteAllText(path, result.Json);
         }
     }
 
@@ -198,7 +198,7 @@ internal static class CreationHelper
     /// <returns>The repair outcome.</returns>
     internal static RepairOutcome EnsureGitignore(SetupContext context)
     {
-        bool changed = GitignoreWiring.Ensure(ProjectPaths.GitignoreFile(context));
+        bool changed = GitignoreWiring.Ensure(IdempotentAppend.For(context), ProjectPaths.GitignoreFile(context));
         return changed ? RepairOutcome.Repaired("added the runtime-store lines to .gitignore") : RepairOutcome.NoChangeNeeded();
     }
 
@@ -209,14 +209,14 @@ internal static class CreationHelper
     internal static void RemoveAgentGuardDirectory(SetupContext context)
     {
         string directory = ProjectPaths.AgentGuardDirectory(context);
-        if (Directory.Exists(directory))
+        if (context.Directories.DirectoryExists(directory))
         {
-            Directory.Delete(directory, recursive: true);
+            context.DirectoryWriter.DeleteDirectory(directory, recursive: true);
         }
     }
 
-    private static bool ParsesAsObject(string path) =>
-        SafeRead.TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out string? _);
+    private static bool ParsesAsObject(SetupContext context, string path) =>
+        SafeRead.For(context).TryReadText(path, out string content, out _) && SetupJson.TryParseObject(content, out string? _);
 
     /// <summary>
     /// Runs the idempotent symlink re-point through the platform interface and maps the result to a repair outcome.
@@ -234,7 +234,7 @@ internal static class CreationHelper
     {
         try
         {
-            bool changed = SymlinkOps.Create(context.FileSystem).EnsurePointsTo(linkPath, relativeTarget);
+            bool changed = new SymlinkOps(context.FileSystem).EnsurePointsTo(linkPath, relativeTarget);
             return changed ? RepairOutcome.Repaired(repairedMessage) : RepairOutcome.NoChangeNeeded();
         }
         catch (UnauthorizedAccessException exception)

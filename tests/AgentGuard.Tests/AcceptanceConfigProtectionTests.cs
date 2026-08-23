@@ -1,15 +1,16 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
 using AgentGuard.Setup;
+using AgentGuard.TestHelpers;
+using AgentGuard.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using Xunit;
@@ -129,7 +130,7 @@ public sealed class AcceptanceConfigProtectionTests
             fixture,
             pipeline,
             TestSupport.Bash("call-delete", "echo deletes the settings file"),
-            () => File.Delete(fixture.PathOf(CoreSystemPaths.ClaudeSettingsRelative)));
+            () => fixture.Delete(CoreSystemPaths.ClaudeSettingsRelative));
 
         verdict.Kind.Should().Be(VerdictKind.Deny);
         fixture.Exists(CoreSystemPaths.ClaudeSettingsRelative).Should().BeTrue();
@@ -393,7 +394,7 @@ public sealed class AcceptanceConfigProtectionTests
     }
 
     private static string Launcher() =>
-        MachinePaths.BinGuardIn(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+        MachinePaths.BinGuardIn(SystemServicesBuilder.Real().Build().Environment.GetHomeDirectory());
 
     private static string CanonicalSettings(string userJson) =>
         ClaudeSettingsWiring.AddGuardEntries(userJson, Launcher()).Json!;

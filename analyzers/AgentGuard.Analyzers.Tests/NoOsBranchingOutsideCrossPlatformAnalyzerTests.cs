@@ -38,6 +38,23 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
         }
         """;
 
+    // A single-OS POSITIVE branch — OperatingSystem.IsMacOS() — the inverted AG0037 rule bans inside a per-OS library.
+    private const string SingleOsMacBranchSource = """
+        public class Sample
+        {
+            public bool Check() => System.OperatingSystem.IsMacOS();
+        }
+        """;
+
+    // The cross-POSIX gate a per-OS library MAY branch on: !OperatingSystem.IsWindows() partitions POSIX from Windows
+    // and is live in every per-OS build, so AG0037 leaves it alone.
+    private const string WindowsGateSource = """
+        public class Sample
+        {
+            public bool Check() => !System.OperatingSystem.IsWindows();
+        }
+        """;
+
     [Fact]
     public async Task OperatingSystemIsWindows_OutsideCrossPlatformLibraries_IsReported()
     {
@@ -123,5 +140,44 @@ public class NoOsBranchingOutsideCrossPlatformAnalyzerTests
             """;
 
         Assert.Empty(await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(source, "AgentGuard.Engine"));
+    }
+
+    [Fact]
+    public async Task SingleOsBranch_InPerOsImplementationLibrary_IsReportedAsAg0037()
+    {
+        // The inverted rule: a positive single-OS check inside a per-OS library compiles into the other OS's build as
+        // permanently-dead code (the current PosixFileSystem.IsMacOS() violation).
+        ImmutableArray<Diagnostic> diagnostics =
+            await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "AgentGuard.CrossPlatform.MacOS");
+
+        Diagnostic diagnostic = Assert.Single(diagnostics);
+        Assert.Equal("AG0037", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
+    public async Task CrossPosixWindowsGate_InPerOsImplementationLibrary_IsNotReported()
+    {
+        // !OperatingSystem.IsWindows() is the allowed cross-POSIX gate — live in every per-OS build, not a dead
+        // single-OS branch — so neither rule fires inside a per-OS library.
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(WindowsGateSource, "AgentGuard.CrossPlatform.MacOS"));
+    }
+
+    [Fact]
+    public async Task SingleOsBranch_InCoreCrossPlatformLibrary_IsNotReported()
+    {
+        // The core AgentGuard.CrossPlatform contract library is shared, not per-OS, so it may branch freely; neither
+        // AG0009 nor AG0037 constrains it.
+        Assert.Empty(await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "AgentGuard.CrossPlatform"));
+    }
+
+    [Fact]
+    public async Task SingleOsBranch_OutsideCrossPlatformLibraries_IsReportedAsAg0009()
+    {
+        // The SAME OperatingSystem.IsMacOS() outside the platform libraries is the OUTWARD ban (AG0009), not AG0037 —
+        // proving the two registrations are distinct and never both fire.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<NoOsBranchingOutsideCrossPlatformAnalyzer>(SingleOsMacBranchSource, "AgentGuard.Engine"));
+        Assert.Equal("AG0009", diagnostic.Id);
     }
 }

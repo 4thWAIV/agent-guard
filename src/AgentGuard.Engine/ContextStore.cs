@@ -1,11 +1,12 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
@@ -14,38 +15,56 @@ namespace AgentGuard.Engine;
 /// The per-call snapshot store the Engine owns, persisted between the separate Pre and Post processes. It is
 /// never handed to Guards — they receive only the scoped writer, reader, and inspector — which is what enforces
 /// the capability split. Each call writes and reads only its own records; there is no content-addressing,
-/// dedup, or cross-call sharing.
+/// dedup, or cross-call sharing. Every filesystem operation goes through an owned service received at
+/// construction, never a raw call.
 /// </summary>
 internal sealed class ContextStore : IContextStore
 {
     private readonly string _projectRoot;
     private readonly TimeProvider _timeProvider;
+    private readonly ContextStorePaths _paths;
+    private readonly AtomicFile _atomicFile;
+    private readonly IFileReader _fileReader;
+    private readonly IDirectoryEnumerator _directories;
+    private readonly IDirectoryWriter _directoryWriter;
 
-    private ContextStore(string projectRoot, TimeProvider timeProvider)
+    private ContextStore(
+        string projectRoot,
+        TimeProvider timeProvider,
+        ContextStorePaths paths,
+        AtomicFile atomicFile,
+        IFileReader fileReader,
+        IDirectoryEnumerator directories,
+        IDirectoryWriter directoryWriter)
     {
         _projectRoot = projectRoot;
         _timeProvider = timeProvider;
+        _paths = paths;
+        _atomicFile = atomicFile;
+        _fileReader = fileReader;
+        _directories = directories;
+        _directoryWriter = directoryWriter;
     }
 
     /// <inheritdoc />
     public async Task WriteAsync(ContextKey key, ReadOnlyMemory<byte> data, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(key);
-        string recordFile = ContextStorePaths.RecordFile(_projectRoot, key);
-        await AtomicFile.WriteAllBytesAsync(recordFile, data, cancellationToken).ConfigureAwait(false);
+        string recordFile = _paths.RecordFile(_projectRoot, key);
+        await _atomicFile.WriteAllBytesAsync(recordFile, data, cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<ContextRead> ReadAsync(ContextKey key, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(key);
-        string recordFile = ContextStorePaths.RecordFile(_projectRoot, key);
-        if (!File.Exists(recordFile))
+        string recordFile = _paths.RecordFile(_projectRoot, key);
+        if (!_fileReader.Exists(recordFile))
         {
             return new ContextMissing(key.Kind);
         }
 
-        byte[] bytes = await File.ReadAllBytesAsync(recordFile, cancellationToken).ConfigureAwait(false);
+        byte[] bytes = await _fileReader.ReadAllBytesAsync(recordFile, cancellationToken).ConfigureAwait(false);
         return new ContextFound(bytes);
     }
 
@@ -53,10 +72,10 @@ internal sealed class ContextStore : IContextStore
     public Task DeleteAsync(ToolCallId toolCall, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string callDirectory = ContextStorePaths.CallDirectory(_projectRoot, toolCall);
-        if (Directory.Exists(callDirectory))
+        string callDirectory = _paths.CallDirectory(_projectRoot, toolCall);
+        if (_directories.DirectoryExists(callDirectory))
         {
-            Directory.Delete(callDirectory, recursive: true);
+            _directoryWriter.DeleteDirectory(callDirectory, recursive: true);
         }
 
         return Task.CompletedTask;
@@ -66,19 +85,20 @@ internal sealed class ContextStore : IContextStore
     public Task SweepExpiredAsync(TimeSpan timeToLive, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string baseDirectory = ContextStorePaths.BaseDirectory(_projectRoot);
-        if (!Directory.Exists(baseDirectory))
+        string baseDirectory = _paths.BaseDirectory(_projectRoot);
+        if (!_directories.DirectoryExists(baseDirectory))
         {
             return Task.CompletedTask;
         }
 
         DateTimeOffset cutoff = _timeProvider.GetUtcNow() - timeToLive;
-        foreach (string callDirectory in Directory.EnumerateDirectories(baseDirectory))
+        var options = new EnumerationOptions { IgnoreInaccessible = false };
+        foreach (string callDirectory in _directories.EnumerateDirectories(baseDirectory, "*", options))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (Directory.GetLastWriteTimeUtc(callDirectory) < cutoff.UtcDateTime)
+            if (_directories.GetLastWriteTimeUtc(callDirectory) < cutoff)
             {
-                Directory.Delete(callDirectory, recursive: true);
+                _directoryWriter.DeleteDirectory(callDirectory, recursive: true);
             }
         }
 
@@ -86,15 +106,25 @@ internal sealed class ContextStore : IContextStore
     }
 
     /// <summary>
-    /// Creates the store bound to a project root.
+    /// Creates the store bound to a project root, drawing its owned services and clock from the container.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the store draws its filesystem owners and clock from.</param>
+    /// <param name="paths">The owned store-path layout.</param>
     /// <param name="projectRoot">The absolute project root.</param>
-    /// <param name="timeProvider">The time source used to age out orphaned snapshots.</param>
     /// <returns>The store, as its interface.</returns>
-    internal static IContextStore Create(string projectRoot, TimeProvider timeProvider)
+    internal static IContextStore Create(ISystemServices services, ContextStorePaths paths, string projectRoot)
     {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(paths);
         ArgumentException.ThrowIfNullOrEmpty(projectRoot);
-        ArgumentNullException.ThrowIfNull(timeProvider);
-        return new ContextStore(projectRoot, timeProvider);
+        var atomicFile = new AtomicFile(services.FileSystem.GetFileWriter(), services.FileSystem.GetDirectoryWriter(), services.Random);
+        return new ContextStore(
+            projectRoot,
+            services.Clock,
+            paths,
+            atomicFile,
+            services.FileSystem.GetFileReader(),
+            services.FileSystem.GetDirectoryReader(),
+            services.FileSystem.GetDirectoryWriter());
     }
 }

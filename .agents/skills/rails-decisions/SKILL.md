@@ -16,7 +16,8 @@ A rail against deciding what is Tim's to decide, and against inventing his appro
 - sets an **architecture, mechanism, or approach** that other code depends on;
 - adds or changes a **dependency, a trust boundary, a data or wire format, a public interface, or a user- or developer-visible name or command**;
 - is **costly to reverse** once built or shipped;
-- **picks between real alternatives** where the choice has lasting consequences.
+- **picks between real alternatives** where the choice has lasting consequences;
+- **inverts an assembly dependency** — a lower, depended-upon assembly receiving a service injected from a higher one that depends on it. The default is to reorder (move the service down into the assembly that uses it); keeping the backwards flow on cost grounds is Tim's call alone, and any such violation, anywhere in any repo, needs his personal explicit sign-off.
 
 **The agent's decisions — just do it, don't ask.** Local work with **no blast radius**: a loop, a helper's internals, a private name, how one function is coded — cheaply changed later with no ripple.
 
@@ -50,5 +51,7 @@ Rule the work against this list. Report each confirmed item with exact file / li
 - **Violation — anchored to the code.** Approval anchored to **"it's already in the code"** instead of Tim's words. Existing-in-the-tree is not sign-off; it is how an unapproved change launders itself into looking approved.
 - **Violation — paraphrased decision.** A recorded decision whose text does not match, **verbatim**, what Tim approved — a paraphrase falsifies what was approved.
 - **Violation — under-asked direction.** An architecture, mechanism, dependency, trust boundary, format, interface, or user-/developer-visible name that other code now depends on, chosen without being surfaced for Tim's yes (the Native Interop / `rename` P/Invoke class).
+- **Violation — exception to a settled rule.** A choice an approved rule or principle already answers — brought to Tim as a decision, or a proposed exemption / reclassification / "allow raw here" to escape the rule. It is not a decision; the answer is fixed, and applying the rule is the only move. Surfacing a settled answer, or proposing an exception to it, is a bypass, ranked with an unapproved decision. Before any decision reaches Tim, check whether a settled rule/principle (or the best-practices guide) covers it; if it does, apply it, never surface it.
+- **Violation — backwards dependency.** A lower, depended-upon assembly receiving a service injected from a higher assembly that depends on it (an inverted dependency), or a rule bypassed to permit the backwards call, **without Tim's personal explicit sign-off**. The default is to reorder — move the service down into the assembly that uses it; only Tim rules whether the reorder cost is too high. Applies anywhere, in any repo, not just where it first surfaced. This is the decision-side of best-practices guide principle 2d (Boundary abstraction), which owns the rule; the SOLID rail enforces its structural form.
 
 No one is exempt — audit the **orchestrator's** steps too, not just the worker's. If clean, say so plainly: **"NONE: every decision-level change carries Tim's own approving words, verbatim; no approval invented, none anchored to the code."**

@@ -1,8 +1,9 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 using Xunit;
 
 namespace AgentGuard.Tests;
@@ -11,6 +12,10 @@ namespace AgentGuard.Tests;
 /// Verifies the build-version stamp (decisions 15-18): the scheme's shape and field ranges, and that every
 /// project in a build carries the one shared id. The cross-CI-job hard fail (decision 25) is a CI step, not here.
 /// </summary>
+[SuppressMessage(
+    "AgentGuard.Architecture",
+    "AG0011:RawPrimitiveOnlyInOwner",
+    Justification = "This build-stamp-hygiene test reads arbitrary assembly version metadata via reflection (AssemblyName.Version and AssemblyInformationalVersionAttribute.InformationalVersion across the engine and test assemblies). AG0011 owns those reflection reads to IBuildInfo, which reports only the guard's own version, so it cannot express this cross-assembly consistency check. Tim approved this ordinary interim suppression on 2026-08-21 per the interim-suppression model (interim-suppression-model-and-ag0101-exec-test), monitored manually until the signed-exception system lands, when it migrates to a signed exception (issue #33).")]
 public sealed class VersionStampTests
 {
     /// <summary>
@@ -43,16 +48,17 @@ public sealed class VersionStampTests
     }
 
     /// <summary>
-    /// The SemVer (informational) version is <c>MAJOR.MINOR.&lt;Day*43200+Time&gt;[-pre-release]+&lt;hash&gt;</c>
-    /// with a single <c>+hash</c> segment (decisions 15-17); the hash is a short git hash (7+ hex, since
-    /// <c>--short=7</c> is a minimum) or the local fallback.
+    /// The SemVer (informational) version is <c>MAJOR.MINOR.&lt;Day*43200+Time&gt;[-pre-release|-pr-&lt;number&gt;]+&lt;hash&gt;</c>
+    /// with a single <c>+hash</c> segment (decisions 15-17); the prerelease label is <c>-pre-release</c> on a dev
+    /// build or <c>-pr-&lt;number&gt;</c> on a pull-request build (pr-build-version-channel), and is absent on a release;
+    /// the hash is a short git hash (7+ hex, since <c>--short=7</c> is a minimum) or the local fallback.
     /// </summary>
     [Fact]
     public void SemVerMatchesTheScheme()
     {
         string semVer = typeof(VersionStampTests).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
-        Assert.Matches(@"^\d+\.\d+\.\d+(-pre-release)?\+([0-9a-f]{7,}|local)$", semVer);
+        Assert.Matches(@"^\d+\.\d+\.\d+(-pre-release|-pr-\d+)?\+([0-9a-f]{7,}|local)$", semVer);
     }
 
     /// <summary>

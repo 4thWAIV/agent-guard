@@ -2,7 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using NuGet.Versioning;
 
 namespace AgentGuard.Setup;
@@ -31,7 +30,7 @@ public static class SetupCommands
             return CommandOutcome.Failed("install was not approved");
         }
 
-        if (string.IsNullOrEmpty(context.ResolvedBinaryPath) || !File.Exists(context.ResolvedBinaryPath))
+        if (string.IsNullOrEmpty(context.ResolvedBinaryPath) || !context.FileReader.Exists(context.ResolvedBinaryPath))
         {
             return CommandOutcome.Failed("install could not resolve the running binary");
         }
@@ -53,7 +52,7 @@ public static class SetupCommands
         }
 
         string version = running.ToNormalizedString();
-        string sha256 = Hashing.Sha256HexOfFile(context.ResolvedBinaryPath);
+        string sha256 = Hashing.Sha256Hex(context.FileReader.ReadAllBytes(context.ResolvedBinaryPath));
 
         var messages = new List<string>();
         string? failure = ApplyConditions(SetupConditions.MachineStructural, context, messages);
@@ -81,7 +80,7 @@ public static class SetupCommands
             return CommandOutcome.Failed("init was not approved");
         }
 
-        if (!File.Exists(MachinePaths.BinGuard(context)))
+        if (!context.FileReader.Exists(MachinePaths.BinGuard(context)))
         {
             return CommandOutcome.Failed("the machine is not installed; run `guard install` first");
         }

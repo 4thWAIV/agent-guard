@@ -9,7 +9,9 @@ namespace AgentGuard.CrossPlatform.Posix;
 /// version pointer is flipped without a window where it is absent — is a single <c>rename</c>; the managed
 /// <c>File.Move</c>/<c>Directory.Move</c> APIs do not replace a directory symlink atomically. The same libc
 /// <c>rename</c> serves macOS and Linux, so this source is authored once here and linked into the Linux impl
-/// unchanged. Native interop lives ONLY in per-OS impl assemblies — never in the contract assembly.
+/// unchanged. Native interop lives ONLY in per-OS impl assemblies — never in the contract assembly. This class is
+/// <c>partial</c>: the OS-divergent <c>pathconf</c> binding lives in the macOS-only fragment
+/// (<c>PosixFileSystem.MacOS.cs</c>) that only the macOS project compiles, so the Linux build never carries it.
 /// </summary>
 internal static partial class PosixNativeMethods
 {

@@ -4,31 +4,54 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Setup;
 
 /// <summary>
 /// Writes a regular file atomically by writing a temporary sibling and renaming it over the destination, so a
 /// reader never sees a half-written record. The temporary file is created in the destination directory so the
-/// rename stays on one filesystem.
+/// rename stays on one filesystem. It writes through the owned <see cref="IFileWriter"/> and
+/// <see cref="IDirectoryWriter"/> and names the temporary sibling with the owned <see cref="IRandomGenerator"/>, so no
+/// raw filesystem or randomness call lives here; it is built from the container at the composition point.
 /// </summary>
-internal static class AtomicFile
+internal sealed class AtomicFile
 {
+    private readonly IFileWriter _fileWriter;
+    private readonly IDirectoryWriter _directoryWriter;
+    private readonly IRandomGenerator _random;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="AtomicFile"/> class over the owned write services.
+    /// </summary>
+    /// <param name="fileWriter">The owned file-write side of the filesystem.</param>
+    /// <param name="directoryWriter">The owned directory-write side of the filesystem.</param>
+    /// <param name="random">The owned random generator used to name the temporary sibling.</param>
+    internal AtomicFile(IFileWriter fileWriter, IDirectoryWriter directoryWriter, IRandomGenerator random)
+    {
+        _fileWriter = fileWriter;
+        _directoryWriter = directoryWriter;
+        _random = random;
+    }
+
+    /// <summary>
+    /// Builds an atomic-file writer from a setup context's owned services.
+    /// </summary>
+    /// <param name="context">The setup context carrying the owned write services.</param>
+    /// <returns>The atomic-file writer.</returns>
+    internal static AtomicFile For(SetupContext context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        return new AtomicFile(context.FileWriter, context.DirectoryWriter, context.Random);
+    }
+
     /// <summary>
     /// Atomically writes text to a file, creating parent directories.
     /// </summary>
     /// <param name="path">The destination path.</param>
     /// <param name="content">The text content.</param>
-    internal static void WriteAllText(string path, string content) =>
-        WriteAtomically(path, temporaryPath => File.WriteAllText(temporaryPath, content));
-
-    /// <summary>
-    /// Atomically writes bytes to a file, creating parent directories.
-    /// </summary>
-    /// <param name="path">The destination path.</param>
-    /// <param name="bytes">The byte content.</param>
-    internal static void WriteAllBytes(string path, byte[] bytes) =>
-        WriteAtomically(path, temporaryPath => File.WriteAllBytes(temporaryPath, bytes));
+    internal void WriteAllText(string path, string content) =>
+        WriteAtomically(path, temporaryPath => _fileWriter.WriteAllText(temporaryPath, content));
 
     /// <summary>
     /// Atomically writes bytes to a file, creating parent directories, without blocking on the write.
@@ -37,24 +60,13 @@ internal static class AtomicFile
     /// <param name="bytes">The byte content.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>A task that completes when the file has been written and renamed into place.</returns>
-    internal static async Task WriteAllBytesAsync(
+    internal async Task WriteAllBytesAsync(
         string path, ReadOnlyMemory<byte> bytes, CancellationToken cancellationToken)
     {
         string temporaryPath = BeginWrite(path);
-        await File.WriteAllBytesAsync(temporaryPath, bytes, cancellationToken).ConfigureAwait(false);
+        await _fileWriter.WriteAllBytesAsync(temporaryPath, bytes, cancellationToken).ConfigureAwait(false);
         CommitWrite(temporaryPath, path);
     }
-
-    /// <summary>
-    /// Builds the temporary-sibling path — a unique <c>.tmp-</c> name beside the destination — for these atomic
-    /// write-and-rename operations. It delegates to the single shared recipe,
-    /// <see cref="AgentGuard.CrossPlatform.PlatformFileSystemShared.TemporarySiblingPath(string)"/>, which the
-    /// per-OS atomic symlink swap also calls, so the recipe is spelled once.
-    /// </summary>
-    /// <param name="path">The destination path.</param>
-    /// <returns>The temporary sibling path in the destination's directory.</returns>
-    internal static string TemporarySiblingPath(string path) =>
-        AgentGuard.CrossPlatform.PlatformFileSystemShared.TemporarySiblingPath(path);
 
     /// <summary>
     /// Atomically copies a source file over a destination, creating parent directories. The source is never
@@ -62,10 +74,10 @@ internal static class AtomicFile
     /// </summary>
     /// <param name="sourcePath">The source file.</param>
     /// <param name="destinationPath">The destination file.</param>
-    internal static void CopyOver(string sourcePath, string destinationPath) =>
-        WriteAtomically(destinationPath, temporaryPath => File.Copy(sourcePath, temporaryPath, overwrite: true));
+    internal void CopyOver(string sourcePath, string destinationPath) =>
+        WriteAtomically(destinationPath, temporaryPath => _fileWriter.Copy(sourcePath, temporaryPath, overwrite: true));
 
-    private static void WriteAtomically(string path, Action<string> writeTemporary)
+    private void WriteAtomically(string path, Action<string> writeTemporary)
     {
         string temporaryPath = BeginWrite(path);
         writeTemporary(temporaryPath);
@@ -78,10 +90,10 @@ internal static class AtomicFile
     /// </summary>
     /// <param name="path">The destination path.</param>
     /// <returns>The temporary sibling path to write to.</returns>
-    private static string BeginWrite(string path)
+    private string BeginWrite(string path)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        return TemporarySiblingPath(path);
+        _directoryWriter.CreateDirectory(Path.GetDirectoryName(path)!);
+        return _random.TemporarySiblingPath(path);
     }
 
     /// <summary>
@@ -89,6 +101,6 @@ internal static class AtomicFile
     /// </summary>
     /// <param name="temporaryPath">The written temporary sibling.</param>
     /// <param name="path">The destination path.</param>
-    private static void CommitWrite(string temporaryPath, string path) =>
-        File.Move(temporaryPath, path, overwrite: true);
+    private void CommitWrite(string temporaryPath, string path) =>
+        _fileWriter.Move(temporaryPath, path, overwrite: true);
 }

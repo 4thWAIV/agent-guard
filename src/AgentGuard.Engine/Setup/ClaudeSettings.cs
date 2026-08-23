@@ -19,12 +19,12 @@ internal static class ClaudeSettings
     internal static SettingsRead Read(SetupContext context)
     {
         string path = ProjectPaths.ClaudeSettingsFile(context);
-        if (!File.Exists(path))
+        if (!context.FileReader.Exists(path))
         {
             return SettingsRead.Absent();
         }
 
-        return SafeRead.TryReadText(path, out string content, out string error)
+        return SafeRead.For(context).TryReadText(path, out string content, out string error)
             ? SettingsRead.Present(content)
             : SettingsRead.Unreadable($".claude/settings.json is unreadable: {error}");
     }

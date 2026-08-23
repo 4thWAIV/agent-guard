@@ -128,23 +128,6 @@ public sealed class ReturnTypesMustNotBeTuplesAnalyzer : DiagnosticAnalyzer
 
     private static bool ReturnsTuple(ITypeSymbol? type)
     {
-        return ContainsTuple(type, new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default));
-    }
-
-    private static bool ContainsTuple(ITypeSymbol? type, HashSet<ITypeSymbol> visited)
-    {
-        if (type is null || !visited.Add(type))
-        {
-            return false;
-        }
-
-        return type switch
-        {
-            INamedTypeSymbol named => named.IsTupleType
-                || named.TypeArguments.Any(argument => ContainsTuple(argument, visited)),
-            IArrayTypeSymbol array => ContainsTuple(array.ElementType, visited),
-            IPointerTypeSymbol pointer => ContainsTuple(pointer.PointedAtType, visited),
-            _ => false,
-        };
+        return TypeTree.Any(type, static named => named.IsTupleType);
     }
 }

@@ -65,8 +65,8 @@ internal static class CoreSystemPaths
     /// Combines a repo-root-relative core-system location with the given project root into an absolute path.
     /// </summary>
     /// <param name="projectRoot">The absolute project root.</param>
-    /// <param name="relative">The repo-root-relative location.</param>
+    /// <param name="relative">The repo-root-relative location, spelled with forward slashes.</param>
     /// <returns>The absolute path under the project root.</returns>
     internal static string Absolute(string projectRoot, string relative) =>
-        Path.Combine(projectRoot, relative.Replace('/', Path.DirectorySeparatorChar));
+        Path.Combine(projectRoot, Path.Combine(relative.Split('/')));
 }

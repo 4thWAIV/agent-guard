@@ -9,4 +9,22 @@
     <AssemblyName>AgentGuard.CrossPlatform</AssemblyName>
   </PropertyGroup>
 
+  <!-- The relocated platform interfaces (IPlatformFileSystem/IPlatformServices) now live in
+       AgentGuard.Abstractions.Contracts (platform-interfaces-to-abstractions). -->
+  <ItemGroup>
+    <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
+  </ItemGroup>
+
+  <!-- The owned adapters and the one CrossPlatformAdapters factory stay internal with private constructors (Wall 1).
+       AgentGuard.Boundaries reaches the one factory through this grant (boundaries-calls-one-crossplatform-factory);
+       the three per-OS implementation assemblies reach it too, so each PlatformServices.Create() wires the same owned adapters
+       into its platform file system. Keyless in source; the signing target injects the public key on a signed build
+       (decision 35). -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Boundaries" />
+    <InternalsVisibleTo Include="AgentGuard.CrossPlatform.MacOS" />
+    <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Linux" />
+    <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Windows" />
+  </ItemGroup>
+
 </Project>

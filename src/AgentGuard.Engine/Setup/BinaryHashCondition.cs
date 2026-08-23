@@ -23,7 +23,7 @@ internal sealed class BinaryHashCondition : MachineCondition
     protected override ConditionState DetectInstalled(SetupContext context, InstallState state)
     {
         string binary = MachinePaths.VersionBinary(context, state.Version);
-        if (!File.Exists(binary))
+        if (!context.FileReader.Exists(binary))
         {
             return ConditionState.CannotVerify($"versions/{state.Version}/guard is not present to hash");
         }
@@ -31,7 +31,7 @@ internal sealed class BinaryHashCondition : MachineCondition
         string actual;
         try
         {
-            actual = Hashing.Sha256HexOfFile(binary);
+            actual = Hashing.Sha256Hex(context.FileReader.ReadAllBytes(binary));
         }
         catch (IOException exception)
         {

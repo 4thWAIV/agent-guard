@@ -1,6 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
-using AgentGuard.Engine.Abstractions;
+using AgentGuard.Abstractions;
 
 namespace AgentGuard.Engine;
 

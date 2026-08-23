@@ -35,6 +35,10 @@
     <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing" Version="9.0.0" />
   </ItemGroup>
 
+  <!-- ReportGenerator (the coverage report merge tool the gate runs) is pinned in the committed tool manifest
+       .config/dotnet-tools.json (decision reportgenerator-pinned) and restored with `dotnet tool restore`, not
+       package-referenced here — one pin, no drift. -->
+
   <ItemGroup Label="Runtime dependencies">
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
   </ItemGroup>

@@ -2,8 +2,8 @@
 
 using System;
 using System.IO;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 
 namespace AgentGuard.Engine;
 
@@ -16,10 +16,10 @@ internal sealed class DirectoryPrefixMatcher : IPathMatcher
     private readonly string _canonicalDirectory;
     private readonly string _canonicalPrefix;
 
-    private DirectoryPrefixMatcher(string canonicalDirectory)
+    private DirectoryPrefixMatcher(string canonicalDirectory, char directorySeparator)
     {
         _canonicalDirectory = canonicalDirectory;
-        _canonicalPrefix = canonicalDirectory + Path.DirectorySeparatorChar;
+        _canonicalPrefix = canonicalDirectory + directorySeparator;
     }
 
     /// <inheritdoc />
@@ -32,10 +32,12 @@ internal sealed class DirectoryPrefixMatcher : IPathMatcher
     /// </summary>
     /// <param name="canonicalizer">The canonicalizer used to resolve the directory.</param>
     /// <param name="rawDirectory">The raw directory whose subtree is matched.</param>
+    /// <param name="directorySeparator">The OS directory separator, owned by <c>IPlatformFileSystem</c> and threaded
+    /// in from the composition (the raw <c>Path.DirectorySeparatorChar</c> is not input-deterministic, AG0020).</param>
     /// <returns>The matcher, as its interface.</returns>
-    internal static IPathMatcher Create(IPathCanonicalizer canonicalizer, string rawDirectory)
+    internal static IPathMatcher Create(IPathCanonicalizer canonicalizer, string rawDirectory, char directorySeparator)
     {
         ArgumentNullException.ThrowIfNull(canonicalizer);
-        return new DirectoryPrefixMatcher(canonicalizer.Canonicalize(rawDirectory).Value);
+        return new DirectoryPrefixMatcher(canonicalizer.Canonicalize(rawDirectory).Value, directorySeparator);
     }
 }

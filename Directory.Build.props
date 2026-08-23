@@ -21,6 +21,17 @@
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   </PropertyGroup>
 
+  <PropertyGroup Label="Code coverage (zero-effort collection)">
+    <!-- Every `dotnet test` collects a cobertura coverage report with no extra flags: the shared .runsettings
+         turns on XPlat Code Coverage over the product assemblies (decision zero-effort-collection). CI merges the
+         per-project reports and gates the aggregate and each per-OS implementation at 75%
+         (decisions threshold-75-hard-gate, covered-assemblies). The analyzer test project carries no
+         coverlet.collector by design and is out of the coverage scope; it is excluded in Directory.Build.targets
+         (not here) because `$(AgentGuardIsAnalyzerProject)` is set in that project's body, which MSBuild evaluates
+         after this props import — so a condition here would not yet see it. -->
+    <RunSettingsFilePath>$(MSBuildThisFileDirectory).runsettings</RunSettingsFilePath>
+  </PropertyGroup>
+
   <PropertyGroup Label="Warnings and static analysis">
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

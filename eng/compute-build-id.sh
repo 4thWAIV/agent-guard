@@ -4,7 +4,8 @@
 # -p:AgentGuard... so the 3 per-OS machine jobs + the release job all stamp the identical id. The Day/Time math
 # here intentionally mirrors the pre-solution MSBuild target (authorized to live in these two places).
 #
-# Usage: eng/compute-build-id.sh [channel]     channel "dev" => -pre-release; else release.
+# Usage: eng/compute-build-id.sh [channel]     channel "dev" => -pre-release; "pr-<number>" => -pr-<number>
+#                                              (pr-build-version-channel); else release.
 # If $GITHUB_OUTPUT is set, the values are also appended there for use as job outputs.
 set -euo pipefail
 
@@ -28,7 +29,14 @@ if [ -z "$MAJOR_MINOR" ]; then
   echo "compute-build-id: could not read <AgentGuardMajorMinor> from $SCRIPT_DIR/version.props" >&2
   exit 1
 fi
-if [ "$CHANNEL" = "dev" ]; then PRE="-pre-release"; else PRE=""; fi
+# The prerelease suffix is applied HERE and nowhere else. `dev` => `-pre-release`; a pull-request channel
+# `pr-<number>` stamps `-pr-<number>` so a PR build is labelled by its PR, not as a pre-release
+# (decision pr-build-version-channel); anything else (main) => no suffix.
+case "$CHANNEL" in
+  dev)  PRE="-pre-release" ;;
+  pr-*) PRE="-$CHANNEL" ;;
+  *)    PRE="" ;;
+esac
 TAG="${MAJOR_MINOR}.${COMBINED}${PRE}"
 VERSION="${TAG}+${HASH}"
 

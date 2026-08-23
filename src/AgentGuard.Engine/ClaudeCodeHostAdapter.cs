@@ -2,10 +2,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
-using AgentGuard.Engine.Abstractions;
-using AgentGuard.Engine.Abstractions.Contracts;
+using AgentGuard.Abstractions;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Setup;
 
 namespace AgentGuard.Engine;
@@ -43,9 +42,11 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
 
     private static readonly string[] HookMatcherTokensOrdered = BuildHookMatcherTokens();
 
-    private ClaudeCodeHostAdapter()
-    {
-    }
+    private readonly IEnvironment _environment;
+
+    // Private constructor (Wall 1): the owned environment arrives by constructor injection so the cwd fallback reads
+    // through IEnvironment, never a raw Directory.GetCurrentDirectory.
+    private ClaudeCodeHostAdapter(IEnvironment environment) => _environment = environment;
 
     /// <inheritdoc />
     public string Host => GuardHost.ClaudeCodeHost;
@@ -88,7 +89,7 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
                 return new HostReadUnparsable("The hook payload had no tool_use_id.");
             }
 
-            string projectRoot = ReadString(root, "cwd") ?? Directory.GetCurrentDirectory();
+            string projectRoot = ReadString(root, "cwd") ?? _environment.GetCurrentDirectory();
             string? sessionId = ReadString(root, "session_id");
             ToolInput? input = BuildInput(toolName, root);
 
@@ -116,10 +117,15 @@ internal sealed class ClaudeCodeHostAdapter : IHostAdapter
     }
 
     /// <summary>
-    /// Creates the Claude Code adapter.
+    /// Creates the Claude Code adapter, drawing the owned environment from the container.
     /// </summary>
+    /// <param name="services">The OS/CLR service container the environment is drawn from.</param>
     /// <returns>The adapter, as its interface.</returns>
-    internal static IHostAdapter Create() => new ClaudeCodeHostAdapter();
+    internal static IHostAdapter Create(ISystemServices services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        return new ClaudeCodeHostAdapter(services.Environment);
+    }
 
     private static string[] BuildHookMatcherTokens()
     {

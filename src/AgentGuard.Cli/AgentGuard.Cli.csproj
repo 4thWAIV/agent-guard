@@ -20,6 +20,13 @@
     <PackageReference Include="System.CommandLine" />
   </ItemGroup>
 
+  <!-- The CLI test project reaches the internal Program.Run seam through this grant (cli-tests-reach-run-via-ivt),
+       the same InternalsVisibleTo convention the per-OS platform factories and the Boundaries door use. The signing
+       transform (eng/signing.props) adds the public key on a signed build. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="AgentGuard.Cli.Tests" />
+  </ItemGroup>
+
   <!-- Thread the target RID to the engine as AgentGuardPlatformRid so the per-OS implementation selection in
        AgentGuard.CrossPlatform/PlatformImplementation.targets stays consistent across restore and build. On a
        self-contained cross-RID publish the SDK strips RuntimeIdentifier when it builds this app's library
@@ -28,6 +35,11 @@
        list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
   <ItemGroup>
     <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj">
+      <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
+    </ProjectReference>
+    <!-- The composition root builds the one ISystemServices via SystemServices.Create() (AG0017-pinned to Program),
+         so it references Boundaries directly. The same RID threading keeps the per-OS selection consistent. -->
+    <ProjectReference Include="../AgentGuard.Boundaries/AgentGuard.Boundaries.csproj">
       <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
     </ProjectReference>
   </ItemGroup>

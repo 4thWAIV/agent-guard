@@ -1,30 +1,30 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System;
+using AgentGuard.Abstractions.Contracts;
 using AgentGuard.Engine;
-using Org.BouncyCastle.Crypto.Generators;
-using Org.BouncyCastle.Crypto.Parameters;
-using Org.BouncyCastle.Crypto.Signers;
-using Org.BouncyCastle.Security;
+using AgentGuard.TestHelpers;
 
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// A throwaway Ed25519 authority used only to sign grant fixtures. It mirrors what a human key-holder does:
-/// sign a token's canonical payload bytes with the private key the guard verifies against the matching public
-/// key.
+/// A throwaway Ed25519 authority used only to sign grant fixtures. It mirrors what a human key-holder does: sign a
+/// token's canonical payload bytes with the private key the guard verifies against the matching public key. The crypto
+/// is reached only through the owned <see cref="ISignatureService"/> off a real container — the interface whose
+/// <c>Sign</c> and <c>GenerateKeyPair</c> members exist for exactly this test grant authority — never a raw
+/// BouncyCastle type.
 /// </summary>
 internal sealed class EphemeralGrantAuthority
 {
-    private readonly Ed25519PrivateKeyParameters _privateKey;
+    private readonly ISignatureService _signatures;
+    private readonly ReadOnlyMemory<byte> _privateKey;
 
     internal EphemeralGrantAuthority()
     {
-        var generator = new Ed25519KeyPairGenerator();
-        generator.Init(new Ed25519KeyGenerationParameters(new SecureRandom()));
-        var pair = generator.GenerateKeyPair();
-        _privateKey = (Ed25519PrivateKeyParameters)pair.Private;
-        PublicKey = ((Ed25519PublicKeyParameters)pair.Public).GetEncoded();
+        _signatures = SystemServicesBuilder.Real().Build().Signatures;
+        SigningKeyPair pair = _signatures.GenerateKeyPair();
+        _privateKey = pair.PrivateKey;
+        PublicKey = pair.PublicKey;
     }
 
     /// <summary>
@@ -40,10 +40,7 @@ internal sealed class EphemeralGrantAuthority
     internal GrantToken Sign(GrantTokenPayload payload)
     {
         byte[] message = GrantTokenCodec.CanonicalBytes(payload);
-        var signer = new Ed25519Signer();
-        signer.Init(forSigning: true, _privateKey);
-        signer.BlockUpdate(message, 0, message.Length);
-        byte[] signature = signer.GenerateSignature();
-        return new GrantToken(payload, Convert.ToBase64String(signature));
+        ReadOnlyMemory<byte> signature = _signatures.Sign(_privateKey, message);
+        return new GrantToken(payload, Convert.ToBase64String(signature.Span));
     }
 }

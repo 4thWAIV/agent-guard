@@ -50,6 +50,11 @@ Run the gate at the bottom before acting. If the work trips any rail below, STOP
 - **Violation:** The turn ends with an offer or question ("want me to…?") for work the objective already authorized, instead of the completed work and its actual pasted result.
 - **Fix:** Do the authorized work and paste the real generated result.
 
+### 8. Exception to a settled rule
+- **Practice:** When an approved rule or principle already governs a choice, apply it and do the work it demands — even when the correct application (the abstraction, the owner move, the new interface member) is more work than an exception. The extra work IS the rule doing its job. Reusing a tested BCL/OS/OSS primitive by routing it through its one deliberate owner — the owner-exemption the rule provides — is applying the rule, not escaping it: the exemption IS the owner mechanism, and giving a reused primitive its owner is doing the work. The escape this rail forbids is silencing a rule (a suppression, an allow-raw, a reclassification) to AVOID the work, never giving a reused primitive its deliberate owner.
+- **Violation:** Reaching for an exemption, a reclassification, an "allow raw here", or a "just this once" to escape a rule an approved rule or principle already answers — reached for because doing it right is more work — and often surfaced to the human as a decision so it reads like judgment instead of a shortcut. The rule already answered it; the impulse to carve an exception is the tell that you are skirting. Bringing a settled answer as a decision is the same failure.
+- **Fix:** Do the work the rule demands. Before surfacing any choice as a decision, run the settled-rule check: does an approved rule/principle (or the best-practices guide) already answer it? If yes, apply it and never surface it — there is no exception to bring.
+
 ## The gate (answer before acting)
 
 - Does this serve the ACTUAL objective, in full — not just the easy slice?
