@@ -1,5 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using System.Text.Json.Nodes;
 using FluentAssertions;
 using Xunit;
 
@@ -44,8 +45,13 @@ public sealed class CliCommandSuccessPathTests
         machine.Files.Exists(machine.ClaudeSettings).Should().BeTrue();
 
         // The wired PreToolUse hook is a call to the installed launcher — the absolute bin/guard path this machine
-        // registered — proving init wove the machine install into the project, not a placeholder.
-        machine.Files.ReadAllText(machine.ClaudeSettings).Should().Contain(machine.BinGuard);
+        // registered — proving init wove the machine install into the project, not a placeholder. Read the command
+        // from the PARSED settings, not the raw JSON text: on Windows the path's backslashes are JSON-escaped in the
+        // serialized file, so matching the real path against that text would spuriously fail; the parsed value carries
+        // the real path on every OS.
+        JsonNode settings = JsonNode.Parse(machine.Files.ReadAllText(machine.ClaudeSettings))!;
+        string preToolUseCommand = (string)settings["hooks"]!["PreToolUse"]![0]!["hooks"]![0]!["command"]!;
+        preToolUseCommand.Should().Contain(machine.BinGuard);
         machine.Files.Exists(machine.ProjectConfig).Should().BeTrue();
         machine.Files.ReadAllText(machine.ProjectConfig).Should().Contain("protectedPaths");
         machine.Directories.DirectoryExists(machine.ProjectGrants).Should().BeTrue();
