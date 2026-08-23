@@ -8,6 +8,8 @@ description: Read first — the on-ramp for working in this repo. The working ru
 ## What this repo is
 agent-guard is a tool whose sole job is to stop a lazy AI from disabling or cheating the guard and the golden build. The adversary is the AI taking the easy path and papering over it — not a malicious attacker. It is not a hardened security product; the bar is: **make cheating more work than doing the right thing.**
 
+It has two layers: the **guard product** (protects a project's files and config, installed through the CLI, cross-platform, with signed releases) and the **rails** (the analyzer fence, the workflow, and these skills that keep the AI honest while building it). What is already shipped and what is next each have a home in "Where things live" below — the manifest for current status, `.dev/backlog/` for the roadmap.
+
 ## The rules that get people fired if broken
 
 The universal form of these rules lives in `~/.codex/AGENTS.md`; the sections below are how they bind in agent-guard.
@@ -57,7 +59,14 @@ Also:
 ## Where things live (the .dev flow)
 See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions); `archive/` holds historical / non-workflow material.
 
-**Before working the rails or the workflow, read the manifest** (`./.dev/inprocess/MANIFEST.md`) — the index of every part of the system and its status. List the parts from it, never from memory.
+**Before working the rails or the workflow, read the manifest** (`./.dev/inprocess/MANIFEST.md`) — the index of every part of the system and its status, and the fastest orientation to what is shipped versus in flight. List the parts from it, never from memory; it goes stale between refreshes, so trust the code and git over a stale row.
+
+**The roadmap is `.dev/backlog/`** — the planned-but-not-started work, with the design/plan docs for what is next (currently crypto minting + presence: mint and sign grants, and gate sensitive operations on an OS presence check). The manifest is the current state; `.dev/backlog/` is what is coming.
+
+**The rails skills are the checked-in source at `.agents/skills/rails-*`** (`.claude/skills` symlinks to it); the workflow scripts are `.agents/workflows/*.js`.
+
+## Shipping and branch protection
+Work integrates on `dev` and is cut to `main` only at a milestone worth releasing — never just because `dev` is green and ahead. PRs into `dev`/`main` require one approving review and a green `gate` status check; **repo admins bypass both**, so a maintainer can direct-push a trivial docs or bookkeeping change, but real code always goes through the PR and the gate. **File the run-record inside the shipping PR, before merge** — the `inprocess/`→`completed/` move rides the same PR, and REPORT sweeps the whole `inprocess/` tree for any straggler whose work already shipped (detail in `rails-run-a-workflow`, Provenance). A run-record filed after the merge is an orphan that needs a second direct push and leaves shipped work rotting in `inprocess/`.
 
 ## Guard-protected-later areas — decision-gated for now, NOT a permanent lock
 
