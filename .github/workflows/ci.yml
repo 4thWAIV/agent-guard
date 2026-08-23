@@ -66,6 +66,9 @@ jobs:
           curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
           echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+          # Explicit proof of the SDK this leg builds with — resolved through global.json (rollForward disable),
+          # so it prints the exact pinned version and hard-fails if that version is not the one installed.
+          "$RUNNER_TEMP/dotnet/dotnet" --version
       - name: Restore the strong-name signing key (push only; CI must ship signed)
         if: github.event_name == 'push'
         shell: bash
@@ -201,6 +204,8 @@ jobs:
           Invoke-WebRequest https://dot.net/v1/dotnet-install.ps1 -OutFile "$env:RUNNER_TEMP/dotnet-install.ps1"
           & "$env:RUNNER_TEMP/dotnet-install.ps1" -JSonFile "$env:GITHUB_WORKSPACE/global.json" -InstallDir "$env:RUNNER_TEMP/dotnet"
           "$env:RUNNER_TEMP/dotnet" | Out-File -FilePath $env:GITHUB_PATH -Append
+          # Explicit proof of the SDK this leg builds with — resolved through global.json (rollForward disable).
+          & "$env:RUNNER_TEMP/dotnet/dotnet" --version
       - name: Restore the strong-name signing key (push only; CI must ship signed)
         if: github.event_name == 'push'
         shell: bash
@@ -323,6 +328,9 @@ jobs:
           curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
           echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
+          # Explicit proof of the SDK this leg builds with — resolved through global.json (rollForward disable),
+          # so it prints the exact pinned version and hard-fails if that version is not the one installed.
+          "$RUNNER_TEMP/dotnet/dotnet" --version
       - name: Restore the strong-name signing key (push only; CI must ship signed)
         if: github.event_name == 'push'
         shell: bash
