@@ -1,5 +1,7 @@
 # CLR-primitive lockdown + coverage gate — one contract
 
+> **COMPLETED and shipped — filed 2026-08-23.** The whole `2026-08-11-lockdown-and-coverage` run — this contract plus the bridge, the test system, and the cross-OS simulator + evidence — is merged to `dev` with CI green on macOS, Linux, and Windows (final leg via PR #35). Any "still red" or "remaining work" wording below is the historical execution record from before it shipped; that remaining test-system work was completed through `test-system-contract.md` and `cross-os-simulator-and-evidence-contract.md` in this same folder. Deferred tails are tracked as GitHub issues (for example #27 native case query, #28 rule folds).
+
 This one contract merges two. The **CLR-primitive lockdown** puts every OS/CLR primitive behind an interface we own and makes a raw call a build error. The **coverage gate** collects coverage by default and fails the build under 75%. Tim ruled they merge — *"YOU must now combine these into one contract as the only way foward is to merge them"*.
 
 It supersedes the two source contracts:

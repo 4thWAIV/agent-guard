@@ -132,6 +132,10 @@ Every run leaves a run-record under repo root: the contract, the worker's output
 
 **Where the run-record lives, and how it moves through the folders.** When substantive work starts, its folder lives at `.dev/inprocess/<date>-<slug>/`, and every non-code file of the run — the contract, the run-record, the adversary verdicts, the agent outputs — sits there while the work is in flight. When the run ends in a successful REPORT, the folder moves to `.dev/completed/`: `run-records/` for the contract + verdicts + report of a shipped build, `designs/` for a design or spec doc whose subject shipped. `backlog/` holds planned-but-not-started items; `reference/` and `archive/` sit outside the flow. See `.dev/README.md` for the full folder definitions.
 
+**Move the run-record inside the shipping PR, before merge — never after.** The `inprocess/`→`completed/` move is a commit ON the same branch and PR that ships the work, staged as part of REPORT, so one merge both ships the code and files the run-record. A run-record moved after the merge is an orphan: the branch is already gone, the protected target needs a second direct push, and it is the exact drift that leaves shipped work rotting in `inprocess/`.
+
+**REPORT reconciles the whole `inprocess/` tree, not just the current run.** Before REPORT closes, sweep `.dev/inprocess/` for any run-record whose work has actually shipped — merged to `dev`, or marked done in the MANIFEST — and file every straggler to `completed/` in this same PR. The invariant is: nothing in `inprocess/` is for work already done. The mechanical, build-failing enforcement of that invariant is tracked as a GitHub issue; until it lands, REPORT runs the sweep by hand.
+
 ## Failure-class practice pack (inject into every worker + adversary prompt)
 
 These are the classes that have actually burned this project — block them by name:
@@ -142,6 +146,7 @@ These are the classes that have actually burned this project — block them by n
 - **Oracle staleness.** A pinned test that fails has exactly two legal moves: fix the code, or repin the oracle WITH ruling provenance. Silent weakening is the Lie-catcher's #1 hunt — it diffs test files specifically.
 - **Unapproved decision.** A design element added or reversed without the human's verbatim sign-off (RULE 2). The Lie-catcher yells it top-line; do not ride over it.
 - **Undecided forced choice.** A choice the work FORCES — a tool default, a user-visible name/format, a trust boundary, an encoding/limit, a versioning/release scheme — that is not in the Decisions section and that a tool or implementer will silently default. The `hidden-decision-scan` (GROUND) surfaces it; letting the default stand unsurfaced, or advancing to IMPLEMENT with it unresolved, is a top-line finding ranked with an unapproved decision.
+- **Orphaned run-record.** Work shipped but its run-record left in `.dev/inprocess/` instead of `completed/` — filed after the merge, or never filed. Move the run-record inside the shipping PR before merge (see Provenance); at REPORT, sweep the whole `inprocess/` tree and file every straggler whose work already shipped.
 - **Inherited PENDING markers.** Any "not yet wired" comment found = surfaced top-line, never ridden over.
 - **Out-of-repo-root references.** Illegal — workers never add one, adversaries flag any found.
 - **"Pre-existing" as an excuse.** Banned. A red on the branch is fixed, not footnoted.

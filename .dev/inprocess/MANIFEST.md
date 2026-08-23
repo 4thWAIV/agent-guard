@@ -2,7 +2,7 @@
 
 The checked-in index of every part and its status. **Read this before working the system, and list from the files, not from memory.** Supersedes `STATE-OF-THE-WORK`; `RESUME.md` stays the verbatim-decision record.
 
-_Verified 2026-08-10. CrossPlatform + CI/CD shipped to `dev` — full pipeline green on all 3 OS, six signed binaries published, branch protection on `dev`+`main`. Both contracts moved to `.dev/completed/run-records/`._
+_Verified 2026-08-23. Shipped to `dev` and CI-green on all 3 OS: CrossPlatform, CI/CD (six signed binaries, branch protection on `dev`+`main`), and the whole **CLR-primitive lockdown + coverage gate** umbrella — the lockdown itself, the FileInfo/IFileSystem bridge, the cross-OS test system, the 75% coverage gate, and the cross-OS simulator + evidence. Those run-records are all filed under `./.dev/completed/run-records/2026-08-11-lockdown-and-coverage/`. `dev` is ahead of `main`; no release to `main` is cut yet, by Tim's call. Branch protection: PRs to `dev`/`main` need 1 approval (ruleset 21224660) and a green `gate`; repo admins bypass both (`enforce_admins` off). Where a row below still carries an older status, this header is authoritative._
 
 ## Global (personal — `~/.codex`, `~/.claude`)
 | Part | What | Status |
@@ -26,24 +26,25 @@ _Verified 2026-08-10. CrossPlatform + CI/CD shipped to `dev` — full pipeline g
 - 8 stages: **GROUND → DESIGN → CONTRACT → RULE-PHASE → IMPLEMENT → REFUTE → GATE → REPORT** — done
 - 9 roles (orchestrator, architect, rule-gen, worker, Prove-It, SOLID, DRY, laziness-auditor, Lie-catcher) — done
 - RDD wired in; cleanup law + waiver; separation of powers; `.dev` lifecycle — done
+- The run-record moves inprocess→completed **inside the shipping PR, before merge**; REPORT reconciles any straggler left in inprocess — done (mechanical enforcement tracked as an issue)
 - Lie-catcher points at `rails-decisions` as its checklist (role + prompt) — done
 
 ## Tools (scripts)
 | Tool | What | Where | Status |
 |---|---|---|---|
-| prior-art-ledger | DRY prior-art search | `./.agents/workflows/prior-art-ledger.js` | done, proven once |
-| hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, proven once (CrossPlatform contract) |
-| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | **running now** (filesystem-seam, `wf_102e11b0-164`) — first real run |
-| DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built, **never run** (filesystem-seam design done interactively + via ad-hoc design/refute agents) |
-| REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | built, **never run** |
-| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | run once — CrossPlatform AG0008/9/10 + link test committed (`adf1be5`) |
-| IMPLEMENT script | single fresh worker, canonical prompt | `./.agents/workflows/implement.js` | built, **never run** |
+| prior-art-ledger | DRY prior-art search | `./.agents/workflows/prior-art-ledger.js` | done, proven |
+| hidden-decision-scan | forced-decision scan | `./.agents/workflows/hidden-decision-scan.js` | done, proven (CrossPlatform contract) |
+| GROUND script | fan-out (explorer + ledger) | `./.agents/workflows/ground.js` | done — run for real (filesystem-seam / lockdown GROUND) |
+| DESIGN script | fan-out (architect panel) | `./.agents/workflows/design.js` | built; lockdown design done interactively + via ad-hoc design/refute agents, not yet script-driven |
+| REFUTE script | fan-out (all adversaries) | `./.agents/workflows/refute.js` | run — drove the REFUTE rounds on the test-system + cross-OS work |
+| RULE-PHASE script | rule-gen writes rules → independent refute panel | `./.agents/workflows/rule-phase.js` | run several times — CrossPlatform (AG0008/9/10), lockdown, test-system, cross-OS rule phases |
+| IMPLEMENT script | single fresh worker, canonical prompt | `./.agents/workflows/implement.js` | built; lockdown IMPLEMENT run via agents, not yet script-driven |
 | tools' home | the two real ones live in `./.agents/workflows`; `./.claude/workflows` symlinks to it | done |
 
 ## Fence (analyzers — `./analyzers/AgentGuard.Analyzers/`)
 - AG0001–AG0007 (architecture rules) — existing
 - AG0008 (interop-only-in-crossplatform), AG0009 (no-OS-branching), AG0010 (factory-returns-container) + link-shared-source test — CrossPlatform rule phase, committed
-- AG0011–AG0017 + AG0101 (boundary-call ban + construction pin + OS-divergent series) — CLR-primitive lockdown contract, to build in its RULE-PHASE
+- The CLR-primitive lockdown, bridge, test-system, and cross-OS rule phases **shipped** their analyzer rules: the consolidated owner rule (AG0011) + construction/container pins (AG0017/AG0033/AG0034) + the OS-divergent series (AG0101), the test-system rules (AG0018/AG0019), the store/leaf/temp-root rules (AG0027/AG0030/AGS5443), and the cross-OS seed rules (AG0035/AG0036/AG0037). Some early per-primitive rules were folded/retired in the bridge — see the run-records and issue #28 for the exact final set.
 - new rules per task, written in the RULE-PHASE — ongoing
 
 ## Cross-tool / deploy
@@ -57,8 +58,8 @@ _Verified 2026-08-10. CrossPlatform + CI/CD shipped to `dev` — full pipeline g
 | Work | Status |
 |---|---|
 | **CrossPlatform — DONE (shipped 2026-08-10)** — 3 libs, `IPlatformFileSystem` + `IDirectoryEnumerator`, `NativeInterop.cs` deleted, chmod→`MakeExecutable`, fail-closed fix, writable-check removed, CRLF fix; contract at `./.dev/completed/run-records/2026-08-07-cross-platform-engine-and-interop/contract.md` | DONE — merged to `dev`, full CI green on all 3 OS. The per-OS `IPlatformFileSystem` libraries replace the Unix-only interop; the RID-selection double-build was fixed (Cli `AdditionalProperties` made conditional on a non-empty RID). |
-| CLR-primitive lockdown (was "filesystem seam + boundary rules") — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the remaining 5 interfaces, `ISystemServices` + 2 construction walls, AG0011–AG0017 + AG0101, ~53 Setup-site cleanup, the test system; decisions + GROUND facts at `./.dev/inprocess/2026-08-09-clr-primitive-lockdown/DECISIONS.md` | **UNBLOCKED — next on deck** (CrossPlatform shipped 2026-08-10); design settled + GROUND done (106 sites/34 files in DECISIONS.md). Related: issue #13 (seam-at-every-boundary rule), #14 (boundary-violation inventory). |
-| CI/CD — DONE; contract at `./.dev/completed/run-records/2026-08-03-ci-cd-build-sign-release/contract.md` | DONE — full pipeline (build/test/sign/verify/release) green on GitHub all 3 OS; six signed binaries published as pre-release `0.1.104270894` on `dev`; branch protection on `dev`+`main` (gate required). `dev→main` PR #19 open to cut the full/latest release. |
+| **CLR-primitive lockdown + coverage gate — DONE (shipped to `dev` 2026-08-23)** — 3 new assemblies (Abstractions/Boundaries/TestHelpers), the owned interfaces, `ISystemServices` + construction walls, the analyzer fence, the Setup-site cleanup, the FileInfo/IFileSystem bridge, the cross-OS test system, and the 75% coverage gate | DONE — CI green on all 3 OS. Executed through the umbrella run-record `./.dev/completed/run-records/2026-08-11-lockdown-and-coverage/`: `contract.md` (the merged lockdown+coverage spec), `bridge-contract.md` (`8367242`, src-tree route + FileInfo/IFileSystem), `test-system-contract.md` (TestHelpers/builder + test migration + coverage gate), and `cross-os-simulator-and-evidence-contract.md` (Windows/Linux simulator + CI evidence, PR #35). Deferred tails as issues: #27 (native case query), #28 (rule folds), #34 (IVT shrink), #31 (temp-file member). |
+| CI/CD — DONE; contract at `./.dev/completed/run-records/2026-08-03-ci-cd-build-sign-release/contract.md` | DONE — full pipeline (build/test/sign/verify/release) green on GitHub all 3 OS; six signed binaries published; branch protection on `dev`+`main` (gate required). `main` last cut at PR #19; no new `main` release cut yet, by Tim's call. |
 | interop CA rule + anti-`#if` analyzer | done — AG0008/AG0009 committed in CrossPlatform's rule phase |
 
 ## Repo hygiene
@@ -68,4 +69,4 @@ _Verified 2026-08-10. CrossPlatform + CI/CD shipped to `dev` — full pipeline g
 - prettier format-on-write hook — parked (real config decision, but blocks nothing; may collide with config-region protection).
 
 ## Detail lives in
-- `RESUME.md` (verbatim decisions) · `2026-08-07-rules-and-process-reorg/workflow-and-rdd-fix.md` (the RDD-fix record) · `./.dev/README.md` (the folder flow)
+- `./.dev/completed/run-records/2026-08-11-lockdown-and-coverage/RESUME.md` (verbatim decisions of the lockdown run) · `2026-08-07-rules-and-process-reorg/workflow-and-rdd-fix.md` (the RDD-fix record) · `./.dev/README.md` (the folder flow)
