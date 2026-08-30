@@ -1,5 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
+using System.Collections.Immutable;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 
@@ -23,6 +24,20 @@ internal static class PInvoke
     internal const string LibraryImportAttributeName = "LibraryImportAttribute";
 
     /// <summary>
+    /// The (namespace, name) identities of the two native-interop attributes — <c>DllImportAttribute</c> and
+    /// <c>LibraryImportAttribute</c>, both in <see cref="KnownNamespaces.SystemRuntimeInteropServices"/>. The single
+    /// owner of "which attributes are the interop attributes": <see cref="IsInteropAttribute"/> consumes it against a
+    /// resolved <see cref="AttributeData.AttributeClass"/>, and <see cref="InteropOnlyInCrossPlatformLibrariesAnalyzer"/>
+    /// consumes the same list against an <see cref="Microsoft.CodeAnalysis.CSharp.Syntax.AttributeSyntax"/> through
+    /// <see cref="AttributeIdentity.IsAnyOf"/>,
+    /// so neither spells the set a second time.
+    /// </summary>
+    internal static readonly ImmutableArray<(string Namespace, string Name)> InteropAttributes =
+        ImmutableArray.Create(
+            (KnownNamespaces.SystemRuntimeInteropServices, DllImportAttributeName),
+            (KnownNamespaces.SystemRuntimeInteropServices, LibraryImportAttributeName));
+
+    /// <summary>
     /// Gets a value indicating whether <paramref name="method"/> is a native-interop method — an <c>extern</c>
     /// <c>[DllImport]</c> method (which carries marshalling data) or a <c>[LibraryImport]</c> partial method.
     /// </summary>
@@ -35,8 +50,6 @@ internal static class PInvoke
 
     private static bool IsInteropAttribute(AttributeData attribute)
     {
-        INamedTypeSymbol? attributeType = attribute.AttributeClass;
-        return WellKnownType.Is(attributeType, KnownNamespaces.SystemRuntimeInteropServices, DllImportAttributeName)
-            || WellKnownType.Is(attributeType, KnownNamespaces.SystemRuntimeInteropServices, LibraryImportAttributeName);
+        return WellKnownType.IsAnyOf(attribute.AttributeClass, InteropAttributes);
     }
 }

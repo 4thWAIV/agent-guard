@@ -24,6 +24,50 @@
     <ProjectReference Include="..\AgentGuard.TestHelpers\AgentGuard.TestHelpers.csproj" />
   </ItemGroup>
 
+  <!-- The per-OS presence spec tests reach INTERNAL per-OS types (the native ports, the plain result records, the pure
+       mappers, PolkitAction.Id), so each OS's files compile only on that OS's CI leg — the same selection rule as the
+       impl reference below (RID first, build-host OS fallback). The non-selected OS folders are removed from the default
+       glob and the selected one re-included, so no #if / OperatingSystem.Is* appears in the OS-agnostic spec source
+       (this project is deliberately subject to AG0008/AG0009). OS-agnostic presence tests live directly under
+       Presence/; the native smoke there compiles only when the CI workflow opts in (see below), never otherwise,
+       because it drives the real OS auth prompt. -->
+  <PropertyGroup>
+    <AgentGuardPlatformRid Condition="'$(AgentGuardPlatformRid)' == ''">$(RuntimeIdentifier)</AgentGuardPlatformRid>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Presence/MacOS/**/*.cs" />
+    <Compile Remove="Presence/Linux/**/*.cs" />
+    <Compile Remove="Presence/Windows/**/*.cs" />
+  </ItemGroup>
+
+  <!-- The native smoke runs the REAL presence implementation (a live OS auth prompt); compile it ONLY when the CI
+       workflow opts in via AgentGuardRunNativeSmoke (set on the OS test jobs in .github/workflows/ci.yml), never
+       otherwise. NOT keyed on the generic CI env var: agent/automation contexts set CI=true too, so it would still
+       compile — and pop — on an interactive machine. A build-directive opt-out, not a code-level Skip, so
+       NoOsSkipInTests (AG0026) stays clean. -->
+  <ItemGroup Condition="'$(AgentGuardRunNativeSmoke)' != 'true'">
+    <Compile Remove="Presence/PresenceNativeSmokeTests.cs" />
+  </ItemGroup>
+
+  <Choose>
+    <When Condition="$(AgentGuardPlatformRid.StartsWith('win')) or ('$(AgentGuardPlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Windows')))">
+      <ItemGroup>
+        <Compile Include="Presence/Windows/**/*.cs" />
+      </ItemGroup>
+    </When>
+    <When Condition="$(AgentGuardPlatformRid.StartsWith('linux')) or ('$(AgentGuardPlatformRid)' == '' and $([MSBuild]::IsOSPlatform('Linux')))">
+      <ItemGroup>
+        <Compile Include="Presence/Linux/**/*.cs" />
+      </ItemGroup>
+    </When>
+    <When Condition="$(AgentGuardPlatformRid.StartsWith('osx')) or ('$(AgentGuardPlatformRid)' == '' and $([MSBuild]::IsOSPlatform('OSX')))">
+      <ItemGroup>
+        <Compile Include="Presence/MacOS/**/*.cs" />
+      </ItemGroup>
+    </When>
+  </Choose>
+
   <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
   <Import Project="../../src/AgentGuard.CrossPlatform/PlatformImplementation.targets" />
 

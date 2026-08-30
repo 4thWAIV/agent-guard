@@ -58,6 +58,9 @@ jobs:
       contents: read
       id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
     env:
+      # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
+      # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
+      AgentGuardRunNativeSmoke: "true"
       AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -195,6 +198,9 @@ jobs:
       contents: read
       id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
     env:
+      # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
+      # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
+      AgentGuardRunNativeSmoke: "true"
       AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -320,6 +326,9 @@ jobs:
       contents: read
       id-token: write            # cosign keyless (ambient GitHub OIDC) on a push
     env:
+      # Opt the native smoke IN on this CI leg only; the test project keys its compilation on this flag, so the
+      # real-prompt smoke never compiles or runs on a developer/agent machine (which set the generic CI var).
+      AgentGuardRunNativeSmoke: "true"
       AG: -p:AgentGuardDay=${{ needs.version.outputs.day }} -p:AgentGuardTime=${{ needs.version.outputs.time }} -p:AgentGuardCombined=${{ needs.version.outputs.combined }} -p:AgentGuardHash=${{ needs.version.outputs.hash }} -p:AgentGuardChannel=${{ needs.version.outputs.channel }} -p:AgentGuardTag=${{ needs.version.outputs.tag }} -p:AgentGuardVersion=${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

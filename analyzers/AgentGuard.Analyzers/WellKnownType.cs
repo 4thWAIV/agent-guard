@@ -98,6 +98,25 @@ internal static class WellKnownType
     }
 
     /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> is declared in the namespace <paramref name="root"/>
+    /// OR any namespace nested beneath it — the "namespace tree" match, so <c>Tmds.DBus.Protocol</c> matches a
+    /// <paramref name="root"/> of <c>Tmds.DBus.Protocol</c> AND of <c>Tmds.DBus</c>. This is the whole-package match
+    /// the D-Bus owner rule (AG0110) uses to catch every type a package exposes; it is the tree companion to the
+    /// exact-namespace <see cref="IsInNamespace"/>, resolving the type's <see cref="ISymbol.ContainingNamespace"/>
+    /// internally so a caller never re-spells the <see cref="ISymbol.ToDisplayString"/> and prefix comparison.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <param name="root">The root namespace the type must be declared in or nested beneath.</param>
+    /// <returns><see langword="true"/> when the type is in that namespace or a sub-namespace of it.</returns>
+    internal static bool IsInNamespaceTree(INamedTypeSymbol? type, string root)
+    {
+        string? namespaceName = type?.ContainingNamespace?.ToDisplayString();
+        return namespaceName is not null
+            && (string.Equals(namespaceName, root, StringComparison.Ordinal)
+                || namespaceName.StartsWith(root + ".", StringComparison.Ordinal));
+    }
+
+    /// <summary>
     /// Resolves the type named <paramref name="typeName"/> in namespace <paramref name="containingNamespace"/> from
     /// <paramref name="compilation"/> — whether that type is declared in the compilation under analysis OR referenced
     /// from another assembly — by navigating the merged namespace tree, or <see langword="null"/> when no such type

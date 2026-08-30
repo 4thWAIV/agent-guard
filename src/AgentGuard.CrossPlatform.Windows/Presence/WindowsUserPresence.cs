@@ -1,0 +1,200 @@
+// Copyright (c) 4thWAIV. All rights reserved.
+
+using System;
+using System.Diagnostics.CodeAnalysis;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AgentGuard.CrossPlatform.Windows;
+
+/// <summary>
+/// The sole implementer of <see cref="IWindowsUserPresence"/> — the Windows presence FLOW port, now a pure DI
+/// orchestrator injected with the two native-ops seams below it (deep-native-ops-seam, macos-one-windows-two-native-ops):
+/// <see cref="IWindowsHelloNativeOps"/> for Windows Hello and <see cref="ICredentialPromptNativeOps"/> for the
+/// secure-desktop credential prompt. It owns all the testable logic: it tries Hello first and falls back to the
+/// credential prompt (windows-hello-or-password), wires the Hello <c>TaskCompletionSource</c>/completion, and branches on
+/// the prompt/unpack/logon outcomes — mapping the raw results through the pure <see cref="MapHelloResult"/>,
+/// <see cref="MapAsyncStatus"/>, and <see cref="MapCredentialStatus"/> functions, which it fakes in tests. It caches no
+/// auth context in a field (AG0112) and mints no timeout of its own (AG0107) — the gate owns the one 60-second bound.
+/// </summary>
+internal sealed class WindowsUserPresence : IWindowsUserPresence
+{
+    // UserConsentVerificationResult (Windows.Security.Credentials.UI).
+    private const int UserVerified = 0;
+    private const int DeviceNotPresent = 1;
+    private const int NotConfiguredForUser = 2;
+    private const int DisabledByPolicy = 3;
+    private const int DeviceBusy = 4;
+    private const int RetriesExhausted = 5;
+    private const int UserCanceled = 6;
+
+    // AsyncStatus (Windows.Foundation).
+    private const int AsyncStatusCompleted = 1;
+    private const int AsyncStatusCanceled = 2;
+
+    // Credential-prompt results (winerror.h).
+    private const uint ErrorSuccess = 0;
+    private const uint ErrorCancelled = 1223;
+
+    private readonly IWindowsHelloNativeOps _hello;
+    private readonly ICredentialPromptNativeOps _credential;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="WindowsUserPresence"/> class over its two native-ops seams.
+    /// </summary>
+    /// <param name="hello">The Windows Hello native-ops seam this orchestrator composes.</param>
+    /// <param name="credential">The secure-desktop credential-prompt native-ops seam this orchestrator composes.</param>
+    internal WindowsUserPresence(IWindowsHelloNativeOps hello, ICredentialPromptNativeOps credential) =>
+        (_hello, _credential) = (hello, credential);
+
+    /// <inheritdoc />
+    public async Task<WindowsPresenceResult> VerifyAsync(string reason, CancellationToken ct)
+    {
+        // The port honors cancellation but mints no timeout of its own (AG0107); the gate owns the 60-second bound.
+        ct.ThrowIfCancellationRequested();
+
+        // Windows presence is Hello-or-password: try Hello first; a null outcome means Hello is unavailable, un-configured,
+        // or could not bind, and the secure-desktop credential prompt is the fallback (windows-hello-or-password).
+        WindowsPresenceResult? hello = await TryVerifyWithHelloAsync(reason).ConfigureAwait(false);
+        return hello ?? VerifyWithCredentialPrompt(reason);
+    }
+
+    /// <summary>
+    /// Maps a raw WinRT <c>UserConsentVerificationResult</c> to the plain native outcome — the extracted 7-way pure
+    /// function the mapper table test exercises. A <see langword="null"/> result means Hello is unavailable/un-configured
+    /// and the orchestrator falls back to the credential prompt.
+    /// </summary>
+    /// <param name="consentResult">The raw <c>UserConsentVerificationResult</c> code read from the async operation.</param>
+    /// <returns>The plain outcome, or <see langword="null"/> to fall back to the credential prompt.</returns>
+    internal static WindowsPresenceResult? MapHelloResult(int consentResult) => consentResult switch
+    {
+        UserVerified => WindowsPresenceResult.Verified,
+        UserCanceled => WindowsPresenceResult.Cancelled,
+        DeviceBusy or RetriesExhausted => WindowsPresenceResult.Failed,
+        DeviceNotPresent or NotConfiguredForUser or DisabledByPolicy => null,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Maps a raw WinRT <c>AsyncStatus</c> to the substitute <c>UserConsentVerificationResult</c> code to use when the
+    /// operation did not complete — the extracted pure function the mapper table test exercises. A <see langword="null"/>
+    /// result means the operation completed and the orchestrator reads the real result instead.
+    /// </summary>
+    /// <param name="asyncStatus">The raw <c>AsyncStatus</c> the completed handler reported.</param>
+    /// <returns>The substitute result code, or <see langword="null"/> when the operation completed.</returns>
+    internal static int? MapAsyncStatus(int asyncStatus) => asyncStatus switch
+    {
+        AsyncStatusCompleted => null,
+        AsyncStatusCanceled => UserCanceled,
+        _ => RetriesExhausted,
+    };
+
+    /// <summary>
+    /// Maps the secure-desktop credential-prompt status to an early plain outcome — the extracted pure function the
+    /// mapper table test exercises. A <see langword="null"/> result means the prompt succeeded and the orchestrator
+    /// continues to unpack and validate the typed credential.
+    /// </summary>
+    /// <param name="promptStatus">The prompt's return status.</param>
+    /// <param name="hasBuffer">Whether the prompt produced a non-empty authentication buffer.</param>
+    /// <returns>The early outcome (cancel or no method), or <see langword="null"/> to continue to validation.</returns>
+    internal static WindowsPresenceResult? MapCredentialStatus(uint promptStatus, bool hasBuffer)
+    {
+        if (promptStatus == ErrorCancelled)
+        {
+            return WindowsPresenceResult.Cancelled;
+        }
+
+        if (promptStatus != ErrorSuccess || !hasBuffer)
+        {
+            // No interactive secure desktop was available (a headless/service host), or the prompt could not show.
+            return WindowsPresenceResult.NoMethod;
+        }
+
+        return null;
+    }
+
+    // Tries Windows Hello through the native-ops seam. Returns a concrete outcome when Hello answered, or null when Hello
+    // is unavailable / un-configured / could not bind, so the caller falls back to the credential prompt. Any binding
+    // failure (missing WinRT, activation failure, a COM error) falls back — never faults the check.
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A Hello binding failure of any kind (version floor, no HWND, single-file activation) falls back to the credential prompt (windows-hello-or-password); it is never a hard fault.")]
+    private async Task<WindowsPresenceResult?> TryVerifyWithHelloAsync(string reason)
+    {
+        try
+        {
+            int consentResult = await RequestHelloVerificationAsync(reason).ConfigureAwait(false);
+            return MapHelloResult(consentResult);
+        }
+        catch (Exception)
+        {
+            // Hello could not bind on this host; fall back to the credential prompt.
+            return null;
+        }
+    }
+
+    // Issues one Hello verification through the native-ops seam and awaits the WinRT async operation through the
+    // orchestrator's completion. The native-ops layer forwards the raw async status to the completion; the orchestrator
+    // owns the TaskCompletionSource, substitutes a consent code when the operation did not complete, and otherwise reads
+    // the real verification result. The async operation is released once its result has been read.
+    private async Task<int> RequestHelloVerificationAsync(string reason)
+    {
+        var completion = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        IntPtr operation = _hello.BeginVerification(reason, status => completion.TrySetResult(status));
+        try
+        {
+            int asyncStatus = await completion.Task.ConfigureAwait(false);
+            int? substitute = MapAsyncStatus(asyncStatus);
+            return substitute ?? _hello.GetVerificationResult(operation);
+        }
+        finally
+        {
+            _hello.ReleaseOperation(operation);
+        }
+    }
+
+    // The secure-desktop credential prompt (CREDUIWIN_SECURE_PROMPT): the user types the account password on the same
+    // isolated surface as UAC/logon, which this user-mode caller can neither read nor inject; LogonUser validates it
+    // against the current account. A cancel is Cancelled; a wrong password is Failed; no interactive surface / no
+    // credential is NoMethod. The prompt buffer the native-ops layer produced is freed once branching is done.
+    private WindowsPresenceResult VerifyWithCredentialPrompt(string reason)
+    {
+        CredentialPromptOutcome outcome = _credential.Prompt(reason);
+        try
+        {
+            WindowsPresenceResult? early = MapCredentialStatus(outcome.Status, outcome.Buffer != IntPtr.Zero);
+            return early ?? ValidateCredential(outcome);
+        }
+        finally
+        {
+            _credential.FreePromptBuffer(outcome.Buffer);
+        }
+    }
+
+    // Unpacks the typed credential and validates it with LogonUser through the native-ops seam. The field buffers are
+    // freed (the password zeroed) after use; a validated logon token is closed.
+    private WindowsPresenceResult ValidateCredential(CredentialPromptOutcome outcome)
+    {
+        CredentialFields fields = _credential.Unpack(outcome.Buffer, outcome.BufferSize);
+        try
+        {
+            if (!fields.Success)
+            {
+                return WindowsPresenceResult.Error;
+            }
+
+            if (_credential.Logon(fields.User, fields.Password, out IntPtr token))
+            {
+                _credential.CloseToken(token);
+                return WindowsPresenceResult.Verified;
+            }
+
+            return WindowsPresenceResult.Failed;
+        }
+        finally
+        {
+            _credential.FreeFields(fields);
+        }
+    }
+}

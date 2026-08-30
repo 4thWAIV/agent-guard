@@ -23,7 +23,6 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     public const string DiagnosticId = "AG0008";
 
     private const string Category = "AgentGuard.Architecture";
-    private const string AttributeSuffix = "Attribute";
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -70,42 +69,17 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
     private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context)
     {
         var attribute = (AttributeSyntax)context.Node;
-        string qualifiedName = FullAttributeName(SimpleName(attribute.Name));
-        if (!string.Equals(qualifiedName, PInvoke.DllImportAttributeName, StringComparison.Ordinal)
-            && !string.Equals(qualifiedName, PInvoke.LibraryImportAttributeName, StringComparison.Ordinal))
+
+        // Match [DllImport]/[LibraryImport] by RESOLVED type, falling back to the syntactic name only when the
+        // attribute does not bind (the [LibraryImport] source-generator case, where the post-generation semantic
+        // model leaves the attribute unresolved). A same-named user attribute in another namespace resolves to the
+        // user's type and is left alone; the interop-attribute identity set is owned once by PInvoke.
+        if (!AttributeIdentity.IsAnyOf(context.SemanticModel, attribute, PInvoke.InteropAttributes, context.CancellationToken))
         {
             return;
         }
 
-        // The [LibraryImport] source generator can leave the attribute unresolved in the post-generation
-        // semantic model, so the syntactic name is the reliable signal. The semantic model is used only to
-        // reject a same-named attribute declared in a different namespace: if the symbol resolves to a type
-        // that is NOT the interop attribute, it is not native interop and is left alone.
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
-            && !WellKnownType.Is(constructor.ContainingType, KnownNamespaces.SystemRuntimeInteropServices, PInvoke.DllImportAttributeName)
-            && !WellKnownType.Is(constructor.ContainingType, KnownNamespaces.SystemRuntimeInteropServices, PInvoke.LibraryImportAttributeName))
-        {
-            return;
-        }
-
+        string qualifiedName = AttributeSyntaxName.FullName(AttributeSyntaxName.SimpleName(attribute.Name));
         context.ReportDiagnostic(Diagnostic.Create(Rule, attribute.GetLocation(), qualifiedName));
-    }
-
-    private static string SimpleName(NameSyntax name)
-    {
-        return name switch
-        {
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            _ => name.ToString(),
-        };
-    }
-
-    private static string FullAttributeName(string simpleName)
-    {
-        return simpleName.EndsWith(AttributeSuffix, StringComparison.Ordinal)
-            ? simpleName
-            : simpleName + AttributeSuffix;
     }
 }

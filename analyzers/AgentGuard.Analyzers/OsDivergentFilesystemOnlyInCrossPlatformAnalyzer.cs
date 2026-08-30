@@ -20,7 +20,16 @@ namespace AgentGuard.Analyzers;
 /// blocked). That covers the
 /// STATIC Unix-mode members (<c>File.SetUnixFileMode</c>/<c>GetUnixFileMode</c>), the STATIC symlink members
 /// (<c>File</c>/<c>Directory.CreateSymbolicLink</c>, <c>File</c>/<c>Directory.ResolveLinkTarget</c>), <c>Marshal</c>,
-/// and the call site of a native P/Invoke method (including the native case-sensitivity query). The interface owner is
+/// and the call site of a native P/Invoke method (including the native case-sensitivity query). The NATIVE-interop half
+/// — <c>Marshal</c> and a P/Invoke call site — is recognized through the one <see cref="NativeInteropUse"/> detector this
+/// rule SHARES with AG0113, and on those two branches only it ALSO exempts the per-OS native-ops owners
+/// (<c>IObjCRuntime</c> in the macOS assembly / <c>IWindowsHelloNativeOps</c>/<c>ICredentialPromptNativeOps</c> in the
+/// Windows assembly), reusing the one <see cref="PresenceContracts.IsInNativeOpsOwner"/> check the paired AG0113 uses
+/// (presence-native-owner-rule, family-scoped, Tim's personal yes; fence-relocation moved this carve-out off the flow
+/// port and onto the native-ops layer). The <c>File</c>/<c>Directory</c>-divergent-member ban
+/// stays FILESYSTEM-owner-only — no presence exemption — so a native-ops owner's <c>File.SetUnixFileMode</c> /
+/// <c>CreateSymbolicLink</c> is still RED (it is not the filesystem owner), and AG0101's shared File/Directory owner
+/// identity (<c>ContractInterfaces.PlatformFileSystem</c>, used by AG0020) is untouched. The interface owner is
 /// resolved structurally (the enclosing type's implemented interfaces), paired with the platform-library assembly
 /// gate; the raw call is a build error even in another class of the same platform library (including
 /// <c>PlatformFileSystemShared</c>). Every other type reaches OS-divergent behavior through <c>IPlatformFileSystem</c>;
@@ -46,17 +55,6 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
     // spelled once in ContractInterfaces because AG0020 shares it for the Path.DirectorySeparatorChar owner exemption.
     private static readonly ImmutableArray<(string Namespace, string Name)> OwningInterfaces =
         ContractInterfaces.PlatformFileSystem;
-
-    // The assembly gate: the THREE per-OS implementation libraries (AgentGuard.CrossPlatform.MacOS/.Linux/.Windows),
-    // where PosixFileSystem/WindowsFileSystem live — NOT the core AgentGuard.CrossPlatform contract assembly, which
-    // holds PlatformFileSystemShared (ag0101-one-owner-per-os). Half of the conjunction OwnerClass.IsOwner applies —
-    // implementing IPlatformFileSystem in any OTHER assembly, including the core assembly, does not exempt. This closes
-    // the round-2 hole where an interface implementer self-granted in any assembly, and the latent hole where a class
-    // implementing IPlatformFileSystem in the core assembly (for example PlatformFileSystemShared) self-granted. AG0008
-    // is deliberately broader — its P/Invoke scope stays assembly-wide across all four platform libraries — while this
-    // owner is narrow. Cached once so no delegate is allocated per analyzed operation.
-    private static readonly Func<Compilation, bool> InPlatformLibrary =
-        compilation => CrossPlatformBoundary.IsPerOsImplementationAssembly(compilation.AssemblyName);
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -87,23 +85,48 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
 
     private static void Inspect(OperationAnalysisContext context, ISymbol member, INamedTypeSymbol type)
     {
-        // The only place an OS-divergent call is allowed (one-owner-class-per-primitive, ag0101-one-owner-per-os): the
-        // one per-OS class implementing IPlatformFileSystem (resolved structurally). There is no shared-helper
-        // carve-out — PlatformFileSystemShared is NOT exempt — so a raw divergent call anywhere else, including a
-        // sibling class in the same platform assembly, is RED.
-        if (IsOwnerClass(context))
+        // The one per-OS class implementing IPlatformFileSystem (resolved structurally) is exempt for EVERY
+        // OS-divergent call it makes — the native-interop half AND the File/Directory-divergent members
+        // (one-owner-class-per-primitive, ag0101-one-owner-per-os). There is no shared-helper carve-out —
+        // PlatformFileSystemShared is NOT exempt — so a raw divergent call anywhere else, including a sibling class in
+        // the same platform assembly, is RED.
+        if (IsFilesystemOwnerClass(context))
         {
             return;
         }
 
-        if (IsOsDivergent(member, type))
+        // The NATIVE-interop family — a P/Invoke call site or a Marshal use — recognized through the one
+        // NativeInteropUse detector shared with AG0113. It is the raw syscall site (AG0008 catches only the
+        // declaration; this confines the native case-sensitivity query too) plus any Marshal use. Banned outside the
+        // filesystem owner, EXCEPT the per-OS native-ops owners, which own their presence native interop
+        // (presence-native-owner-rule, family-scoped — the paired AG0113 confines it to those same owners; the coverage
+        // refactor relocated this carve-out off the flow port and onto the native-ops layer). This presence exemption is
+        // a separate check on the native branches only; it does not touch AG0101's File/Directory owner identity
+        // (ContractInterfaces.PlatformFileSystem, shared with AG0020).
+        if (NativeInteropUse.IsNativeUse(member, type))
         {
-            context.ReportDiagnostic(Diagnostic.Create(
-                Rule, context.Operation.Syntax.GetLocation(), MemberUseScanner.Describe(member, type)));
+            if (PresenceContracts.IsInNativeOpsOwner(context))
+            {
+                return;
+            }
+
+            Report(context, member, type);
+            return;
+        }
+
+        // The OS-divergent STATIC symlink and Unix-mode members on File/Directory (CreateSymbolicLink,
+        // ResolveLinkTarget, Get/SetUnixFileMode). This ban stays FILESYSTEM-owner-only: a presence port is NOT exempt
+        // here, so a presence port's File.SetUnixFileMode / CreateSymbolicLink is still RED (it is not the filesystem
+        // owner). The *Info construction and the *Info instance members (LinkTarget, UnixFileMode) are no longer this
+        // rule's: they are owned wholesale by the wrapper interfaces under AG0011 (fileinfo-abstraction-stays-in-ag0011).
+        if (WellKnownType.IsAnyOf(type, FilesystemMembers.FileAndDirectory)
+            && FilesystemMembers.IsOsDivergentMember(member))
+        {
+            Report(context, member, type);
         }
     }
 
-    private static bool IsOwnerClass(OperationAnalysisContext context)
+    private static bool IsFilesystemOwnerClass(OperationAnalysisContext context)
     {
         // The conjunction (owners-live-at-lowest-consumer): the operation is exempt only when it compiles into one of
         // the THREE per-OS implementation libraries (AgentGuard.CrossPlatform.MacOS/.Linux/.Windows) AND the enclosing
@@ -111,30 +134,12 @@ public sealed class OsDivergentFilesystemOnlyInCrossPlatformAnalyzer : Diagnosti
         // blocks the self-grant: a class implementing IPlatformFileSystem in any other assembly — including the core
         // AgentGuard.CrossPlatform contract assembly that holds PlatformFileSystemShared — is not exempt. There is no
         // shared-helper additional owner (ag0101-one-owner-per-os).
-        return OwnerClass.IsOwner(context, OwningInterfaces, InPlatformLibrary);
+        return OwnerClass.IsOwner(context, OwningInterfaces, CrossPlatformBoundary.IsAnyPerOsImplementationLibrary);
     }
 
-    private static bool IsOsDivergent(ISymbol member, INamedTypeSymbol type)
+    private static void Report(OperationAnalysisContext context, ISymbol member, INamedTypeSymbol type)
     {
-        // A call to a native P/Invoke method — the raw syscall site (AG0008 catches only the declaration). This is
-        // what confines the native case-sensitivity query (pathconf / GetFileInformationByHandleEx) to the per-OS
-        // owner too.
-        if (member is IMethodSymbol method && PInvoke.IsPInvoke(method))
-        {
-            return true;
-        }
-
-        // Marshal — any use.
-        if (WellKnownType.Is(type, KnownNamespaces.SystemRuntimeInteropServices, "Marshal"))
-        {
-            return true;
-        }
-
-        // The OS-divergent STATIC symlink and Unix-mode members on File/Directory (CreateSymbolicLink,
-        // ResolveLinkTarget, Get/SetUnixFileMode). The *Info construction and the *Info instance members (LinkTarget,
-        // UnixFileMode) are no longer this rule's: they are owned wholesale by the wrapper interfaces under AG0011
-        // (fileinfo-abstraction-stays-in-ag0011).
-        return WellKnownType.IsAnyOf(type, FilesystemMembers.FileAndDirectory)
-            && FilesystemMembers.IsOsDivergentMember(member);
+        context.ReportDiagnostic(Diagnostic.Create(
+            Rule, context.Operation.Syntax.GetLocation(), MemberUseScanner.Describe(member, type)));
     }
 }

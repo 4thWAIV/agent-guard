@@ -43,7 +43,7 @@ public sealed class InstallCommandTests
     }
 
     [Fact]
-    public void Acceptance_3b_SameVersionReinstall_IsNoOpAndDoesNotOverwriteRunningImage()
+    public async Task Acceptance_3b_SameVersionReinstall_IsNoOpAndDoesNotOverwriteRunningImage()
     {
         using var harness = new SetupHarness();
         harness.Install("0.2.0").Success.Should().BeTrue();
@@ -51,7 +51,7 @@ public sealed class InstallCommandTests
         var writtenAt = harness.Files.GetLastWriteTimeUtc(installed);
 
         // Re-run installing the already-installed binary itself: it must be skipped, never overwritten.
-        CommandOutcome outcome = SetupCommands.Install(harness.Context("0.2.0", installed), allowDowngrade: false);
+        CommandOutcome outcome = await SetupCommands.Install(harness.Context("0.2.0", installed), harness.Services, allowDowngrade: false);
 
         outcome.Success.Should().BeTrue();
         harness.Files.GetLastWriteTimeUtc(installed).Should().Be(writtenAt);

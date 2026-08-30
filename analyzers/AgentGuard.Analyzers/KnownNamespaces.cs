@@ -32,4 +32,12 @@ internal static class KnownNamespaces
 
     /// <summary>The <c>System.Runtime.InteropServices</c> namespace.</summary>
     internal const string SystemRuntimeInteropServices = "System.Runtime.InteropServices";
+
+    /// <summary>The <c>System.Threading</c> namespace, home of <c>CancellationTokenSource</c>, <c>Thread</c>,
+    /// <c>Timer</c>, and <c>PeriodicTimer</c> — the timeout/wait types the AG0038/AG0107 rules match against.</summary>
+    internal const string SystemThreading = "System.Threading";
+
+    /// <summary>The <c>System.Threading.Tasks</c> namespace, home of <c>Task</c> — whose <c>Delay</c>/<c>WaitAsync</c>
+    /// bounded waits the AG0038/AG0107 rules match against.</summary>
+    internal const string SystemThreadingTasks = "System.Threading.Tasks";
 }

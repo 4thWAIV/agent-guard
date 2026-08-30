@@ -45,6 +45,7 @@ public sealed class SystemServicesBuilder
     private readonly Slot<IFileWriter> _fileWriter = new();
     private readonly Slot<IDirectoryWriter> _directoryWriter = new();
     private readonly Slot<IPlatformFileSystem> _platform = new();
+    private readonly Slot<IPresenceCheck> _presence = new();
     private InMemoryFileSystemStore? _store;
 
     private SystemServicesBuilder(bool isFake, ISystemServices? real, InMemoryFileSystemStore? store)
@@ -261,10 +262,12 @@ public sealed class SystemServicesBuilder
 
         ISignatureService? signatures = ResolveOptional(_signatures, () => _real!.Signatures);
         IBuildInfo? buildInfo = ResolveOptional(_buildInfo, () => _real!.BuildInfo);
+        IPresenceCheck presence = _presence.Resolve(() =>
+            _isFake ? FakePresenceCheck.Approved().Presence : _real!.Platform.Presence);
 
         IFileSystem fileSystem = FakeFileSystem.Create(
             fileReader, directoryReader, fileWriter, directoryWriter, _real?.FileSystem);
-        IPlatformServices platformServices = FakePlatformServices.Create(platform);
+        IPlatformServices platformServices = FakePlatformServices.Create(platform, presence);
         return FakeSystemServices.Create(
             fileSystem, environment, random, console, platformServices, signatures, buildInfo, clock);
     }
@@ -451,12 +454,30 @@ public sealed class SystemServicesBuilder
             return this;
         }
 
+        /// <summary>Substitutes the presence check.</summary>
+        /// <param name="presence">The presence-check fake to install.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder With(IPresenceCheck presence)
+        {
+            _parent._presence.Override(presence);
+            return this;
+        }
+
         /// <summary>Wraps the platform file system.</summary>
         /// <param name="proxy">The wrap that maps the current platform file system to a proxy.</param>
         /// <returns>This sub-builder, for chaining.</returns>
         public PlatformBuilder Wrap(Func<IPlatformFileSystem, IPlatformFileSystem> proxy)
         {
             _parent._platform.AddWrap(proxy);
+            return this;
+        }
+
+        /// <summary>Wraps the presence check.</summary>
+        /// <param name="proxy">The wrap that maps the current presence check to a proxy.</param>
+        /// <returns>This sub-builder, for chaining.</returns>
+        public PlatformBuilder Wrap(Func<IPresenceCheck, IPresenceCheck> proxy)
+        {
+            _parent._presence.AddWrap(proxy);
             return this;
         }
 
@@ -645,15 +666,28 @@ public sealed class SystemServicesBuilder
     /// </summary>
     internal sealed class FakePlatformServices : IPlatformServices
     {
-        private FakePlatformServices(IPlatformFileSystem fileSystem) => FileSystem = fileSystem;
+        private readonly IPresenceCheck? _presence;
+
+        private FakePlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck? presence)
+        {
+            FileSystem = fileSystem;
+            _presence = presence;
+        }
 
         /// <inheritdoc />
         public IPlatformFileSystem FileSystem { get; }
 
-        /// <summary>Creates the platform-services fake over the resolved platform file system.</summary>
+        /// <inheritdoc />
+        public IPresenceCheck Presence => _presence
+            ?? throw new InvalidOperationException(
+                "Fake() has no built-in presence check; supply one with SystemServicesBuilder.OnPlatform().With(IPresenceCheck).");
+
+        /// <summary>Creates the platform-services fake over the resolved platform file system and presence check.</summary>
         /// <param name="fileSystem">The resolved platform file system.</param>
+        /// <param name="presence">The resolved presence check, or <see langword="null"/> when none was supplied.</param>
         /// <returns>The platform services, as its interface.</returns>
-        internal static IPlatformServices Create(IPlatformFileSystem fileSystem) => new FakePlatformServices(fileSystem);
+        internal static IPlatformServices Create(IPlatformFileSystem fileSystem, IPresenceCheck? presence) =>
+            new FakePlatformServices(fileSystem, presence);
     }
 
     // One override slot plus a composed wrap for a single service. Resolve applies the override (or the supplied base)
