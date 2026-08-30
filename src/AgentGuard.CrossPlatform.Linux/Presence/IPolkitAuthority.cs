@@ -22,15 +22,32 @@ internal interface IPolkitAuthority
     /// <summary>
     /// Calls <c>CheckAuthorization</c> once for the calling process, with <c>AllowUserInteraction</c> set, and returns
     /// the plain reply. The subject is the classic unix-process triple; the action is <see cref="PolkitAction.Id"/>; the
-    /// per-call message is the reviewed prompt text. It passes no cancellation id, so cancellation is observed only
-    /// before the call starts (start-only): an in-flight <c>CheckAuthorization</c> cannot be cancelled (residual risk
-    /// tracked in #47). It mints no timeout of its own.
+    /// per-call message is the reviewed prompt text. The caller-generated <paramref name="cancellationId"/> is written
+    /// into the request so an in-flight <c>CheckAuthorization</c> can be cancelled: when the flow port calls
+    /// <see cref="CancelCheckAuthorization"/> with the same id, polkit ends the pending check and this call surfaces the
+    /// cancellation as an <see cref="System.OperationCanceledException"/>. It mints no timeout of its own; the flow port
+    /// owns the token registration and the gate owns the one 60-second bound.
     /// </summary>
     /// <param name="subject">The unix-process subject (pid, start time, uid) naming the calling process to polkit.</param>
     /// <param name="actionId">The polkit action id being checked.</param>
     /// <param name="message">The per-call <c>polkit.message</c> — the reviewed prompt text.</param>
-    /// <param name="ct">The gate's cancellation token; the port observes it only before the call starts (start-only, no
-    /// cancellation id passed) and mints no timeout of its own.</param>
+    /// <param name="cancellationId">The non-empty, per-call unique id written into the request so a matching
+    /// <see cref="CancelCheckAuthorization"/> can cancel this in-flight check; polkit rejects a reused id.</param>
+    /// <param name="ct">The gate's cancellation token; observed before the call starts and used to surface an in-flight
+    /// cancellation as an <see cref="System.OperationCanceledException"/>. The port mints no timeout of its own.</param>
     /// <returns>The plain polkit reply — authorized, challenge, and the reply details.</returns>
-    Task<PolkitResult> CheckAuthorizationAsync(PolkitSubject subject, string actionId, string message, CancellationToken ct);
+    Task<PolkitResult> CheckAuthorizationAsync(
+        PolkitSubject subject, string actionId, string message, string cancellationId, CancellationToken ct);
+
+    /// <summary>
+    /// Sends polkit's <c>CancelCheckAuthorization</c> for the in-flight <see cref="CheckAuthorizationAsync"/> call
+    /// identified by <paramref name="cancellationId"/>, so a still-pending check is actually ended (its out-of-band
+    /// prompt dismissed) rather than left running. It is the synchronous, straight-line cancel primitive the flow port
+    /// wires onto the cancellation token (<c>ct.Register</c>); it fires the D-Bus method and does not await polkit's
+    /// acknowledgement (the cancellation surfaces on the pending <see cref="CheckAuthorizationAsync"/> instead). It mints
+    /// no timeout of its own.
+    /// </summary>
+    /// <param name="cancellationId">The id that was written into the in-flight <see cref="CheckAuthorizationAsync"/>
+    /// request this cancels.</param>
+    void CancelCheckAuthorization(string cancellationId);
 }

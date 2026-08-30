@@ -122,6 +122,44 @@ public sealed class WindowsUserPresenceFlowTests
         result.Should().Be(WindowsPresenceResult.Verified, "a Hello that cannot bind falls back to the password prompt");
     }
 
+    // The availability fast-fail guard (#47): an unavailable Hello short-circuits to NoMethod BEFORE any blocking prompt.
+    [Fact]
+    public async Task VerifyAsync_WhenHelloIsUnavailable_ReturnsNoMethodWithoutIssuingAnyPrompt()
+    {
+        var hello = FakeWindowsHelloNativeOps.Unavailable();
+
+        // A credential fake that WOULD verify if the fallback ran, so a NoMethod result proves the prompt never ran.
+        var credential = FakeCredentialPromptNativeOps.PasswordValidates();
+
+        var result = await Verify(hello, credential);
+
+        result.Should().Be(
+            WindowsPresenceResult.NoMethod, "an unavailable Hello fast-fails to NoMethod and never prompts");
+        hello.AvailabilityChecks.Should().Be(1, "the availability guard runs first");
+        hello.VerificationsBegun.Should().Be(0, "no blocking Hello verification is issued when Hello is unavailable");
+        credential.PromptsShown.Should().Be(0, "the secure-desktop credential prompt is never shown on the unavailable path");
+    }
+
+    // Honoring the token (#47): a cancel during a pending verification asks the native op to cancel and maps to Cancelled.
+    [Fact]
+    public async Task VerifyAsync_WhenTokenCancelsDuringVerification_AsksTheNativeOpToCancelAndReturnsCancelled()
+    {
+        var hello = FakeWindowsHelloNativeOps.PendingUntilCancelled();
+        using var cts = new CancellationTokenSource();
+
+        Task<WindowsPresenceResult> pending = new WindowsUserPresence(
+            hello, FakeCredentialPromptNativeOps.NoInteractiveSurface()).VerifyAsync(Prompt, cts.Token);
+
+        pending.IsCompleted.Should().BeFalse("the Hello verification stays pending until the token cancels it");
+
+        await cts.CancelAsync();
+        var result = await pending;
+
+        result.Should().Be(WindowsPresenceResult.Cancelled, "a cancelled Hello verification maps to Cancelled");
+        hello.CancelsRequested.Should().Be(1, "the port asks the native op to cancel the pending verification");
+        hello.VerificationsBegun.Should().Be(1, "the interactive verification was issued before the cancel");
+    }
+
     // Hello is unavailable / un-configured (a null-mapping consent), so the orchestrator falls back.
     private static FakeWindowsHelloNativeOps HelloUnavailable() =>
         FakeWindowsHelloNativeOps.Answers(AsyncStatusCode.Completed, HelloResultCode.DeviceNotPresent);

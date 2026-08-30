@@ -11,4 +11,5 @@ namespace AgentGuard.CrossPlatform.Tests;
 /// <param name="Subject">The unix-process subject passed to the port.</param>
 /// <param name="ActionId">The polkit action id passed to the port.</param>
 /// <param name="Message">The per-call message passed to the port.</param>
-internal sealed record PolkitCall(PolkitSubject Subject, string ActionId, string Message);
+/// <param name="CancellationId">The per-call cancellation id passed to the port.</param>
+internal sealed record PolkitCall(PolkitSubject Subject, string ActionId, string Message, string CancellationId);

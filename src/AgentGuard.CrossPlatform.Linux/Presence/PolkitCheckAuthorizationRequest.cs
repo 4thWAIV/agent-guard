@@ -13,8 +13,8 @@ namespace AgentGuard.CrossPlatform.Linux;
 /// wire call <c>(sa{sv}) s a{ss} u s</c>: the subject as <see cref="SubjectKind"/> plus the triple values
 /// (<see cref="Subject"/>) and their pinned per-key variant type codes (<see cref="SubjectVariantTypes"/>); then the
 /// <see cref="ActionId"/>; the <c>a{ss}</c> details (<see cref="Details"/>); the flags <c>u</c> (<see cref="Flags"/>);
-/// and the empty <see cref="CancellationId"/>. It carries no <c>Tmds.DBus.Protocol</c> type, so a test inspects it
-/// without referencing the pinned package.
+/// and the per-call <see cref="CancellationId"/> polkit correlates a <c>CancelCheckAuthorization</c> against. It carries
+/// no <c>Tmds.DBus.Protocol</c> type, so a test inspects it without referencing the pinned package.
 /// </summary>
 /// <param name="SubjectKind">The polkit subject kind — <c>unix-process</c>.</param>
 /// <param name="Subject">The unix-process triple values (pid, start time, uid).</param>
@@ -22,7 +22,7 @@ namespace AgentGuard.CrossPlatform.Linux;
 /// <param name="ActionId">The polkit action id being checked.</param>
 /// <param name="Details">The <c>a{ss}</c> details — <c>polkit.message</c> mapped to the reviewed prompt text.</param>
 /// <param name="Flags">The polkit <c>CheckAuthorizationFlags</c> value — <c>AllowUserInteraction=1</c>.</param>
-/// <param name="CancellationId">The cancellation id — empty; the port passes none.</param>
+/// <param name="CancellationId">The per-call, non-empty cancellation id polkit correlates a <c>CancelCheckAuthorization</c> against.</param>
 internal sealed record PolkitCheckAuthorizationRequest(
     string SubjectKind,
     PolkitSubject Subject,

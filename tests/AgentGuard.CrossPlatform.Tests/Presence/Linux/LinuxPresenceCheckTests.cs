@@ -16,8 +16,10 @@ namespace AgentGuard.CrossPlatform.Tests;
 /// read through the owned <c>IFileReader</c> (acceptance #4 and "What to do" #7). It proves: <c>Check</c> calls
 /// <c>CheckAuthorization</c> exactly once per call, with the owned action id and the request's prompt as the message;
 /// the unix-process subject is built from <c>/proc/self</c> with the REAL uid (the first <c>Uid:</c> column) and a
-/// 64-bit start-time that does not truncate; and a port fault maps to <see cref="ApprovalReason.Error"/>, never
-/// <see cref="ApprovalReason.Approved"/>. Compiled only on the Linux CI leg.
+/// 64-bit start-time that does not truncate; a port fault maps to <see cref="ApprovalReason.Error"/>, never
+/// <see cref="ApprovalReason.Approved"/>; and — driven over the fake polkit seam — cancelling the token IN FLIGHT sends
+/// <c>CancelCheckAuthorization</c> with the same non-empty id the check was sent with and returns
+/// <see cref="ApprovalReason.Cancelled"/>. Compiled only on the Linux CI leg.
 /// </summary>
 public sealed class LinuxPresenceCheckTests
 {
@@ -90,6 +92,31 @@ public sealed class LinuxPresenceCheckTests
 
         result.Reason.Should().Be(ApprovalReason.Error);
         result.Reason.Should().NotBe(ApprovalReason.Approved);
+    }
+
+    [Fact]
+    public async Task Check_WhenCancelledDuringTheInFlightCheck_SendsCancelWithTheSameId_AndReturnsCancelled()
+    {
+        FakePolkitAuthority port = FakePolkitAuthority.PendingUntilCancelled();
+        IPresenceCheck check = LinuxPresenceCheck.Create(port);
+        using var cts = new CancellationTokenSource();
+
+        // The check posts and then stays pending; cancelling fires the flow port's registered CancelCheckAuthorization,
+        // which the fake answers by ending the pending call with a cancellation — exactly as polkit ends a cancelled
+        // in-flight CheckAuthorization.
+        Task<PresenceResult> pending = check.Check(
+            new PresenceRequest("please confirm the install"), services, cts.Token);
+        await cts.CancelAsync();
+        PresenceResult result = await pending;
+
+        result.Reason.Should().Be(
+            ApprovalReason.Cancelled, "cancelling the in-flight check yields Cancelled, never Error or Approved");
+        result.Reason.Should().NotBe(ApprovalReason.Approved);
+        port.CancelCount.Should().Be(1, "cancellation sends CancelCheckAuthorization exactly once");
+        port.SentCancellationId.Should().NotBeNullOrEmpty(
+            "the check carries a non-empty cancellation id so an in-flight cancel can target it");
+        port.CancelledId.Should().Be(
+            port.SentCancellationId, "the cancel targets the same id the check was sent with");
     }
 
     private static void WriteProc(ISystemServices services)

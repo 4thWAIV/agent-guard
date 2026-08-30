@@ -52,6 +52,9 @@ internal sealed class FakeCredentialPromptNativeOps : ICredentialPromptNativeOps
     /// <summary>Gets the number of times the typed credential's fields were freed (password zeroed).</summary>
     internal int FieldsFreed => _freeFields.CallCount;
 
+    /// <summary>Gets the number of times the secure-desktop credential prompt was shown.</summary>
+    internal int PromptsShown => _prompt.CallCount;
+
     /// <summary>Gets the number of buffers unpacked.</summary>
     internal int Unpacks => _unpack.CallCount;
 

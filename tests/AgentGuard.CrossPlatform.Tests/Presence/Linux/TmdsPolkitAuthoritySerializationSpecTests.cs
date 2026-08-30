@@ -30,6 +30,9 @@ public sealed class TmdsPolkitAuthoritySerializationSpecTests
     // The message is the reviewed per-call polkit.message.
     private const string Message = "AgentGuard native-ops serialization spec";
 
+    // A representative non-empty per-call cancellation id, serialized into the request like the real flow port mints.
+    private const string CancellationId = "cid-native-ops-serialization-spec";
+
     [Fact]
     [Trait(NativeSpecOwnerAttribute.CategoryTraitName, NativeSpecOwnerAttribute.NativeSpecTraitValue)]
     public void RealTmdsPolkitAuthority_SerializesTheCheckAuthorizationCall_OffBus_WithoutThrowing()
@@ -37,7 +40,7 @@ public sealed class TmdsPolkitAuthoritySerializationSpecTests
         var subject = PolkitSubjectFixtures.Representative;
 
         Action serialize = () =>
-            TmdsPolkitAuthority.SerializeCheckAuthorizationOffBus(subject, PolkitAction.Id, Message);
+            TmdsPolkitAuthority.SerializeCheckAuthorizationOffBus(subject, PolkitAction.Id, Message, CancellationId);
 
         serialize.Should().NotThrow(
             "the real polkit CheckAuthorization request assembly and D-Bus serialization must run to completion "
