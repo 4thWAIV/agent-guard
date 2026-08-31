@@ -14,4 +14,10 @@ public interface IPlatformServices
     /// Gets the platform's file-system capability.
     /// </summary>
     IPlatformFileSystem FileSystem { get; }
+
+    /// <summary>
+    /// Gets the platform's presence capability — the per-OS <see cref="IPresenceCheck"/> the approval gate consumes to
+    /// prove a physically-present human before a mutating command proceeds.
+    /// </summary>
+    IPresenceCheck Presence { get; }
 }

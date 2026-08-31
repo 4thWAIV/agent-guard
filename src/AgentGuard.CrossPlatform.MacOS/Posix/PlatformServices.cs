@@ -17,25 +17,38 @@ namespace AgentGuard.CrossPlatform;
 /// Boundaries. This is shared POSIX source: macOS and Linux wire the same <see cref="PosixFileSystem"/>, so this file
 /// is linked into the Linux impl unchanged. The Windows impl ships its own <c>PlatformServices.Create()</c>.
 /// </summary>
-internal sealed class PlatformServices : IPlatformServices
+internal sealed partial class PlatformServices : IPlatformServices
 {
-    // Private constructor (AG0003, Wall 1): the built OS-divergent file system arrives by constructor injection; only
-    // this class's own Create() builds it, so no second container can be assembled to bypass the one door.
-    private PlatformServices(IPlatformFileSystem fileSystem) => FileSystem = fileSystem;
+    // Private constructor (AG0003, Wall 1): the built OS-divergent file system and the per-OS presence check arrive by
+    // constructor injection; only this class's own Create() builds them, so no second container can be assembled to
+    // bypass the one door.
+    private PlatformServices(IPlatformFileSystem fileSystem, IPresenceCheck presence)
+    {
+        FileSystem = fileSystem;
+        Presence = presence;
+    }
 
     /// <inheritdoc />
     public IPlatformFileSystem FileSystem { get; }
+
+    /// <inheritdoc />
+    public IPresenceCheck Presence { get; }
 
     /// <summary>
     /// Builds the platform-capability container for this POSIX OS. It obtains the OS-uniform owned adapters from the one
     /// <see cref="CrossPlatformAdapters"/> factory, wraps them in the shared OS-uniform helper, injects that helper and
     /// the wrapper factory (the per-OS class reads the OS-uniform symlink target through it) into the per-OS
-    /// <see cref="PosixFileSystem"/>, and assembles the container.
+    /// <see cref="PosixFileSystem"/>, and assembles the container with the per-OS presence check.
     /// </summary>
     /// <returns>The platform services container, as its interface.</returns>
     public static IPlatformServices Create()
     {
         PlatformFileSystemParts parts = PlatformFileSystemComposition.Create();
-        return new PlatformServices(PosixFileSystem.Create(parts.Shared, parts.Factory));
+        return new PlatformServices(PosixFileSystem.Create(parts.Shared, parts.Factory), CreatePresence());
     }
+
+    // The per-OS presence check. Each POSIX OS supplies its own body in an os-specific fragment
+    // (PlatformServices.MacOS.cs / PlatformServices.Linux.cs) — the presence impls are authored per OS and NOT
+    // link-shared, unlike this shared PosixFileSystem wiring.
+    private static partial IPresenceCheck CreatePresence();
 }

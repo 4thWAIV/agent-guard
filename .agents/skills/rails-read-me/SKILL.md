@@ -62,11 +62,11 @@ Also:
 - **File deferred work as a GitHub issue the moment it's deferred** — via the `gh` CLI (`gh issue create`) — with the real requirements in the body. A deferral recorded only as a note or memory is untracked and won't happen.
 
 ## Where things live (the .dev flow)
-See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions); `archive/` holds historical / non-workflow material.
+See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions, and the **best-practices guide** at `.dev/reference/best-practices-guide.md` — the layered constitution the rails delegate to, which a decision is checked against before it ever reaches the human); `archive/` holds historical / non-workflow material.
 
-**Before working the rails or the workflow, read the manifest** (`./.dev/inprocess/MANIFEST.md`) — the index of every part of the system and its status, and the fastest orientation to what is shipped versus in flight. List the parts from it, never from memory; it goes stale between refreshes, so trust the code and git over a stale row.
+**Derive the current state, never read it from a status document.** There is no checked-in index of what exists and what is done, because a hand-maintained copy of the filesystem only ever goes stale and then misleads. List the parts from the source: the rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and the analyzer rules are `analyzers/AgentGuard.Analyzers/AnalyzerReleases.*.md`. What is deferred, planned, or undecided lives in the GitHub issues (`gh issue list`) — that is the state tracker.
 
-**The roadmap is `.dev/backlog/`** — the planned-but-not-started work, with the design/plan docs for what is next (currently crypto minting + presence: mint and sign grants, and gate sensitive operations on an OS presence check). The manifest is the current state; `.dev/backlog/` is what is coming.
+**The roadmap is `.dev/backlog/`** — the planned-but-not-started work, with the design/plan docs for what is next (currently crypto minting + presence: mint and sign grants, and gate sensitive operations on an OS presence check).
 
 **The rails skills are the checked-in source at `.agents/skills/rails-*`** (`.claude/skills` symlinks to it); the workflow scripts are `.agents/workflows/*.js` (`.claude/workflows` symlinks to it too, which is why some rules below cite `.claude/workflows/…`).
 

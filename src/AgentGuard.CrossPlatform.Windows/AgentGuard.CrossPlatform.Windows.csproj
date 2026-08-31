@@ -22,6 +22,10 @@
        through the grant (AG0029). Keyless in source; the signing target injects the public key on a signed build. -->
   <ItemGroup>
     <InternalsVisibleTo Include="AgentGuard.Boundaries" />
+    <!-- The per-OS presence spec tests reach the internal IWindowsUserPresence port, WindowsPresenceResult, and
+         WindowsPresenceCheck.Map from the one OS-agnostic spec test project, selected onto the Windows impl on the
+         Windows CI leg. -->
+    <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Tests" />
   </ItemGroup>
 
 </Project>

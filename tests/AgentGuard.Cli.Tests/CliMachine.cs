@@ -30,8 +30,12 @@ internal sealed class CliMachine : IDisposable
         // A real container is used only to create and later remove the isolated directories through the owned
         // interface (IDirectoryWriter.CreateTempSubdirectory is atomic and uniquely named) and to write the
         // stand-in binary the install path copies — every filesystem touch here routes through an owner, never a
-        // raw System.IO call.
-        _hostServices = SystemServicesBuilder.Real().Build();
+        // raw System.IO call. The presence boundary is overridden with a ready-made approving fake (the real macOS
+        // impl is an unimplemented skeleton that throws) so this stays Real() in every other respect — real
+        // filesystem — while the gated commands run in RunWithInput see an Approved presence.
+        SystemServicesBuilder hostBuilder = SystemServicesBuilder.Real();
+        hostBuilder.OnPlatform().With(FakePresenceCheck.Approved().Presence);
+        _hostServices = hostBuilder.Build();
         IDirectoryWriter directories = _hostServices.FileSystem.GetDirectoryWriter();
         Home = directories.CreateTempSubdirectory("agentguard-clisession-home-");
         Project = directories.CreateTempSubdirectory("agentguard-clisession-proj-");
@@ -103,10 +107,15 @@ internal sealed class CliMachine : IDisposable
         var recorder = new RecordingConsole(standardInput);
         IEnvironment environment = FakeEnvironment.Create(
             Home, currentDirectory: Project, processPath: _binarySourcePath);
-        ISystemServices services = SystemServicesBuilder.Real()
+
+        // Real() in every respect (real filesystem, and so on) except the presence boundary, which is overridden
+        // with a ready-made approving fake so the now-gated install/init/remove commands reach an Approved presence
+        // instead of the real macOS presence skeleton, which currently throws.
+        SystemServicesBuilder builder = SystemServicesBuilder.Real()
             .With(environment)
-            .With(recorder.Console)
-            .Build();
+            .With(recorder.Console);
+        builder.OnPlatform().With(FakePresenceCheck.Approved().Presence);
+        ISystemServices services = builder.Build();
 
         int exitCode = new Program(args).Run(services).GetAwaiter().GetResult();
         return new CliResult(exitCode, recorder.Output, recorder.Error);

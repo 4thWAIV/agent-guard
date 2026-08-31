@@ -2,6 +2,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
+using AgentGuard.Abstractions.Contracts;
 using NuGet.Versioning;
 
 namespace AgentGuard.Setup;
@@ -9,8 +11,7 @@ namespace AgentGuard.Setup;
 /// <summary>
 /// The setup commands behind thin CLI handlers. Each mutating command routes its work through the shared
 /// condition set and creation helper, so the layout and merge logic is owned in one place. <c>install</c>,
-/// <c>init</c>, and <c>remove</c> call the approval gate before mutating anything (ungated in this build);
-/// <c>doctor</c> does not.
+/// <c>init</c>, and <c>remove</c> call the approval gate before mutating anything; <c>doctor</c> does not.
 /// </summary>
 public static class SetupCommands
 {
@@ -20,14 +21,17 @@ public static class SetupCommands
     /// <paramref name="allowDowngrade"/> is set.
     /// </summary>
     /// <param name="context">The setup context.</param>
+    /// <param name="services">The root service container the gate reaches presence and the clock through.</param>
     /// <param name="allowDowngrade">Whether to permit installing an older version than the recorded one.</param>
     /// <returns>The command outcome.</returns>
-    public static CommandOutcome Install(SetupContext context, bool allowDowngrade)
+    public static async Task<CommandOutcome> Install(SetupContext context, ISystemServices services, bool allowDowngrade)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!ApprovalGate.RequireApproval("install").IsApproved)
+        ArgumentNullException.ThrowIfNull(services);
+        ApprovalDecision decision = await ApprovalGate.RequireApprovalAsync(services, SetupVerb.Install).ConfigureAwait(false);
+        if (!decision.IsApproved)
         {
-            return CommandOutcome.Failed("install was not approved");
+            return CommandOutcome.Failed(decision.Detail);
         }
 
         if (string.IsNullOrEmpty(context.ResolvedBinaryPath) || !context.FileReader.Exists(context.ResolvedBinaryPath))
@@ -71,13 +75,16 @@ public static class SetupCommands
     /// updates <c>.gitignore</c>. Refuses when the machine is not installed, or on a real settings conflict.
     /// </summary>
     /// <param name="context">The setup context.</param>
+    /// <param name="services">The root service container the gate reaches presence and the clock through.</param>
     /// <returns>The command outcome.</returns>
-    public static CommandOutcome Init(SetupContext context)
+    public static async Task<CommandOutcome> Init(SetupContext context, ISystemServices services)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!ApprovalGate.RequireApproval("init").IsApproved)
+        ArgumentNullException.ThrowIfNull(services);
+        ApprovalDecision decision = await ApprovalGate.RequireApprovalAsync(services, SetupVerb.Init).ConfigureAwait(false);
+        if (!decision.IsApproved)
         {
-            return CommandOutcome.Failed("init was not approved");
+            return CommandOutcome.Failed(decision.Detail);
         }
 
         if (!context.FileReader.Exists(MachinePaths.BinGuard(context)))
@@ -108,13 +115,16 @@ public static class SetupCommands
     /// removes the <c>.agentguard/</c> directory, leaving all non-guard content intact. Idempotent.
     /// </summary>
     /// <param name="context">The setup context.</param>
+    /// <param name="services">The root service container the gate reaches presence and the clock through.</param>
     /// <returns>The command outcome.</returns>
-    public static CommandOutcome Remove(SetupContext context)
+    public static async Task<CommandOutcome> Remove(SetupContext context, ISystemServices services)
     {
         ArgumentNullException.ThrowIfNull(context);
-        if (!ApprovalGate.RequireApproval("remove").IsApproved)
+        ArgumentNullException.ThrowIfNull(services);
+        ApprovalDecision decision = await ApprovalGate.RequireApprovalAsync(services, SetupVerb.Remove).ConfigureAwait(false);
+        if (!decision.IsApproved)
         {
-            return CommandOutcome.Failed("remove was not approved");
+            return CommandOutcome.Failed(decision.Detail);
         }
 
         var messages = new List<string>();

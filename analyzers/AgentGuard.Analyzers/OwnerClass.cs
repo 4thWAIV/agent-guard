@@ -67,6 +67,34 @@ internal static class OwnerClass
     }
 
     /// <summary>
+    /// Gets a value indicating whether an invoked (or referenced) member is <paramref name="memberName"/> declared on
+    /// one of the <paramref name="owningInterfaces"/> OR on a type that implements one of them — the single
+    /// "is this a call to member M on a type implementing interface I" recognition, owned here on top of
+    /// <see cref="Implements"/> so no rule reinvents it. <paramref name="declaringType"/> is the member's
+    /// <see cref="ISymbol.ContainingType"/>: when the reference goes through the interface it is the interface itself
+    /// (matched by <see cref="WellKnownType.IsAnyOf"/>), and when it goes through a CONCRETE reference it is the
+    /// implementer (matched by <see cref="Implements"/>, which walks the type's <see cref="ITypeSymbol.AllInterfaces"/>).
+    /// Both resolve to the same interface member, so a call reached through a concrete-typed reference is caught the same
+    /// as one through the interface-typed reference — closing the concrete-reference bypass. Whether such a call is legal
+    /// is the caller's policy, applied on top.
+    /// </summary>
+    /// <param name="member">The invoked or referenced member.</param>
+    /// <param name="declaringType">The type that declares the member (the member's containing type).</param>
+    /// <param name="memberName">The simple name the member must have.</param>
+    /// <param name="owningInterfaces">The (namespace, name) pairs of the interfaces the member must be declared on, or
+    /// that the declaring type must implement.</param>
+    /// <returns><see langword="true"/> when the member is the named member on one of the interfaces or on an implementer of one.</returns>
+    internal static bool IsInterfaceMemberInvocation(
+        ISymbol member,
+        INamedTypeSymbol? declaringType,
+        string memberName,
+        ImmutableArray<(string Namespace, string Name)> owningInterfaces)
+    {
+        return string.Equals(member.Name, memberName, StringComparison.Ordinal)
+            && (WellKnownType.IsAnyOf(declaringType, owningInterfaces) || Implements(declaringType, owningInterfaces));
+    }
+
+    /// <summary>
     /// Builds the assembly gate for the single-owner-assembly primitives: a predicate that is satisfied only when
     /// the compilation's assembly name is exactly <paramref name="ownerAssemblyName"/>. The name-equality comparison
     /// lives here once so the owner rule's per-primitive gates (AgentGuard.CrossPlatform for the filesystem/GUID

@@ -41,6 +41,7 @@
 
   <ItemGroup Label="Runtime dependencies">
     <PackageVersion Include="BouncyCastle.Cryptography" Version="2.6.2" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.0" />
   </ItemGroup>
 
   <ItemGroup Label="Source link">

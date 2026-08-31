@@ -25,6 +25,11 @@
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.MacOS" />
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Linux" />
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Windows" />
+    <!-- The guardrail-1 owner-marker mechanism (guardrail-1-nativespec-convention-test): the OS-agnostic convention test
+         reflects over the internal RequiresNativeSpecTestAttribute defined here, which the per-OS owner interfaces carry,
+         to discover which owners require a NativeSpec spec test, so the spec-test assembly needs the same internals grant
+         the per-OS libs already hold. Keyless in source; the signing target injects the public key on a signed build. -->
+    <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Tests" />
   </ItemGroup>
 
 </Project>

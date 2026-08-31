@@ -124,6 +124,13 @@ const RULE_ADVERSARIES = [
   { id: 'lie-catcher', rail: 'rails-decisions', focus: 'honesty of the rules', model: 'opus' },
 ]
 
+// Which adversaries gate this round is the human's call (the L-level / panel choice). Pass args.adversaries (a subset of
+// the ids above) to run a lighter panel — e.g. ["dry","lie-catcher"] once SOLID's structural completeness pass is done;
+// omit it to run the full three. The lie-catcher (decision/honesty) should stay in any panel a human trims.
+const ACTIVE_ADVERSARIES = Array.isArray(input && input.adversaries) && input.adversaries.length
+  ? RULE_ADVERSARIES.filter((adv) => input.adversaries.includes(adv.id))
+  : RULE_ADVERSARIES
+
 const ruleRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the RULES a rule-gen agent just wrote — NOT a finished implementation. Do NOT make code changes. The build is INTENTIONALLY RED right now: the new rules fire against the code that the later IMPLEMENT worker will clean up. RED is correct here; never fail the rules because the build is red.
 
 Read .agents/skills/${adv.rail}/SKILL.md — it is your PASS/FAIL checklist. Read the contract's rule-phase-ruleset (${contractPath}) and the rule files (${JSON.stringify(ruleGen.ruleFiles)}). Your lens: ${adv.focus}.
@@ -134,7 +141,7 @@ ${adv.id === 'lie-catcher'
 
 Return lens="${adv.id}", verdict PASS or FAIL, findings (summary, evidence as file:line, and fix — leave fix empty for the lie-catcher), refutationAttempts (what you tried to break; none means rubber-stamping), and proofChecked.`
 
-const verdicts = (await parallel(RULE_ADVERSARIES.map((adv) => () =>
+const verdicts = (await parallel(ACTIVE_ADVERSARIES.map((adv) => () =>
   agent(ruleRefutePrompt(adv), { label: `refute-rule:${adv.id}`, phase: 'Refute-rules', model: adv.model, schema: VERDICT_SCHEMA }))
 )).filter(Boolean)
 

@@ -9,8 +9,9 @@ namespace AgentGuard.Analyzers;
 
 /// <summary>
 /// Reports a compile-time literal passed at a fake-filesystem-root seed site — the <c>home</c>,
-/// <c>currentDirectory</c>, or <c>tempDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>,
-/// or the <c>tempRoot</c> argument of the single overlay factory <c>AgentGuard.TestHelpers.SystemServicesBuilder.NewOverlay</c>.
+/// <c>currentDirectory</c>, <c>tempDirectory</c>, or <c>baseDirectory</c> argument of
+/// <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>, or the <c>tempRoot</c> argument of the single overlay factory
+/// <c>AgentGuard.TestHelpers.SystemServicesBuilder.NewOverlay</c>.
 /// The check targets the <c>NewOverlay</c> call, NOT the <c>InMemoryFileSystemStore</c> constructor: the constructor is
 /// only ever reached through <c>NewOverlay</c>, which forwards its own parameter, so the constructor call never carries
 /// a literal and a check there could never fire; a re-hardcode would be a literal at the <c>NewOverlay</c> call, which
@@ -27,8 +28,8 @@ namespace AgentGuard.Analyzers;
 /// construction). "Literal" is the semantic sense: a string literal OR a reference to a <c>const</c> (both are
 /// compile-time constants the compiler folds), so a <c>const</c> such as the retired <c>DefaultFakeHome</c> is caught
 /// exactly as a bare <c>"…"</c> would be. Only an argument the caller EXPLICITLY wrote is inspected, so a defaulted
-/// <c>currentDirectory</c>/<c>tempDirectory</c> is never flagged, and a runtime value (a real-host read) is left
-/// alone.
+/// <c>currentDirectory</c>/<c>tempDirectory</c>/<c>baseDirectory</c> is never flagged, and a runtime value (a
+/// real-host read) is left alone.
 /// </para>
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -43,10 +44,10 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
     private const string FakeEnvironmentFactoryName = "Create";
     private const string StoreTempRootParameterName = "tempRoot";
 
-    // The three FakeEnvironment.Create parameters that seed a filesystem root. Each must take a real-host or
+    // The four FakeEnvironment.Create parameters that seed a filesystem root. Each must take a real-host or
     // abstraction-derived value, never a literal.
     private static readonly ImmutableArray<string> FakeEnvironmentRootParameters = ImmutableArray.Create(
-        "home", "currentDirectory", "tempDirectory");
+        "home", "currentDirectory", "tempDirectory", "baseDirectory");
 
     private static readonly DiagnosticDescriptor Rule = new(
         id: DiagnosticId,
@@ -55,7 +56,7 @@ public sealed class NoLiteralFakeRootAnalyzer : DiagnosticAnalyzer
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true,
-        description: "A fake filesystem root is seeded only at FakeEnvironment.Create (home/currentDirectory/tempDirectory) and at the overlay factory SystemServicesBuilder.NewOverlay (tempRoot) — the one place a caller's tempRoot is visible, because NewOverlay forwards its own parameter to the InMemoryFileSystemStore constructor. The check targets the NewOverlay call, NOT the InMemoryFileSystemStore constructor: the constructor is only ever reached through NewOverlay, which forwards its own parameter, so a re-hardcode would be a literal at the NewOverlay call. Each must take a real-host or abstraction-derived value through IEnvironment so the copy-on-write simulator is fully-qualified on every OS; a compile-time literal (a string literal or a const reference) is a build error there. The rule matches only those named arguments of those members, so a data string elsewhere is never inspected, and only a value the caller explicitly wrote is checked.");
+        description: "A fake filesystem root is seeded only at FakeEnvironment.Create (home/currentDirectory/tempDirectory/baseDirectory) and at the overlay factory SystemServicesBuilder.NewOverlay (tempRoot) — the one place a caller's tempRoot is visible, because NewOverlay forwards its own parameter to the InMemoryFileSystemStore constructor. The check targets the NewOverlay call, NOT the InMemoryFileSystemStore constructor: the constructor is only ever reached through NewOverlay, which forwards its own parameter, so a re-hardcode would be a literal at the NewOverlay call. Each must take a real-host or abstraction-derived value through IEnvironment so the copy-on-write simulator is fully-qualified on every OS; a compile-time literal (a string literal or a const reference) is a build error there. The rule matches only those named arguments of those members, so a data string elsewhere is never inspected, and only a value the caller explicitly wrote is checked.");
 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedRules = ImmutableArray.Create(Rule);
 

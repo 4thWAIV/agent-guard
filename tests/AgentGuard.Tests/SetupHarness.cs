@@ -25,9 +25,23 @@ public sealed class SetupHarness : IDisposable
     private readonly AgentGuardLayout _layout;
 
     public SetupHarness()
+        : this(presence: null)
+    {
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="SetupHarness"/> class over a chosen presence boundary.</summary>
+    /// <param name="presence">The presence boundary the approval gate reaches through <c>services.Platform.Presence</c>;
+    /// <see langword="null"/> leaves the builder's default (an approving fake) so the command proceeds past the gate.</param>
+    public SetupHarness(IPresenceCheck? presence)
     {
         SystemServicesBuilder builder = TestSupport.FakeServices();
-        builder.OnPlatform().SimulateExecutableFlag(true);
+        SystemServicesBuilder.PlatformBuilder platform = builder.OnPlatform();
+        platform.SimulateExecutableFlag(true);
+        if (presence is not null)
+        {
+            platform.With(presence);
+        }
+
         _services = builder.Build();
 
         _root = DirectoryWriter.CreateTempSubdirectory("agentguard-setup-");
@@ -143,18 +157,20 @@ public sealed class SetupHarness : IDisposable
     public CommandOutcome Install(string version, bool allowDowngrade = false, string? content = null)
     {
         string binary = MakeSourceBinary(content ?? $"GUARD BINARY v{version}");
-        return SetupCommands.Install(Context(version, binary), allowDowngrade);
+        return SetupCommands.Install(Context(version, binary), _services, allowDowngrade).GetAwaiter().GetResult();
     }
 
     /// <summary>Runs <c>init</c> against the project.</summary>
     /// <param name="version">The running version to present.</param>
     /// <returns>The init outcome.</returns>
-    public CommandOutcome Init(string version = "0.1.0-alpha") => SetupCommands.Init(Context(version, BinGuard));
+    public CommandOutcome Init(string version = "0.1.0-alpha") =>
+        SetupCommands.Init(Context(version, BinGuard), _services).GetAwaiter().GetResult();
 
     /// <summary>Runs <c>remove</c> against the project.</summary>
     /// <param name="version">The running version to present.</param>
     /// <returns>The remove outcome.</returns>
-    public CommandOutcome Remove(string version = "0.1.0-alpha") => SetupCommands.Remove(Context(version, BinGuard));
+    public CommandOutcome Remove(string version = "0.1.0-alpha") =>
+        SetupCommands.Remove(Context(version, BinGuard), _services).GetAwaiter().GetResult();
 
     /// <summary>Runs <c>doctor</c> against the machine and project.</summary>
     /// <param name="fix">Whether to repair broken structural conditions.</param>

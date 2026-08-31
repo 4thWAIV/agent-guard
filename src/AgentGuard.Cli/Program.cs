@@ -126,26 +126,26 @@ internal sealed class Program
         {
             Description = "Permit installing an older version than the recorded one.",
         };
-        var command = new Command("install", "Install or update the guard binary under ~/.agentguard.")
+        var command = new Command(SetupVerb.Install, "Install or update the guard binary under ~/.agentguard.")
         {
             allowDowngrade,
         };
-        command.SetAction(parseResult =>
-            RunCommand(services, () => SetupCommands.Install(SetupContext.ForCurrentProcess(services), parseResult.GetValue(allowDowngrade))));
+        command.SetAction((parseResult, _) =>
+            RunCommandAsync(services, () => SetupCommands.Install(SetupContext.ForCurrentProcess(services), services, parseResult.GetValue(allowDowngrade))));
         return command;
     }
 
     private static Command BuildInitCommand(ISystemServices services)
     {
-        var command = new Command("init", "Wire the guard into the current repository.");
-        command.SetAction(_ => RunCommand(services, () => SetupCommands.Init(SetupContext.ForCurrentProcess(services))));
+        var command = new Command(SetupVerb.Init, "Wire the guard into the current repository.");
+        command.SetAction((_, _) => RunCommandAsync(services, () => SetupCommands.Init(SetupContext.ForCurrentProcess(services), services)));
         return command;
     }
 
     private static Command BuildRemoveCommand(ISystemServices services)
     {
-        var command = new Command("remove", "Remove the guard's wiring from the current repository.");
-        command.SetAction(_ => RunCommand(services, () => SetupCommands.Remove(SetupContext.ForCurrentProcess(services))));
+        var command = new Command(SetupVerb.Remove, "Remove the guard's wiring from the current repository.");
+        command.SetAction((_, _) => RunCommandAsync(services, () => SetupCommands.Remove(SetupContext.ForCurrentProcess(services), services)));
         return command;
     }
 
@@ -204,11 +204,11 @@ internal sealed class Program
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Fail-closed boundary: a setup-command failure must exit non-zero, never success.")]
-    private static int RunCommand(ISystemServices services, Func<CommandOutcome> action)
+    private static async Task<int> RunCommandAsync(ISystemServices services, Func<Task<CommandOutcome>> action)
     {
         try
         {
-            CommandOutcome outcome = action();
+            CommandOutcome outcome = await action().ConfigureAwait(false);
             foreach (string message in outcome.Messages)
             {
                 services.Console.WriteLine(message);

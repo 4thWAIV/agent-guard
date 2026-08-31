@@ -45,6 +45,14 @@ public interface IEnvironment
     string GetTempDirectory();
 
     /// <summary>
+    /// Gets the base directory the application was loaded from, as the runtime reports it — an ambient environment
+    /// read that wraps <c>System.AppContext.BaseDirectory</c>. The returned path always ends with a directory
+    /// separator, the same as the underlying primitive.
+    /// </summary>
+    /// <returns>The absolute base directory the application was loaded from, ending with a directory separator.</returns>
+    string GetBaseDirectory();
+
+    /// <summary>
     /// Gets the CPU architecture the running process is executing as — an ambient environment read that wraps
     /// <c>System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture</c>. It is the process architecture, not
     /// the build target: an x64 process launched under Rosetta reports <see cref="Architecture.X64"/> even on Arm64

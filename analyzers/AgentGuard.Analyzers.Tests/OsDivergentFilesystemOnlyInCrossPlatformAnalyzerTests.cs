@@ -100,6 +100,23 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
         }
         """;
 
+    // FIX 1 (presence-native-owner-rule, family-scoped; fence-relocation): the macOS native-ops owner and flow port and
+    // their interfaces, a native binding, and the filesystem owner interface. Proves AG0101's narrow edit — its P/Invoke
+    // and Marshal branches ALSO exempt the native-OPS owners (native branches only), while its File/Directory-divergent
+    // ban stays filesystem-owner-only. The coverage refactor relocated the native exemption off the flow port onto the
+    // native-ops owner. The IObjCRuntime native-ops owner, the ILocalAuthentication flow port, and the LocalAuthNative
+    // objc_msgSend binding come from the shared owners (SharedAnalyzerSources); the bare IPlatformFileSystem marker stays
+    // inline per the marker-stub convention.
+    private const string PresencePortFixtures = """
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IPlatformFileSystem { }
+        }
+        """
+        + "\n\n" + SharedAnalyzerSources.ObjCRuntimeNativeOps
+        + "\n\n" + SharedAnalyzerSources.LocalAuthenticationPort
+        + "\n\n" + SharedAnalyzerSources.LocalAuthNativeBinding;
+
     [Fact]
     public async Task SetUnixFileMode_OutsideCrossPlatform_IsReported()
     {
@@ -266,5 +283,102 @@ public class OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests
             """;
 
         Assert.Empty(await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.Engine"));
+    }
+
+    [Fact]
+    public async Task NativeOpsOwnerNativeInterop_IsExempt_UnderBothAG0101AndAG0113()
+    {
+        // FIX 1 + fence-relocation: a native-OPS owner's raw P/Invoke AND Marshal are clean under BOTH AG0101 (its native
+        // branches now exempt the native-ops owners, reusing the same owner check) and AG0113 (which confines that native
+        // family there). The exemption relocated off the flow port onto this native-ops layer.
+        string source = PresencePortFixtures + """
+
+            namespace AgentGuard.CrossPlatform.MacOS
+            {
+                using System;
+                using System.Runtime.InteropServices;
+                internal sealed class ObjCRuntime : IObjCRuntime
+                {
+                    internal IntPtr Call() => LocalAuthNative.ObjcMsgSend(IntPtr.Zero, IntPtr.Zero);
+                    internal int LastError() => Marshal.GetLastPInvokeError();
+                }
+            }
+            """;
+
+        Assert.Empty(
+            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+        Assert.Empty(
+            await AnalyzerRunner.RunAsync<PresenceNativeInteropOwnerAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+    }
+
+    [Fact]
+    public async Task FlowPortNativeInterop_IsReported_AfterRelocation_UnderAG0101()
+    {
+        // fence-relocation: the flow port (ILocalAuthentication) lost its native exemption — its raw P/Invoke is now RED
+        // under AG0101's native branch too. This is the RED-first forcing function against the pre-refactor orchestrator.
+        string source = PresencePortFixtures + """
+
+            namespace AgentGuard.CrossPlatform.MacOS
+            {
+                using System;
+                internal sealed class LocalAuthentication : ILocalAuthentication
+                {
+                    internal IntPtr Call() => LocalAuthNative.ObjcMsgSend(IntPtr.Zero, IntPtr.Zero);
+                }
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+        Assert.Equal("AG0101", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task NativeOpsOwner_FileDivergentCall_IsStillReported_UnderAG0101()
+    {
+        // FIX 1: the presence exemption is on the NATIVE branches ONLY. A native-ops owner is NOT the filesystem owner,
+        // so its File.SetUnixFileMode stays RED under AG0101 — no cross-family over-grant, even though its native interop
+        // is exempt.
+        string source = PresencePortFixtures + """
+
+            namespace AgentGuard.CrossPlatform.MacOS
+            {
+                using System.IO;
+                internal sealed class ObjCRuntime : IObjCRuntime
+                {
+                    internal void Chmod(string path) => File.SetUnixFileMode(path, UnixFileMode.UserRead);
+                }
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+        Assert.Equal("AG0101", diagnostic.Id);
+        Assert.Contains(
+            "SetUnixFileMode", AnalyzerRunner.SpanText(source, diagnostic), System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task FilesystemOwner_NativeAndFileDivergent_AreBothExempt_UnderAG0101()
+    {
+        // FIX 1 keeps the filesystem owner exempt for EVERY OS-divergent call — both its native P/Invoke and its
+        // File/Directory-divergent members — unchanged by the narrow presence edit.
+        string source = PresencePortFixtures + """
+
+            namespace AgentGuard.CrossPlatform.MacOS
+            {
+                using System;
+                using System.IO;
+                using AgentGuard.Abstractions.Contracts;
+                internal sealed class PosixFileSystem : IPlatformFileSystem
+                {
+                    internal IntPtr Native() => LocalAuthNative.ObjcMsgSend(IntPtr.Zero, IntPtr.Zero);
+                    internal void Chmod(string path) => File.SetUnixFileMode(path, UnixFileMode.UserRead);
+                }
+            }
+            """;
+
+        Assert.Empty(
+            await AnalyzerRunner.RunAsync<OsDivergentFilesystemOnlyInCrossPlatformAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
     }
 }

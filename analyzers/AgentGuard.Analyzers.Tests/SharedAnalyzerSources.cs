@@ -131,4 +131,101 @@ internal static class SharedAnalyzerSources
             }
         }
         """;
+
+    /// <summary>
+    /// The one canonical stub for the presence Abstractions surface — <c>IPresenceCheck</c> (carrying its single
+    /// <c>Check</c> operation) and the <c>PresenceRequest</c> record — shared byte-identical by the three presence-rule
+    /// test classes that each prepended their own hand-rolled copy (<c>NoTimeoutInPresenceImplAnalyzerTests</c> for
+    /// AG0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for AG0108, and
+    /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for AG0109), so this fixture is spelled exactly once
+    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> without supplying
+    /// <c>Check</c> (the analyzer runner returns only the analyzer's own diagnostics, so the incomplete-implementation
+    /// compile error is irrelevant), AG0108 invokes <c>Check</c>, and AG0109 constructs <c>PresenceRequest</c>.
+    /// </summary>
+    internal const string PresenceContract = """
+        namespace AgentGuard.Abstractions.Contracts
+        {
+            public interface IPresenceCheck
+            {
+                int Check();
+            }
+
+            public sealed record PresenceRequest(string PromptText);
+        }
+        """;
+
+    /// <summary>
+    /// The one canonical stub for the macOS native presence port — <c>ILocalAuthentication</c> in the
+    /// <c>AgentGuard.CrossPlatform.MacOS</c> namespace — shared byte-identical by the three native-port rule test classes
+    /// that each spelled their own copy (<c>NoCachedNativeAuthContextAnalyzerTests</c> for AG0112,
+    /// <c>NativePresencePortSingleImplementerAnalyzerTests</c> for AG0114, and
+    /// <c>NoTimeoutInPresenceImplAnalyzerTests</c> for AG0107's port-owner case), so this stub is spelled exactly once
+    /// (LESSON 1, DRY). It is its own namespace block, so a consuming fixture prepends it and declares the implementer in
+    /// a second <c>AgentGuard.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
+    /// </summary>
+    internal const string LocalAuthenticationPort = """
+        namespace AgentGuard.CrossPlatform.MacOS
+        {
+            public interface ILocalAuthentication { }
+        }
+        """;
+
+    /// <summary>
+    /// The one canonical stub for the macOS presence port's native binding — the <c>LocalAuthNative</c> static class
+    /// carrying the <c>objc_msgSend</c> P/Invoke (<c>[DllImport("libobjc")] internal static extern IntPtr
+    /// ObjcMsgSend(...)</c>) in its own <c>AgentGuard.CrossPlatform.MacOS</c> namespace block — shared byte-identical by
+    /// the two native-interop rule test classes that each spelled their own copy
+    /// (<c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for AG0101 and
+    /// <c>PresenceNativeInteropOwnerAnalyzerTests</c> for AG0113), so this binding is spelled exactly once (LESSON 1,
+    /// DRY). It pairs with <see cref="LocalAuthenticationPort"/>: a consuming fixture prepends the port interface and
+    /// this binding, then declares the presence-port implementer that calls <c>ObjcMsgSend</c>.
+    /// </summary>
+    internal const string LocalAuthNativeBinding = """
+        namespace AgentGuard.CrossPlatform.MacOS
+        {
+            using System;
+            using System.Runtime.InteropServices;
+            internal static class LocalAuthNative
+            {
+                [DllImport("libobjc")]
+                internal static extern IntPtr ObjcMsgSend(IntPtr self, IntPtr selector);
+            }
+        }
+        """;
+
+    /// <summary>
+    /// The one canonical stub for the Linux native presence port — <c>IPolkitAuthority</c> in the
+    /// <c>AgentGuard.CrossPlatform.Linux</c> namespace — the Linux sibling of <see cref="LocalAuthenticationPort"/>,
+    /// shared byte-identical by the three Linux-port rule test classes that each spelled their own copy
+    /// (<c>DbusOnlyInPolkitAuthorityAnalyzerTests</c> for AG0110, <c>NativePresencePortSingleImplementerAnalyzerTests</c>
+    /// for AG0114's Polkit case, and <c>NoTimeoutInPresenceImplAnalyzerTests</c> for AG0107's Polkit port-owner case), so
+    /// this stub is spelled exactly once (LESSON 1, DRY). Like the macOS sibling it is its own namespace block, so a
+    /// consuming fixture prepends it and declares the implementer in a second <c>AgentGuard.CrossPlatform.Linux</c> block
+    /// that sees the interface across the two declarations.
+    /// </summary>
+    internal const string PolkitAuthorityPort = """
+        namespace AgentGuard.CrossPlatform.Linux
+        {
+            public interface IPolkitAuthority { }
+        }
+        """;
+
+    /// <summary>
+    /// The one canonical stub for the macOS native-OPS owner — <c>IObjCRuntime</c> in the
+    /// <c>AgentGuard.CrossPlatform.MacOS</c> namespace — the thin raw-call layer the coverage refactor introduces one
+    /// level below the <c>ILocalAuthentication</c> flow port. Shared byte-identical by the rule test classes that scope
+    /// to the native-ops owner: the relocated raw-interop exemption (<c>PresenceNativeInteropOwnerAnalyzerTests</c> for
+    /// AG0113, <c>OsDivergentFilesystemOnlyInCrossPlatformAnalyzerTests</c> for AG0101's native branch), the three
+    /// native-ops guardrails (<c>NoControlFlowInNativeOpsAnalyzerTests</c> for AG0106,
+    /// <c>NoAsyncOrchestrationInNativeOpsAnalyzerTests</c> for AG0115, <c>NoStateInNativeOpsAnalyzerTests</c> for AG0116),
+    /// and the AG0107/AG0114 extensions, so this stub is spelled exactly once (LESSON 1, DRY). Its own namespace block,
+    /// so a consuming fixture prepends it and declares the native-ops implementer in a second
+    /// <c>AgentGuard.CrossPlatform.MacOS</c> block that sees the interface across the two declarations.
+    /// </summary>
+    internal const string ObjCRuntimeNativeOps = """
+        namespace AgentGuard.CrossPlatform.MacOS
+        {
+            public interface IObjCRuntime { }
+        }
+        """;
 }

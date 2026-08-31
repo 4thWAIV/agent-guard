@@ -18,6 +18,31 @@ internal static class CrossPlatformBoundary
     /// </summary>
     internal const string RootName = "AgentGuard.CrossPlatform";
 
+    /// <summary>The exact assembly name of the macOS per-OS implementation library — <c>AgentGuard.CrossPlatform.MacOS</c>.
+    /// The single owner of this name so the <c>.MacOS</c> suffix is spelled once (LESSON 1, DRY).</summary>
+    internal const string MacOsName = RootName + ".MacOS";
+
+    /// <summary>The exact assembly name of the Linux per-OS implementation library — <c>AgentGuard.CrossPlatform.Linux</c>.
+    /// The single owner of this name so the <c>.Linux</c> suffix is spelled once (LESSON 1, DRY).</summary>
+    internal const string LinuxName = RootName + ".Linux";
+
+    /// <summary>The exact assembly name of the Windows per-OS implementation library — <c>AgentGuard.CrossPlatform.Windows</c>.
+    /// The single owner of this name so the <c>.Windows</c> suffix is spelled once (LESSON 1, DRY).</summary>
+    internal const string WindowsName = RootName + ".Windows";
+
+    /// <summary>
+    /// The cached <c>Compilation</c>-level gate for the three per-OS implementation libraries — the single adapter
+    /// that pulls a compilation's assembly name and calls <see cref="IsPerOsImplementationAssembly"/>. Owned here,
+    /// next to the string check it wraps, so the two per-OS-owner rules that use it as an
+    /// <see cref="OwnerClass.IsOwner"/> assembly gate — AG0101 (OsDivergentFilesystemOnlyInCrossPlatformAnalyzer, the
+    /// OS-divergent filesystem owner) and AG0113 (PresenceNativeInteropOwnerAnalyzer, the presence native-interop
+    /// owner) — share this one adapter instead of each re-wrapping the call, mirroring the caching pattern
+    /// <see cref="OwnerClass.InAssembly"/> establishes. Cached in a static field so no delegate is allocated per
+    /// analyzed operation.
+    /// </summary>
+    internal static readonly Func<Compilation, bool> IsAnyPerOsImplementationLibrary =
+        compilation => IsPerOsImplementationAssembly(compilation.AssemblyName);
+
     /// <summary>
     /// The exact assembly names of the four platform libraries where native interop and platform-specific code
     /// are permitted: the <c>AgentGuard.CrossPlatform</c> contract assembly and its per-OS <c>.MacOS</c>,
@@ -27,9 +52,9 @@ internal static class CrossPlatformBoundary
     private static readonly ImmutableHashSet<string> PlatformAssemblyNames = ImmutableHashSet.Create(
         StringComparer.Ordinal,
         RootName,
-        RootName + ".MacOS",
-        RootName + ".Linux",
-        RootName + ".Windows");
+        MacOsName,
+        LinuxName,
+        WindowsName);
 
     /// <summary>
     /// The exact assembly names of the three per-OS implementation libraries — <c>.MacOS</c>, <c>.Linux</c>, and

@@ -10,7 +10,7 @@ namespace AgentGuard.Analyzers.Tests;
 
 /// <summary>
 /// AG0035 (no-literal-fake-root): a compile-time literal passed at a fake-root seed site — the
-/// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>,
+/// <c>home</c>/<c>currentDirectory</c>/<c>tempDirectory</c>/<c>baseDirectory</c> argument of <c>AgentGuard.TestHelpers.FakeEnvironment.Create</c>,
 /// or the <c>tempRoot</c> argument of the overlay factory <c>SystemServicesBuilder.NewOverlay</c> — is a build error, so
 /// the copy-on-write simulator takes a real-host value on every OS. The check targets the <c>NewOverlay</c> call, NOT
 /// the <c>InMemoryFileSystemStore</c> constructor: the constructor is only ever reached through <c>NewOverlay</c>, which
@@ -35,7 +35,7 @@ public class NoLiteralFakeRootAnalyzerTests
             public sealed class FakeEnvironment
             {
                 public static FakeEnvironment Create(
-                    string home, string currentDirectory = null, string tempDirectory = null) => new FakeEnvironment();
+                    string home, string currentDirectory = null, string tempDirectory = null, string baseDirectory = null) => new FakeEnvironment();
             }
         }
         """;
@@ -78,6 +78,19 @@ public class NoLiteralFakeRootAnalyzerTests
     {
         // home is runtime (no fire); currentDirectory is a named literal (fires). Proves per-argument matching.
         const string body = """FakeEnvironment Make(string home) => FakeEnvironment.Create(home, currentDirectory: "/cur");""";
+
+        Diagnostic diagnostic = Assert.Single(await RunAsync(body));
+
+        Assert.Equal("AG0035", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task LiteralNamedBaseDirectory_IsReported()
+    {
+        // baseDirectory is the fourth fake-root seed (added alongside IEnvironment.GetBaseDirectory); a named literal
+        // there fires exactly as home/currentDirectory/tempDirectory do. home is runtime (no fire) to prove
+        // per-argument matching, mirroring the currentDirectory case above.
+        const string body = """FakeEnvironment Make(string home) => FakeEnvironment.Create(home, baseDirectory: "/base");""";
 
         Diagnostic diagnostic = Assert.Single(await RunAsync(body));
 

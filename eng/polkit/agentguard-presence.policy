@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!--
+  The polkit action that gates AgentGuard's mutating setup commands (install / init / remove) on a physically-present
+  human. It is installed root-owned under /usr/share/polkit-1/actions/ by eng/polkit/install.sh (interim, issue #44) —
+  never written by the guard binary. Its filename does not embed the action id; polkit matches by the <action id> below,
+  which is pinned equal to the single-owner C# const PolkitAction.Id by the policy-integrity test.
+
+  All three scopes are auth_self with NO _keep and NO yes: every check forces a fresh challenge that the invoking user
+  answers through the session's own authentication agent (fresh-interaction-no-cached-yes). One action serves all three
+  verbs; the per-call polkit.message the guard passes carries the action-specific prompt.
+-->
+<policyconfig>
+  <vendor>4thWAIV</vendor>
+  <vendor_url>https://github.com/4thWAIV/agent-guard</vendor_url>
+
+  <action id="com.4thwaiv.agentguard.presence">
+    <description>Confirm a physically-present human for an AgentGuard setup action</description>
+    <message>AgentGuard needs to confirm that you are physically present to authorize this change.</message>
+    <defaults>
+      <allow_any>auth_self</allow_any>
+      <allow_inactive>auth_self</allow_inactive>
+      <allow_active>auth_self</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

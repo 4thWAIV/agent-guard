@@ -43,6 +43,12 @@ internal sealed class EnvironmentAdapter : IEnvironment
     public string GetTempDirectory() => Path.GetTempPath();
 
     /// <inheritdoc />
+    // The owned AppContext.BaseDirectory read (AG0011 assigns the primitive to the IEnvironment owner in Boundaries).
+    // It mirrors the primitive faithfully — the value the runtime reports, trailing directory separator included — so
+    // no policy is baked into the wrapper; a caller that needs the deployment path composes onto it.
+    public string GetBaseDirectory() => AppContext.BaseDirectory;
+
+    /// <inheritdoc />
     public Architecture GetProcessArchitecture() => RuntimeInformation.ProcessArchitecture;
 
     /// <inheritdoc />
