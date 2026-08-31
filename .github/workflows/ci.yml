@@ -91,7 +91,16 @@ jobs:
         # Regression guard for scan-resolutions #1: a self-contained cross-RID publish must reference and bundle
         # exactly ONE AgentGuard.CrossPlatform.<OS> library. The per-OS legs can never catch a mis-selection
         # because each job's host matches its RID; this runs a TRUE cross-build (macOS host -> linux-x64 target).
-        run: eng/check-single-platform-lib.sh linux-x64 $AG
+        #
+        # -m:1 (single MSBuild node) is load-bearing, not a preference. A self-contained cross-RID publish evaluates
+        # the same projects twice — once with the RuntimeIdentifier set and once with the SDK's RID stripped for the
+        # app's library references — and both instances write the SAME bin/Release/net10.0 output, because that path
+        # does not vary by RID. Reproduced locally: a plain `dotnet build` builds every project once, while this
+        # publish builds 5 of 7 twice. On parallel nodes the two writers can hit one generated file in the same
+        # instant, which fails the step with "GenerateDepsFile ... deps.json ... used by another process" (seen on
+        # the dev merge of PR #52, run 33440630677). Serializing removes the race; the underlying double-build is
+        # issue #56, and this flag comes out when that is fixed.
+        run: eng/check-single-platform-lib.sh linux-x64 -m:1 $AG
       - name: Test osx-arm64 (native)
         run: dotnet test -c Release $AG --logger "trx;LogFileName=macos-native.trx"
       - name: Test osx-x64 under Rosetta (must run as X64)
