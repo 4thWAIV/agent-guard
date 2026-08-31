@@ -70,7 +70,8 @@ public sealed class NoCallerFilePathAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
 
-        // No CompilationStart gate and no assembly exemption: the ban is repo-wide, production and test alike. Register
+        // No CompilationStart gate and no assembly exemption of its own, so the ban reaches production and test alike
+        // wherever the custom analyzers are wired in (Directory.Build.props skips the two analyzer projects). Register
         // directly on every applied attribute and match [CallerFilePath] by resolved type.
         context.RegisterSyntaxNodeAction(AnalyzeAttribute, SyntaxKind.Attribute);
     }

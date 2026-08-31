@@ -10,7 +10,10 @@ namespace AgentGuard.Analyzers.Tests;
 
 /// <summary>
 /// AG0039 (no-caller-file-path): the <c>System.Runtime.CompilerServices.CallerFilePathAttribute</c> applied to a
-/// parameter is a build error, repo-wide (production and test), because it captures a compile-time source path that a
+/// parameter is a build error, production and test alike, in every assembly the custom analyzers are wired into (every
+/// project except <c>AgentGuard.Analyzers</c> and <c>AgentGuard.Analyzers.Tests</c>, which set
+/// <c>AgentGuardIsAnalyzerProject</c> and so are skipped by the wiring in <c>Directory.Build.props</c>), because it
+/// captures a compile-time source path that a
 /// deterministic CI build rewrites to <c>/_/...</c>; the base directory is reached through
 /// <c>IEnvironment.GetBaseDirectory()</c> instead. Scoped to exactly <c>CallerFilePathAttribute</c> — its
 /// <c>CallerMemberName</c>/<c>CallerLineNumber</c>/<c>CallerArgumentExpression</c> siblings leak no path and never
@@ -62,7 +65,8 @@ public class NoCallerFilePathAnalyzerTests
     [Fact]
     public async Task CallerFilePathInProductionAssembly_IsReported()
     {
-        // The ban is repo-wide with no owner exemption: it fires the same in a production (non-test) assembly.
+        // The analyzer applies no owner exemption and no assembly gate of its own: it fires the same in a production
+        // (non-test) assembly as in a test one.
         const string source = """
             using System.Runtime.CompilerServices;
 

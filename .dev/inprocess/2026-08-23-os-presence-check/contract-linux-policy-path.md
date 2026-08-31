@@ -102,11 +102,11 @@ Change scope only by editing this file before the run starts.
 The rules RULE-PHASE writes, both signed off in the Decisions section above.
 
 **Rule 1 — ban `[CallerFilePath]` (new Roslyn analyzer).**
-- **Forbids:** the `System.Runtime.CompilerServices.CallerFilePathAttribute` applied to any parameter, in ALL assemblies (production and test), with no owner exemption. Scoped to exactly `CallerFilePathAttribute` — never its `CallerMemberName` / `CallerLineNumber` / `CallerArgumentExpression` siblings, which leak no path.
+- **Forbids:** the `System.Runtime.CompilerServices.CallerFilePathAttribute` applied to any parameter, production and test alike, with no owner exemption. The reach is every assembly the custom analyzers are wired into, which is every project EXCEPT the two analyzer projects themselves: `AgentGuard.Analyzers` and `AgentGuard.Analyzers.Tests` set `AgentGuardIsAnalyzerProject`, and `Directory.Build.props` skips the custom-analyzer wiring for those, so the rule cannot fire inside them. Scoped to exactly `CallerFilePathAttribute` — never its `CallerMemberName` / `CallerLineNumber` / `CallerArgumentExpression` siblings, which leak no path.
 - **Diagnostic message:** directs the developer to reach the base directory through the owned `IEnvironment.GetBaseDirectory()` instead of capturing a compile-time source path.
 - **Goes RED against:** `tests/AgentGuard.CrossPlatform.Tests/Presence/Linux/PolkitPolicyIntegrityTests.cs` — the one `[CallerFilePath]` use in the repo. The IMPLEMENT rewrite of that test removes the usage, turning the rule GREEN.
 - **Mechanism:** a Roslyn `DiagnosticAnalyzer` following the existing analyzer pattern (a `DiagnosticId` const at the next free AG id, a `DiagnosticDescriptor`, the analyzer class), reusing `WellKnownType.Is` / the `AttributeIdentity` helper, adding a `SystemRuntimeCompilerServices` constant to `KnownNamespaces.cs` if absent. Registered in `AnalyzerReleases.Unshipped.md`; covered by a new test in `AgentGuard.Analyzers.Tests`.
-- **NOT in scope:** no `StackTrace`/`StackFrame` ban (dropped by Tim); no `[CallerFilePath]`-in-tests-only scoping (it is repo-wide).
+- **NOT in scope:** no `StackTrace`/`StackFrame` ban (dropped by Tim); no `[CallerFilePath]`-in-tests-only scoping (it applies to production and test alike, everywhere the custom analyzers are wired in).
 
 **Rule 2 — extend AG0035 (`NoLiteralFakeRootAnalyzer`) for the new fake-root seed.**
 - **Forbids:** a hardcoded literal passed to the new `baseDirectory` parameter of `FakeEnvironment.Create`, exactly as AG0035 already forbids for `home` / `currentDirectory` / `tempDirectory`.

@@ -37,7 +37,7 @@ AG0035  | AgentGuard.Architecture | Warning | NoLiteralFakeRootAnalyzer
 AG0036  | AgentGuard.Architecture | Warning | NoLiteralCaseModeSeedAnalyzer
 AG0037  | AgentGuard.Architecture | Warning | NoOsBranchingOutsideCrossPlatformAnalyzer (single-OS branch inside a per-OS implementation library)
 AG0038  | AgentGuard.Architecture | Warning | TimeoutMustUseTimeProviderAnalyzer (bounded waits/timeouts flow through the injected TimeProvider)
-AG0039  | AgentGuard.Architecture | Warning | NoCallerFilePathAnalyzer ([CallerFilePath] banned repo-wide; reach the base directory through IEnvironment.GetBaseDirectory())
+AG0039  | AgentGuard.Architecture | Warning | NoCallerFilePathAnalyzer ([CallerFilePath] banned production and test alike, wherever the custom analyzers are wired in; reach the base directory through IEnvironment.GetBaseDirectory())
 AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer (shrunk to static OS-divergent members, Marshal, and P/Invoke)
 AG0102  | AgentGuard.Architecture | Warning | PInvokeSignatureMustBeBlittableAnalyzer (no object/dynamic/unconstrained-generic/variadic in a P/Invoke signature)
 AG0103  | AgentGuard.Architecture | Warning | MacOsNativeBoolMustBeI1Analyzer (macOS native bool marshalled as UnmanagedType.I1)
