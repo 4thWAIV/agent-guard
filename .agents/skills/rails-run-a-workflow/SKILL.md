@@ -146,7 +146,7 @@ Every run leaves a run-record under repo root: the contract, the worker's output
 
 **Move the run-record inside the shipping PR, before merge — never after.** The `inprocess/`→`completed/` move is a commit ON the same branch and PR that ships the work, staged as part of REPORT, so one merge both ships the code and files the run-record. A run-record moved after the merge is an orphan: the branch is already gone, the protected target needs a second direct push, and it is the exact drift that leaves shipped work rotting in `inprocess/`.
 
-**REPORT reconciles the whole `inprocess/` tree, not just the current run.** Before REPORT closes, sweep `.dev/inprocess/` for any run-record whose work has actually shipped — merged to `dev`, or marked done in the MANIFEST — and file every straggler to `completed/` in this same PR. The invariant is: nothing in `inprocess/` is for work already done. The mechanical, build-failing enforcement of that invariant is tracked as a GitHub issue; until it lands, REPORT runs the sweep by hand.
+**REPORT reconciles the whole `inprocess/` tree, not just the current run.** Before REPORT closes, sweep `.dev/inprocess/` for any run-record whose work has actually shipped — merged to `dev`, or otherwise proven done from git — and file every straggler to `completed/` in this same PR. The invariant is: nothing in `inprocess/` is for work already done. The mechanical, build-failing enforcement of that invariant is tracked as a GitHub issue; until it lands, REPORT runs the sweep by hand.
 
 ## Failure-class practice pack (inject into every worker + adversary prompt)
 
