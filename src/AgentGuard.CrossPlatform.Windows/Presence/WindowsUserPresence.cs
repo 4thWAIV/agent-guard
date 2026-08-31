@@ -139,11 +139,23 @@ internal sealed class WindowsUserPresence : IWindowsUserPresence
     // blocking prompt. It shares the one WinRT-operation await helper with the interactive verification; an availability
     // check that comes back cancelled/errored (a non-completing async status maps to a non-Available substitute) is
     // likewise treated as not available.
+    [SuppressMessage(
+        "Design",
+        "CA1031:Do not catch general exception types",
+        Justification = "A Hello availability-probe binding failure of any kind (no WinRT, IInspectable marshalling unsupported on this runtime, activation failure) means Hello cannot be verified — fail closed to not-available; it is never a hard fault. Interim until WebAuthn (#53); suppression signed off by Tim.")]
     private async Task<bool> IsHelloAvailableAsync(CancellationToken ct)
     {
-        int availability = await AwaitOperationAsync(
-            _hello.BeginAvailabilityCheck, _hello.GetAvailabilityResult, ct).ConfigureAwait(false);
-        return availability == UserConsentVerifierAvailable;
+        try
+        {
+            int availability = await AwaitOperationAsync(
+                _hello.BeginAvailabilityCheck, _hello.GetAvailabilityResult, ct).ConfigureAwait(false);
+            return availability == UserConsentVerifierAvailable;
+        }
+        catch (Exception)
+        {
+            // Hello could not be probed on this host (no WinRT / IInspectable unsupported); fail closed to not-available.
+            return false;
+        }
     }
 
     // Tries Windows Hello through the native-ops seam. Returns a concrete outcome when Hello answered, or null when Hello
