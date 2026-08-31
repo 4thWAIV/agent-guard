@@ -68,6 +68,18 @@
     </When>
   </Choose>
 
+  <!-- Ships the polkit policy INTO the test output so PolkitPolicyIntegrityTests reads it at
+       IEnvironment.GetBaseDirectory() + the file name — a runtime anchor immune to the deterministic-build source-path
+       remap that broke the old compile-time-source-path walk on CI. Link flattens it to the output root, so it lands
+       in the base directory itself, not an eng/polkit subtree. Copied unconditionally rather than gated to the Linux
+       leg (the contract permits either): one item with no OS condition cannot drift out of step with where the test
+       compiles, and the copy is inert on the legs that do not read it. -->
+  <ItemGroup>
+    <None Include="../../eng/polkit/agentguard-presence.policy"
+          Link="agentguard-presence.policy"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <!-- References the contract always and exactly one per-OS impl, selected by RuntimeIdentifier / build-host OS. -->
   <Import Project="../../src/AgentGuard.CrossPlatform/PlatformImplementation.targets" />
 

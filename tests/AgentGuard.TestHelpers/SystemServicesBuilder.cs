@@ -22,7 +22,8 @@ namespace AgentGuard.TestHelpers;
 /// </summary>
 public sealed class SystemServicesBuilder
 {
-    // The real host VALUES — process + OS architecture, home directory, temp root, and filesystem case-sensitivity —
+    // The real host VALUES — process + OS architecture, home directory, temp root, filesystem case-sensitivity, and the
+    // OS directory separator —
     // read ONCE through the single sanctioned Boundaries entrypoint (SystemServices.Create(), the same door Real() uses)
     // and cached as plain VALUES (two enums, two strings, a bool) — never the container or a service, so there is no
     // per-build reconstruction and no AG0024 static service holder. The Fake() default environment reports these true
@@ -54,6 +55,18 @@ public sealed class SystemServicesBuilder
         _real = real;
         _store = store;
     }
+
+    /// <summary>
+    /// Gets the real host's OS directory separator, read ONCE off the owned
+    /// <see cref="IPlatformFileSystem.DirectorySeparator"/> through the same single door <see cref="ReadRealHost"/> uses
+    /// for the other host values — never a raw <c>Path.DirectorySeparatorChar</c> (AG0020 owns that field to the
+    /// <see cref="IPlatformFileSystem"/> implementers) and never a hardcoded <c>/</c>. <see cref="FakeEnvironment"/> reads
+    /// it to separator-terminate its base directory on every path, including the seedless default: the fake is in-memory
+    /// and reaches no <c>System.*</c> member itself, and its <c>Create</c> factory cannot take the platform service as a
+    /// parameter (AG0031), so the one host read this class already owns is the single source. A plain <c>char</c>, not a
+    /// service, so it is no AG0024 static holder.
+    /// </summary>
+    internal static char HostDirectorySeparator => Host.Separator;
 
     /// <summary>
     /// Starts a builder over the REAL services (<c>SystemServices.Create()</c>): every leaf defaults to the real adapter,
@@ -286,22 +299,26 @@ public sealed class SystemServicesBuilder
 
     // Reads the real host VALUES ONCE through the one sanctioned Boundaries door (SystemServices.Create(), the same
     // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017), then discards
-    // the container and keeps only plain VALUES: the two architectures, the home directory, the temp root, and the host
+    // the container and keeps only plain VALUES: the two architectures, the home directory, the temp root, the host
     // filesystem's case-sensitivity (read through the case-sensitivity detection the platform already carries, keyed on
-    // the real home). GetTempDirectory() is the one AGS5443 owner-exempt call — SystemServicesBuilder is copy-on-write
-    // over the real host and reads the real temp root once here to seed the in-memory fake (temp-root-owner-exemption).
+    // the real home), and the OS directory separator (the owned IPlatformFileSystem.DirectorySeparator, off the same
+    // platform service the case-sensitivity probe uses). GetTempDirectory() is the one AGS5443 owner-exempt call —
+    // SystemServicesBuilder is copy-on-write over the real host and reads the real temp root once here to seed the
+    // in-memory fake (temp-root-owner-exemption).
     // Caching the values, not the container or a service, keeps clear of the static-service-holder rule (AG0024).
     private static RealHost ReadRealHost()
     {
         ISystemServices services = SystemServices.Create();
         IEnvironment environment = services.Environment;
+        IPlatformFileSystem platform = services.Platform.FileSystem;
         string home = environment.GetHomeDirectory();
         return new RealHost(
             environment.GetProcessArchitecture(),
             environment.GetOSArchitecture(),
             home,
             environment.GetTempDirectory(),
-            services.Platform.FileSystem.IsCaseSensitive(home));
+            platform.IsCaseSensitive(home),
+            platform.DirectorySeparator);
     }
 
     // A service with no built-in fake (signatures, build-info): resolve its override or, in Real mode, the real base; in
@@ -314,14 +331,15 @@ public sealed class SystemServicesBuilder
         _store ?? throw new InvalidOperationException(
             "The per-path failure seam needs a simulated or fake filesystem; call Fake() or Real().SimulateFileSystem() first.");
 
-    // The real host VALUES the Fake() default and the overlay source from the real environment: process + OS
-    // architecture, home directory, temp root, and filesystem case-sensitivity. A value type over two enums, two
-    // strings, and a bool — not a service — so caching it in a static is not an AG0024 static service holder.
+    // The real host VALUES the Fake() default, the overlay, and the environment fake source from the real environment:
+    // process + OS architecture, home directory, temp root, filesystem case-sensitivity, and the OS directory separator.
+    // A value type over two enums, two strings, a bool, and a char — not a service — so caching it in a static is not an
+    // AG0024 static service holder.
     // LayoutKind.Auto (MA0008): this is a managed-only value holder, never used for interop, so the runtime picks the
     // layout.
     [StructLayout(LayoutKind.Auto)]
     private readonly record struct RealHost(
-        Architecture Process, Architecture Os, string Home, string Temp, bool CaseSensitive);
+        Architecture Process, Architecture Os, string Home, string Temp, bool CaseSensitive, char Separator);
 
     /// <summary>
     /// The filesystem sub-builder: substitutes and wraps the four filesystem leaves on the correct nested scope (AG0019),

@@ -3,7 +3,6 @@
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace AgentGuard.Analyzers;
@@ -66,20 +65,11 @@ public sealed class InteropOnlyInCrossPlatformLibrariesAnalyzer : DiagnosticAnal
         context.RegisterSyntaxNodeAction(AnalyzeAttribute, SyntaxKind.Attribute);
     }
 
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context)
-    {
-        var attribute = (AttributeSyntax)context.Node;
-
-        // Match [DllImport]/[LibraryImport] by RESOLVED type, falling back to the syntactic name only when the
-        // attribute does not bind (the [LibraryImport] source-generator case, where the post-generation semantic
-        // model leaves the attribute unresolved). A same-named user attribute in another namespace resolves to the
-        // user's type and is left alone; the interop-attribute identity set is owned once by PInvoke.
-        if (!AttributeIdentity.IsAnyOf(context.SemanticModel, attribute, PInvoke.InteropAttributes, context.CancellationToken))
-        {
-            return;
-        }
-
-        string qualifiedName = AttributeSyntaxName.FullName(AttributeSyntaxName.SimpleName(attribute.Name));
-        context.ReportDiagnostic(Diagnostic.Create(Rule, attribute.GetLocation(), qualifiedName));
-    }
+    // Thin call to the shared match-then-report owner: report Rule against any applied [DllImport]/[LibraryImport] in a
+    // non-cross-platform assembly (the CompilationStart gate above has already excluded the per-OS libraries). The
+    // resolve-first match — falling back to the syntactic name only for the [LibraryImport] source-generator case where
+    // the attribute does not bind, so a same-named user attribute in another namespace is left alone — lives in
+    // AppliedAttributeBan, shared with AG0039. The interop-attribute identity set is owned once by PInvoke.
+    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context) =>
+        AppliedAttributeBan.Report(context, PInvoke.InteropAttributes, Rule);
 }

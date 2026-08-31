@@ -8,7 +8,8 @@ namespace AgentGuard.TestHelpers;
 
 /// <summary>
 /// The in-memory <see cref="IEnvironment"/> fake: the current directory, the user's home directory, the process path, the
-/// temp root, and the environment variables are all values the test chooses through <see cref="Create"/>, so a fake run
+/// temp root, the base directory, and the environment variables are all values the test chooses through
+/// <see cref="Create"/>, so a fake run
 /// reads a test-controlled environment instead of the real process environment. A CLI test points the home directory at a
 /// test directory so the setup commands operate inside the simulator with no real-process mutation. It reaches for no
 /// <c>System.Environment</c> member and no <c>Path.GetTempPath()</c>; every value is held in memory. Its constructor is
@@ -19,6 +20,8 @@ public sealed class FakeEnvironment : IEnvironment
     private readonly string _home;
     private readonly string _current;
     private readonly string _temp;
+    private readonly string _baseDirectory;
+    private readonly char _directorySeparator;
     private readonly string? _processPath;
     private readonly IReadOnlyDictionary<string, string> _variables;
     private readonly Architecture _processArchitecture;
@@ -28,6 +31,8 @@ public sealed class FakeEnvironment : IEnvironment
         string home,
         string current,
         string temp,
+        string baseDirectory,
+        char directorySeparator,
         string? processPath,
         IReadOnlyDictionary<string, string> variables,
         Architecture processArchitecture,
@@ -36,6 +41,8 @@ public sealed class FakeEnvironment : IEnvironment
         _home = home;
         _current = current;
         _temp = temp;
+        _baseDirectory = baseDirectory;
+        _directorySeparator = directorySeparator;
         _processPath = processPath;
         _variables = variables;
         _processArchitecture = processArchitecture;
@@ -51,6 +58,9 @@ public sealed class FakeEnvironment : IEnvironment
     /// <paramref name="home"/>.</param>
     /// <param name="tempDirectory">The temp-directory root, or <see langword="null"/> to use
     /// <paramref name="home"/>.</param>
+    /// <param name="baseDirectory">The base directory the fake reports, or <see langword="null"/> to use
+    /// <paramref name="home"/>. Either way <see cref="GetBaseDirectory"/> reports it separator-terminated, so the seed
+    /// need not carry a trailing separator and is never doubled when it does.</param>
     /// <param name="processPath">The process executable path the fake reports, or <see langword="null"/>.</param>
     /// <param name="variables">The environment variables the fake reports, or <see langword="null"/> for none.</param>
     /// <param name="processArchitecture">The process CPU architecture the fake reports. The parameter default is
@@ -68,6 +78,7 @@ public sealed class FakeEnvironment : IEnvironment
         string home,
         string? currentDirectory = null,
         string? tempDirectory = null,
+        string? baseDirectory = null,
         string? processPath = null,
         IReadOnlyDictionary<string, string>? variables = null,
         Architecture processArchitecture = Architecture.X64,
@@ -76,6 +87,8 @@ public sealed class FakeEnvironment : IEnvironment
             home,
             currentDirectory ?? home,
             tempDirectory ?? home,
+            baseDirectory ?? home,
+            SystemServicesBuilder.HostDirectorySeparator,
             processPath,
             variables ?? new Dictionary<string, string>(System.StringComparer.Ordinal),
             processArchitecture,
@@ -96,6 +109,16 @@ public sealed class FakeEnvironment : IEnvironment
 
     /// <inheritdoc />
     public string GetTempDirectory() => _temp;
+
+    /// <inheritdoc />
+    // The interface guarantees a separator-terminated value, because the real adapter mirrors AppContext.BaseDirectory
+    // and that primitive always ends in one. The fake therefore reproduces the guarantee for EVERY seed, the seedless
+    // home fallback included: it tests the stored value for a trailing separator and appends exactly one when absent,
+    // and returns an already-terminated value unchanged so it is never doubled to "//". The separator is the owned
+    // IPlatformFileSystem.DirectorySeparator, read once off the real platform service by SystemServicesBuilder — never a
+    // raw Path.DirectorySeparatorChar (AG0020) and never a hardcoded '/', so the fake is correct on Windows too.
+    public string GetBaseDirectory() =>
+        _baseDirectory.EndsWith(_directorySeparator) ? _baseDirectory : _baseDirectory + _directorySeparator;
 
     /// <inheritdoc />
     public Architecture GetProcessArchitecture() => _processArchitecture;
