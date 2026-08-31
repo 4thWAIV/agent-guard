@@ -63,7 +63,7 @@ If the code's state makes SOLID hard in a way the plan didn't cover, STOP and pr
 - **Fix:** Implement the correct approach and report it. Reserve flagging for a genuine unresolved trade-off.
 
 ### 10. Dependencies point one way
-- **Practice:** A lower, depended-upon assembly never needs a service injected from a higher assembly that depends on it. Keep the dependency flow one-directional by placing each service in the assembly that uses it. This rail enforces best-practices guide principle 2d (Boundary abstraction), which owns the rule.
+- **Practice:** A lower, depended-upon assembly never needs a service injected from a higher assembly that depends on it. Keep the dependency flow one-directional by placing each service in the assembly that uses it. This rail enforces principle 2d (Boundary abstraction) of the best-practices guide (`.dev/reference/best-practices-guide.md`), which owns the rule.
 - **Violation:** A service is injected UP — a dependent assembly hands it into the very assembly it depends on (for example `AgentGuard.Boundaries` passing a service into `AgentGuard.CrossPlatform`, which `Boundaries` references), or a rule is bypassed to permit the backwards call. This is a top-line finding.
 - **Fix:** Reorder so the flow is one-directional — usually MOVE the needed service DOWN into the lower assembly that uses it. Reordering is the default; only Tim rules whether the reorder cost is too high, and any such violation needs Tim's personal, explicit sign-off (anywhere, any repo).
 

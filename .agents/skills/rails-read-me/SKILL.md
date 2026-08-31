@@ -62,7 +62,7 @@ Also:
 - **File deferred work as a GitHub issue the moment it's deferred** — via the `gh` CLI (`gh issue create`) — with the real requirements in the body. A deferral recorded only as a note or memory is untracked and won't happen.
 
 ## Where things live (the .dev flow)
-See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions); `archive/` holds historical / non-workflow material.
+See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `reference/` holds living docs (this process, decisions, and the **best-practices guide** at `.dev/reference/best-practices-guide.md` — the layered constitution the rails delegate to, which a decision is checked against before it ever reaches the human); `archive/` holds historical / non-workflow material.
 
 **Derive the current state, never read it from a status document.** There is no checked-in index of what exists and what is done, because a hand-maintained copy of the filesystem only ever goes stale and then misleads. List the parts from the source: the rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and the analyzer rules are `analyzers/AgentGuard.Analyzers/AnalyzerReleases.*.md`. What is deferred, planned, or undecided lives in the GitHub issues (`gh issue list`) — that is the state tracker.
 
