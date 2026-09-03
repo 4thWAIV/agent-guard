@@ -1,0 +1,67 @@
+{
+  "contractPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "findings": [
+    {
+      "choice": "Whether refute.js's adversaries must verify that each `stageOutputs` value is the genuine result its stage produced, or may rule on whatever schema-valid object the calling orchestrator hands them.",
+      "whyForced": "Unaddressed, the default is total trust in the caller: refute.js validates only the SHAPE of `stageOutputs.ground/.design/.hiddenDecisionScan` via `__stageResultContracts({operation:'validate'})` and never re-reads the stage's own persisted run-record file, hashes it, or compares it to anything \u2014 so an inline object composed at call time is indistinguishable from the real artifact.",
+      "options": [
+        "Trust the caller \u2014 keep the schema-only check, and record in the contract that REFUTE's stage evidence is orchestrator-supplied and unauthenticated.",
+        "Read-back \u2014 `stageOutputs` values become run-record paths (e.g. `ground-output.json`) that refute.js reads itself, so the evidence cannot be authored at the call site.",
+        "Hash-anchor \u2014 each stage writes its result plus a digest into the run record and refute.js recomputes and compares before any adversary runs.",
+        "Keep the inline input, but make the Lie-catcher's duty explicitly include diffing the passed `stageOutputs` against the on-disk run-record files and FAILing on divergence."
+      ],
+      "howItBites": "The Lie-catcher is the organ that exists to catch unapproved contract cuts and false completeness. An orchestrator whose GROUND or DESIGN came out weak can hand REFUTE a cleaned-up, schema-valid stand-in and every adversary then rules against the fiction and returns PASS \u2014 the exact cheat this repo was built to prevent, executed through the verifier itself. It is a trust boundary being set silently at L1 (where all three outputs are mandatory), and the inline-object shape locks in for every stage later added to `stageOutputs`.",
+      "recommended": "Have refute.js read each stage result from its run-record file rather than accepting an inline object, so no adversary ever rules on evidence the caller could have authored.",
+      "severity": "high"
+    },
+    {
+      "choice": "Where the `retired-workflow-modules/` provenance snapshot permanently lives, and what the 30 baked-in `// Generated copy of .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/<name>.js` header paths across the nine shipped workflow scripts point at once the run record is filed to `.dev/completed/run-records/`.",
+      "whyForced": "Unaddressed, the default is to ship the headers with the inprocess path (the only location any Decision names \u2014 contract.md:207) and then perform the move `rails-run-a-workflow` already mandates (SKILL.md:228, 'Move the run record to `.dev/completed/run-records/` inside the same shipping pull request, before merge'). The instant that PR merges, every one of those header paths dangles, and Acceptance #27 ('every `Generated copy of` header resolves to an existing file') was true only at gate time.",
+      "options": [
+        "Rewrite all 30 headers to the completed-run-record path as part of the mandatory pre-merge move, and re-run `eng/check-copied-modules.mjs` because every copy of a block must stay byte-identical.",
+        "Give the snapshot a permanent home outside the run record (under `.agents/` or `.dev/reference/`) and point the headers there once, so no future filing can ever falsify them.",
+        "Drop the path from the header entirely \u2014 keep the 'generated copy, do not edit here' note and the `##COPIED-MODULE-##` markers, and let the run record carry provenance without being addressed by 30 literal strings.",
+        "Leave `retired-workflow-modules/` under `.dev/inprocess/` permanently \u2014 which the same skill forbids ('Nothing in `.dev/inprocess/` may describe work already merged to `dev` or otherwise shipped')."
+      ],
+      "howItBites": "The nine workflow scripts are the shipped rails every future run reads, so 30 header strings naming a directory that no longer exists teach every future agent a false location. The copied-module convention makes the cleanup expensive forever after: each header lives inside a byte-identical block, so one correction is a nine-file synchronized edit plus a re-run of the identity check. Worse, the acceptance criterion written to prevent exactly this failure passes at the gate and is false one commit later \u2014 a check that passes by timing.",
+      "recommended": "Option 2 \u2014 move the snapshot to a permanent path outside the run record and rewrite the headers to it once; it is the only option under which the mandatory pre-merge filing can never falsify a shipped header.",
+      "severity": "high"
+    },
+    {
+      "choice": "Where the six assigned-then-retired analyzer IDs (AG0012, AG0013, AG0014, AG0016, AG0021, AG0028) are recorded, so rule-phase.js's approved 'next free, never-used ID' instruction is actually checkable by the implementer who has to follow it.",
+      "whyForced": "Unaddressed, nothing records them: `AnalyzerReleases.Shipped.md` holds no rules at all and `AnalyzerReleases.Unshipped.md` has no row for any of the six \u2014 they survive only inside a parenthetical on AG0011's Notes cell (line 18) and as 'was AG0012' comments in live source. An implementer reading both files exactly as instructed sees no AG0012 anywhere and takes it as free.",
+      "options": [
+        "Add an explicit retired-ID row (or a `### Removed Rules` section) to `AnalyzerReleases.Unshipped.md` listing all six, so 'never-used' is readable from the files the instruction names.",
+        "Change the instruction from 'the next free, never-used ID' to 'one above the highest ID ever assigned', making it computable from the live rows without trusting a parenthetical.",
+        "Keep a separate retired-ID ledger file that rule-phase.js names alongside the two release files.",
+        "Accept reissue \u2014 declare a folded-in ID free for reuse once its rule is gone."
+      ],
+      "howItBites": "Reissuing AG0012 to an unrelated rule silently invalidates six live source comments that read 'was AG0012'/'AG0012 respectively' (FilesystemMembers.cs:72,173; OwnedPrimitives.cs:109,204; TimeMembers.cs:10,18,27; PathPurityAnalyzerTests.cs:91; RawPrimitiveOnlyInOwnerAnalyzerTests.cs:14,612; BoundariesConsoleAdapterTests.cs:13) and makes every historical suppression, doc line, and run-record mention of that number permanently ambiguous. A diagnostic ID is a developer-visible identifier that cannot be reinterpreted after the fact.",
+      "recommended": "Do options 1 and 2 together \u2014 record the six retired IDs in `AnalyzerReleases.Unshipped.md` and make the instruction 'one above the highest ID ever assigned' so it is computable, not folklore.",
+      "severity": "medium"
+    }
+  ],
+  "autoResolved": [
+    {
+      "choice": "Whether `retired-workflow-modules/*.js` must stay byte-identical to (or be checked against) the live copied blocks they are cited as the 'Generated copy of' source for.",
+      "resolution": "No. They are a one-time historical snapshot and are never the check's oracle; `eng/check-copied-modules.mjs` compares the live copies of a block name to each other only, and the header is an origin note, not a live-sync claim. No sync check is added.",
+      "principle": "Tim's approved `copied-module-convention` decision in the contract: \"THEN THE test only tests **NOTE DO NOT HAVE IT HARD CODE AN EXACT EXPECTATION OF THE MODULE** that ALL of them never differe\" \u2014 mutual identity between copies, explicitly never identity against a stored original.",
+      "evidence": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md `copied-module-convention` (Tim's quoted approval; 'The retired originals are kept as each block's provenance... They are not loaded, called, or registered as workflows'); eng/check-copied-modules.mjs:14,29-30,42 groups blocks by name and requires every copy of a name byte-identical, never reading `retired-workflow-modules`; contract Acceptance #27 requires only that the header 'resolves to an existing file'."
+    },
+    {
+      "choice": "What binds refute.js's L3 `humanRequest` string to what Tim actually said, given L3 by design carries no contract to cross-check against.",
+      "resolution": "It must contain Tim's exact words verbatim; a paraphrase or an invented request is already a Lie-catcher FAIL under the existing 'paraphrased decision' and 'invented approval' Violations. No new field, format marker, or mechanism is decided here \u2014 the existing rail already rules on it.",
+      "principle": "rails-decisions approval procedure \u2014 \"quote his approving words next to it \u2014 **and quote the exact decision text he approved, verbatim, never a paraphrase**\" \u2014 with Violations 'invented approval' and 'paraphrased decision'.",
+      "evidence": ".agents/skills/rails-decisions/SKILL.md:28 (verbatim-quote requirement), :44 ('invented approval'), :46 ('paraphrased decision'); .agents/workflows/refute.js:1204-1206 (nonblank check only); contract `l3-refute-context` states `humanRequest` 'contains Tim's exact request defining the work and approving L3', approved by Tim: 'Aproved.'"
+    },
+    {
+      "choice": "Whether an analyzer ID that was assigned and later folded into another rule may be reissued to a new rule.",
+      "resolution": "No. The approved instruction is 'the next free, never-used ID', and a folded-in ID has been used \u2014 so AG0012/0013/0014/0016/0021/0028 are permanently retired. Only the *record* of which IDs were used is missing, which is surfaced as a separate finding rather than defaulted.",
+      "principle": "Contract Decisions `current-analyzer-id-source`, approved as written: \"Before choosing a `DiagnosticId`, read both `AnalyzerReleases.Shipped.md` and `AnalyzerReleases.Unshipped.md` and use the next free, never-used ID.\"",
+      "evidence": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md:143-151 (the decision and Tim's approval); .agents/workflows/rule-phase.js:1228 carries the same wording verbatim; analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md:18 records AG0011 as folding 'the former AG0012/0013/0014/0016/0021/0028', proving those IDs were assigned and used; AnalyzerReleases.Shipped.md contains no rule rows at all."
+    }
+  ],
+  "droppedAsNoise": 1,
+  "panelComplete": true,
+  "failedRoles": []
+}

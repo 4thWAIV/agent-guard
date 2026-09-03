@@ -1,0 +1,180 @@
+{
+  "recordType": "Completed IMPLEMENT result for the round-four fix direction.",
+  "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "fixDirectionPath": ".dev/inprocess/2026-09-01-reorganize-rails/refute-round-4-fix-direction.md",
+  "authorization": [
+    "Go with another round.",
+    "Can you resume this and I DO not want any more STOPING and redesigning inturm changes to manage bookkeeping any more I do not have the time or the tokens for this waste."
+  ],
+  "complete": true,
+  "changedFiles": [
+    ".agents/workflows/architecture.js",
+    ".agents/workflows/design.js",
+    ".agents/workflows/ground.js",
+    ".agents/workflows/hidden-decision-scan.js",
+    ".agents/workflows/implement.js",
+    ".agents/workflows/prior-art-ledger.js",
+    ".agents/workflows/refute.js",
+    ".agents/workflows/required-agent-runtime.js",
+    ".agents/workflows/rule-phase.js",
+    ".agents/workflows/selected-rule-warnings.js",
+    ".agents/workflows/stage-result-contracts.js",
+    ".agents/workflows/tdd.js",
+    ".agents/workflows/workflow-input.js"
+  ],
+  "repairs": [
+    {
+      "slug": "stage-result-contracts-have-multiple-owners",
+      "result": "stage-result-contracts.js is the shared schema and semantic-validation owner used by the producers, IMPLEMENT, and REFUTE. The copied downstream validators were removed."
+    },
+    {
+      "slug": "run-specific-recovery-is-in-reusable-workflows",
+      "result": "Reusable workflows contain no groundResultForRefute, rulePhaseResultForImplement, historicalResult, optional-success-metadata compatibility, or case-insensitive lens compatibility. Stale run records were left unchanged, and current-format inputs were constructed only in memory."
+    },
+    {
+      "slug": "l1-tdd-omission-is-not-authorized",
+      "result": "L1 requires a complete normal or approved no-test TDD result. TDD is absent from omittedStageAuthorizations, while L2 conditional TDD remains."
+    },
+    {
+      "slug": "workflow-input-unwrapping-is-copied",
+      "result": "workflow-input.js owns five-level JSON unwrapping, and every workflow calls it with its caller name."
+    },
+    {
+      "slug": "rule-phase-does-not-prove-all-approved-rules",
+      "result": "Shared exact-set validation rejects missing, duplicate, and extra perRule names and accepts the complete approved set in any order."
+    },
+    {
+      "slug": "implement-accepts-forged-no-op-proof",
+      "result": "The no-rule and no-test sentinel values live in stage-result-contracts.js. IMPLEMENT rejects alternate nonblank text before launching its worker."
+    }
+  ],
+  "workerProof": {
+    "syntax": {
+      "exitCode": 0,
+      "output": [
+        "PASS architecture.js",
+        "PASS design.js",
+        "PASS ground.js",
+        "PASS hidden-decision-scan.js",
+        "PASS implement.js",
+        "PASS prior-art-ledger.js",
+        "PASS refute.js",
+        "PASS required-agent-runtime.js",
+        "PASS rule-phase.js",
+        "PASS selected-rule-warnings.js",
+        "PASS stage-result-contracts.js",
+        "PASS tdd.js",
+        "PASS workflow-input.js"
+      ]
+    },
+    "inputUnwrapping": {
+      "exitCode": 0,
+      "output": [
+        "PASS architecture five-level unwrap and caller-specific parse error",
+        "PASS design five-level unwrap and caller-specific parse error",
+        "PASS ground five-level unwrap and caller-specific parse error",
+        "PASS hidden-decision-scan five-level unwrap and caller-specific parse error",
+        "PASS implement five-level unwrap and caller-specific parse error",
+        "PASS prior-art-ledger five-level unwrap and caller-specific parse error",
+        "PASS refute five-level unwrap and caller-specific parse error",
+        "PASS required-agent-runtime five-level unwrap and caller-specific parse error",
+        "PASS rule-phase five-level unwrap and caller-specific parse error",
+        "PASS selected-rule-warnings five-level unwrap and caller-specific parse error",
+        "PASS stage-result-contracts five-level unwrap and caller-specific parse error",
+        "PASS tdd five-level unwrap and caller-specific parse error",
+        "PASS workflow-input is the only input-unwrapping owner"
+      ]
+    },
+    "sharedStageContracts": {
+      "exitCode": 0,
+      "output": [
+        "PASS five producers emit results accepted by the shared stage-result owner",
+        "PASS REFUTE and IMPLEMENT consume those exact shared-contract results",
+        "PASS stage-result-contracts.js is the single executable schema and semantic-validation owner"
+      ]
+    },
+    "inMemoryHandoffs": {
+      "exitCode": 0,
+      "output": [
+        "PASS canonical in-memory ground-stage",
+        "PASS canonical in-memory design-stage",
+        "PASS canonical in-memory hidden-decision-stage",
+        "PASS canonical in-memory rule-phase-stage",
+        "PASS canonical in-memory tdd-stage",
+        "PASS REFUTE accepts canonical current handoffs",
+        "PASS IMPLEMENT accepts canonical current handoffs",
+        "PASS reusable workflows contain no run-specific recovery switches"
+      ]
+    },
+    "ruleAndTddBehavior": {
+      "exitCode": 0,
+      "output": [
+        "PASS rejected missing RULE-PHASE proof names",
+        "PASS rejected duplicate RULE-PHASE proof names",
+        "PASS rejected extra RULE-PHASE proof names",
+        "PASS accepted exact complete two-rule proof set",
+        "PASS L1 missing TDD rejected before worker launch",
+        "PASS TDD omission authorization path removed",
+        "PASS existing L2 conditional-TDD behavior preserved"
+      ]
+    },
+    "noOpProofAndRetryBehavior": {
+      "exitCode": 0,
+      "output": [
+        "PASS forged nonblank no-rule proof rejected before worker launch",
+        "PASS forged nonblank no-test proof rejected before worker launch",
+        "PASS exact no-rule and no-test handoffs accepted",
+        "PASS exact no-op sentinel values each have one executable owner",
+        "PASS runtime waits for active roles and retries only the invalid role once"
+      ]
+    },
+    "contractChecks": {
+      "exitCode": 0,
+      "output": [
+        "PASS inventory 01 through inventory 60",
+        "PASS owner-rail ordering, complete Practice/Violation/Fix counts, and single Verdict sections",
+        "PASS rails-write-a-contract alone carries the complete approved contract section order",
+        "PASS ten fixed-order stages each own role, script, input, output, and revoked authority",
+        "PASS shared executable owners are unique",
+        "PASS remaining static acceptance owners and corrected duties are present",
+        "PASS every curated repository reference resolves",
+        "PASS .claude/skills resolves to the repository-owned rails and workflows",
+        "PASS .claude/workflows resolves to the repository-owned rails and workflows",
+        "PASS 21 tracked changed paths remain confined to approved contract surfaces",
+        "PASS no product, test, analyzer, build, CI, release, or tracked .obsidian path changed",
+        "PASS the only new workflow files are the four approved shared owners",
+        "PASS no persistent workflow test file was added",
+        "PASS forbidden wording scan returned no matches",
+        "PASS git diff --check"
+      ]
+    }
+  },
+  "coordinatorInspection": {
+    "actualDiff": "Compared every live workflow file against the pre-worker snapshot and read the complete 1330-line, 63114-byte worker diff plus both new shared owners.",
+    "freshSyntaxCheck": {
+      "exitCode": 0,
+      "result": "All thirteen live workflow files parsed with AsyncFunction after in-memory export replacement."
+    },
+    "ownershipScan": {
+      "exitCode": 0,
+      "result": "Only workflow-input.js contains the five-level unwrapping block. Only stage-result-contracts.js contains the two exact no-op sentinel values. No reusable workflow contains groundResultForRefute, rulePhaseResultForImplement, historicalResult, caseInsensitiveLens, or omittedStageAuthorizations.tdd."
+    },
+    "gitDiffCheck": {
+      "exitCode": 0,
+      "output": ""
+    },
+    "checkpointHash": "a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89",
+    "historicalRunRecordsChangedByWorker": []
+  },
+  "buildProof": "dotnet restore\n  Determining projects to restore...\n  All projects are up-to-date for restore.\ndotnet build\n  Determining projects to restore...\n  All projects are up-to-date for restore.\n  AgentGuard build id computed: 0.1.105269307+b504dc4 (Day=2436 Time=34107)\n  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll\n  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll\n  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll\n  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll\n  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll\n  AgentGuard.CrossPlatform.Linux -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/bin/Debug/net10.0/AgentGuard.CrossPlatform.Linux.dll\n  AgentGuard.CrossPlatform.Windows -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/bin/Debug/net10.0/AgentGuard.CrossPlatform.Windows.dll\n  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll\n  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll\n  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll\n  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll\n  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll\n  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll\n  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll\n\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n\nTime Elapsed 00:00:35.05\nEXIT CODE: 0\n",
+  "testProof": "dotnet restore\n  Determining projects to restore...\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 309 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/AgentGuard.Engine.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/AgentGuard.Cli.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/AgentGuard.Tests.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj (in 308 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj (in 308 ms).\ndotnet build\n  Determining projects to restore...\n  All projects are up-to-date for restore.\n  AgentGuard build id computed: 0.1.105269346+b504dc4 (Day=2436 Time=34146)\n  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll\n  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll\n  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll\n  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll\n  AgentGuard.CrossPlatform.Windows -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/bin/Debug/net10.0/AgentGuard.CrossPlatform.Windows.dll\n  AgentGuard.CrossPlatform.Linux -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/bin/Debug/net10.0/AgentGuard.CrossPlatform.Linux.dll\n  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll\n  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll\n  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll\n  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll\n  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll\n  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll\n  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll\n  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll\n\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n\nTime Elapsed 00:00:39.61\ndotnet test\n  Determining projects to restore...\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/AgentGuard.Engine.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/AgentGuard.Cli.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/AgentGuard.Tests.csproj (in 468 ms).\n  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj (in 468 ms).\n  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll\n  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll\nTest run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)\nA total of 1 test files matched the specified pattern.\n  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll\n  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll\n  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll\n  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll\n  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll\n\nPassed!  - Failed:     0, Passed:   427, Skipped:     0, Total:   427, Duration: 5 s - AgentGuard.Analyzers.Tests.dll (net10.0)\n  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll\nTest run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll (.NETCoreApp,Version=v10.0)\n  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll\nA total of 1 test files matched the specified pattern.\n  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll\n  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll\nTest run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll (.NETCoreApp,Version=v10.0)\nA total of 1 test files matched the specified pattern.\n  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll\nTest run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll (.NETCoreApp,Version=v10.0)\nA total of 1 test files matched the specified pattern.\n\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 669 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)\n\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 467 ms - AgentGuard.Tests.dll (net10.0)\n\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 272 ms - AgentGuard.Cli.Tests.dll (net10.0)\n\nAttachments:\n  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/TestResults/4e9e06f7-7290-430e-a52a-b63186ad9304/coverage.cobertura.xml\n  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/TestResults/f668abe5-6499-4e03-a224-10f7c4616bdc/coverage.cobertura.xml\n  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/TestResults/4f6f69b7-f9d6-48ab-af13-91db9d05b5b1/coverage.cobertura.xml\nEXIT CODE: 0\n",
+  "totals": {
+    "warnings": 0,
+    "errors": 0,
+    "testsPassed": 642,
+    "testsFailed": 0,
+    "testsSkipped": 0
+  },
+  "walls": []
+}
+

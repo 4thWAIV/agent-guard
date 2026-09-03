@@ -1,0 +1,301 @@
+{
+  "ground": {
+    "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+    "facts": [
+      {
+        "area": "rail-ownership",
+        "facts": [
+          {
+            "claim": "The nine rails have one canonical repository store; `.claude/skills` is a symlink to `.agents/skills`, not a second copy.",
+            "evidence": "`find` returned exactly nine `.agents/skills/rails-*/SKILL.md` files; `.claude/skills -> ../.agents/skills`; byte comparison returned 0 for every alias; `rg --files --hidden` found no other repository copy."
+          },
+          {
+            "claim": "The approved owner organization is already present in the live working tree.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:22-31` routes to each owner; `rails-decisions` is ordered boundary, approval procedure, violations, examples; `rails-explorer` is ordered absolute rule, exploration steps, required output, prohibitions, failure examples; each code rail has readers, numbered Practice/Violation/Fix entries, and one Verdict."
+          },
+          {
+            "claim": "`rails-write-a-contract` is the only complete contract-section list.",
+            "evidence": "`.agents/skills/rails-write-a-contract/SKILL.md:14-28` defines all thirteen sections; `.agents/skills/rails-run-a-workflow/SKILL.md:8` routes the definition to it."
+          },
+          {
+            "claim": "`rails-read-me` still contains one Level-selection rule owned by `rails-run-a-workflow`.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:42`; contract `single-owner-map` assigns Level selection to `rails-run-a-workflow`."
+          },
+          {
+            "claim": "The remaining rail prose gaps are the approved default-Level rule, required DRY panels, DESIGN ledger handoff, fixture-based RULE-PHASE proof, shared ARCHITECTURE/TDD warning handoff, contract-backed no-test TDD result, and REFUTE prior-stage and L3 inputs.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:38-44,76-77,103-106,120-136,154`; approved contract Decisions at lines 59-141, 175-245, and 329-347."
+          },
+          {
+            "claim": "Every remaining rail mismatch is already decided in the contract; this area produced no new conflict.",
+            "evidence": "Each live mismatch above has an existing approved Decision in `.dev/inprocess/2026-09-01-reorganize-rails/contract.md`; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/skills/rails-read-me/SKILL.md",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".agents/skills/rails-explorer/SKILL.md",
+          ".agents/skills/rails-decisions/SKILL.md",
+          ".agents/skills/rails-solid-code/SKILL.md",
+          ".agents/skills/rails-dry-code/SKILL.md",
+          ".agents/skills/rails-real-work/SKILL.md",
+          ".agents/skills/rails-test-code/SKILL.md",
+          ".dev/reference/best-practices-guide.md"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      },
+      {
+        "area": "workflow-interfaces",
+        "facts": [
+          {
+            "claim": "The repository has exactly the nine workflow scripts named by the contract; `.claude/workflows` is a symlink to the same files.",
+            "evidence": "`rg --files .agents/workflows`; `.claude/workflows -> ../.agents/workflows`."
+          },
+          {
+            "claim": "The current stage order is `GROUND \u2192 DESIGN \u2192 CONTRACT \u2192 RULE-PHASE \u2192 ARCHITECTURE \u2192 TDD \u2192 IMPLEMENT \u2192 REFUTE \u2192 GATE \u2192 REPORT`.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:50-56`."
+          },
+          {
+            "claim": "GROUND accepts an optional capability list, requires `autoResolved` per explorer, and uses the prior-art ledger only when capabilities exist.",
+            "evidence": "`.agents/workflows/ground.js:10-86`; `.agents/workflows/prior-art-ledger.js:53-109`."
+          },
+          {
+            "claim": "DESIGN does not yet accept the GROUND ledger or return required `reuseInstructions`.",
+            "evidence": "`.agents/workflows/design.js:64-120`; `rg -n 'ledger|reuseInstructions' .agents/workflows/design.js` returned no match; contract `design-ledger-handoff`."
+          },
+          {
+            "claim": "RULE-PHASE still uses `redProof` and `firesAgainst`, rejects an empty rule-file result, asks for production RED, and names stale analyzer IDs.",
+            "evidence": "`.agents/workflows/rule-phase.js:10-32,92-115`; contract `rule-phase-proof-interface`, `rule-phase-red-handoff`, and `current-analyzer-id-source`."
+          },
+          {
+            "claim": "ARCHITECTURE does not yet handle `ruleWarningIds` and rejects an approved no-signature result.",
+            "evidence": "`.agents/workflows/architecture.js:62-84,112-128`; `rg -n 'ruleWarningIds|WarningsNotAsErrors' .agents/workflows/architecture.js` returned no match; contract `rule-phase-red-handoff`."
+          },
+          {
+            "claim": "TDD implements selected-warning input but still rejects every empty `testFiles` result.",
+            "evidence": "`.agents/workflows/tdd.js:73-98,134-169`; contract `tdd-no-test-surface`."
+          },
+          {
+            "claim": "REFUTE receives `stageOutputs` but does not require the outputs from stages that ran; it always runs five adversaries and has no Level, conditional-adversary, or L3 human-request input.",
+            "evidence": "`.agents/workflows/refute.js:46-99`; contract `dry-every-level-refute-interface`, `refute-stage-output-input`, and `l3-refute-context`."
+          },
+          {
+            "claim": "Every remaining workflow mismatch is already decided in the contract; this area produced no new conflict.",
+            "evidence": "Each live mismatch above has an existing approved Decision in `.dev/inprocess/2026-09-01-reorganize-rails/contract.md`; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/workflows/architecture.js",
+          ".agents/workflows/design.js",
+          ".agents/workflows/ground.js",
+          ".agents/workflows/hidden-decision-scan.js",
+          ".agents/workflows/implement.js",
+          ".agents/workflows/prior-art-ledger.js",
+          ".agents/workflows/refute.js",
+          ".agents/workflows/rule-phase.js",
+          ".agents/workflows/tdd.js",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".dev/inprocess/2026-09-01-reorganize-rails/contract.md"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      },
+      {
+        "area": "prior-art-and-scope",
+        "facts": [
+          {
+            "claim": "Structured `autoResolved` stage evidence is new relative to the pre-change tree.",
+            "evidence": "CodeGraph located `AUTO_RESOLVED_ITEM_SCHEMA` only in the current staged `ground.js`, `design.js`, and `hidden-decision-scan.js`; `git grep -n -E 'autoResolved|appliedPrinciples' HEAD -- src tests analyzers eng .agents` and `rg` across `src`, `tests`, `analyzers`, and `eng` returned no match."
+          },
+          {
+            "claim": "Stage execution must reuse the existing workflow path.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:50-180` owns the fixed stages and existing scripts; HEAD and the working tree contain the same nine workflow files."
+          },
+          {
+            "claim": "Reusable rail criteria must reuse the existing nine rail owners.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:20-32` routes each responsibility to its owner; workflow prompts already load those owners."
+          },
+          {
+            "claim": "No separate workflow-stage or rail-criteria owner exists in `src`, `tests`, `analyzers`, or `eng`; this area produced no new conflict.",
+            "evidence": "CodeGraph and `rg` found workflow orchestration and rail ownership only under `.agents`; product-code word matches were unrelated C# concepts; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/skills/rails-read-me/SKILL.md",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".agents/skills/rails-explorer/SKILL.md",
+          ".agents/skills/rails-decisions/SKILL.md",
+          ".agents/skills/rails-solid-code/SKILL.md",
+          ".agents/skills/rails-dry-code/SKILL.md",
+          ".agents/skills/rails-real-work/SKILL.md",
+          ".agents/skills/rails-test-code/SKILL.md",
+          ".agents/workflows/architecture.js",
+          ".agents/workflows/design.js",
+          ".agents/workflows/ground.js",
+          ".agents/workflows/hidden-decision-scan.js",
+          ".agents/workflows/implement.js",
+          ".agents/workflows/prior-art-ledger.js",
+          ".agents/workflows/refute.js",
+          ".agents/workflows/rule-phase.js",
+          ".agents/workflows/tdd.js"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      }
+    ],
+    "ledger": {
+      "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+      "verdicts": [
+        {
+          "capability": "Structured autoResolved stage evidence",
+          "decision": "extract",
+          "copies": [
+            ".agents/workflows/ground.js:10-18",
+            ".agents/workflows/design.js:10-18",
+            ".agents/workflows/hidden-decision-scan.js:10-18"
+          ],
+          "evidence": "The staged checkpoint already contained the same executable autoResolved item schema in `.agents/workflows/ground.js:10-18`, `.agents/workflows/design.js:10-18`, and `.agents/workflows/hidden-decision-scan.js:10-18`.",
+          "confidence": "high"
+        },
+        {
+          "capability": "Stage execution",
+          "decision": "reuse",
+          "owner": ".agents/skills/rails-run-a-workflow/SKILL.md:50",
+          "evidence": "Reuse the fixed stage owner and the existing nine `.agents/workflows/*.js` scripts; do not add a second workflow path.",
+          "confidence": "high"
+        },
+        {
+          "capability": "Reusable rail criteria",
+          "decision": "reuse",
+          "owner": ".agents/skills/rails-read-me/SKILL.md:20",
+          "evidence": "Reuse the nine existing rail owners and load them from workflow prompts; no replacement skill or copied checklist exists or is needed.",
+          "confidence": "high"
+        }
+      ],
+      "panelComplete": true,
+      "failedRoles": []
+    },
+    "panelComplete": true,
+    "failedRoles": []
+  },
+  "design": {
+    "goal": "Reorganize the nine rails under the approved owner map and synchronize the existing workflow prompts and schemas with every approved Decision in the contract.",
+    "proposals": [
+      {
+        "angle": "simplest",
+        "approach": "Preserve every checkpoint change that already satisfies the contract and close only the remaining live mismatches in the existing owners. Reuse the nine rail skills and nine workflow scripts; add no parallel process, replacement checklist, workflow, dependency, or evidence format. Move or remove prose only after its complete rule exists in the contract-assigned owner. Extend each existing workflow function only enough to implement its approved input, output, no-op, panel-selection, and handoff behavior. `rulesToAdd` is empty because the contract states: \u201cNone. The approved work reorganizes documentation and synchronizes existing workflow prompts. Adding an analyzer would exceed the approved scope.\u201d",
+        "keySteps": [
+          "Finish the single-owner cleanup: remove the Level-selection rule from `rails-read-me`; keep the complete contract-section list only in `rails-write-a-contract`; and organize `rails-run-a-workflow` around `GROUND \u2192 DESIGN \u2192 CONTRACT \u2192 RULE-PHASE \u2192 ARCHITECTURE \u2192 TDD \u2192 IMPLEMENT \u2192 REFUTE \u2192 GATE \u2192 REPORT`, with the approved default Level, panel, proof, and handoff behavior in the stages that own it.",
+          "Carry the GROUND ledger into the existing DESIGN path: reuse the current stage-execution owner and rail owners, accept the optional ledger, and return `reuseInstructions: string[]` without creating another stage, ledger format, or contract section.",
+          "Change the existing RULE-PHASE result path to fixture-based proof, accept the approved empty-rule result, record production diagnostics as impact rather than proof, and derive analyzer IDs from both live release-tracking files.",
+          "Make the existing ARCHITECTURE and TDD paths use the same approved `ruleWarningIds` list for intermediate builds. Preserve the selected-warning implementation already present, make ARCHITECTURE honor its existing no-signature path, and make TDD accept only the approved contract-backed no-test result while retaining normal RED-first enforcement for contracts that authorize tests.",
+          "Change only the existing REFUTE dispatcher: select the approved adversary panel by Level, require DRY at every Level, pass the complete prior-stage results required for that Level, use `contractPath` for L1/L2, and use Tim\u2019s exact `humanRequest` for L3.",
+          "Synchronize the existing best-practices guide and workflow prompts with the approved owners and run only the acceptance checks already required by the contract."
+        ],
+        "rulesToAdd": [],
+        "risks": [
+          "Moving duplicated prose can silently drop or alter a normative sentence; use the no-loss inventory as the exact move ledger and remove a copy only after its complete owner text exists.",
+          "The prose and executable workflow schemas can diverge if only one side of an approved interface is changed; update and verify both in the same bounded step.",
+          "The intermediate `WarningsNotAsErrors` override could leak into GATE; keep it confined to ARCHITECTURE and TDD.",
+          "Level-based REFUTE selection can run the wrong panel or demand the wrong context; verify all three approved Level cases and omitted-Level L1 behavior.",
+          "The no-rule, no-signature, and no-test paths could weaken normal runs; gate each no-op on its exact contract-backed condition and retain the existing strict path otherwise."
+        ],
+        "autoResolved": []
+      },
+      {
+        "angle": "owner-coherence",
+        "approach": "Use the approved `single-owner-map` and no-loss inventory as the only movement map. First place each complete reusable rule in its recorded owner, then remove the competing copy and leave only a route to that owner. Keep stage execution and stage-specific authority in `rails-run-a-workflow` and the existing nine workflow scripts. Keep the complete contract section list only in `rails-write-a-contract`. Synchronize every approved workflow interface in both its owning stage prose and its existing script without adding another rail, workflow, schema owner, or execution path. `rulesToAdd` is empty because the contract states: \u201cNone. The approved work reorganizes documentation and synchronizes existing workflow prompts. Adding an analyzer would exceed the approved scope.\u201d",
+        "keySteps": [
+          "Follow the contract exactly: \u201cReorganize the files only after this inventory exists. Copy rules to their destinations without changing their meaning. Apply only the wording changes listed in Decisions.\u201d",
+          "Use every row of the no-loss inventory to move the complete rule to its recorded owner before deleting a competing copy.",
+          "Keep repository facts and routing in `rails-read-me`; contract contents and section order in `rails-write-a-contract`; workflow ownership in `rails-run-a-workflow`; and reusable review criteria in their named owner rails.",
+          "Synchronize the existing workflow scripts with the approved DESIGN, RULE-PHASE, ARCHITECTURE, TDD, and REFUTE interfaces without creating a second workflow path.",
+          "Keep workflow prompts limited to stage-specific instructions and load the owner rails for reusable criteria.",
+          "Update the best-practices guide only for the approved corrections and run the required no-loss and acceptance checks."
+        ],
+        "rulesToAdd": [],
+        "risks": [
+          "Removing a competing copy before its complete rule exists in the recorded owner would lose a requirement.",
+          "Leaving reusable criteria in a workflow prompt or a complete contract-section list outside `rails-write-a-contract` would preserve competing owners.",
+          "Changing stage prose without the matching JavaScript interface, or changing JavaScript without the matching stage prose, would leave callers and instructions inconsistent.",
+          "Treating `.claude/skills` or `.claude/workflows` as separate stores would duplicate edits because both are symlinks to the `.agents` owners.",
+          "Adding a helper, rail, workflow, schema owner, analyzer, or alternate execution path would exceed the approved design and contradict the reuse ledger."
+        ],
+        "autoResolved": []
+      },
+      {
+        "angle": "risk-first",
+        "approach": "Apply the approved Decisions as matched prose-and-script changes, one decision at a time. Keep stage execution in the existing nine workflow scripts, reusable criteria in their existing rail owners, the complete contract section list only in `rails-write-a-contract`, and the fixed sequence only in `rails-run-a-workflow`. Update each script's input validation, result schema, worker prompt, adversary prompt, and return value together so no script advertises one interface and returns another. Use the GROUND ledger's reuse rulings: extend the existing stage owners and rail owners, create no replacement workflow, helper, checklist, rail, or evidence format.",
+        "keySteps": [
+          "Use the contract's no-loss inventory as the file-by-file boundary and retain the fixed stage sequence.",
+          "Complete `design-ledger-handoff` in `design.js` by accepting the optional GROUND ledger, supplying it to every proposal and the judge, and requiring `reuseInstructions: string[]` in the final verdict.",
+          "Complete the approved RULE-PHASE fixture proof, empty result, production-impact reporting, and live analyzer-ID instructions together.",
+          "Give `architecture.js` and `tdd.js` the same caller-supplied `ruleWarningIds` list, require the contract's verbatim approval, keep diagnostics visible, and leave GATE unchanged.",
+          "Make `architecture.js` accept the no-signature result and `tdd.js` accept only the contract-backed no-test result while preserving their adversary panels.",
+          "Complete `refute.js` as the single Level-aware REFUTE path with DRY at every Level and the exact required context.",
+          "Synchronize `rails-run-a-workflow` with each executable interface in the same decision-sized edit and finish with the existing acceptance checks."
+        ],
+        "rulesToAdd": [],
+        "risks": [
+          "A decision can be updated in prose but not in its JavaScript schema, prompt, validation, or return value.",
+          "Copying the full stage sequence into workflow prompts would create another owner and permit stage-order drift.",
+          "A warning override can widen from the exact approved IDs or leak into GATE.",
+          "Treating no rules, no signatures, or no tests as permission to skip a stage would remove its adversary evidence.",
+          "REFUTE can run without evidence the Lie-catcher was told to inspect unless input validation fails closed.",
+          "Adding a shared helper or replacement workflow would add an unapproved surface."
+        ],
+        "autoResolved": [
+          {
+            "choice": "What `refute.js` does when context required by the selected Level is missing.",
+            "resolution": "Throw before launching any adversary.",
+            "principle": "5a \u2014 GLOBAL default, applies in every area.",
+            "evidence": "`.dev/reference/best-practices-guide.md` says: \u201cFail closed is the default. Assert every expectation, and when one does not hold, fail closed by throwing an exception \u2014 never a silent ignore.\u201d The contract requires the L1/L2 contract context, the L3 human request, and the applicable prior-stage outputs."
+          }
+        ]
+      }
+    ],
+    "verdict": {
+      "winningAngle": "simplest",
+      "why": "Score: `simplest` \u2014 SOLID PASS, DRY PASS, real-work PASS; `owner-coherence` \u2014 SOLID PASS, DRY PASS, real-work PASS; `risk-first` \u2014 SOLID PASS, DRY PASS, real-work PASS. `simplest` wins because it covers every remaining live mismatch in the existing owners while adding no parallel process, replacement checklist, workflow, dependency, or evidence format.",
+      "synthesizedApproach": "Preserve every checkpoint change that already satisfies the contract and close only the remaining live mismatches in the existing owners. Use the no-loss inventory as the movement ledger: place each complete rule in its recorded owner before removing a competing copy. Update each approved workflow interface in its existing stage prose and script, keeping input validation, result schema, worker prompt, adversary prompt, and return value consistent. Carry the GROUND ledger into DESIGN and return `reuseInstructions`. Complete the approved fixture-based RULE-PHASE proof, empty-rule result, production-impact reporting, shared ARCHITECTURE/TDD warning handoff, contract-backed no-signature and no-test results, and Level-aware REFUTE panels and context requirements. Keep the warning override out of GATE. Update the best-practices guide only for the approved corrections, then run the contract's acceptance checks.",
+      "graftedFrom": [
+        "owner-coherence: \"Use every row of the no-loss inventory to move the complete rule to its recorded owner before deleting a competing copy.\"",
+        "risk-first: \"Update each script's input validation, result schema, worker prompt, adversary prompt, and return value together so no script advertises one interface and returns another.\""
+      ],
+      "rulesToAdd": [],
+      "autoResolved": [
+        {
+          "choice": "What `refute.js` does when context required by the selected Level is missing.",
+          "resolution": "Throw before launching any adversary.",
+          "principle": "5a \u2014 GLOBAL default, applies in every area.",
+          "evidence": "`.dev/reference/best-practices-guide.md` says: \u201cFail closed is the default. Assert every expectation, and when one does not hold, fail closed by throwing an exception \u2014 never a silent ignore.\u201d The contract requires the L1/L2 contract context, the L3 human request, and the applicable prior-stage outputs."
+        }
+      ],
+      "reuseInstructions": [
+        "Reuse the fixed stage owner and the existing nine `.agents/workflows/*.js` scripts; do not add a second workflow path.",
+        "Reuse the nine existing rail owners and load them from workflow prompts; no replacement skill or copied checklist exists or is needed."
+      ],
+      "risks": []
+    },
+    "panelComplete": true,
+    "failedRoles": []
+  },
+  "hiddenDecisionScan": {
+    "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+    "findings": [],
+    "autoResolved": [
+      {
+        "choice": "What `refute.js` does when context required by the selected Level is missing.",
+        "resolution": "Throw before launching any adversary.",
+        "principle": "5a \u2014 GLOBAL default, applies in every area.",
+        "evidence": "`.dev/reference/best-practices-guide.md:84` requires missing expectations to fail closed by throwing. Contract Decisions `dry-every-level-refute-interface`, `refute-stage-output-input`, and `l3-refute-context` require Level-specific context, and `.dev/inprocess/2026-09-01-reorganize-rails/design-output.json` records this exact resolution."
+      }
+    ],
+    "droppedAsNoise": 1,
+    "panelComplete": true,
+    "failedRoles": []
+  }
+}

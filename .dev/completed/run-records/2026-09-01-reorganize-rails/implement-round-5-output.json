@@ -1,0 +1,39 @@
+{
+  "recordType": "Completed IMPLEMENT result for the round-five accepted findings.",
+  "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "handoffPath": ".dev/inprocess/2026-09-01-reorganize-rails/claude-handoff.md",
+  "priorAdversaryResultPath": ".dev/inprocess/2026-09-01-reorganize-rails/refute-round-5.json",
+  "complete": true,
+  "changedFiles": [
+    ".agents/workflows/required-agent-runtime.js",
+    ".agents/workflows/stage-result-contracts.js",
+    ".agents/workflows/implement.js",
+    ".agents/workflows/rule-phase.js",
+    ".agents/workflows/tdd.js",
+    ".agents/workflows/refute.js",
+    ".agents/workflows/selected-rule-warnings.js"
+  ],
+  "repairs": [
+    { "slug": "implement-drops-approved-rule-set", "result": "implement.js accepts approvedRuleNames and passes it as rule-phase-stage context; stage-result-contracts throws when a rule-phase-stage validation supplies no approvedRuleNames array, so the exact-set check can no longer be skipped." },
+    { "slug": "normal-tdd-allows-non-red-coverage", "result": "tdd-author whenArrayNonEmpty requires every coverage[].red to be exactly true through the new shared itemsAllTrue primitive." },
+    { "slug": "no-op-notes-do-not-prove-exact-contract-evidence", "result": "New shared containsFields primitive, applied at top level for the no-rule case and inside whenArrayEmpty for the no-test case. rule-phase.js, tdd.js and implement.js pass noRuleEvidence / noTestEvidence; a missing excerpt fails the no-op result." },
+    { "slug": "normal-rule-phase-accepts-no-rule-sentinel", "result": "rule-phase-author forbids the no-rule sentinel as buildProof when ruleFiles or perRule is nonempty, through the new shared whenArrayNonEmpty forbiddenFields primitive." },
+    { "slug": "normal-tdd-accepts-no-test-sentinel", "result": "tdd-author forbids the no-test sentinel as redProof when testFiles is nonempty, through the same forbiddenFields primitive." },
+    { "slug": "selected-rule-warning-items-are-not-command-safe", "result": "selected-rule-warnings.js requires each ruleWarningIds item to be a string containing one command-safe token before building the command or policy prompt. Command safety and single-token validity only: no product prefix, no predicted set, no uniqueness rule." },
+    { "slug": "unused-auto-resolved-validation-path", "result": "autoResolvedCollections input, its guard clause and its no-role validation branch deleted from required-agent-runtime.js. autoResolved validation on the live validationResult and role path is unchanged." },
+    { "slug": "downstream-stage-validation-wrappers-are-copied", "result": "Local validateStageResult and validateStageOutput wrappers removed from implement.js and refute.js; both now call stage-result-contracts directly at all three call sites. No replacement wrapper added." }
+  ],
+  "namedChecks": {
+    "behaviouralProbes": "26/26 passed in a one-time in-memory probe: checks 1-9 plus baselines for accepted cases and a missing-approvedRuleNames rejection.",
+    "check10_autoResolvedCollections": "PASS — rg returns no matches in .agents/workflows/*.js",
+    "check11_noLocalWrappers": "PASS — rg finds no validateStageResult or validateStageOutput in implement.js or refute.js",
+    "check12_syntax": "PASS — all 13 workflow scripts construct as AsyncFunction after replacing export const meta with const meta; no source file rewritten",
+    "check13_gitDiffCheck": "PASS",
+    "check14_stagedCheckpoint": "PASS — a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89 unchanged",
+    "check15_makeBuild": "PASS — 0 Warning(s), 0 Error(s)",
+    "check16_makeTest": "PASS — 642 passed, 0 failed, 0 skipped across all four assemblies"
+  },
+  "inRoundCorrection": "The first pass left one validateStageOutput call site in the refute.js L2 branch, which check 11 caught. It was repaired inside IMPLEMENT and the check re-run, per the handoff.",
+  "selfCaughtDefect": "An unused commandSafeTokenArrays validation primitive was added to required-agent-runtime.js and then removed before the checks, because an unused validation path is the exact defect the round-five unused-auto-resolved-validation-path finding names.",
+  "notChanged": "No product code, product tests, analyzers, build scripts, CI, release behavior, memory stores, .obsidian/, staged checkpoint, or unrelated dirty-tree file. Nothing staged, committed, pushed, or moved."
+}

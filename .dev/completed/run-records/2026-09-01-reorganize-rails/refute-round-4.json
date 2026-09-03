@@ -1,0 +1,245 @@
+{
+  "recordType": "Fresh L1 REFUTE of the current round-three fix.",
+  "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "reviewTarget": "The live working tree after the round-three implementation worker finished and before any later fix, GATE, or REPORT work.",
+  "level": "L1",
+  "verdicts": [
+    {
+      "lens": "prove-it",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "The recovered opening bracket is cropped and does not identify the complete approved pre-worker checkpoint.",
+          "evidence": "opening-proof.md:5-15 saves only the final four summary lines from make build, and lines 17-30 save only build/test summaries from make test; the restore, build, test-run, project, duration, and attachment output is absent. Lines 34-40 fingerprint only the staged diff even though line 3 and contract.md:161-168 define the checkpoint as the staged reorganization snapshot plus the unstaged selected-warning delta. implement-output.json republishes the same cropped opening record, followed by complete output only for the later closing commands. refute.js:238 requires pasted command output and bytes for each acceptance check, refute.js:283 makes cropped proof an automatic FAIL, and rails-run-a-workflow:174-178 requires complete rerunnable proof and forbids GATE from accepting cropped output.",
+          "fix": "Recover and save the original complete make build and make test stdout with exit codes, together with a byte-identifying patch or fingerprint for both parts of the approved pre-worker checkpoint. If the exact selected-warning checkpoint bytes cannot be recovered, obtain Tim's explicit scope-rule waiver; do not substitute current-tree build/test output for historical opening proof."
+        }
+      ],
+      "refutationAttempts": [
+        "Mapped all 26 Acceptance items to current live files and reran every applicable contract check.",
+        "Read the complete live change and every current stage record; used refute-round-3.json only for chronology.",
+        "Compared the original normative rails with their recorded current destinations for loss, narrowing, or mismatch.",
+        "Challenged the opening and closing proof separately and applied both the workflow-test waiver and the DRY-refactor authority."
+      ],
+      "proofChecked": [
+        "The structure/no-loss checker passed all 60 inventory mappings.",
+        "The reference, scope, run-record, syntax, and workflow-runtime checkers passed.",
+        "Fresh make build exited 0 with 0 warnings and 0 errors.",
+        "Fresh make test exited 0 with 642 passed, 0 failed, and 0 skipped.",
+        "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+      ]
+    },
+    {
+      "lens": "solid",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "Stage-result contracts have multiple executable owners.",
+          "evidence": "ground.js:11-31, design.js:23-50, hidden-decision-scan.js:11-58, rule-phase.js:11-36, and tdd.js:11-34 define the producer result shapes and pass them to shared validation. The round-three fix independently re-derives those contracts in refute.js:55-195 and implement.js:36-109. For example, tdd.js:15-33 and 120-129 own testFiles, redProof, coverage, and notes, while implement.js:72-91 separately encodes the same result contract. A producer change can leave its consumer validator stale.",
+          "fix": "Extract the stage-result schemas and semantic validation into one shared workflow owner, then route both producer acceptance and downstream handoff validation through it. Delete groundOutputProblem, designOutputProblem, hiddenDecisionOutputProblem, rulePhaseResultProblem, and tddResultProblem from the consumers."
+        },
+        {
+          "summary": "Reusable workflows contain one-run recovery exceptions.",
+          "evidence": "refute.js:84-90 and 216-218 recognize this run's groundResultForRefute wrapper. refute.js:138 and 162-165 create a historicalResult path that permits the missing verdict.risks field. required-agent-runtime.js:159-160 adds caseInsensitiveLens, used by implement.js:93-103 and 155 to accept this run's uppercase RULE-PHASE lens values. The live records lack the canonical fields those branches excuse. contract.md:161-168 limits recovery to this run and says it creates no precedent.",
+          "fix": "Keep recovery conversion in this run's records or orchestration only. Preserve the original records, produce canonical current GROUND, DESIGN, and RULE-PHASE handoffs, and remove groundResultForRefute, historicalResult, optional success metadata, and caseInsensitiveLens compatibility from reusable workflow code."
+        },
+        {
+          "summary": "IMPLEMENT adds a speculative L1 TDD-omission path.",
+          "evidence": "rails-run-a-workflow:26-35 makes TDD required at L1, and lines 42-46 identify RULE-PHASE as the only L1 stage with an exception. contract.md:59-76 requires TDD to remain in the fixed order and defines the no-test result instead of omission. implement.js:137-150 and 169-173 nevertheless accept omittedStageAuthorizations.tdd and launch IMPLEMENT without a TDD result. The recorded runtime checker proves that path is active.",
+          "fix": "Remove tdd from omittedStageAuthorizations and require a TDD result at L1, including the approved no-test result. Retain only the approved L1 RULE-PHASE exception and L2's optional TDD behavior."
+        }
+      ],
+      "refutationAttempts": [
+        "Traced every direct agent and parallel call.",
+        "Compared every producer schema and validator with every downstream handoff validator.",
+        "Tested the current recovered records against reusable validation paths.",
+        "Compared IMPLEMENT's L1 and L2 paths with the fixed stage table and approved no-test behavior.",
+        "Applied the workflow-runtime-test waiver and reported no missing persistent test."
+      ],
+      "proofChecked": [
+        "All eleven workflow scripts passed the contract-required in-memory syntax check.",
+        "The one-time structure and runtime checkers passed.",
+        "The forbidden-wording scan returned no matches.",
+        "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "The round-three handoff checks create second executable owners for five stage-result contracts.",
+          "evidence": "implement.js:36-42 and refute.js:55-61 contain identical isRecord, isNonBlankString, and nonBlankStringArrayProblem helpers. implement.js:49-91 restates the RULE-PHASE and TDD contracts already defined by rule-phase.js:11-36 and 111-125 and tdd.js:11-34 and 120-129. refute.js:84-188 separately restates the GROUND, DESIGN, and hidden-decision shapes defined by their producer workflows. refute.js also checks autoResolved arrays before sending the same collections to required-agent-runtime.js:282-295.",
+          "fix": "Use dry-shared-module-authority to record an extract ruling for stage-result contracts, then place each stage shape and semantic validator in one shared contracts owner used by both its producer and downstream consumers. Remove the copied helpers. Leave autoResolved ownership in required-agent-runtime.js."
+        },
+        {
+          "summary": "Every workflow contains its own copy of the same JSON argument-unwrapping block, and this change adds two more copies.",
+          "evidence": "The search for let input = args, unwrapGuard, and JSON.parse(input) found the same block in all 11 live workflow scripts. The two new shared owners copy it at required-agent-runtime.js:46-55 and selected-rule-warnings.js:9-18. The other copies are in architecture.js, design.js, ground.js, hidden-decision-scan.js, implement.js, prior-art-ledger.js, refute.js, rule-phase.js, and tdd.js. The live search returned 11 files; the HEAD search returned 9.",
+          "fix": "Record an extract ruling and move the five-level JSON unwrapping into one workflow-input owner that accepts the caller name for error text. Make all 11 scripts call that owner and preserve current parsing and failure behavior."
+        }
+      ],
+      "refutationAttempts": [
+        "Ran CodeGraph and grep over required-agent execution, resume, result validity, autoResolved, common verdict handling, selected warnings, and every workflow.",
+        "Confirmed required-agent execution and resume now have one owner.",
+        "Confirmed common verdict handling and selected-warning construction now have one owner.",
+        "Compared producer schemas with the new IMPLEMENT and REFUTE handoff validators.",
+        "Compared the current argument parsers with HEAD and applied the workflow-test waiver."
+      ],
+      "proofChecked": [
+        "The complete contract and all eleven workflow scripts.",
+        "All seven current stage records.",
+        "git diff --check exited 0.",
+        "The in-memory syntax check parsed all eleven workflow scripts.",
+        "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+      ]
+    },
+    {
+      "lens": "laziness",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "RULE-PHASE validates one returned rule, not every approved rule.",
+          "evidence": "rails-run-a-workflow:110 requires each approved rule to have one violating and one compliant fixture. rule-phase.js:83 and 88 say every guardrail and every rule, but lines 111-124 require only nonempty ruleFiles and perRule. An in-memory execution requested First and Second, returned proof only for First, supplied three valid PASS verdicts, and returned accepted=true. The one-time checker in implement-output.json tests only one approved rule.",
+          "fix": "Put the reusable comparison in required-agent-runtime.js, then configure rule-phase.js to require returned perRule rule names to be exactly the approved rulesToAdd rule names, with none missing, duplicated, or extra. Add a two-rule/one-returned-rule case to the existing one-time checker only; do not add persistent workflow tests."
+        },
+        {
+          "summary": "IMPLEMENT accepts invented nonblank no-rule and no-test proof instead of the exact approved results.",
+          "evidence": "The exact no-rule proof is defined at rule-phase.js:38 and 115-120, and the exact no-test proof is defined at tdd.js:36 and 124-127. The approved values also appear at contract.md:59-72 and 108-117. implement.js:53, 62-65, 76, and 86-87 checks only that those proof strings are nonblank when the corresponding file list is empty. An in-memory execution supplied FORGED NONBLANK RULE PROOF and FORGED NONBLANK TDD PROOF; IMPLEMENT launched its worker and returned accepted=true.",
+          "fix": "Give each exact no-op result contract one shared executable owner used by its producer and by IMPLEMENT, and reject any other proof before the worker launches. Add wrong-but-nonblank no-rule and no-test cases to the existing one-time checker only; do not add persistent workflow tests."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, rails, workflows, live diff, and current stage records.",
+        "Traced every required role and the L1, L2, and L3 paths through required-agent-runtime.js.",
+        "Re-executed the recorded structure, run-record, and workflow-runtime checkers.",
+        "Probed RULE-PHASE with two approved rules but one returned proof.",
+        "Probed IMPLEMENT with wrong-but-nonblank no-rule and no-test proof.",
+        "Applied the workflow-test waiver and DRY-refactor authority."
+      ],
+      "proofChecked": [
+        "The in-memory syntax command parsed all eleven workflow scripts.",
+        "The exact forbidden-wording scan returned no matches.",
+        "All seven current stage records parsed.",
+        "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT added an unapproved omission input and labels arbitrary caller text as Tim's verbatim authorization.",
+          "evidence": "rails-run-a-workflow:32-35 and 44 make TDD required at L1 and name a human exception only for RULE-PHASE. implement.js:127, 134, and 139-150 adds omittedStageAuthorizations and accepts any nonblank caller string for either stage; lines 163-173 label that text OMITTED UNDER TIM'S VERBATIM AUTHORIZATION. The approval-record search returned no omittedStageAuthorizations match. A live in-memory execution with a nonexistent contract and fabricated strings launched the mocked worker and tagged the strings as authorization.",
+          "fix": ""
+        },
+        {
+          "summary": "IMPLEMENT silently converts an absent L2 TDD result into the unsupported claim that TDD was not needed.",
+          "evidence": "rails-run-a-workflow:46 says TDD runs at L2 when the work needs it. implement.js:143-144 observes only whether a result object is absent, then line 173 states that the L2 run did not need TDD. No current autoResolved record covers that statement. A live in-memory execution with no TDD result and a mocked worker launched once and included that statement.",
+          "fix": ""
+        },
+        {
+          "summary": "REFUTE accepts a new recovered-GROUND wrapper even though the approved input explicitly forbids new evidence formats.",
+          "evidence": "contract.md:262-269 defines stageOutputs.ground as GroundResult and says: “The values are the complete existing return objects from those stages, not new evidence formats.” Acceptance 23 repeats that requirement. ground-output-corrected.json states that it is not a recreated agent result and introduces groundResultForRefute. refute.js:84-91 and 216-218 recognizes and unwraps that new format. The approval-record search returned no groundResultForRefute match.",
+          "fix": ""
+        }
+      ],
+      "refutationAttempts": [
+        "Applied every rails-decisions Violation to the contract, workflows, records, and orchestrator claims.",
+        "Checked every autoResolved collection against the cited best-practices principle.",
+        "Hunted decisions introduced after DESIGN and the hidden-decision scan.",
+        "Executed read-only in-memory IMPLEMENT probes and compared REFUTE input validation with the approved stageOutputs shape.",
+        "Applied the workflow-test waiver and DRY-refactor authority."
+      ],
+      "proofChecked": [
+        "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89.",
+        "git diff --check passed.",
+        "The structure, reference, scope, syntax, workflow-runtime, and run-record checkers passed.",
+        "No product, test, analyzer, build, CI, release, external memory, or .obsidian file changed in this run."
+      ]
+    }
+  ],
+  "adjudication": {
+    "accepted": [
+      {
+        "slug": "opening-proof-is-incomplete",
+        "sources": ["prove-it finding 1"],
+        "finding": "The saved opening build and test output is cropped, and the saved checkpoint hash identifies only the staged snapshot rather than the staged snapshot plus the selected-warning delta.",
+        "reason": "The recovery decision waives when the opening proof was created; it does not waive complete command output or identification of the approved checkpoint bytes."
+      },
+      {
+        "slug": "stage-result-contracts-have-multiple-owners",
+        "sources": ["solid finding 1", "dry finding 1"],
+        "finding": "GROUND, DESIGN, hidden-decision, RULE-PHASE, and TDD result contracts are defined by their producer workflows and reimplemented by refute.js or implement.js.",
+        "reason": "The live definitions repeat the same field and semantic rules. Changing a producer can leave a consumer validator stale."
+      },
+      {
+        "slug": "run-specific-recovery-is-in-reusable-workflows",
+        "sources": ["solid finding 2", "lie-catcher finding 3"],
+        "finding": "refute.js and required-agent-runtime.js contain compatibility branches for this run's noncanonical GROUND, DESIGN, and RULE-PHASE records.",
+        "reason": "The contract says the recovered values are complete existing stage return objects, not new evidence formats, and the recovery decision says it creates no precedent."
+      },
+      {
+        "slug": "l1-tdd-omission-is-not-authorized",
+        "sources": ["solid finding 3", "lie-catcher finding 1 in part"],
+        "finding": "implement.js permits TDD to be omitted at L1 even though the approved workflow requires TDD and defines a no-test result for contracts that authorize no test files.",
+        "reason": "The only named L1 stage-omission exception is RULE-PHASE. A caller string cannot create a TDD omission the workflow does not authorize."
+      },
+      {
+        "slug": "workflow-input-unwrapping-is-copied",
+        "sources": ["dry finding 2"],
+        "finding": "The same JSON argument-unwrapping block exists in all eleven workflow scripts, including both shared owners added by this change.",
+        "reason": "The live search found eleven executable copies, and the DRY rail says: “Every block of logic and every function exists once.”"
+      },
+      {
+        "slug": "rule-phase-does-not-prove-all-approved-rules",
+        "sources": ["laziness finding 1"],
+        "finding": "A RULE-PHASE result with proof for only one of two approved rules passes validation.",
+        "reason": "The live two-rule probe was accepted even though the workflow requires proof for each approved rule."
+      },
+      {
+        "slug": "implement-accepts-forged-no-op-proof",
+        "sources": ["laziness finding 2"],
+        "finding": "IMPLEMENT accepts any nonblank proof string for empty no-rule and no-test results instead of requiring the approved exact sentinel values.",
+        "reason": "The live probe supplied wrong nonblank proof strings and IMPLEMENT launched the worker."
+      }
+    ],
+    "narrowed": [
+      {
+        "source": "lie-catcher finding 1",
+        "ruling": "The confirmed violation is the L1 TDD-omission path. RULE-PHASE remains the workflow's explicitly allowed human-authorized L1 omission, so the whole omittedStageAuthorizations idea is not rejected merely because it carries that approved exception."
+      }
+    ],
+    "rejected": [
+      {
+        "source": "lie-catcher finding 2",
+        "ruling": "Rejected as a concrete violation. The approved L2 policy makes TDD conditional. Calling IMPLEMENT at L2 without a TDD result is the existing representation that TDD did not run; the IMPLEMENT worker still receives the complete contract and must stop if the contract shows TDD was needed. No approved rule requires a separate TDD-needed result or authorization parameter."
+      }
+    ]
+  },
+  "waiversApplied": [
+    {
+      "slug": "workflow-runtime-test-waiver",
+      "text": "Do not add a persistent test suite for the workflow scripts or wire one into the build, test, CI, or gate paths. The SOLID Gate wired in, not remembered finding is explicitly waived by Tim for this run. Keep the SOLID rail unchanged."
+    },
+    {
+      "slug": "dry-shared-module-authority",
+      "text": "THE ONE thing I have given BLANKET approval for is REFACTORING code into a shared module in ourder to avoide the DEATH of DRY violations.  DRY violations can be fixed on their own."
+    }
+  ],
+  "coordinatorProof": [
+    "node /tmp/agent-guard-reorg-structure-check.js exited 0 and passed all 60 inventory mappings.",
+    "node /tmp/agent-guard-workflow-runtime-check.js exited 0 and passed all recorded workflow runtime and malformed-result checks.",
+    "The exact forbidden-wording scan returned no matches.",
+    "The contract-prescribed in-memory AsyncFunction syntax check parsed all eleven workflow scripts.",
+    "A plain node --check stdin probe exited 1 because stdin was parsed as CommonJS and rejected top-level await; it was not the contract-prescribed syntax check.",
+    "git diff --check exited 0.",
+    "Fresh make build exited 0 with 0 warnings and 0 errors.",
+    "Fresh make test exited 0 with 642 passed, 0 failed, and 0 skipped.",
+    "The staged checkpoint before the record write remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+  ],
+  "agentRetries": [],
+  "panelComplete": true,
+  "anyFail": true,
+  "failedLenses": ["prove-it", "solid", "dry", "laziness", "lie-catcher"],
+  "nextStageStarted": false,
+  "gateRun": false
+}

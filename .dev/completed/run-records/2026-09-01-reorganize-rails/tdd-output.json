@@ -1,0 +1,72 @@
+{
+  "testFiles": [],
+  "redProof": "Not applicable — the approved contract authorizes no test files.",
+  "coverage": [],
+  "notes": "Exact current contract evidence: “Do not add a tenth rail, rename a rail slug, add a replacement stage workflow, add a dependency, or change product code, tests, analyzers, build scripts, CI, or release behavior. `required-agent-runtime.js` and `selected-rule-warnings.js` are the shared executable owners authorized by `dry-shared-module-authority`; they do not add or replace a workflow stage.” “Do not add persistent workflow-script tests or wire workflow-script checks into build, test, CI, or gate paths. Apply `workflow-runtime-test-waiver` exactly.”",
+  "verdicts": [
+    {
+      "lens": "test-quality",
+      "verdict": "PASS",
+      "findings": [],
+      "refutationAttempts": [
+        "Tried to disprove no-test eligibility by checking the complete contract’s Surfaces and prohibitions; it names no test-file surface and explicitly forbids changing tests or adding persistent workflow-script tests.",
+        "Tried to find an omitted required test by checking staged and unstaged paths under tests/; neither diff contains a test-file change.",
+        "Tried to find stale or paraphrased evidence in notes; both quoted sentences occur verbatim in the current contract at lines 584-585.",
+        "Tried to find a TDD-order bypass; the fixed sequence places TDD after ARCHITECTURE, and tdd.js sends the valid no-test result to the same test-quality, DRY, and Lie-catcher panel instead of skipping TDD."
+      ],
+      "proofChecked": [
+        "jq verified testFiles=[], coverage=[], the exact approved redProof, and nonempty notes.",
+        "contract.md:584-585 contains both notes quotations verbatim.",
+        "contract.md:42 and rails-run-a-workflow/SKILL.md:55 contain GROUND → DESIGN → CONTRACT → RULE-PHASE → ARCHITECTURE → TDD → IMPLEMENT → REFUTE → GATE → REPORT.",
+        "tdd.js:86-88 defines the exact no-test result and states that the complete panel still reviews it; tdd.js:155-203 validates the result and launches that panel.",
+        "git diff --name-only -- tests and git diff --cached --name-only -- tests returned no paths."
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "refutationAttempts": [
+        "Mapped the complete Acceptance section to the contract’s Surfaces and prohibitions. No test surface is named, test changes are forbidden, and persistent workflow-script tests are explicitly waived.",
+        "Compared both sentences in `tdd-output.json` notes with the current contract. Both are exact quotes.",
+        "Searched the live workflows for direct `agent` and `parallel` calls and for retry implementation. Required-agent execution and retry logic occur only in `required-agent-runtime.js`; `tdd.js` calls that owner for the author and all three reviewers.",
+        "Searched the live workflows for `WarningsNotAsErrors` and selected-ID command construction. That logic occurs only in `selected-rule-warnings.js`; `tdd.js` calls that owner.",
+        "Checked the working tree for changes under `tests/`, `analyzers/`, `eng/`, and `.github/`. None are present."
+      ],
+      "proofChecked": [
+        "`.dev/inprocess/2026-09-01-reorganize-rails/contract.md`: `tdd-no-test-surface`, `workflow-runtime-test-waiver`, Surfaces, What the agent MUST NOT do, and Acceptance.",
+        "`.dev/inprocess/2026-09-01-reorganize-rails/tdd-output.json`: empty `testFiles`, exact no-test `redProof`, empty `coverage`, and exact contract evidence in `notes`.",
+        "`.agents/workflows/tdd.js`: contract-backed no-test handling, shared selected-warning call, and shared required-agent calls.",
+        "`.agents/workflows/required-agent-runtime.js`: sole direct agent execution, retry, result preservation, role-only resume, and common verdict validation.",
+        "`.agents/workflows/selected-rule-warnings.js`: sole selected-warning command and policy construction.",
+        "`.agents/skills/rails-test-code/SKILL.md` and `.agents/skills/rails-dry-code/SKILL.md`."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "PASS",
+      "findings": [],
+      "refutationAttempts": [
+        "Tried to refute the no-test claim by finding any authorized test-file surface or required test in the complete contract; none exists, and contract.md:584 explicitly forbids changing tests.",
+        "Compared both quoted sentences in tdd-output.json:5 character-for-character with contract.md:584-585; both are exact current contract evidence.",
+        "Tried to treat best-practices principle 6a as requiring a persistent workflow-script test, then checked the governing exception: contract.md:199-205 records Tim's explicit workflow-runtime-test waiver, and contract.md:585 applies it exactly.",
+        "Checked whether TDD was skipped or moved before ARCHITECTURE; contract.md:39-51 fixes ARCHITECTURE before TDD, architecture-output.json exists, and full-preflight-output.json:6-7 records that the no-test TDD panel was rerun after ARCHITECTURE.",
+        "Checked for a silently introduced test, interface assumption, requirement change, or scope expansion; tdd-output.json has empty testFiles and coverage, and the live working-tree file list contains no changed test file."
+      ],
+      "proofChecked": [
+        "Read .agents/skills/rails-decisions/SKILL.md, .agents/skills/rails-test-code/SKILL.md, .agents/skills/rails-run-a-workflow/SKILL.md, and .dev/reference/best-practices-guide.md completely.",
+        "Read the complete 626-line contract at .dev/inprocess/2026-09-01-reorganize-rails/contract.md.",
+        "Checked contract.md:59-76, which records Tim's explicit YES for the exact no-test TDD result and requires the independent panel to run.",
+        "Checked contract.md:435-460; the named surfaces contain no test file or test project.",
+        "Checked contract.md:199-205 and 581-585 for Tim's exact workflow-test waiver and the exact prohibition against test changes and persistent workflow-script tests.",
+        "Checked .dev/inprocess/2026-09-01-reorganize-rails/tdd-output.json:2-5 against the required empty testFiles, exact redProof, empty coverage, and exact-evidence notes.",
+        "Checked .agents/workflows/tdd.js:86-102 and 153-234; the no-test result is contract-gated and still flows to test-quality, DRY, and Lie-catcher review.",
+        "Checked .dev/inprocess/2026-09-01-reorganize-rails/architecture-output.json and full-preflight-output.json:6-7 for the recorded ARCHITECTURE-before-TDD sequence.",
+        "Checked git status and changed-file lists; no product test file, test project, build script, CI file, or persistent workflow-script test is changed."
+      ]
+    }
+  ],
+  "anyFail": false,
+  "panelComplete": true,
+  "failedRoles": []
+}

@@ -1,0 +1,195 @@
+{
+  "recordType": "Adjudicated correction to the recovered GROUND record; this is not a recreated agent result.",
+  "sourceRecord": ".dev/inprocess/2026-09-01-reorganize-rails/ground-output.json",
+  "sourceRecordPreserved": true,
+  "correction": {
+    "capability": "Structured autoResolved stage evidence",
+    "originalDecision": "new",
+    "decision": "extract",
+    "copiesAtStagedCheckpoint": [
+      ".agents/workflows/ground.js:10-18",
+      ".agents/workflows/design.js:10-18",
+      ".agents/workflows/hidden-decision-scan.js:10-18"
+    ],
+    "evidence": "The staged checkpoint already contained the same executable autoResolved item schema in `.agents/workflows/ground.js:10-18`, `.agents/workflows/design.js:10-18`, and `.agents/workflows/hidden-decision-scan.js:10-18`.",
+    "reuseInstruction": "Extract those copies into the one executable schema owner in `.agents/workflows/required-agent-runtime.js`; each stage caller requests the shared autoResolved field."
+  },
+  "groundResultForRefute": {
+    "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+    "facts": [
+      {
+        "area": "rail-ownership",
+        "facts": [
+          {
+            "claim": "The nine rails have one canonical repository store; `.claude/skills` is a symlink to `.agents/skills`, not a second copy.",
+            "evidence": "`find` returned exactly nine `.agents/skills/rails-*/SKILL.md` files; `.claude/skills -> ../.agents/skills`; byte comparison returned 0 for every alias; `rg --files --hidden` found no other repository copy."
+          },
+          {
+            "claim": "The approved owner organization is already present in the live working tree.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:22-31` routes to each owner; `rails-decisions` is ordered boundary, approval procedure, violations, examples; `rails-explorer` is ordered absolute rule, exploration steps, required output, prohibitions, failure examples; each code rail has readers, numbered Practice/Violation/Fix entries, and one Verdict."
+          },
+          {
+            "claim": "`rails-write-a-contract` is the only complete contract-section list.",
+            "evidence": "`.agents/skills/rails-write-a-contract/SKILL.md:14-28` defines all thirteen sections; `.agents/skills/rails-run-a-workflow/SKILL.md:8` routes the definition to it."
+          },
+          {
+            "claim": "`rails-read-me` still contains one Level-selection rule owned by `rails-run-a-workflow`.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:42`; contract `single-owner-map` assigns Level selection to `rails-run-a-workflow`."
+          },
+          {
+            "claim": "The remaining rail prose gaps are the approved default-Level rule, required DRY panels, DESIGN ledger handoff, fixture-based RULE-PHASE proof, shared ARCHITECTURE/TDD warning handoff, contract-backed no-test TDD result, and REFUTE prior-stage and L3 inputs.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:38-44,76-77,103-106,120-136,154`; approved contract Decisions at lines 59-141, 175-245, and 329-347."
+          },
+          {
+            "claim": "Every remaining rail mismatch is already decided in the contract; this area produced no new conflict.",
+            "evidence": "Each live mismatch above has an existing approved Decision in `.dev/inprocess/2026-09-01-reorganize-rails/contract.md`; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/skills/rails-read-me/SKILL.md",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".agents/skills/rails-explorer/SKILL.md",
+          ".agents/skills/rails-decisions/SKILL.md",
+          ".agents/skills/rails-solid-code/SKILL.md",
+          ".agents/skills/rails-dry-code/SKILL.md",
+          ".agents/skills/rails-real-work/SKILL.md",
+          ".agents/skills/rails-test-code/SKILL.md",
+          ".dev/reference/best-practices-guide.md"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      },
+      {
+        "area": "workflow-interfaces",
+        "facts": [
+          {
+            "claim": "The repository has exactly the nine workflow scripts named by the contract; `.claude/workflows` is a symlink to the same files.",
+            "evidence": "`rg --files .agents/workflows`; `.claude/workflows -> ../.agents/workflows`."
+          },
+          {
+            "claim": "The current stage order is `GROUND → DESIGN → CONTRACT → RULE-PHASE → ARCHITECTURE → TDD → IMPLEMENT → REFUTE → GATE → REPORT`.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:50-56`."
+          },
+          {
+            "claim": "GROUND accepts an optional capability list, requires `autoResolved` per explorer, and uses the prior-art ledger only when capabilities exist.",
+            "evidence": "`.agents/workflows/ground.js:10-86`; `.agents/workflows/prior-art-ledger.js:53-109`."
+          },
+          {
+            "claim": "DESIGN does not yet accept the GROUND ledger or return required `reuseInstructions`.",
+            "evidence": "`.agents/workflows/design.js:64-120`; `rg -n 'ledger|reuseInstructions' .agents/workflows/design.js` returned no match; contract `design-ledger-handoff`."
+          },
+          {
+            "claim": "RULE-PHASE still uses `redProof` and `firesAgainst`, rejects an empty rule-file result, asks for production RED, and names stale analyzer IDs.",
+            "evidence": "`.agents/workflows/rule-phase.js:10-32,92-115`; contract `rule-phase-proof-interface`, `rule-phase-red-handoff`, and `current-analyzer-id-source`."
+          },
+          {
+            "claim": "ARCHITECTURE does not yet handle `ruleWarningIds` and rejects an approved no-signature result.",
+            "evidence": "`.agents/workflows/architecture.js:62-84,112-128`; `rg -n 'ruleWarningIds|WarningsNotAsErrors' .agents/workflows/architecture.js` returned no match; contract `rule-phase-red-handoff`."
+          },
+          {
+            "claim": "TDD implements selected-warning input but still rejects every empty `testFiles` result.",
+            "evidence": "`.agents/workflows/tdd.js:73-98,134-169`; contract `tdd-no-test-surface`."
+          },
+          {
+            "claim": "REFUTE receives `stageOutputs` but does not require the outputs from stages that ran; it always runs five adversaries and has no Level, conditional-adversary, or L3 human-request input.",
+            "evidence": "`.agents/workflows/refute.js:46-99`; contract `dry-every-level-refute-interface`, `refute-stage-output-input`, and `l3-refute-context`."
+          },
+          {
+            "claim": "Every remaining workflow mismatch is already decided in the contract; this area produced no new conflict.",
+            "evidence": "Each live mismatch above has an existing approved Decision in `.dev/inprocess/2026-09-01-reorganize-rails/contract.md`; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/workflows/architecture.js",
+          ".agents/workflows/design.js",
+          ".agents/workflows/ground.js",
+          ".agents/workflows/hidden-decision-scan.js",
+          ".agents/workflows/implement.js",
+          ".agents/workflows/prior-art-ledger.js",
+          ".agents/workflows/refute.js",
+          ".agents/workflows/rule-phase.js",
+          ".agents/workflows/tdd.js",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".dev/inprocess/2026-09-01-reorganize-rails/contract.md"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      },
+      {
+        "area": "prior-art-and-scope",
+        "facts": [
+          {
+            "claim": "Structured `autoResolved` stage evidence is new relative to the pre-change tree.",
+            "evidence": "CodeGraph located `AUTO_RESOLVED_ITEM_SCHEMA` only in the current staged `ground.js`, `design.js`, and `hidden-decision-scan.js`; `git grep -n -E 'autoResolved|appliedPrinciples' HEAD -- src tests analyzers eng .agents` and `rg` across `src`, `tests`, `analyzers`, and `eng` returned no match."
+          },
+          {
+            "claim": "Stage execution must reuse the existing workflow path.",
+            "evidence": "`.agents/skills/rails-run-a-workflow/SKILL.md:50-180` owns the fixed stages and existing scripts; HEAD and the working tree contain the same nine workflow files."
+          },
+          {
+            "claim": "Reusable rail criteria must reuse the existing nine rail owners.",
+            "evidence": "`.agents/skills/rails-read-me/SKILL.md:20-32` routes each responsibility to its owner; workflow prompts already load those owners."
+          },
+          {
+            "claim": "No separate workflow-stage or rail-criteria owner exists in `src`, `tests`, `analyzers`, or `eng`; this area produced no new conflict.",
+            "evidence": "CodeGraph and `rg` found workflow orchestration and rail ownership only under `.agents`; product-code word matches were unrelated C# concepts; `openQuestions` is empty."
+          }
+        ],
+        "surfaces": [
+          ".agents/skills/rails-read-me/SKILL.md",
+          ".agents/skills/rails-run-a-workflow/SKILL.md",
+          ".agents/skills/rails-write-a-contract/SKILL.md",
+          ".agents/skills/rails-explorer/SKILL.md",
+          ".agents/skills/rails-decisions/SKILL.md",
+          ".agents/skills/rails-solid-code/SKILL.md",
+          ".agents/skills/rails-dry-code/SKILL.md",
+          ".agents/skills/rails-real-work/SKILL.md",
+          ".agents/skills/rails-test-code/SKILL.md",
+          ".agents/workflows/architecture.js",
+          ".agents/workflows/design.js",
+          ".agents/workflows/ground.js",
+          ".agents/workflows/hidden-decision-scan.js",
+          ".agents/workflows/implement.js",
+          ".agents/workflows/prior-art-ledger.js",
+          ".agents/workflows/refute.js",
+          ".agents/workflows/rule-phase.js",
+          ".agents/workflows/tdd.js"
+        ],
+        "openQuestions": [],
+        "autoResolved": []
+      }
+    ],
+    "ledger": {
+      "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+      "verdicts": [
+        {
+          "capability": "Structured autoResolved stage evidence",
+          "decision": "extract",
+          "copies": [
+            ".agents/workflows/ground.js:10-18",
+            ".agents/workflows/design.js:10-18",
+            ".agents/workflows/hidden-decision-scan.js:10-18"
+          ],
+          "evidence": "The staged checkpoint already contained the same executable autoResolved item schema in `.agents/workflows/ground.js:10-18`, `.agents/workflows/design.js:10-18`, and `.agents/workflows/hidden-decision-scan.js:10-18`.",
+          "confidence": "high"
+        },
+        {
+          "capability": "Stage execution",
+          "decision": "reuse",
+          "owner": ".agents/skills/rails-run-a-workflow/SKILL.md:50",
+          "evidence": "Reuse the fixed stage owner and the existing nine `.agents/workflows/*.js` scripts; do not add a second workflow path.",
+          "confidence": "high"
+        },
+        {
+          "capability": "Reusable rail criteria",
+          "decision": "reuse",
+          "owner": ".agents/skills/rails-read-me/SKILL.md:20",
+          "evidence": "Reuse the nine existing rail owners and load them from workflow prompts; no replacement skill or copied checklist exists or is needed.",
+          "confidence": "high"
+        }
+      ]
+    }
+  }
+}

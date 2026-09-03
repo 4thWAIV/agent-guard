@@ -1,0 +1,286 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+  "facts": [
+    {
+      "area": "rail-ownership",
+      "facts": [
+        {
+          "claim": "All nine rails named in the contract's single-owner-map exist as SKILL.md files at the expected slugs, and .claude/skills is a live symlink to .agents/skills (so both tool surfaces see the same content).",
+          "evidence": "ls .agents/skills/ shows rails-decisions, rails-dry-code, rails-explorer, rails-read-me, rails-real-work, rails-run-a-workflow, rails-solid-code, rails-test-code, rails-write-a-contract; `.claude/skills -> ../.agents/skills` (lrwxr-xr-x). Cross-checked against .dev/inprocess/2026-09-01-reorganize-rails/contract.md lines 7-19 (`single-owner-map` decision table), which names the same nine slugs with the same one-line responsibilities."
+        },
+        {
+          "claim": "Each rail's live content matches its approved single-responsibility line in the contract's single-owner-map: rails-read-me (facts/routing), rails-run-a-workflow (level/stage/role/retry/gate/provenance/report), rails-write-a-contract (contract schema only), rails-explorer (exploration method), rails-decisions (boundary/approval/violations), rails-solid-code (structure only), rails-dry-code (duplication/prior-art), rails-real-work (completeness/shortcuts/report quality), rails-test-code (test completeness/RED-first/tampering). No rail restates another's owned procedure verbatim; rails-dry-code and rails-solid-code each carry an explicit 'not this one' disclaimer for the other's territory.",
+          "evidence": "Full read of all 9 SKILL.md files. rails-dry-code line 8: 'Duplication ONLY; design and structure are the SOLID rail's job.' rails-solid-code line 8: 'Design and structure ONLY; duplication is the DRY rail's job.' grep for 'explicit yes|approval procedure' across rails-dry-code, rails-real-work, rails-solid-code, rails-test-code, rails-explorer, rails-write-a-contract found only local applications (e.g. rails-solid-code line 60's escape-hatch approval) or a routing reference to rails-decisions (rails-write-a-contract line 17), never a restated procedure."
+        },
+        {
+          "claim": "Every file path referenced by any of the nine rails resolves to a real file in the live working tree right now \u2014 no dangling reference found.",
+          "evidence": "Extracted every backtick-quoted path with extension .md/.js/.mjs/.sh/.yml/.json/.sln/.csproj from all 9 SKILL.md files (24 distinct references) and tested each with `[ -e \"$p\" ]`: all OK. Includes .dev/reference/best-practices-guide.md, .claude/workflows/prior-art-ledger.js, AgentGuard.sln, global.json, .github/workflows/ci.yml, eng/coverage-gate.sh, .dev/README.md, eng/check-copied-modules.mjs, and all 9 .agents/workflows/*.js scripts. analyzers/AgentGuard.Analyzers/AnalyzerReleases.*.md glob resolves to AnalyzerReleases.Shipped.md and AnalyzerReleases.Unshipped.md, both present."
+        },
+        {
+          "claim": "Every rails-to-rails skill cross-reference (`rails-decisions`, `rails-explorer`, `rails-solid-code`, `rails-dry-code`, `rails-real-work`, `rails-test-code`, `rails-write-a-contract`, `rails-run-a-workflow`) resolves to a real skill directory. `how-to-communicate`, referenced once from rails-read-me's routing table (line 32), is not a project rail \u2014 it resolves at the user-global skill store (~/.claude/skills/how-to-communicate/SKILL.md and ~/.codex/skills/how-to-communicate/SKILL.md), not under .agents/skills, and it is correctly outside the nine-rail single-owner-map.",
+          "evidence": "grep -rnoE '`rails-[a-z-]+`|`how-to-communicate`' .agents/skills/rails-*/SKILL.md, then existence-checked each target directory. how-to-communicate: `ls -la ~/.claude/skills/how-to-communicate/SKILL.md` and `~/.codex/skills/how-to-communicate/SKILL.md` both exist (8048 bytes each); `find <repo> -iname 'how-to-communicate*'` returns nothing inside the project tree."
+        },
+        {
+          "claim": "rails-run-a-workflow's process description (stage sequence, per-stage script/inputs/outputs) matches the live .agents/workflows/*.js scripts' actual argument schemas and return shapes for every stage checked: GROUND (projectPath/areas/capabilities), DESIGN (projectPath/goal/facts/ledger/angles), RULE-PHASE (projectPath/contractPath/rulesToAdd/noRuleEvidence, output {ruleFiles, buildProof, perRule, notes}), ARCHITECTURE (projectPath/contractPath/ruleWarningIds), TDD (projectPath/contractPath/ruleWarningIds/noTestEvidence), IMPLEMENT (projectPath/contractPath/level/rulePhaseResult/tddResult/omittedStageAuthorizations/instruction), REFUTE (projectPath/level/contractPath-or-humanRequest/stageOutputs/additionalAdversaries), HIDDEN-DECISION-SCAN (contractPath/projectPath).",
+          "evidence": "Read the args-destructure block at the top-level entry of each script: ground.js:1312-1324, design.js:1180-1197, rule-phase.js:1180-1204, architecture.js:624-635, tdd.js:1236-1249, implement.js:1206-1247, refute.js:1179-1215, hidden-decision-scan.js:1180-1190. Field names and validation errors (e.g. ground.js's thrown message 'ground requires args { projectPath, areas: [{id, focus}], capabilities?: ... }') match the SKILL.md prose in rails-run-a-workflow lines 60-73 (GROUND), 90-100 (CONTRACT-adjacent), 102-113 (RULE-PHASE), 114-125 (ARCHITECTURE), 126-145 (TDD), 146-157 (IMPLEMENT), 158-169 (REFUTE)."
+        },
+        {
+          "claim": "The `selected-rule-warnings` mechanism (architecture.js and tdd.js accepting an approved `ruleWarningIds` list and translating it into a `-p:WarningsNotAsErrors=...` MSBuild argument, never a suppression, only for the ARCHITECTURE/TDD build, never GATE) is real, identically copied into both scripts, and matches rails-run-a-workflow's description word for word.",
+          "evidence": "Full read of the `selected-rule-warnings` copied block (architecture.js:541-595): builds `dotnet build -c Release -p:WarningsNotAsErrors=<ids>` or `dotnet test -p:WarningsNotAsErrors=<ids>`, its policyPrompt explicitly forbids NoWarn/.editorconfig-severity/TreatWarningsAsErrors=false and states 'This argument applies only to the approved <STAGE> build. Do not add it to GATE.' Matches rails-run-a-workflow lines 112, 138-144 verbatim in substance."
+        },
+        {
+          "claim": "The copied-module mechanism described in rails-run-a-workflow's 'Copied modules' section is real, currently wired, and currently passing: five block names (workflow-input, required-agent-runtime, stage-result-contracts, prior-art-ledger, selected-rule-warnings) are copied across the 9 workflow scripts inside `##COPIED-MODULE-BEGIN##/END##` markers, and eng/check-copied-modules.mjs verifies byte-identity.",
+          "evidence": "`node eng/check-copied-modules.mjs` output: 'prior-art-ledger 2 copies identical / required-agent-runtime 9 copies identical / selected-rule-warnings 2 copies identical / stage-result-contracts 8 copies identical / workflow-input 9 copies identical' then '9 workflow files, 30 copied blocks, 5 distinct block names / PASS \u2014 every duplicated block is byte-identical across all copies', exit code 0."
+        },
+        {
+          "claim": "eng/check-copied-modules.mjs is deliberately NOT wired into Makefile, CI, or any gate path \u2014 this is an explicit, recorded exception (`workflow-runtime-test-waiver`) to rails-solid-code's own 'Gate wired in, not remembered' rule, not a silent gap.",
+          "evidence": "`grep -rn \"check-copied-modules\" Makefile .github/workflows/*.yml` returns no hits (no package.json exists in this repo). Contract .dev/inprocess/2026-09-01-reorganize-rails/contract.md lines 232-238 ('workflow-runtime-test-waiver'): 'Do not add a persistent test suite for the workflow scripts or wire one into the build, test, CI, or gate paths. The SOLID Gate wired in, not remembered finding is explicitly waived by Tim for this run,' with Tim's quoted approval attached, and restated in the contract's own 'What the agent MUST NOT do' section at line 618."
+        },
+        {
+          "claim": "The four files listed as new/untracked `.agents/workflows/*.js` in this session's opening git-status snapshot (required-agent-runtime.js, selected-rule-warnings.js, stage-result-contracts.js, workflow-input.js) no longer exist at those paths \u2014 they have since been retired into .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/ as the copied-block provenance originals, and are not loaded, called, or registered as workflows. The repository state changed during this session; that opening snapshot is now stale.",
+          "evidence": "`ls .agents/workflows/*.js` shows only the 9 canonical stage scripts; `ls -la .agents/workflows/{required-agent-runtime,selected-rule-warnings,stage-result-contracts,workflow-input}.js` all report 'No such file or directory'. `find . -name '<each filename>'` locates all four only under .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/ (untracked, `?? .../retired-workflow-modules/` in live `git status --short`). Every copied block's header comment cites that exact retired path, e.g. architecture.js:11 'Generated copy of .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/workflow-input.js.' Matches contract line 205: 'The retired originals are kept as each block's provenance ... They are not loaded, called, or registered as workflows.'"
+        },
+        {
+          "claim": "Every rail-skill path (`.agents/skills/rails-*/SKILL.md`) referenced inside the 9 workflow scripts' agent prompts resolves to a real file, and the per-script rail-reference matrix is coherent with each stage's role: ground.js/hidden-decision-scan.js cite rails-explorer + rails-decisions; design.js cites rails-solid-code/rails-dry-code/rails-real-work/rails-decisions; rule-phase.js and architecture.js cite rails-solid-code/rails-dry-code/rails-decisions/rails-run-a-workflow; tdd.js cites rails-test-code/rails-dry-code/rails-run-a-workflow; implement.js and refute.js cite the full applicable set including rails-real-work and rails-test-code.",
+          "evidence": "grep -rhoE '\\.agents/skills/rails-[a-z-]+/SKILL\\.md' .agents/workflows/*.js, existence-checked (all OK), then tabulated per file. rails-write-a-contract and rails-read-me are never loaded by a sub-agent prompt \u2014 consistent with them being orchestrator/human-facing only (rails-run-a-workflow: 'Script: No workflow script' for CONTRACT)."
+        },
+        {
+          "claim": "best-practices-guide.md is consulted from exactly the scripts rails-run-a-workflow says consult it \u2014 design.js, ground.js, hidden-decision-scan.js, refute.js \u2014 and from no others.",
+          "evidence": "Per-file grep -c \"best-practices-guide\" .agents/workflows/*.js: design.js=2, ground.js=1, hidden-decision-scan.js=1, refute.js=1; architecture.js, implement.js, prior-art-ledger.js, rule-phase.js, tdd.js=0. Matches best-practices-guide.md's own 'How it is wired into the process' section (GROUND, DESIGN, the hidden-decision filter, and the Lie-catcher inside refute.js)."
+        },
+        {
+          "claim": "A stale, non-live duplicate of most of the rails exists on disk inside this repo's directory tree, but it is not part of the branch being worked and is not a rail-ownership defect: a separate git worktree at .claude/worktrees/agent-ad5849648391239d1/ is checked out on branch worktree-agent-ad5849648391239d1 at commit aaa38b0 (2026-08-10, 'Merge pull request #19 from 4thWAIV/dev'), predating rails-explorer and rails-test-code entirely, and containing materially different wording for the 7 rails it does have (e.g. rails-decisions there lacks the 'inverts an assembly dependency' violation and the 'personal explicit sign-off' backward-dependency clause present in the live file).",
+          "evidence": "`git worktree list`: main tree at b504dc4 [rails-doc-cleanup]; second entry at .claude/worktrees/agent-ad5849648391239d1 at aaa38b0 [worktree-agent-ad5849648391239d1]. `git -C .claude/worktrees/agent-ad5849648391239d1 log -1` confirms the commit date/subject. `ls .claude/worktrees/agent-ad5849648391239d1/.agents/skills/` lists only 7 rails, missing rails-explorer and rails-test-code. `diff .agents/skills/rails-decisions/SKILL.md .claude/worktrees/.../rails-decisions/SKILL.md` shows the live file's boundary bullet includes the assembly-dependency-inversion clause and the Lie-catcher line reads 'use every Violation as the PRIMARY checklist', while the worktree copy reads 'this file is your PRIMARY PASS/FAIL checklist' and omits that clause."
+        }
+      ],
+      "surfaces": [
+        ".agents/skills/rails-decisions/SKILL.md",
+        ".agents/skills/rails-dry-code/SKILL.md",
+        ".agents/skills/rails-explorer/SKILL.md",
+        ".agents/skills/rails-read-me/SKILL.md",
+        ".agents/skills/rails-real-work/SKILL.md",
+        ".agents/skills/rails-run-a-workflow/SKILL.md",
+        ".agents/skills/rails-solid-code/SKILL.md",
+        ".agents/skills/rails-test-code/SKILL.md",
+        ".agents/skills/rails-write-a-contract/SKILL.md",
+        ".claude/skills (symlink to .agents/skills \u2014 same bytes, second access path)",
+        ".agents/workflows/ground.js",
+        ".agents/workflows/design.js",
+        ".agents/workflows/rule-phase.js",
+        ".agents/workflows/architecture.js",
+        ".agents/workflows/tdd.js",
+        ".agents/workflows/implement.js",
+        ".agents/workflows/refute.js",
+        ".agents/workflows/hidden-decision-scan.js",
+        ".agents/workflows/prior-art-ledger.js",
+        ".claude/workflows (symlink to .agents/workflows \u2014 same bytes, second access path)",
+        ".dev/reference/best-practices-guide.md",
+        "eng/check-copied-modules.mjs (drift check for the copied-module blocks; not wired into Makefile/CI)",
+        ".dev/inprocess/2026-09-01-reorganize-rails/contract.md (the approved single-owner-map and every reorganization decision)",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/{required-agent-runtime,selected-rule-warnings,stage-result-contracts,workflow-input}.js (copied-block provenance originals, not executable)",
+        ".dev/inprocess/2026-09-01-support-selected-rule-warnings/contract.md (separate, still-inprocess run whose selected-rule-warnings decision is now live in architecture.js/tdd.js)",
+        "~/.claude/skills/how-to-communicate/SKILL.md and ~/.codex/skills/how-to-communicate/SKILL.md (external, user-global \u2014 referenced once from rails-read-me's routing table, outside the nine-rail map)",
+        ".claude/worktrees/agent-ad5849648391239d1/.agents/skills/rails-*/SKILL.md (stale, non-live duplicate on a different branch/commit \u2014 7 of 9 rails, older wording)"
+      ],
+      "openQuestions": [
+        "rails-write-a-contract line 34 says 'The CONTRACT stage in rails-run-a-workflow owns when and how .agents/workflows/hidden-decision-scan.js runs and when a contract may advance,' but in the live rails-run-a-workflow file that script, its execution timing ('before the contract locks'), and the 'No contract advances past CONTRACT with an unresolved forced choice' gate rule are all written inside the '### GROUND' section body, not under a section literally titled CONTRACT. The substance is consistent (GROUND produces the resolution, CONTRACT's own Revoked-authority line enforces the gate), but whether this cross-section placement is the intended final layout from the 'Rebuild rails-run-a-workflow around its stages' decision, or a leftover from reorganization, is not something the working tree or the best-practices guide can settle \u2014 it needs Tim's read.",
+        "The .dev/inprocess/2026-09-01-support-selected-rule-warnings/ run's decision (the ruleWarningIds/selected-rule-warnings mechanism) is fully live in architecture.js and tdd.js today, matching this contract's rule-phase-red-handoff decision. rails-read-me's Provenance rule says REPORT sweeps inprocess/ for any run whose work 'has already shipped' into .dev/completed/run-records/. Whether that separate run counts as shipped (which by rails-read-me's own definition requires a merge to dev via PR, not just presence in this local working tree) is outside what this area's evidence can determine, and outside this contract's scope to decide.",
+        "The .claude/worktrees/agent-ad5849648391239d1/ worktree holding a stale, pre-rails-explorer/pre-rails-test-code copy of 7 rails is not itself a defect in the live rails (different branch, different commit, not part of dev/rails-doc-cleanup), but whether that worktree is still needed by an active background agent or is safe to remove is outside this area's evidence \u2014 it is a repo-hygiene question, not a rail-ownership one."
+      ],
+      "autoResolved": []
+    },
+    {
+      "area": "workflow-interfaces",
+      "facts": [
+        {
+          "claim": "Exactly nine workflow scripts exist, one per pipeline stage script: architecture.js, design.js, ground.js, hidden-decision-scan.js, implement.js, prior-art-ledger.js, refute.js, rule-phase.js, tdd.js.",
+          "evidence": "`ls .agents/workflows/` \u2014 9 .js files, 11,658 total lines (`wc -l .agents/workflows/*.js`). The prior untracked additions at this path from the session-start git status (required-agent-runtime.js, selected-rule-warnings.js, stage-result-contracts.js, workflow-input.js) are no longer there; `find .agents/workflows -maxdepth 1 -type f` confirms only the 9. They now live, retired, at `.dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/` (4 files, confirmed by `find`)."
+        },
+        {
+          "claim": "Each script self-declares its stage identity as a top-level `export const meta = { name, description, phases }` at the very top of the file (before any copied module), and `meta.name` exactly matches the filename stem.",
+          "evidence": "`sed -n '1,9p'` on all 9 files: architecture.js meta.name='architecture', design.js='design', ground.js='ground', hidden-decision-scan.js='hidden-decision-scan', implement.js='implement', prior-art-ledger.js='prior-art-ledger', refute.js='refute', rule-phase.js='rule-phase', tdd.js='tdd'."
+        },
+        {
+          "claim": "No script calls `workflow()` as executable code anywhere in `.agents/workflows/`; the only occurrences of the literal string `workflow(` are inside explanatory comments.",
+          "evidence": "`grep -n \"workflow(\" .agents/workflows/*.js` \u2192 27 hits, every one a comment line reading `// workflow() nesting at one level, so shared code is copied instead...` (one per copied-module header)."
+        },
+        {
+          "claim": "Shared code is copied between `// ##COPIED-MODULE-BEGIN## <name>` / `// ##COPIED-MODULE-END## <name>` marker pairs. Five distinct block names exist, with these exact copy counts: workflow-input = 9 (every script), required-agent-runtime = 9 (every script), stage-result-contracts = 8 (every script except architecture.js), selected-rule-warnings = 2 (architecture.js, tdd.js), prior-art-ledger = 2 (ground.js, prior-art-ledger.js). 30 blocks total.",
+          "evidence": "Full grep of every BEGIN/END marker line across the 9 files, tabulated per file (pasted in-session); cross-confirmed by the checker's own summary line: `9 workflow files, 30 copied blocks, 5 distinct block names`."
+        },
+        {
+          "claim": "`eng/check-copied-modules.mjs` is the enforcement mechanism: it globs every `.js` in `.agents/workflows/`, extracts every marked block by regex, groups by name, and requires `body !== reference.body` to be false for every copy \u2014 comparing copies only to each other, never to hardcoded expected text. It also fails on a duplicate block name within one file and on unbalanced BEGIN/END counts.",
+          "evidence": "Full source read, eng/check-copied-modules.mjs:1-46 (`DIR = .agents/workflows`, regex `BLOCK`, `differing = copies.filter((c) => c.body !== reference.body)`, `begins !== ends` guard)."
+        },
+        {
+          "claim": "The checker currently passes clean on the live tree.",
+          "evidence": "Ran `node eng/check-copied-modules.mjs` \u2014 output: `prior-art-ledger 2 copies identical`, `required-agent-runtime 9 copies identical`, `selected-rule-warnings 2 copies identical`, `stage-result-contracts 8 copies identical`, `workflow-input 9 copies identical`, then `PASS \u2014 every duplicated block is byte-identical across all copies`."
+        },
+        {
+          "claim": "The checker is NOT wired into any automated gate \u2014 CI, build, test, or a git hook \u2014 so a hand-edit that drifts one copy of a block would NOT be caught automatically; only a manual `node eng/check-copied-modules.mjs` run catches it.",
+          "evidence": "`grep -n \"eng/|\\.mjs|node \" .github/workflows/ci.yml` \u2192 19 hits, all `.sh`/dotnet/codesign lines, zero mention of the checker or of any `node`/`.mjs` invocation. No `package.json` exists anywhere in the repo (`ls package.json` \u2192 \"NO package.json\"). No `.husky`/`pre-commit` file exists (`find . -iname \"*.husky*\" -o -iname \"pre-commit\"` \u2192 empty)."
+        },
+        {
+          "claim": "This gap is an explicit, Tim-approved decision, not an oversight: the contract's `workflow-runtime-test-waiver` states 'Do not add a persistent test suite for the workflow scripts or wire one into the build, test, CI, or gate paths,' quoting Tim: 'that is an unavoidable state we are not GOING to resolve and I'm going to have to live with ... but which I can survive becuase I know I use these scripts enough to find and fix any problems. I DO NOT want more complexity.'",
+          "evidence": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md:230-238 (`workflow-runtime-test-waiver` section, verbatim Tim quote)."
+        },
+        {
+          "claim": "The retired originals \u2014 provenance only, not loaded or registered \u2014 are exactly the 4 files matching the 4 module names that were ever standalone scripts: workflow-input.js, required-agent-runtime.js, selected-rule-warnings.js, stage-result-contracts.js. `prior-art-ledger` was never retired because prior-art-ledger.js remains one of the 9 live stage scripts in its own right, so it both defines and consumes that block.",
+          "evidence": "`find .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules -maxdepth 1 -type f` \u2192 the 4 named files; each copied-block header cites this exact path, e.g. architecture.js:11 'Generated copy of .dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/workflow-input.js'; ground.js:1184 and prior-art-ledger.js:1184 both define `async function __priorArtLedger(args) {...}` inline."
+        },
+        {
+          "claim": "Open GitHub issue #58 (live, confirmed) explains the mechanism's origin: the Claude Code Workflow tool's only code-sharing primitive is `workflow('name', args)`, capped at one nesting level \u2014 a child workflow calling `workflow()` throws 'workflow() cannot be called from within a child workflow.' The 4 shared modules used to be separate scripts invoked via `workflow('name')` from each stage script (itself already a child workflow of the orchestrator), which hit that cap; inlining them as copied blocks frees the one nesting level for a case that needs it. This also explains why 7 of the 9 scripts end in a top-level `return` \u2014 the Workflow tool executes each script's source as an AsyncFunction body, not a standard module.",
+          "evidence": "`gh issue view 58 --repo 4thWAIV/agent-guard`: title 'Move the workflow scripts to a TypeScript source tree bundled with esbuild', state OPEN, body sections 'Why' and 'Current state \u2014 unblocked by hand, at a cost' (quoted verbatim in-session)."
+        },
+        {
+          "claim": "Issue #58's own text is stale on one point: it names the retired-modules path as `.agents/workflows/_retired/`, which does not exist in the working tree. The correct, live location \u2014 consistently cited in every in-repo 'Generated copy of' header and in the contract \u2014 is `.dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/`.",
+          "evidence": "`ls .agents/workflows/_retired` \u2192 'No such file or directory'; `find . -iname \"_retired\"` (excluding .git/node_modules) \u2192 empty."
+        },
+        {
+          "claim": "Required inputs per script, each enforced by an explicit throw immediately after the shared `__workflowInput` unwrap: ground.js needs `{projectPath, areas:[{id,focus}], capabilities?:[{id,description}]}` (throws unless projectPath && areas.length && Array.isArray(capabilities)); design.js needs `{projectPath, goal, facts?, ledger?, angles?}` (throws unless projectPath && goal); rule-phase.js needs `{projectPath, contractPath, rulesToAdd:[]}` plus `noRuleEvidence` when rulesToAdd is empty; architecture.js and tdd.js each need `{projectPath, contractPath}` (tdd.js also needs `noTestEvidence` for its no-test path); implement.js needs `{projectPath, contractPath, level?:'L1'|'L2'}` (L3 is invalid \u2014 implement.js never runs at L3); refute.js needs `{projectPath, level?:'L1'|'L2'|'L3', changedFiles:[]}` plus contractPath at L1/L2 or humanRequest at L3; hidden-decision-scan.js needs `{contractPath, projectPath}`; prior-art-ledger.js needs `{projectPath, capabilities:[{id,description}]}` (validated inside its own `__priorArtLedger` body).",
+          "evidence": "Direct reads of each script's post-copied-module input block and its `if (!x) throw new Error(...)` guard: ground.js~1313-1325, design.js~1181-1197, rule-phase.js~1181-1200, architecture.js~626-636, tdd.js~1237-1252, implement.js:1206-1221 (`if (!projectPath || !contractPath || !['L1','L2'].includes(level))`), refute.js~1181-1207 (4 separate guards), hidden-decision-scan.js~1181-1189, prior-art-ledger.js:1184-1196."
+        },
+        {
+          "claim": "Returned shapes: ground.js -> {projectPath, facts, ledger, panelComplete, failedRoles, ...}; design.js -> {goal, proposals, verdict, panelComplete, failedRoles}; rule-phase.js -> {ruleFiles, buildProof, perRule, notes?, verdicts, anyFail, panelComplete, failedRoles}; architecture.js -> {skeletonFiles, signatureDiff, buildProof, perType, notes, verdicts, anyFail, panelComplete, failedRoles}; tdd.js -> {testFiles, redProof, coverage, notes, verdicts, anyFail, panelComplete, failedRoles}; implement.js -> the worker's own RESULT_SCHEMA object {changedFiles, buildProof, testProof, acceptance:[{item,met,evidence}], walls, complete} (returned directly as `panel.results[0]`); refute.js -> {contractPath, verdicts, anyFail, failedLenses, panelComplete, failedRoles}; hidden-decision-scan.js -> {contractPath, findings, autoResolved, droppedAsNoise, panelComplete, failedRoles}; prior-art-ledger.js -> {projectPath, verdicts, panelComplete, failedRoles}. On any incomplete panel, every script instead returns the same shared shape (`panelComplete:false, failedRoles, priorPanelResults, retryRoles[, priorStageResult]`) sourced from the one shared `required-agent-runtime` block.",
+          "evidence": "Tail (`tail -n 30`) of every script read directly; implement.js RESULT_SCHEMA at implement.js:1183-1203."
+        },
+        {
+          "claim": "architecture.js is the one script that does NOT use the `stage-result-contracts` copied block; it defines its own inline `SKELETON_SCHEMA` and hands it straight to `__requiredAgentRuntime` as the author role's schema, instead of routing through `__stageResultContracts`.",
+          "evidence": "`grep -c __stageResultContracts .agents/workflows/architecture.js` \u2192 0; `SKELETON_SCHEMA` defined at architecture.js:599 and referenced as `schema: SKELETON_SCHEMA` at architecture.js:701."
+        },
+        {
+          "claim": "The documented 10-stage pipeline is GROUND -> DESIGN -> CONTRACT -> RULE-PHASE -> ARCHITECTURE -> TDD -> IMPLEMENT -> REFUTE -> GATE -> REPORT. Of these, 7 have a live one-to-one workflow script (ground.js, design.js, rule-phase.js, architecture.js, tdd.js, implement.js, refute.js); CONTRACT, GATE, and REPORT explicitly have 'No workflow script' \u2014 the orchestrator performs them directly. hidden-decision-scan.js and prior-art-ledger.js are the 2 remaining scripts: prior-art-ledger.js is called from inside ground.js's own logic only when `capabilities.length > 0`; hidden-decision-scan.js is run by the orchestrator separately 'before the contract locks' and is never called by ground.js \u2014 the two share zero call reference to each other.",
+          "evidence": ".agents/skills/rails-run-a-workflow/SKILL.md stage-sequence fence and the per-stage '**Script:**' lines for GROUND/CONTRACT/GATE/REPORT; ground.js:1179-1184,1388 (`await __priorArtLedger({...})` gated on `capabilities.length`); `grep -ln \"hidden-decision-scan|hiddenDecisionScan\" .agents/workflows/*.js` \u2192 only hidden-decision-scan.js itself and refute.js (which references it only as one of the `stageOutputs` names it validates, `hiddenDecisionScan: 'hidden-decision-stage'` at refute.js:1219)."
+        },
+        {
+          "claim": "This mechanism is not merely read but observably live: the prompt this exploration task received is generated verbatim by ground.js's own `explorePrompt(area)` template function.",
+          "evidence": "ground.js:1332-1338 defines `explorePrompt` with the exact text 'You are an explorer deriving GROUND TRUTH for one area of a subsystem from the live working tree...PROJECT PATH: ${projectPath}\\nYOUR AREA \u2014 ${area.id}: ${area.focus}' \u2014 matching this task's own prompt with `area.id`='workflow-interfaces' substituted in."
+        }
+      ],
+      "surfaces": [
+        ".agents/workflows/architecture.js",
+        ".agents/workflows/design.js",
+        ".agents/workflows/ground.js",
+        ".agents/workflows/hidden-decision-scan.js",
+        ".agents/workflows/implement.js",
+        ".agents/workflows/prior-art-ledger.js",
+        ".agents/workflows/refute.js",
+        ".agents/workflows/rule-phase.js",
+        ".agents/workflows/tdd.js",
+        "eng/check-copied-modules.mjs",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/workflow-input.js",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/required-agent-runtime.js",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/stage-result-contracts.js",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/selected-rule-warnings.js",
+        ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+        ".agents/skills/rails-run-a-workflow/SKILL.md",
+        ".github/workflows/ci.yml (confirmed absent from \u2014 the checker has no CI surface)",
+        "repo root (confirmed absent from \u2014 no package.json, no .husky/pre-commit hook surface exists)",
+        "GitHub issue #58 (4thWAIV/agent-guard) \u2014 external record of the mechanism's origin and future-removal plan"
+      ],
+      "openQuestions": [
+        "The exact runtime call site that invokes each of the nine scripts (e.g. an orchestrator-side `workflow('ground', {...})` call) is not visible anywhere in this repository's working tree \u2014 it lives inside Claude Code's own Workflow tool, external to this codebase. Each script's self-declared `meta.name` matching its filename is the only in-repo evidence of what key selects it; the working tree alone cannot prove that name is literally what gets passed to `workflow()` at runtime."
+      ],
+      "autoResolved": []
+    },
+    {
+      "area": "prior-art-and-scope",
+      "facts": [
+        {
+          "claim": "The dirty working tree matches the reorganize-rails contract's Surfaces list exactly: the 9 rails-*/SKILL.md files, the 9 .agents/workflows/*.js files, .dev/inprocess/2026-09-01-reorganize-rails/ (including retired-workflow-modules/), eng/check-copied-modules.mjs, and .dev/reference/best-practices-guide.md. No file outside those Surfaces entries is dirty except .obsidian/ (pre-existing, see next fact).",
+          "evidence": "`git status --porcelain=v1` (run live): the only non-Surfaces untracked entries are `?? .obsidian/` and `?? .dev/inprocess/2026-09-01-support-selected-rule-warnings/`, both addressed below."
+        },
+        {
+          "claim": "No product code, product tests, analyzers, build scripts, CI, or release behavior was touched by this work. The only change outside .agents/ and .dev/ is the one new, contract-authorized eng/check-copied-modules.mjs.",
+          "evidence": "`git status --porcelain=v1 -- src tests analyzers eng .github Makefile makefile` returns exactly one line: `?? eng/check-copied-modules.mjs`. `git status --porcelain=v1 -- analyzers/` returns nothing (AnalyzerReleases.Shipped.md/Unshipped.md untouched, consistent with the contract's `## Rules to add` = 'None')."
+        },
+        {
+          "claim": "`.obsidian/` is untracked but predates this work and was not touched by it.",
+          "evidence": "`stat -f \"%Sm %N\" .obsidian/*.json` shows all four files dated Aug 31 2026 17:22 \u2014 a day before the 2026-09-01-reorganize-rails contract's directory date, and the files are unmodified since (same mtime on every file, none touched by later commands)."
+        },
+        {
+          "claim": "A second, self-contained, already-approved run-record exists at `.dev/inprocess/2026-09-01-support-selected-rule-warnings/` (contract.md, lie-catcher-verdict.md, opening-proof.md, PASS verdict) that is NOT named in reorganize-rails's Surfaces list. Its own Lie-catcher verdict explicitly excludes reorganize-rails files from its scope check, confirming it is prior, sibling work \u2014 not scope creep of this contract, and it explains why the Reuse ledger found the selected-rule-warnings capability duplicated only between architecture.js and tdd.js (tdd.js already had it from this earlier run; architecture.js needed it added per `rule-phase-red-handoff`; this reorg then DRY-merged the two).",
+          "evidence": ".dev/inprocess/2026-09-01-support-selected-rule-warnings/lie-catcher-verdict.md: 'The two files under `.dev/inprocess/2026-09-01-reorganize-rails/` belong to the separate, approved reorganization work. Do not count them against the selected-warning change's file scope... the only implementation files in the selected-warning change are `.agents/skills/rails-run-a-workflow/SKILL.md` and `.agents/workflows/tdd.js`.'"
+        },
+        {
+          "claim": "`.agents/workflows/` currently contains exactly the nine stage scripts named in Surfaces \u2014 no separate top-level module files (`required-agent-runtime.js`, `selected-rule-warnings.js`, `stage-result-contracts.js`, `workflow-input.js`) remain, even though such files were present in an earlier snapshot of this same session. The live tree has moved past that snapshot per Tim's inlining instruction quoted in the contract ('Inline it and get me the nesting level back.').",
+          "evidence": "`ls .agents/workflows/*.js` returns exactly 9 files; `git status --porcelain=v1` in the current turn no longer lists those four filenames (they appeared as `??` in this task's opening git-status snapshot but are absent from a live re-run)."
+        },
+        {
+          "claim": "No workflow script calls the `workflow()` runtime primitive anywhere; every match of the string is inside comment prose explaining the copied-module convention. This satisfies both `copied-module-convention` ('no workflow script calls workflow()') and Acceptance #27.",
+          "evidence": "`grep -n \"workflow(\" .agents/workflows/*.js` \u2014 every hit is a comment line reading '...workflow() nesting at one level, so shared code is copied instead...'; zero hits are executable calls."
+        },
+        {
+          "claim": "`node eng/check-copied-modules.mjs` exits 0 and reports every copy of every named block byte-identical: 9 workflow files, 30 copied blocks, 5 distinct block names (prior-art-ledger \u00d72, required-agent-runtime \u00d79, selected-rule-warnings \u00d72, stage-result-contracts \u00d78, workflow-input \u00d79). Satisfies Acceptance #26.",
+          "evidence": "Command output (paste): 'prior-art-ledger 2 copies identical / required-agent-runtime 9 copies identical / selected-rule-warnings 2 copies identical / stage-result-contracts 8 copies identical / workflow-input 9 copies identical / 9 workflow files, 30 copied blocks, 5 distinct block names / PASS \u2014 every duplicated block is byte-identical across all copies', EXIT=0."
+        },
+        {
+          "claim": "The `workflow-input` shared block DRYs up a genuine, real, pre-existing duplicate: at HEAD (the pre-reorg baseline), all nine .agents/workflows/*.js scripts independently implemented the identical 'unwrap args through up to 5 JSON.parse levels' loop.",
+          "evidence": "`git show HEAD:.agents/workflows/<file>.js | grep -n unwrapGuard` returns the same `let unwrapGuard = 0; while (typeof input === 'string' && unwrapGuard < 5) { ... JSON.parse ... }` shape independently in all 9 files (architecture.js:63-70, design.js:51-58, ground.js:35-42, hidden-decision-scan.js:61-68, implement.js:37-44, prior-art-ledger.js:54-61, refute.js:36-43, rule-phase.js:62-69, tdd.js:63-70)."
+        },
+        {
+          "claim": "The `stage-result-contracts` + `required-agent-runtime` blocks DRY up a genuine, real, pre-existing duplicate: at HEAD, every one of the 9 scripts defined its own independently-authored per-stage schema const (e.g. FACTS_SCHEMA in ground.js; APPROACH_SCHEMA/VERDICT_SCHEMA in design.js; RULEGEN_SCHEMA/VERDICT_SCHEMA in rule-phase.js; TESTGEN_SCHEMA/VERDICT_SCHEMA in tdd.js; VERDICT_SCHEMA in refute.js; SKELETON_SCHEMA/VERDICT_SCHEMA in architecture.js; RESULT_SCHEMA in implement.js), matching the Reuse ledger's claim of diverging verdict-schema copies in rule-phase.js/architecture.js/tdd.js/refute.js.",
+          "evidence": "`git show HEAD:.agents/workflows/<file>.js | grep -n '_SCHEMA = {'` for all 9 files, output pasted above during exploration \u2014 each file has its own independently-named schema consts, none shared."
+        },
+        {
+          "claim": "The `prior-art-ledger` shared block exists for a real structural reason beyond simple DRY: at HEAD, `ground.js` reached the prior-art-ledger stage via a literal nested `workflow('prior-art-ledger', {...})` runtime call. The live `ground.js` no longer calls `workflow()` at all \u2014 it inlines prior-art-ledger.js's own body as the `__priorArtLedger` copied block instead, which is why a third block name beyond the two the contract's Decisions text names (`required-agent-runtime`, `selected-rule-warnings`) had to exist.",
+          "evidence": "`git show HEAD:.agents/workflows/ground.js` line 71: `const ledger = await workflow('prior-art-ledger', { projectPath, capabilities })`. Live `.agents/workflows/ground.js` contains `// ##COPIED-MODULE-BEGIN## prior-art-ledger ... async function __priorArtLedger(args) { const input = await __workflowInput(...) ... }` with no `workflow(` call inside it."
+        },
+        {
+          "claim": "Acceptance #13's full stale-pattern regex scan returns zero matches across all nine rails, all nine workflow scripts, and the best-practices guide, confirming no old Tier/ceremony language, no un-negated `==` pattern, no `lore`/`search_code` discovery instruction, and no old `LIES/DEVIATIONS FOUND:` output contract survives anywhere in the reorganized surface.",
+          "evidence": "`rg -n '(^|[^=!])==([^=]|$)|\\bTier\\b|low ceremony|normal ceremony|LIES/DEVIATIONS FOUND:|NONE: every change|\\blore\\b|search_code|real committed bytes|live committed bytes' <all 9 SKILL.md> <all 9 workflow .js> .dev/reference/best-practices-guide.md` produced no output and exited 1 (no match)."
+        },
+        {
+          "claim": "`ground.js`, `refute.js`, `hidden-decision-scan.js`, and `prior-art-ledger.js` now instruct 'CodeGraph and grep across src, tests, analyzers, and eng' with no `lore`/`search_code` mention, matching the `discovery-tools` decision and Acceptance #8. This is the same instruction text this GROUND-explorer task itself was launched with, confirming the live script is genuinely driving this session.",
+          "evidence": "`.agents/workflows/ground.js:1337`: 'Use CodeGraph and grep across src, tests, analyzers, and eng; do not use a separate discovery lens.' \u2014 byte-identical to the instruction in this task's own prompt."
+        },
+        {
+          "claim": "Single-owner-map holds on direct spot check: `rails-read-me/SKILL.md` no longer carries its own 'Decisions and approval' content \u2014 it routes to `rails-decisions` instead \u2014 and `rails-run-a-workflow/SKILL.md` no longer contains the string 'RULE 2' or 'never invent the human', confirming that content moved to its recorded single owner rather than being duplicated in two places.",
+          "evidence": "`grep -n \"rails-decisions\" .agents/skills/rails-read-me/SKILL.md:24`: '`rails-decisions` owns the decision boundary, approval procedure, and decision violations. The Lie-catcher rules against it.' `grep -n \"RULE 2\\|never invent the human\" .agents/skills/rails-run-a-workflow/SKILL.md` returns no match."
+        },
+        {
+          "claim": "No tenth rail and no replacement/duplicate workflow stage was added: exactly nine `rails-*` directories exist under `.agents/skills/` and exactly nine `.js` files exist under `.agents/workflows/`.",
+          "evidence": "`ls .agents/skills/ | grep '^rails-'` lists exactly: rails-decisions, rails-dry-code, rails-explorer, rails-read-me, rails-real-work, rails-run-a-workflow, rails-solid-code, rails-test-code, rails-write-a-contract. `ls .agents/workflows/*.js | wc -l` = 9."
+        },
+        {
+          "claim": "The one genuinely new mechanism introduced outside the nine rails/scripts \u2014 the copied-module marker convention and its checker `eng/check-copied-modules.mjs` \u2014 is not an undisclosed capability; it is explicitly decided in the contract with Tim's quoted approval, so it is disclosed new-capability, not silent scope growth.",
+          "evidence": "contract.md `copied-module-convention` section (lines ~199-230), including Tim's quote: 'IN the meantime I suspend DRY for workflow areas of the code. YOU are allowed to copy the items directly into the other files. BUT YOU MUST label them...'"
+        }
+      ],
+      "surfaces": [
+        "git status / git diff HEAD (working tree vs HEAD, the source of truth for what actually changed)",
+        ".dev/inprocess/2026-09-01-reorganize-rails/contract.md (the contract's Surfaces list, Reuse ledger, and no-loss inventory this area checks the tree against)",
+        ".agents/skills/rails-read-me/SKILL.md, rails-run-a-workflow/SKILL.md, rails-write-a-contract/SKILL.md, rails-explorer/SKILL.md, rails-decisions/SKILL.md, rails-solid-code/SKILL.md, rails-dry-code/SKILL.md, rails-real-work/SKILL.md, rails-test-code/SKILL.md",
+        ".agents/workflows/architecture.js, design.js, ground.js, hidden-decision-scan.js, implement.js, prior-art-ledger.js, refute.js, rule-phase.js, tdd.js",
+        ".dev/inprocess/2026-09-01-reorganize-rails/retired-workflow-modules/ (provenance copies of the pre-inlined shared modules)",
+        "eng/check-copied-modules.mjs (the new drift checker, and its live 0-exit output)",
+        ".dev/reference/best-practices-guide.md",
+        ".dev/inprocess/2026-09-01-support-selected-rule-warnings/ (a separate, already-approved, uncommitted sibling run-record coexisting in the same working tree, outside this contract's Surfaces)",
+        ".obsidian/ (untracked, pre-existing, unrelated to this work)",
+        "analyzers/AnalyzerReleases.Shipped.md and AnalyzerReleases.Unshipped.md (checked clean \u2014 confirms Rules to add = None held)"
+      ],
+      "openQuestions": [
+        "The contract's Decisions text and Reuse ledger name exactly two shared copied-module owners by name (`required-agent-runtime`, `selected-rule-warnings`), and `dry-shared-module-authority` restricts Tim's blanket DRY authority to 'the shared executable owners named in the Reuse ledger.' The live tree implements five distinct named blocks (adds `prior-art-ledger`, `stage-result-contracts`, `workflow-input`). Each of the three unlisted names traces to real pre-existing duplication or a real structural constraint (documented in the facts above), but whether decomposing the ledger's two named owners into five actually-named blocks is covered by Tim's already-given authority, or needed to be named explicitly in the contract, is a judgment call this explorer cannot rule on.",
+        "`.dev/inprocess/2026-09-01-support-selected-rule-warnings/` is a separate, already-PASSed, still-uncommitted run-record sitting in the same working tree as this contract's work, outside its Surfaces/'MAY do' authorization. It is not scope creep of THIS contract, but the reorganize-rails Acceptance bracket (`make build`/`make test`, `git diff --check`) runs against the full working tree including it \u2014 worth confirming with Tim whether it should be committed/moved to completed/ independently before or alongside this contract's gate.",
+        "`.dev/inprocess/2026-09-01-reorganize-rails/open-decision-rule-phase-order.md` is headed 'Resolved decision: keep the existing stage order' but keeps the `open-decision-` filename prefix; this is cosmetic and not verified against any file-naming rule, so it is flagged rather than asserted as a problem."
+      ],
+      "autoResolved": []
+    }
+  ],
+  "ledger": {
+    "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+    "verdicts": [
+      {
+        "capability": "copied-block-drift-check",
+        "decision": "reuse",
+        "owner": "eng/check-copied-modules.mjs:12",
+        "evidence": "Sole hit at eng/check-copied-modules.mjs:12 (BLOCK regex + main loop) already extracts ##COPIED-MODULE-BEGIN##/END## blocks, groups by name, and fails on drift/duplicate name/unbalanced markers \u2014 exactly the described capability, no hardcoded content. codegraph and grep both ran; codegraph returned empty, grep returned this one match.",
+        "confidence": "high"
+      }
+    ],
+    "panelComplete": true,
+    "failedRoles": []
+  },
+  "panelComplete": true,
+  "failedRoles": []
+}
