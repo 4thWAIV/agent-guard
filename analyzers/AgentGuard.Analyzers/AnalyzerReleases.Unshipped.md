@@ -1,5 +1,10 @@
 ; Unshipped analyzer release
 ; https://github.com/dotnet/roslyn-analyzers/blob/main/src/Microsoft.CodeAnalysis.Analyzers/ReleaseTrackingAnalyzers.Help.md
+;
+; RETIRED IDs — assigned, then folded into AG0011 RawPrimitiveOnlyInOwnerAnalyzer before any release.
+; They count as used and are never reissued. They cannot be listed under '### Removed Rules' because
+; that section requires a prior shipped release, and nothing has shipped yet (RS2007).
+;   AG0012  AG0013  AG0014  AG0016  AG0021  AG0028
 
 ### New Rules
 

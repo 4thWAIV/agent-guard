@@ -1,24 +1,24 @@
-# DRAFT — the best-practices guide (category spine)
+# The best-practices guide (category spine)
 
-**Status: DRAFT — all six areas ruled.** Built with Tim this session. Every area's Layer-2 principles are locked as of 2026-08-10. What remains is the wiring: the GROUND and DESIGN skills consult it, the hidden-decision scan checks it before surfacing anything to Tim, and the policing adversary enforces it.
+**All six areas are ruled; every area's Layer-2 principles are locked as of 2026-08-10.** `rails-solid-code` and `rails-decisions` both name principle 2d (Boundary abstraction) as owning the dependency-direction rule. GROUND and DESIGN consult this guide, the hidden-decision scan filters against it before surfacing a decision to Tim, and the Lie-catcher verifies every applied-principle record and every resulting decision classification.
 
 ## What it is and how it works
 A layered reference the DESIGN stage and the GROUND hidden-decision scan both consult, so any forced choice with one correct engineering answer is taken and recorded automatically, and only genuine tradeoffs reach the human.
 
 - **Layer 1 — Categories (Tim owns).** The domains where forced choices recur.
 - **Layer 2 — Principles / the constitution (Tim owns).** A few governing rules per category. A Layer-2 principle must (a) decide situations we haven't hit yet, (b) tell the AI when to STOP and raise to Tim, and (c) have several Layer-3 resolutions fall under it. A rule that only restates one settled decision is Layer 3, not Layer 2.
-- **Layer 3 — Resolutions (auto).** The concrete choice→answer, each tagged with the principle it obeys. Auto-resolved, cite the governing principle, never approved one-by-one.
+- **Layer 3 — Resolutions (auto).** The concrete choice→answer, recorded as `autoResolved: [{ choice, resolution, principle, evidence }]`. The array is required and empty when no approved principle resolves a choice. Auto-resolved choices cite the governing principle and evidence; they are never approved one-by-one.
 
 Tim sets the "in the weeds" depth per category — for some he wants to see resolutions, for others just principles. Security (area 3) auto-resolves the standard practices in its "do these without asking" list, but its design and trust decisions are reserved for Tim and never auto-resolve.
 
 The rule that keeps it honest: a choice auto-resolves ONLY if an approved principle covers it. If none does, it is a real decision — it surfaces (via the Design Review), and Tim's answer either stays a one-off or he promotes it to a new principle. The constitution grows only when a genuinely new KIND of choice appears.
 
-## How it wires into the process (Tim's requirements, 2026-08-10)
+## How it is wired into the process (Tim's requirements, 2026-08-10)
 
 This guide is the "if you have a question, look here first" reference. It is wired in three ways:
-- **GROUND and DESIGN reference and use it.** Both skills consult the guide as they run; a forced choice covered by an approved principle is auto-resolved and cites the principle, never carried forward as an open decision.
-- **Consulted before anything asks Tim to rule.** Every gate that is about to escalate a decision to Tim — the hidden-decision scan's filter, and any agent or the orchestrator — checks the guide first. A choice covered by an approved principle never reaches Tim.
-- **Policed by an adversary.** The Lie-catcher or the Prove-It adversary enforces that a guide-covered choice was auto-resolved and cited (not escalated to Tim, and not silently defaulted where the guide doesn't cover it) — unless this job earns its own dedicated adversary. The Lie-catcher is the natural fit, since this is the approval-boundary domain, but which adversary is Tim's call.
+- **GROUND and DESIGN reference and use the guide.** Both stages consult the guide as they run. A forced choice covered by an approved principle is recorded in `autoResolved` with its resolution, principle, and evidence; the covered choice is never carried forward as an open decision.
+- **The hidden-decision filter checks the guide before anything asks Tim to rule.** A choice covered by an approved principle enters `autoResolved` and never reaches Tim. A choice with no governing principle remains open instead of being silently defaulted.
+- **The Lie-catcher polices the applied principles.** The Lie-catcher checks every `autoResolved` entry against the cited approved principle, checks that guide-covered choices were auto-resolved rather than escalated, and checks that uncovered choices were not silently defaulted.
 
 Tim: *"IT SHOULD be part of GROUND and DESIGN skills (they should reference it and use it) and it should be policed by either Lie or Prove unless it earns it own. IT SHOULD also be consulted by anythign that is ABOUT TO FUCKING ASK me to rule on something that is covered in the guide."*
 
@@ -95,17 +95,17 @@ Layer 2 — LOCKED:
 
 **6a — do these without asking:**
 - Prove behavior with a test, and watch it fail before it passes, so the test actually exercises the behavior.
-- Tests run against fakes for the outside world — filesystem, clock, network, environment — never the real OS or a live service, so they stay deterministic.
+- Unit tests use fakes for outside-world dependencies — filesystem, clock, network, and environment — so the unit tests stay deterministic. Pointed-integration tests exercise the real OS adapter on the per-OS test legs.
 - Every dependency is injected through an interface so a test can substitute it; a class never news-up its own dependency. This settles the recurring "take the interface or build my own dependency" choice — always the interface.
 - "Done" means a check anyone can re-run for the same result: the exact command and its real output, never "I ran it."
 - Never scaffold or wire a check to pass, and never hard-code an expected value just to match what the code currently does.
 - Never weaken, skip, or delete a test to get a green build; fix the code instead.
 
 **6b — these come to Tim:**
-- How much rigor a piece of work needs — the level or tier.
+- How much rigor a piece of work needs — the level.
 - Repinning a deliberately-fixed baseline, such as a golden output or a recorded expected value, when the correct value genuinely changed.
 - Waiving or accepting a known-failing or deferred check.
 
 ## Next
-1. Wire it in per "How it wires into the process": GROUND and DESIGN reference and consult it; `hidden-decision-scan.js`'s filter auto-resolves a finding covered by an approved principle and never surfaces it; the policing adversary enforces that a guide-covered choice was auto-resolved and cited.
-2. Open for Tim: which adversary polices it (Lie-catcher, Prove-It, or its own); and the 2c wording under area 2 to correct if needed.
+
+- Open for Tim: the 2c wording under area 2 to correct if needed.

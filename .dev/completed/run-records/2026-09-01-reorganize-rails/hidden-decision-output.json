@@ -1,0 +1,13 @@
+{
+  "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "findings": [],
+  "autoResolved": [
+    {
+      "choice": "What `refute.js` does when context required by the selected Level is missing.",
+      "resolution": "Throw before launching any adversary.",
+      "principle": "5a — GLOBAL default, applies in every area.",
+      "evidence": "`.dev/reference/best-practices-guide.md:84` requires missing expectations to fail closed by throwing. Contract Decisions `dry-every-level-refute-interface`, `refute-stage-output-input`, and `l3-refute-context` require Level-specific context, and `.dev/inprocess/2026-09-01-reorganize-rails/design-output.json` records this exact resolution."
+    }
+  ],
+  "droppedAsNoise": 1
+}

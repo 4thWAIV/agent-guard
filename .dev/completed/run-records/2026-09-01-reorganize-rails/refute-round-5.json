@@ -1,0 +1,321 @@
+{
+  "recordType": "Fresh L1 REFUTE after the approved round-four six-finding repair.",
+  "contractPath": ".dev/inprocess/2026-09-01-reorganize-rails/contract.md",
+  "repairDirectionPath": ".dev/inprocess/2026-09-01-reorganize-rails/refute-round-4-fix-direction.md",
+  "implementationResultPath": ".dev/inprocess/2026-09-01-reorganize-rails/implement-round-4-output.json",
+  "reviewTarget": "The complete live working tree after the round-four implementation worker finished and before any later fix, GATE, or REPORT work.",
+  "level": "L1",
+  "stageInputHandling": {
+    "ground": "For this fresh invocation only, current-format input was constructed in memory from ground-output-corrected.json.groundResultForRefute by adding panelComplete:true and failedRoles:[], with the same current result metadata added to its ledger.",
+    "design": "For this fresh invocation only, current-format input was constructed in memory from design-output.json by adding verdict.risks:[], panelComplete:true, and failedRoles:[].",
+    "hiddenDecision": "For this fresh invocation only, current-format input was constructed in memory from hidden-decision-output.json by adding panelComplete:true and failedRoles:[].",
+    "historicalRecordsChanged": false,
+    "reusableCompatibilityAdded": false
+  },
+  "exclusionsApplied": [
+    {
+      "slug": "stale-run-record-bookkeeping",
+      "text": "Do not stop because prior outputs from this in-progress run no longer match current schemas. For one-time runtime probes and the fresh REFUTE invocation, construct current-format input in memory from live facts when needed; do not turn that into another historical-record project."
+    },
+    {
+      "slug": "opening-proof-is-incomplete",
+      "text": "The reviewers must not treat stale bookkeeping from earlier stages or the waived opening-proof history as a finding."
+    }
+  ],
+  "waiversApplied": [
+    {
+      "slug": "workflow-runtime-test-waiver",
+      "text": "Do not add a persistent test suite for the workflow scripts or wire one into the build, test, CI, or gate paths."
+    },
+    {
+      "slug": "dry-shared-module-authority",
+      "text": "THE ONE thing I have given BLANKET approval for is REFACTORING code into a shared module in ourder to avoide the DEATH of DRY violations.  DRY violations can be fixed on their own."
+    }
+  ],
+  "verdicts": [
+    {
+      "lens": "prove-it",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT accepts a RULE-PHASE handoff that does not prove every approved rule.",
+          "evidence": "refute-round-4-fix-direction.md:41-43 requires perRule[].rule to match the complete rulesToAdd[].rule set. stage-result-contracts.js:447-449 enforces that set only when approvedRuleNames is supplied; lines 594-599 omit the set for a nonempty downstream result without context. implement.js:36-42 and 82-84 invoke that validation without context. Raw one-time probe: DIRECT_WITH_COMPLETE_SET=REJECTED: stage-result-contracts:rule-phase-author: perRule is missing [\"Second approved rule\"]; IMPLEMENT_HANDOFF=ACCEPTED complete=true workerCalls=1.",
+          "fix": "Carry the authoritative complete rulesToAdd rule names into IMPLEMENT's shared handoff validation, or make the RULE-PHASE result self-contained with that authoritative set, and reject missing, duplicate, or extra perRule names before launching the worker."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, round-four fix direction, implementation result, required skills, all 13 live workflow scripts, and the complete staged and unstaged diffs and changed-file lists.",
+        "Re-ran the contract's forbidden-text scan, reference resolution, in-memory syntax checks, git diff check, staged-checkpoint hash, make build, and make test.",
+        "Exercised five-level input unwrapping, caller-specific parse errors, canonical stage handoffs, L1 and L2 TDD behavior, exact no-op sentinels, selected warnings, and required-agent retry, preservation, and resume behavior.",
+        "Challenged exact rule-set validation with complete, missing, duplicate, and extra sets, then passed a missing-rule handoff through IMPLEMENT to test the downstream boundary."
+      ],
+      "proofChecked": [
+        "All 13 workflow scripts passed the in-memory AsyncFunction syntax check.",
+        "The forbidden-text scan returned no matches; repository references resolved; git diff --check passed.",
+        "make build exited 0 with 0 warnings and 0 errors; make test exited 0 with 642 passed, 0 failed, and 0 skipped.",
+        "The staged diff SHA-256 remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89.",
+        "Canonical in-memory GROUND, DESIGN, and hidden-decision results passed shared validation and launched all five L1 REFUTE roles.",
+        "Forged no-rule and no-test proof strings and missing L1 TDD were rejected before worker launch; exact sentinels and L2 conditional TDD were preserved.",
+        "Producer validation rejected the incomplete two-rule proof, but the identical incomplete handoff reached and launched IMPLEMENT's worker."
+      ]
+    },
+    {
+      "lens": "solid",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT drops the approved-rule context, so downstream RULE-PHASE validation does not enforce the complete approved rule set.",
+          "evidence": ".agents/workflows/rule-phase.js:24-28 and :180-185 derive and supply approvedRuleNames. .agents/workflows/stage-result-contracts.js:447-449 enables exact-set validation only when that context exists, while :594-599 leaves it absent for nonempty handoffs. .agents/workflows/implement.js:36-42 and :82-84 validate without context. Raw probe: two-approved-rules-one-proof-with-context => REJECTED, `perRule is missing [\"R2\"]`; the identical result without context => ACCEPTED; implement-forged-nonempty-rule-result => ACCEPTED, launches=1.",
+          "fix": "Make the approved rule identities mandatory for every rule-phase-stage validation—either carry them in a self-describing result or pass the same immutable context to IMPLEMENT—and reject missing context or mismatched proofs before launching the worker."
+        },
+        {
+          "summary": "The shared TDD result owner accepts a normal test result whose coverage explicitly says it is not RED.",
+          "evidence": ".agents/workflows/stage-result-contracts.js:300-321 declares coverage[].red as an unconstrained boolean; :455-473 requires coverage for nonempty testFiles but never requires red=true; :603-610 accepts that result as a complete TDD stage. Contract.md:609 requires the existing RED-test requirement to remain. Raw probe: shared-tdd-stage-red-false => ACCEPTED; implement-red-false-tdd => ACCEPTED, launches=1.",
+          "fix": "At the shared stage-result owner, require every coverage item to have red=true whenever testFiles is nonempty, and apply that same invariant to producer acceptance and IMPLEMENT handoff validation."
+        },
+        {
+          "summary": "The exact no-rule and no-test contracts do not validate the required exact contract evidence.",
+          "evidence": "Contract.md:61-72 and :108-119 require exact contract evidence in notes. .agents/workflows/stage-result-contracts.js:438-443 and :455-468 require only a nonempty notes string while enforcing the sentinel text. Raw probe supplied `this is nonblank but is not the exact contract sentence` and `this is nonblank but is not the exact contract evidence`; implement-noops-with-bogus-contract-evidence => ACCEPTED, launches=1.",
+          "fix": "Give the shared contract owner the expected verbatim contract excerpt or excerpts and require their exact containment in notes for no-rule and no-test results; route both producers and IMPLEMENT through that context-aware validation."
+        },
+        {
+          "summary": "The selected-warning owner constructs shell commands from unvalidated array items, admitting non-IDs and a forbidden extra MSBuild switch.",
+          "evidence": ".agents/workflows/selected-rule-warnings.js:17-24 checks only that ruleWarningIds is an array and then joins its contents into the command, despite :31-35 prohibiting warnings-as-errors overrides. Raw probes accepted [null] as `-p:WarningsNotAsErrors=`, [{}] as `-p:WarningsNotAsErrors=[object Object]`, and [\"AG0001 -p:TreatWarningsAsErrors=false\"] as `-p:WarningsNotAsErrors=AG0001 -p:TreatWarningsAsErrors=false`.",
+          "fix": "Validate each supplied ID at selected-rule-warnings.js as a nonempty, single MSBuild-safe diagnostic token and reject whitespace, delimiters, newlines, objects, and argument injection before constructing either command."
+        },
+        {
+          "summary": "required-agent-runtime exposes an unused second autoResolved validation path.",
+          "evidence": ".agents/workflows/required-agent-runtime.js:56, :60, and :322-338 implement the autoResolvedCollections input and no-role validation path. `rg -n \"autoResolvedCollections\" .agents/workflows/*.js` returned only required-agent-runtime.js; no producer or consumer calls it. Current stage validation instead uses validationResult at .agents/workflows/stage-result-contracts.js:536-542 with role.autoResolved.",
+          "fix": "Delete autoResolvedCollections and its no-role branch, simplify the input precondition, and keep autoResolved validation on the one live role/validationResult path."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, round-four fix direction, implementation record, required rails, all thirteen live workflows, changed-file lists, and staged and unstaged diffs.",
+        "Queried CodeGraph and traced every workflow, shared owner, producer, and consumer with line-numbered reads and call-site searches.",
+        "Probed exact RULE-PHASE sets for missing, duplicate, extra, and reordered-complete results, then repeated validation without downstream context.",
+        "Probed IMPLEMENT with missing L1 TDD, an unauthorized TDD omission key, alternate no-op sentinels, bogus contract evidence, a nonempty rule result inconsistent with the current contract, and coverage marked red=false.",
+        "Probed selected-rule-warnings with null, object, blank, and argument-injecting entries.",
+        "Searched every required-agent-runtime mode for live callers and challenged the dependency and alternate-path structure.",
+        "Applied the workflow-runtime-test-waiver and did not demand a persistent workflow test."
+      ],
+      "proofChecked": [
+        "All thirteen workflow files passed the required in-memory AsyncFunction syntax check.",
+        "git diff --check exited 0 and the contract forbidden-word scan returned no matches.",
+        "Only required-agent-runtime.js contains direct agent or parallel calls; only workflow-input.js contains JSON input unwrapping; only stage-result-contracts.js contains the two no-op sentinels.",
+        "The recovery-token scan found no groundResultForRefute, rulePhaseResultForImplement, historicalResult, caseInsensitiveLens, or omittedStageAuthorizations.tdd branch in reusable workflows.",
+        "The canonical in-memory GROUND, DESIGN, and hidden-decision normalization was accepted by REFUTE and launched exactly the five L1 adversaries.",
+        "Exact-set probes rejected missing, duplicate, and extra RULE-PHASE names and accepted the complete set in either order when context was supplied.",
+        "L1 missing TDD and a TDD omission authorization were rejected before worker launch; L2 without TDD retained its approved conditional behavior.",
+        "Alternate nonblank no-rule and no-test sentinel text was rejected before worker launch.",
+        "Workflow and contract hashes remained unchanged throughout the read-only review."
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT and REFUTE still contain duplicate downstream stage-validation helpers that the approved repair explicitly required removing.",
+          "evidence": ".dev/inprocess/2026-09-01-reorganize-rails/refute-round-4-fix-direction.md:17-19 requires: “Remove the copied result validators and helpers from `implement.js` and `refute.js`.” Live .agents/workflows/implement.js:36-46 and .agents/workflows/refute.js:52-63 each define the same try/await `workflow('stage-result-contracts', { ..., operation: 'validate', result: ... })`/catch-and-rethrow helper. `git diff --no-color --unified=0 HEAD -- .agents/workflows/implement.js .agents/workflows/refute.js` shows both `+const validateStageResult` and `+const validateStageOutput` as additions. CodeGraph independently reports those functions at implement.js:36 and refute.js:52, each owned locally.",
+          "fix": "Delete both local validation helpers and invoke `stage-result-contracts` directly at their callers. If caller-specific wrapping is required, make that wrapping an option implemented once inside `stage-result-contracts`."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, round-four fix direction, implementation record, required rail skills, all thirteen live workflow scripts, complete staged and unstaged diffs, and every changed-file list.",
+        "Ran CodeGraph over the four shared owners and their callers, then queried `validateStageResult` and `validateStageOutput`; it surfaced one local wrapper in each downstream workflow.",
+        "Chained grep across `.agents/workflows`, `src`, `tests`, `analyzers`, and `eng` for JSON unwrapping, stage schemas and sentinels, stage validation, exact-set validation, run-specific recovery, selected-warning construction, and agent/retry execution.",
+        "Ran one-time in-memory probes compiling all thirteen workflows and challenging five-level input unwrapping, caller-specific parse errors, missing/duplicate/extra rule proofs, forged no-rule/no-test proofs, mandatory L1 TDD, canonical IMPLEMENT handoffs, and canonical normalized L1 REFUTE handoffs.",
+        "Scanned added executable lines for duplicate blocks and confirmed both downstream validation helpers are present in the live diff."
+      ],
+      "proofChecked": [
+        "`rg` found JSON parsing and the five-level guard only in `.agents/workflows/workflow-input.js:15-21`.",
+        "`rg` found both exact no-op sentinel literals only in `.agents/workflows/stage-result-contracts.js:26-27`.",
+        "`rg` found direct `agent()` and `parallel()` execution only in `.agents/workflows/required-agent-runtime.js:449,455,463`.",
+        "The in-memory probe rejected missing, duplicate, and extra `perRule` names; rejected forged no-op proofs before worker launch; accepted canonical proofs; and launched all five L1 REFUTE adversaries from the normalized stage evidence.",
+        "`git diff --check` and `git diff --cached --check` returned no output; the staged fingerprint remained `a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89`."
+      ]
+    },
+    {
+      "lens": "laziness",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT drops the approved rule set, so downstream exact-set validation is skipped.",
+          "evidence": "refute-round-4-fix-direction.md:19 requires, \"Route producer acceptance and downstream handoff validation through it,\" and :43 requires `perRule[].rule` to match the approved set exactly. rule-phase.js:179-185 passes `approvedRuleNames`, but implement.js:36-45 and :82-84 pass no context. stage-result-contracts.js:594-599 consequently leaves context empty for nonempty handoffs, while :447-449 performs exact-set validation only when that context is present. Raw probes: a one-rule result was ACCEPTED without context but REJECTED with expected rules [\"Rule A\",\"Rule B\"] as missing Rule B; against contract.md:421-423 (`Rules to add` is `None`), IMPLEMENT accepted a Rule A handoff, launched one worker, and returned complete=true.",
+          "fix": "Carry the complete approved rule-name set into IMPLEMENT and pass it to `rule-phase-stage` validation. Require that context and reject missing, duplicate, extra, or incorrectly empty rule results before `agent()` runs."
+        },
+        {
+          "summary": "The normal RULE-PHASE path accepts the no-rule sentinel as real build proof.",
+          "evidence": "contract.md:108-117 defines `Not applicable — the approved contract adds no rules.` only for the empty no-rule result. stage-result-contracts.js:438-450 enforces the sentinel for the empty branch but requires merely a nonempty `buildProof` for the normal branch. Raw probe with `approvedRuleNames:[\"Rule A\"]`, one rule file, and complete Rule A fixture proof returned: `ACCEPTED: normal RULE result carrying no-rule sentinel`.",
+          "fix": "In the nonempty RULE-PHASE branch, explicitly reject `NO_RULE_PROOF` as `buildProof`; reserve that sentinel exclusively for empty `ruleFiles` and `perRule`."
+        },
+        {
+          "summary": "The normal TDD path accepts the no-test sentinel as RED proof.",
+          "evidence": "contract.md:61-74 defines `Not applicable — the approved contract authorizes no test files.` only for the empty no-test result. stage-result-contracts.js:464-472 checks the sentinel only when `testFiles` is empty; the nonempty branch checks only that `coverage` is nonempty. Raw probe with one test file and RED coverage returned: `ACCEPTED: normal TDD result carrying no-test sentinel`. implement.js:85-86 routes both L1 and supplied L2 TDD handoffs through this permissive validator.",
+          "fix": "In the nonempty TDD branch, reject `NO_TEST_PROOF` as `redProof`; reserve that sentinel exclusively for empty `testFiles` and `coverage`."
+        },
+        {
+          "summary": "A normal TDD result declaring its test GREEN passes validation and reaches IMPLEMENT.",
+          "evidence": "contract.md:74 says, \"For every contract that authorizes a test surface, the existing RED-test requirement and empty-result rejection remain unchanged.\" tdd.js:61-70 requires each normal test to fail RED. stage-result-contracts.js:300-321 types `coverage[].red` as boolean, but :459-472 never requires `true`. Raw probe using one test file, `redProof:\"command exited 0; test is green\"`, and `coverage:[{red:false}]` returned `normalTddWithRedFalse: ACCEPTED`; IMPLEMENT then returned `ACCEPTED; workerCalls=1; complete=true`.",
+          "fix": "For nonempty `testFiles`, require every `coverage[].red` to equal `true` and reject the stage before its handoff can launch IMPLEMENT."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, round-four fix direction, IMPLEMENT record, required rails and communication skills, every live workflow script, all changed-file lists, and the staged and unstaged change sets.",
+        "Applied every `rails-real-work` Violation to the live implementation, concentrating on easy-only validation, one-case behavior, dropped downstream context, and internally contradictory results.",
+        "Ran the normalized canonical GROUND, DESIGN, and hidden-decision evidence through L1 REFUTE and confirmed all five required adversaries were selected.",
+        "Exercised REFUTE at L1, L2, and L3, including optional adversaries, missing required inputs, forbidden L3 stage outputs, and unknown L2 stage outputs.",
+        "Exercised IMPLEMENT at L1 and L2, including missing TDD, removed TDD-omission authorization, exact no-op handoffs, alternate forged proof, and conditional L2 TDD.",
+        "Compared context-free and context-aware exact-set validation, then passed an extra-rule handoff through IMPLEMENT against the live no-rules contract.",
+        "Challenged both normal and no-op RULE-PHASE/TDD shapes, including sentinel misuse and `coverage[].red=false`.",
+        "Applied `workflow-runtime-test-waiver`; no persistent workflow test was requested or created."
+      ],
+      "proofChecked": [
+        "All thirteen live `.agents/workflows/*.js` files passed the required in-memory AsyncFunction syntax check.",
+        "`git diff --check` and `git diff --cached --check` exited 0.",
+        "The staged checkpoint hash remained `a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89`.",
+        "The reusable-workflow compatibility scan found no `groundResultForRefute`, `rulePhaseResultForImplement`, `historicalResult`, `caseInsensitiveLens`, optional-success compatibility, or TDD omission authorization.",
+        "The exact no-rule and no-test sentinel searches each found only stage-result-contracts.js.",
+        "The supplied complete build proof reports 0 warnings and 0 errors; the supplied complete test proof reports 642 passed, 0 failed, and 0 skipped.",
+        "Fresh read-only probes proved the four reported acceptance paths and confirmed malformed inputs were rejected before agent launch in the other Level and handoff cases."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "IMPLEMENT drops the approved-rule set during RULE-PHASE handoff validation, so an incomplete proof set reaches the worker.",
+          "evidence": ".agents/workflows/implement.js:36-42,82-84 invokes `rule-phase-stage` validation without context. .agents/workflows/stage-result-contracts.js:428-450 installs exact-set validation only when `approvedRuleNames` is supplied; lines 594-599 omit it for nonempty `ruleFiles` when the caller supplies no context. Live in-memory probe output: `WITH_APPROVED_RULE_NAMES=REJECT:stage-result-contracts:rule-phase-author: perRule is missing [\"Second\"]`; `WITHOUT_APPROVED_RULE_NAMES=ACCEPT`; `IMPLEMENT_RESULT=ACCEPT`; `IMPLEMENT_WORKER_LAUNCHES=1`. This refutes the completion and repair claims in .dev/inprocess/2026-09-01-reorganize-rails/implement-round-4-output.json:9,43-44,112-115.",
+          "fix": ""
+        }
+      ],
+      "refutationAttempts": [
+        "Read the complete contract, round-four fix direction, implementation output, accepted/narrowed/rejected round-four adjudication, required rails, best-practices guide, all thirteen live workflows, and the complete staged and unstaged change sets and changed-file lists.",
+        "Traced shared result-contract validation from RULE-PHASE producer acceptance through IMPLEMENT downstream consumption.",
+        "Executed the live shared validator with the same incomplete two-approved-rule/one-proof result both with and without `approvedRuleNames`, then executed IMPLEMENT with that result and counted worker launches.",
+        "Probed forged no-rule proof, forged no-test proof, and missing L1 TDD independently; all three were rejected before worker launch.",
+        "Checked every supplied `autoResolved` entry against best-practices principle 5a and searched the live changes for invented approval, suppression, test weakening, and out-of-scope product, test, analyzer, build, CI, or release changes."
+      ],
+      "proofChecked": [
+        "The staged checkpoint hash remains `a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89`.",
+        "A fresh read-only AsyncFunction check parsed all thirteen live workflow files.",
+        "`git diff --check` and `git diff --cached --check` returned no diagnostics.",
+        "The exact forbidden-wording scan returned no matches; suppression-related matches were policy text and the approved `WarningsNotAsErrors` owner, not suppressions applied to reach green.",
+        "The saved closing proof reports 0 build warnings, 0 build errors, 642 tests passed, 0 failed, and 0 skipped.",
+        "The changed-path audit found no product, test, analyzer, build, CI, or release file changes."
+      ]
+    }
+  ],
+  "adjudication": {
+    "accepted": [
+      {
+        "slug": "implement-drops-approved-rule-set",
+        "sources": [
+          "prove-it finding 1",
+          "solid finding 1",
+          "laziness finding 1",
+          "lie-catcher finding 1"
+        ],
+        "finding": "IMPLEMENT validates a nonempty RULE-PHASE result without the contract's complete approved rule-name set, so the shared exact-set check is skipped and an incomplete or extra rule proof can reach the worker.",
+        "reason": "The live probes proved that the same incomplete result is rejected when approvedRuleNames is supplied, accepted when that context is absent, and accepted by IMPLEMENT before it launches the worker."
+      },
+      {
+        "slug": "normal-tdd-allows-non-red-coverage",
+        "sources": [
+          "solid finding 2",
+          "laziness finding 4"
+        ],
+        "finding": "The shared TDD contract and IMPLEMENT accept a normal test result whose coverage explicitly records red:false.",
+        "reason": "The normal TDD path requires RED proof, but the live validator checks only that red is a boolean and that coverage is nonempty."
+      },
+      {
+        "slug": "no-op-notes-do-not-prove-exact-contract-evidence",
+        "sources": [
+          "solid finding 3"
+        ],
+        "finding": "The shared no-rule and no-test result checks accept arbitrary nonblank notes instead of confirming that notes contain the required verbatim contract evidence.",
+        "reason": "The exact proof sentinel is enforced, but the separately required contract excerpt in notes is not."
+      },
+      {
+        "slug": "selected-rule-warning-items-are-not-command-safe",
+        "sources": [
+          "solid finding 4"
+        ],
+        "finding": "selected-rule-warnings.js joins array values directly into an MSBuild command without first requiring each value to be one nonblank command-safe diagnostic token.",
+        "reason": "Live probes showed that null, objects, blank values, whitespace, and a second MSBuild switch can be admitted into the generated argument."
+      },
+      {
+        "slug": "unused-auto-resolved-validation-path",
+        "sources": [
+          "solid finding 5"
+        ],
+        "finding": "required-agent-runtime.js retains an autoResolvedCollections input and validation branch that no workflow calls.",
+        "reason": "The repository search found the name only inside required-agent-runtime.js; the live validation path uses validationResult and role.autoResolved instead."
+      },
+      {
+        "slug": "downstream-stage-validation-wrappers-are-copied",
+        "sources": [
+          "dry finding 1"
+        ],
+        "finding": "implement.js and refute.js each retain a local helper that wraps the same call to stage-result-contracts and rethrows its error.",
+        "reason": "The approved shared-owner repair explicitly required the copied validators and helpers to be removed, and the two live wrappers are still duplicate executable logic."
+      },
+      {
+        "slug": "normal-rule-phase-accepts-no-rule-sentinel",
+        "sources": [
+          "laziness finding 2"
+        ],
+        "finding": "The normal nonempty RULE-PHASE result accepts the no-rules sentinel as buildProof.",
+        "reason": "The sentinel is valid only for an empty no-rule result, but the nonempty branch checks only that buildProof is nonblank."
+      },
+      {
+        "slug": "normal-tdd-accepts-no-test-sentinel",
+        "sources": [
+          "laziness finding 3"
+        ],
+        "finding": "The normal nonempty TDD result accepts the no-test sentinel as redProof.",
+        "reason": "The sentinel is valid only for an empty no-test result, but the nonempty branch does not exclude it."
+      }
+    ],
+    "narrowed": [
+      {
+        "source": "solid finding 4",
+        "ruling": "The accepted defect is command safety and single-token validity only. An eventual repair must not restrict diagnostic IDs by product prefix, predicted set, or uniqueness; those extra restrictions are explicitly outside the approved selected-warning contract."
+      },
+      {
+        "source": "prove-it finding 1 / solid finding 1 / laziness finding 1 / lie-catcher finding 1",
+        "ruling": "These four reports identify one underlying defect and are consolidated as implement-drops-approved-rule-set."
+      },
+      {
+        "source": "solid finding 2 / laziness finding 4",
+        "ruling": "These two reports identify one underlying defect and are consolidated as normal-tdd-allows-non-red-coverage."
+      }
+    ],
+    "rejected": []
+  },
+  "coordinatorProof": [
+    "Inspected the complete worker diff against /tmp/agent-guard-round5-before.3tfMW6 and the complete current contents of both new shared workflow files.",
+    "All 13 live workflow scripts passed the contract-required in-memory AsyncFunction syntax check after the worker's final edit.",
+    "The ownership scan found the five-level input-unwrapping logic only in workflow-input.js, the exact no-op sentinel literals only in stage-result-contracts.js, and direct agent/parallel execution only in required-agent-runtime.js.",
+    "The run-specific compatibility scan found no groundResultForRefute, rulePhaseResultForImplement, historicalResult, caseInsensitiveLens, or omittedStageAuthorizations.tdd branch in reusable workflows.",
+    "git diff --check exited 0.",
+    "Fresh make build exited 0 with 0 warnings and 0 errors.",
+    "Fresh make test exited 0 with 642 passed, 0 failed, and 0 skipped.",
+    "The staged checkpoint remained a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89."
+  ],
+  "agentRetries": [],
+  "panelComplete": true,
+  "anyFail": true,
+  "failedLenses": [
+    "prove-it",
+    "solid",
+    "dry",
+    "laziness",
+    "lie-catcher"
+  ],
+  "freshFindingCount": 8,
+  "freshFindingsRepaired": false,
+  "nextStageStarted": false,
+  "gateRun": false
+}

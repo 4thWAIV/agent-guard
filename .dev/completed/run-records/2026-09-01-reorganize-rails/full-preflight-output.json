@@ -1,0 +1,72 @@
+{
+  "ready": true,
+  "blockingDecisions": [],
+  "newConflicts": [],
+  "resolvedBeforeWorker": [
+    "Completed the no-signature ARCHITECTURE SOLID, DRY, and Lie-catcher panel.",
+    "Reran the no-test TDD panel after ARCHITECTURE and corrected its exact-evidence note; test-quality, DRY, and Lie-catcher all passed."
+  ],
+  "remainingApprovedWork": {
+    ".agents/skills/rails-read-me/SKILL.md": [
+      "Remove the sentence that automatically assigns reads, probes, and trivial documentation to L3; Level policy belongs to `rails-run-a-workflow`."
+    ],
+    ".agents/skills/rails-run-a-workflow/SKILL.md": [
+      "Add Tim's exact default-Level rule: `ANY run IS DEFAULT to L1 UNless I approve L2 or L3`.",
+      "Make DRY required at L1, L2, and L3.",
+      "Synchronize DESIGN with `ledger` and `reuseInstructions`.",
+      "Replace RULE-PHASE production-RED proof with fixture proof and the approved no-rule result.",
+      "Record production RED as impact and hand approved `ruleWarningIds` to both ARCHITECTURE and TDD.",
+      "Describe the approved no-signature ARCHITECTURE result and no-test TDD result.",
+      "Synchronize REFUTE with the approved Level panels, stage outputs, and L3 `humanRequest`.",
+      "Add `required-agent-result-retry`."
+    ],
+    ".agents/workflows/ground.js": [
+      "Apply `required-agent-result-retry` to the explorer panel."
+    ],
+    ".agents/workflows/design.js": [
+      "Accept and pass the optional GROUND ledger; require `reuseInstructions: string[]`; apply `required-agent-result-retry` to architects."
+    ],
+    ".agents/workflows/hidden-decision-scan.js": [
+      "Apply `required-agent-result-retry` to hunters and do not run the dependent filter while a required hunter has no valid result."
+    ],
+    ".agents/workflows/rule-phase.js": [
+      "Use the approved fixture proof and no-rule result; record production diagnostics as impact; use live analyzer release tracking; update prompts; apply `required-agent-result-retry`."
+    ],
+    ".agents/workflows/architecture.js": [
+      "Accept approved `ruleWarningIds`; require contract approval for each selected ID and ARCHITECTURE build; keep diagnostics visible; accept and review the no-signature result; apply `required-agent-result-retry`."
+    ],
+    ".agents/workflows/tdd.js": [
+      "Preserve selected-warning support; accept and review only the contract-backed no-test result; retain normal RED and empty-result rejection; apply `required-agent-result-retry`."
+    ],
+    ".agents/workflows/refute.js": [
+      "Implement default L1, exact Level panels, DRY at every Level, required stage outputs, L1/L2 contract context, L3 human request, and `required-agent-result-retry`."
+    ],
+    ".dev/inprocess/2026-09-01-reorganize-rails/architecture-output.json": []
+  },
+  "noRemainingImplementationEditFound": [
+    ".agents/skills/rails-decisions/SKILL.md",
+    ".agents/skills/rails-dry-code/SKILL.md",
+    ".agents/skills/rails-explorer/SKILL.md",
+    ".agents/skills/rails-real-work/SKILL.md",
+    ".agents/skills/rails-solid-code/SKILL.md",
+    ".agents/skills/rails-test-code/SKILL.md",
+    ".agents/skills/rails-write-a-contract/SKILL.md",
+    ".agents/workflows/implement.js",
+    ".agents/workflows/prior-art-ledger.js",
+    ".dev/reference/best-practices-guide.md"
+  ],
+  "staleRecords": [
+    "`pending-decisions.md` still describes approved decisions and recovered records as pending or missing.",
+    "Pre-worker `currently` statements in the decision records must be marked as checkpoint history when their described implementation changes."
+  ],
+  "scopeStatus": {
+    "status": "PASS",
+    "trackedChanges": "Inside the main or selected-warning contract Surfaces.",
+    "forbiddenTrackedDiff": [],
+    "obsidian": "Untracked, outside both contracts, and untouched.",
+    "diffCheck": "PASS",
+    "workflowSyntax": "All nine scripts PASS the in-memory syntax check.",
+    "recoveredOpeningProof": "Recorded and green."
+  },
+  "stagedFingerprint": "a46619f180a9d7d48ea0b6ae0b029c3e00aacabebe9ae1d1f8a97ee814571c89"
+}
