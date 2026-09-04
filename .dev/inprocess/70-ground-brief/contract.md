@@ -49,10 +49,11 @@ For this run: both scripts validate the three new inputs and refuse to launch wi
 
 ## Reuse ledger
 
-GROUND does not run at L2, so the lenses were run directly against the working tree.
+Produced by `.agents/workflows/prior-art-ledger.js`, recorded as the script returned it.
 
-- **Rendering a brief into an agent prompt** — `new`. Grep across `.agents/workflows/*.js` for `gh issue`, `readFile`, and `fs.` returns nothing: no workflow script reads a file or shells out. All ten scripts build a `PROJECT PATH:` prompt preamble inline, but none carries an issue or folder brief. Nothing exists to reuse.
-- **Sharing that rendering between two scripts** — `extract`. The Workflow runtime has no module import, so the repository's existing answer is the copied-module convention already used by `workflow-input`, `required-agent-runtime`, `stage-result-contracts`, `prior-art-ledger`, and `selected-rule-warnings`. The new block follows it exactly: the same header comment, the same `// ##COPIED-MODULE-BEGIN## <name>` and `// ##COPIED-MODULE-END## <name>` markers, byte-identical in both files.
+**render-issue-brief — `extract`, high confidence.** Copies at `.agents/workflows/design.js:42` and `.agents/workflows/ground.js:42`. Grep found byte-identical `__workflowBrief` bodies at both, tagged as the copied-module block `workflow-brief`, each with one call site (design.js:1309, ground.js:1442) doing the same rendering: issue number plus optional scope plus folder path into the same brief string telling the agent to read the live issue via `gh issue view` and the folder, with the live issue as authority. CodeGraph confirmed both resolutions and callers, and flagged no covering tests.
+
+**share-code-between-workflow-scripts — `reuse`, high confidence.** Owner at `.agents/skills/rails-run-a-workflow/SKILL.md:269`. The rail already documents the mechanism: the Workflow runtime provides no module import and caps nesting at one level, so shared code is copied into each script under the `##COPIED-MODULE-BEGIN##` / `##COPIED-MODULE-END##` markers, held byte-identical by `eng/check-copied-modules.mjs`. Seven blocks already use it across nine scripts. The convention itself is the sanctioned answer to the missing module import, so new shared code follows it rather than inventing a mechanism.
 
 ## What to do
 

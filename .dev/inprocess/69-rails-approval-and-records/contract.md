@@ -24,13 +24,15 @@ Each decision below was settled in conversation and approved as written.
 
 10. This work runs at L2.
 
-11. `rails-read-me` states that the roadmap lives in two places, with two jobs: `.dev/backlog/` holds the design and plan documents, and the GitHub issues hold the tracked work items, their order, and what is still open.
+11. `rails-read-me` carries this text: "**The roadmap lives in two places, with two jobs.** `.dev/backlog/` holds the design and plan documents — the long-form thinking about a piece of work. The GitHub issues (`gh issue list`) hold the tracked work items, their order, and what is still open. Read the backlog document to understand what a piece of work is; read the issues to find what is next."
 
 12. A Decision is never filtered. It binds exactly as written — when it says every place, it means every place. The Surfaces section lists where the work is known to be, as an aid to whoever does it and never as a boundary. A place the list misses is still in scope, and a list that disagrees with the tree is the list being wrong. No section of a contract may narrow a Decision.
 
 13. A stage's own record of which checks it ran is a structured field the pipeline requires, and every stage's Outputs line may name it.
 
 14. The sentence forbidding a second path to a scope change has one owner: the `scope-boundary` copied module, shared byte-identically by every script that uses it.
+
+15. The prior-art ledger is always produced by running `.agents/workflows/prior-art-ledger.js`. It is a checked-in script that runs at any Level, so the search is never done by hand and no lens is ever skipped. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract you approve for that exact change.
 
 ## Rules to add
 
