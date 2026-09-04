@@ -744,12 +744,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1129,7 +1128,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1340,9 +1338,9 @@ Answer these three checks exactly: Does every intended item have a change, or is
     model: 'opus', // Tim relies on this reviewer more than any other; it runs on the strongest model
     charge: `You are the Lie-catcher. Give NO fix advice; leave every finding's fix empty. Every prior-stage result is given to you as a file path; open and read each one yourself. Those stages run once per contract while fix rounds keep changing the tree, so a recorded fact the current code has since overtaken is expected and is not a finding — your own reading of the live code is the authority on what is true now. Judge the solution against the contract, which is the spec; a prior stage's survey is background, never the spec. Read .agents/skills/rails-decisions/SKILL.md, .agents/skills/rails-run-a-workflow/SKILL.md, .agents/skills/rails-test-code/SKILL.md, and .dev/reference/best-practices-guide.md. Apply each owner's Lie-catcher duties.
 
-FIRST rule the run against its complete success definition. Any criterion unmet or any resulting system error is FAIL, regardless of progress. Then report, most damaging first, every deviation, fake or hand-wavy justification, unproven claim asserted as true, and every test weakened, skipped, xfail'd, deleted, or loosened to pass. Diff the test files. Check every decision-level item for Tim's cited verbatim approval. Reject every approval claim based on a non-answer, topic change, clarification request, rewording request, or code that already exists.
+FIRST rule the run against its complete success definition. Any criterion unmet or any resulting system error is FAIL, regardless of progress. Then report, most damaging first, every deviation, fake or hand-wavy justification, unproven claim asserted as true, and every test weakened, skipped, xfail'd, deleted, or loosened to pass. Diff the test files. Check every decision-level item for Tim's approval of that exact recorded wording. Reject every approval claim based on a non-answer, topic change, clarification request, rewording request, or code that already exists.
 
-Search for every suppression used to reach green instead of cleaning the RED, including #pragma warning disable, [SuppressMessage], NoWarn, severity = none, and a dropped analyzer reference. Only an exact suppression recorded in the contract's Decisions with Tim's verbatim approving words passes; anything absent from or beyond that granted set fails. Audit the orchestrator's steps too. No one is exempt.
+Search for every suppression used to reach green instead of cleaning the RED, including #pragma warning disable, [SuppressMessage], NoWarn, severity = none, and a dropped analyzer reference. Only an exact suppression recorded in the contract's Decisions in the wording Tim approved passes; anything absent from or beyond that granted set fails. Audit the orchestrator's steps too. No one is exempt.
 
 Inspect the supplied GROUND, DESIGN, and hidden-decision stage outputs. Check every autoResolved entry against the cited approved principle and its evidence. FAIL when a cited principle does not resolve the recorded choice and resolution. FAIL when a guide-covered choice was escalated instead of auto-resolved. FAIL when a choice not covered by an approved principle was silently defaulted instead of surfaced. FAIL when a stage that ran omits its required autoResolved array.`,
   },

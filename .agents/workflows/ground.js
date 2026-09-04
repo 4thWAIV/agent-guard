@@ -33,6 +33,40 @@ async function __workflowInput(args) {
 }
 // ##COPIED-MODULE-END## workflow-input
 
+// ##COPIED-MODULE-BEGIN## workflow-brief
+// This block is shared code, pasted into every workflow script that needs it. The Workflow
+// runtime gives scripts no module import and allows only one level of workflow() nesting,
+// so there is no way to call shared code from another file. Do not edit this copy alone:
+// every copy of a block name must stay byte-identical, and eng/check-copied-modules.mjs
+// fails the moment two copies differ.
+function __workflowBrief(args) {
+  const caller = args && args.caller
+  const issueNumber = args && args.issueNumber
+  const inputFolderPath = args && args.inputFolderPath
+  const issueScope = args && args.issueScope
+
+  if (typeof caller !== 'string' || !caller) {
+    throw new Error('workflow-brief requires args { caller, issueNumber, inputFolderPath, issueScope? }')
+  }
+
+  const issue = typeof issueNumber === 'number' && Number.isFinite(issueNumber)
+    ? String(issueNumber)
+    : (typeof issueNumber === 'string' ? issueNumber.trim() : '')
+  const folder = typeof inputFolderPath === 'string' ? inputFolderPath.trim() : ''
+  if (!issue || !folder) {
+    throw new Error(`${caller} requires issueNumber and inputFolderPath: the GitHub issue number this run works from, and the path of that issue's input folder`)
+  }
+  if (issueScope !== undefined && issueScope !== null && (typeof issueScope !== 'string' || !issueScope.trim())) {
+    throw new Error(`${caller}: issueScope is optional, but when it is given it must be a nonempty string naming the part of the issue this run covers`)
+  }
+
+  const scope = typeof issueScope === 'string' ? issueScope.trim() : ''
+  const scopeSentence = scope ? ` This run covers only part of that issue — ${scope} — so work to that part and nothing beyond it.` : ''
+
+  return `THE BRIEF — read it before you do anything else. This run works from GitHub issue #${issue}. Read the live issue yourself with \`gh issue view ${issue}\`, and read every file in that issue's input folder ${folder}. The live issue is the authority: wherever the live issue and anything in the input folder disagree, the issue wins.${scopeSentence}`
+}
+// ##COPIED-MODULE-END## workflow-brief
+
 // ##COPIED-MODULE-BEGIN## required-agent-runtime
 // This block is shared code, pasted into every workflow script that needs it. The Workflow
 // runtime gives scripts no module import and allows only one level of workflow() nesting,
@@ -745,12 +779,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1163,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1259,6 +1291,7 @@ async function __priorArtLedger(args) {
 
   const projectPath = input && input.projectPath
   const capabilities = input && input.capabilities
+  const brief = input && input.brief   // optional; the calling stage's run brief, absent when this stage is invoked on its own
   const priorPanelResults = input && input.priorPanelResults !== undefined ? input.priorPanelResults : []
   const retryRoles = input && input.retryRoles
   const priorStageResult = input && input.priorStageResult
@@ -1267,6 +1300,13 @@ async function __priorArtLedger(args) {
     throw new Error(
       'prior-art-ledger requires args { projectPath, capabilities: [{id, description}] } (got type: ' + typeof args + ')')
   }
+  if (brief !== undefined && brief !== null && (typeof brief !== 'string' || !brief.trim())) {
+    throw new Error('prior-art-ledger: brief is optional, but when it is given it must be a nonempty string carrying the run brief every agent reads')
+  }
+
+  // A stage that has a run brief hands it down, and every agent this block launches leads with it.
+  // Invoked on its own there is no brief, and the prompts below are exactly what they were without one.
+  const briefPreamble = brief ? `${brief.trim()}\n\n` : ''
 
   const searchContracts = []
   for (const capability of capabilities) {
@@ -1276,7 +1316,7 @@ async function __priorArtLedger(args) {
     }))
   }
 
-  const gatherPrompt = (cap) => `You are a code-search agent. Find every existing place in this codebase that ALREADY provides the capability below. Do NOT write code. Never invent a hit — only report real results the tools return. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the discovery lenses and prior-art criteria.
+  const gatherPrompt = (cap) => `${briefPreamble}You are a code-search agent. Find every existing place in this codebase that ALREADY provides the capability below. Do NOT write code. Never invent a hit — only report real results the tools return. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the discovery lenses and prior-art criteria.
 
   PROJECT PATH: ${projectPath}
   CAPABILITY id="${cap.id}": ${cap.description}
@@ -1289,7 +1329,7 @@ async function __priorArtLedger(args) {
   For each hit record: which lens found it, file, line (if known), symbol name, and a one-line snippet.
   Return: capability="${cap.id}", the pooled candidates, lensesRun (every lens you actually ran), lensesEmpty (only lenses that completed and returned nothing), and lensErrors (every lens that failed, or []). A failed lens is not empty and prevents a reuse/extract/new ruling.`
 
-  const evaluatePrompt = (cap, found) => `You are a reuse judge. Rule whether the capability below ALREADY exists in the codebase, using ONLY the pooled search hits provided. Do NOT write code. Do NOT invent hits. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the reuse/extract/new criteria.
+  const evaluatePrompt = (cap, found) => `${briefPreamble}You are a reuse judge. Rule whether the capability below ALREADY exists in the codebase, using ONLY the pooled search hits provided. Do NOT write code. Do NOT invent hits. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the reuse/extract/new criteria.
 
   CAPABILITY id="${cap.id}": ${cap.description}
 
@@ -1385,6 +1425,9 @@ async function __priorArtLedger(args) {
 const input = await __workflowInput({ caller: 'ground', value: args })
 
 const projectPath = input && input.projectPath
+const issueNumber = input && input.issueNumber           // the GitHub issue this run works from
+const inputFolderPath = input && input.inputFolderPath   // that issue's input folder
+const issueScope = input && input.issueScope             // optional; the part of the issue this run covers
 const areas = input && input.areas                 // [{ id, focus }]
 const capabilities = (input && input.capabilities) || [] // [{ id, description }]; empty means no new capability
 const priorPanelResults = input && input.priorPanelResults !== undefined ? input.priorPanelResults : []
@@ -1393,8 +1436,10 @@ const priorStageResult = input && input.priorStageResult
 
 if (!projectPath || !areas || !areas.length || !Array.isArray(capabilities)) {
   throw new Error(
-    'ground requires args { projectPath, areas: [{id, focus}], capabilities?: [{id, description}] }. Pass capabilities: [] when the work introduces no new capability (got type: ' + typeof args + ')')
+    'ground requires args { projectPath, issueNumber, inputFolderPath, issueScope?, areas: [{id, focus}], capabilities?: [{id, description}] }. issueNumber and inputFolderPath are both required. Pass capabilities: [] when the work introduces no new capability (got type: ' + typeof args + ')')
 }
+
+const brief = __workflowBrief({ caller: 'ground', issueNumber, inputFolderPath, issueScope })
 
 const factsContracts = []
 for (const area of areas) {
@@ -1405,7 +1450,9 @@ for (const area of areas) {
 }
 const noCapabilityLedger = factsContracts[0].values.noCapabilityLedger
 
-const explorePrompt = (area) => `You are an explorer deriving GROUND TRUTH for one area of a subsystem from the live working tree. Do NOT write code.
+const explorePrompt = (area) => `${brief}
+
+You are an explorer deriving GROUND TRUTH for one area of a subsystem from the live working tree. Do NOT write code.
 
 Read .agents/skills/rails-explorer/SKILL.md in full and follow its exploration method and evidence requirements. Read .agents/skills/rails-decisions/SKILL.md and .dev/reference/best-practices-guide.md before classifying any choice. Use CodeGraph and grep across src, tests, analyzers, and eng; do not use a separate discovery lens.
 
@@ -1461,6 +1508,7 @@ const ledger = capabilities.length
   ? await __priorArtLedger({
     projectPath,
     capabilities,
+    brief,
     priorStageResult: priorStageResult && priorStageResult.ledgerStageResult,
     ...panel.nextGroupInput,
   })

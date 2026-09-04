@@ -159,3 +159,6 @@ eng/signing/local/
 
 # AgentGuard build version: generated once per build by the pre-solution target (decision 25).
 eng/obj/
+
+# Private working area: notes, drafts, and handoffs that never belong in the repository.
+.private/

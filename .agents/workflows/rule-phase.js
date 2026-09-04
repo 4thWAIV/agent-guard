@@ -745,12 +745,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1129,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1249,6 +1247,18 @@ async function __stageResultContracts(args) {
 }
 // ##COPIED-MODULE-END## stage-result-contracts
 
+// ##COPIED-MODULE-BEGIN## scope-boundary
+// This block is shared code, pasted into every workflow script that needs it. The Workflow
+// runtime gives scripts no module import and allows only one level of workflow() nesting,
+// so there is no way to call shared code from another file. Do not edit this copy alone:
+// every copy of a block name must stay byte-identical, and eng/check-copied-modules.mjs
+// fails the moment two copies differ.
+//
+// The one owner of the scope-boundary sentence every fix-round agent is handed. Scope changes
+// only when the human edits the contract, so every stage states that boundary in the same words.
+const __SCOPE_BOUNDARY = 'A fix that changes the contract or an approved design is allowed only after the human edits the contract. There is no second path.'
+// ##COPIED-MODULE-END## scope-boundary
+
 
 const input = await __workflowInput({ caller: 'rule-phase', value: args })
 
@@ -1283,7 +1293,7 @@ const noRuleProof = ruleGenContract.values.noRuleProof
 const refutationPath = __optionalArtifactPath('rule-phase', 'refutationPath', input && input.refutationPath)
 
 const fixModePreamble = refutationPath
-  ? `THIS IS A FIX ROUND, NOT AN INITIAL WRITE. Apply EXACTLY the confirmed fixes below — nothing more. When the contract adds rules, fix the existing rule files, re-prove every rule with its violating and compliant fixtures, and re-run the covering tests. When the contract adds no rules, do not create a rule or invent RED; return and re-check the exact approved no-rule result. A fix that changes the contract or an approved design is allowed only after the human edits the contract, or when the human gave explicit prior authorization for exactly that extension and the authorization is recorded verbatim as ruling provenance:
+  ? `THIS IS A FIX ROUND, NOT AN INITIAL WRITE. Apply EXACTLY the confirmed fixes below — nothing more. When the contract adds rules, fix the existing rule files, re-prove every rule with its violating and compliant fixtures, and re-run the covering tests. When the contract adds no rules, do not create a rule or invent RED; return and re-check the exact approved no-rule result. ${__SCOPE_BOUNDARY}
 
 ${refutationPath} — open and read that file; it holds the findings you must fix.
 

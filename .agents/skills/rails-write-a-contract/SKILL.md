@@ -14,7 +14,7 @@ Does this line tell the agent WHAT TO DO, what it MUST NOT do, HOW IT IS CHECKED
 ## The sections, in order
 
 1. **Title** — one line naming the job. No "1 of 2", no status, no framing.
-2. **Decisions** — the first section after the title, so the human reads the approved choices before any prose. Every design decision the contract rests on carries the exact decision text and the human's verbatim words approving that exact item. A contract that presents a decision the human did not approve, in their own words, is invalid. `rails-decisions` owns the decision boundary and approval procedure.
+2. **Decisions** — the first section after the title, so the human reads the approved choices before any prose. Every design decision the contract rests on is recorded in the exact wording the human approved. Write the decision in plain prose, show the human that wording, and record it unchanged once they approve it as written. A record never carries the human's raw conversational words and never paraphrases the approved wording. A contract that presents a decision the human did not approve is invalid. `rails-decisions` owns the decision boundary and approval procedure.
 3. **Rules to add** — every analyzer rule DESIGN determined, each recorded as an approved decision before RULE-PHASE writes it. If DESIGN determined no rule, say so explicitly.
 4. **The standard / what we're building** — the target end state, stated plainly. If there is a non-negotiable rule, lead with it. Say WHAT the end state is, never WHY it is currently broken or how we got here.
 5. **Success definition** — the human's standing definition verbatim (ALL criteria met AND no errors in the system as a result of the change) plus this run's specific expected end state. A contract without this is invalid — the gate has nothing to rule against. Any restatement or weakening of it to fit the result is a top-line Lie-catcher finding.
@@ -25,7 +25,11 @@ Does this line tell the agent WHAT TO DO, what it MUST NOT do, HOW IT IS CHECKED
 10. **What the agent MUST NOT do** — the hard boundaries. Anti-cheat lives here: no weakening, skipping, or deleting tests; no commit; no scope expansion; stop and report on any wall.
 11. **Acceptance** — numbered checks, each with the command or proof. Where cheating is a risk, the check must be re-derivable by someone other than the worker — an adversary reading the bytes, or a script the human runs. The worker's own word is not proof.
 12. **Level** — one line naming L1 or L2, plus one clause explaining why. L3 needs no contract.
-13. **Scope** — use this exact rule: “Scope changes ONLY by the human editing the contract — or, when the human is unavailable and has given explicit prior authorization for exactly this extension, by recording that authorization verbatim as the change's ruling provenance and top-lining it.”
+13. **Scope** — use this exact rule: “Scope changes ONLY by the human editing the contract. There is no second path.” This is a locked law: it cannot be changed, narrowed, or excepted except by a contract the human approves for that exact change.
+
+## A Decision binds exactly as written
+
+A Decision is never filtered. It binds exactly as written — when it says every place, it means every place. The Surfaces section lists where the work is known to be, as an aid to whoever does it and never as a boundary. A place the list misses is still in scope, and a list that disagrees with the tree is the list being wrong. No section of a contract may narrow a Decision.
 
 ## Owner references
 
@@ -56,4 +60,4 @@ The CONTRACT stage in `rails-run-a-workflow` owns when and how `.agents/workflow
 
 ## Last step before it goes to the human
 
-Re-read the whole thing and delete anything that is not an instruction, a boundary, a check, or an approved decision. Confirm every decision line carries the human's own words.
+Re-read the whole thing and delete anything that is not an instruction, a boundary, a check, or an approved decision. Confirm every decision line carries the approved and accepted decision text.

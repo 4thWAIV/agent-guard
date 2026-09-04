@@ -34,9 +34,9 @@ A rail against low-quality work — anything that looks like progress but does n
 - **Fix:** Re-read the stated objective; rebuild the component so it captures it.
 
 ### 5. Noise over signal
-- **Practice:** Lead with the one thing the reader needs — the decision, or the real result. File everything else below. Keep each record its own separate, verbatim entry.
-- **Violation:** The output surfaces resolved/stale/abridged items, or buries the one thing that needs the reader under things they did not need, or merges separate records into a combined/summarized blob instead of keeping each one verbatim.
-- **Fix:** Lead with the signal; move the rest to a filed section; keep each record its own verbatim entry.
+- **Practice:** Lead with the one thing the reader needs — the decision, or the real result. File everything else below. Keep each record its own separate, verbatim entry. A mismatch that the next ordinary step erases on its own is never a blocker and never leads a report. It goes below the fold, in its own section, so the human sees it without it competing with what needs them.
+- **Violation:** The output surfaces resolved/stale/abridged items, or buries the one thing that needs the reader under things they did not need, or merges separate records into a combined/summarized blob instead of keeping each one verbatim, or leads a report with a mismatch the next ordinary step erases on its own, treats one as a blocker, or drops one instead of filing it below the fold in its own section.
+- **Fix:** Lead with the signal; move the rest to a filed section; keep each record its own verbatim entry; file every self-erasing mismatch below the fold in its own section.
 
 ### 6. Stale or unused data
 - **Practice:** Derive truth from the live working-tree bytes / the correct source. Use every piece of data you already have or can go get (grep the cache, query the index, read the recorded decision) before concluding anything.
@@ -64,7 +64,7 @@ A rail against low-quality work — anything that looks like progress but does n
 - **Fix:** Put each decision first, mark the recommendation, then give the action and only the detail needed to decide.
 
 ### 11. Out-of-repo-root references
-- **Practice:** Every path a change writes points inside the repository root. Working folders that exist only while a run is in flight — `.dev/inprocess/` and `.dev/completed/` — are never named by shipped code or by a workflow script. A rail may name them when it is documenting where a run record lives, because that is the process describing its own working folder.
+- **Practice:** Every path a change writes points inside the repository root. The work-item folders — `.dev/inprocess/` and `.dev/completed/` — are never named by shipped code or by a workflow script. A rail may name them when it is documenting where a run record lives, because that is the process describing its own working folder.
 - **Violation:** A reference points outside the repository root, or shipped code or a workflow script names a path under `.dev/inprocess/` or `.dev/completed/`. Workers never add one; adversaries flag any found.
 - **Fix:** Remove the reference. If the thing referenced is genuinely needed by shipped code, move it to a permanent location inside the repository and point there.
 

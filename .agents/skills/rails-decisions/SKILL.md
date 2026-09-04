@@ -19,13 +19,13 @@ A rail against deciding what is Tim's to decide, and against inventing his appro
 - **picks between real alternatives** where the choice has lasting consequences;
 - **inverts an assembly dependency** — a lower, depended-upon assembly receiving a service injected from a higher one that depends on it. The default is to reorder (move the service down into the assembly that uses it); keeping the backwards flow on cost grounds is Tim's call alone, and any such violation, anywhere in any repo, needs his personal explicit sign-off.
 
-**The agent's decisions — just do it, don't ask.** Local work with **no blast radius**: a loop, a helper's internals, a private name, how one function is coded — cheaply changed later with no ripple.
+**The agent's decisions — just do it, don't ask.** Local work with **no blast radius**: a loop, a helper's internals, a private name, how one function is coded — cheaply changed later with no ripple. Recordkeeping is the agent's as well: filing a GitHub issue and moving its work folder are recordkeeping and never need the human's approval.
 
 The dividing test: does the choice **outlive its function** and make **other code depend on it**? If yes, it is Tim's. If it is local and cheaply reversible, it is yours.
 
 ## Approval procedure
 
-- A decision exists only when Tim gives an **explicit yes to that exact item**. No yes → it is not decided; it stays an open item. When you record a decision, quote his approving words next to it — **and quote the exact decision text he approved, verbatim, never a paraphrase.** When he approves something "as written," that phrase points at specific wording; a record that paraphrases the decision falsifies what was approved. Record it the moment it's decided — the longer you wait the more you paraphrase, and "noted for later" is not a record.
+- A decision exists only when Tim gives an **explicit yes to that exact item**. No yes → it is not decided; it stays an open item. A record never carries his raw conversational words. Write the decision in plain prose, show him that wording, and record it unchanged once he approves it as written — **the recorded text is word for word the wording he approved, never a paraphrase of it and never a transcript of him.** A record that paraphrases the approved wording falsifies what was approved. Record it the moment it's decided — the longer you wait the more you paraphrase, and "noted for later" is not a record.
 - **Silence, a topic change, or a request to reword / clarify / define is never approval.** A blanket "do it" / "put them back" approves only items already individually approved — never a new one. Reversing a previously-approved design needs a **fresh explicit yes**.
 - Anchor approval to Tim's actual words, **never to "it's already in the code"** — existing-in-the-tree is how an unapproved change launders itself into looking approved.
 - When a decision is finalized-but-not-yet-implemented, answer from the recorded decision, not the pre-change code the decision exists to change.
@@ -34,16 +34,16 @@ The dividing test: does the choice **outlive its function** and make **other cod
 - Approval of a unit of work approves **all** of it: never split it into unrequested stages, do only part, stop at an unrequested checkpoint, or add / ship / decide anything unapproved. To cut or defer any part, ask a direct question naming exactly what would be cut and get a specific yes.
 - Describe what you're about to do and **why** before submitting the actions that do substantial work. When an unexpected problem the plan doesn't cover appears, **stop and present it** for a decision — don't improvise around it.
 
-An unapproved design decision is a **lie, ranked with a weakened test.** It is enforced at CONTRACT time — every decision in the contract carries Tim's verbatim sign-off, and a decision without his words is an open item that must be surfaced, never written as decided — and it is hunted by the Lie-catcher below.
+An unapproved design decision is a **lie, ranked with a weakened test.** It is enforced at CONTRACT time — every decision in the contract is recorded in the exact wording Tim approved, and a decision he has not approved is an open item that must be surfaced, never written as decided — and it is hunted by the Lie-catcher below.
 
 ## Violations
 
 Rule the work against this list. Report each confirmed item with exact file / line / command evidence. **Any one confirmed Violation is a FAIL.**
 
-- **Violation — unapproved decision.** A decision-level item — in the contract or in the work — that lacks Tim's **cited verbatim approval**. A design element added or reversed without Tim's own words is a lie, ranked with a weakened test.
+- **Violation — unapproved decision.** A decision-level item — in the contract or in the work — that Tim has not **approved as written**. A design element added or reversed without his approval of that exact wording is a lie, ranked with a weakened test.
 - **Violation — invented approval.** An "approval" that is really a **non-answer, a topic change, or a reword / clarify request treated as a yes**. A blanket "do it" stretched to cover an item Tim never individually approved is the same lie. Reversing an approved design on anything less than a fresh explicit yes is the same lie.
 - **Violation — anchored to the code.** Approval anchored to **"it's already in the code"** instead of Tim's words.
-- **Violation — paraphrased decision.** A recorded decision whose text does not match, **verbatim**, what Tim approved.
+- **Violation — paraphrased decision.** A recorded decision whose text does not match, **word for word**, the wording Tim approved.
 - **Violation — under-asked direction.** An architecture, mechanism, dependency, trust boundary, format, interface, or user-/developer-visible name that other code now depends on, chosen without being surfaced for Tim's yes (the Native Interop / `rename` P/Invoke class).
 - **Violation — undecided forced choice.** A choice the work FORCES — a tool default, a user-visible name or format, a trust boundary, an encoding or limit, or a versioning or release scheme — is left unresolved for a tool or implementer to default. No contract advances to IMPLEMENT with an unresolved forced choice.
 - **Violation — invalid applied-principle evidence.** An `autoResolved` entry is missing `choice`, `resolution`, `principle`, or `evidence`; the cited approved principle does not support the resolution; a guide-covered choice was escalated instead of auto-resolved; or an uncovered choice was silently defaulted.
