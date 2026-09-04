@@ -20,7 +20,7 @@ Each decision below was settled in conversation and approved as written.
 
 8. The prior-authorization exception is deleted everywhere it appears — `rails-write-a-contract`, `rails-run-a-workflow`, and the fix-round instructions inside `architecture.js`, `implement.js`, `rule-phase.js` and `tdd.js`. Scope changes only when the human edits the contract. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract the human approves for that exact change.
 
-9. The `ground-brief` run's work shares this working tree. It is governed by its own contract at `.dev/inprocess/70-ground-brief/contract.md` and is excluded from this contract's judgement. It is exactly this and nothing else: in `ground.js` and `design.js`, the new `workflow-brief` copied block, the `issueNumber`, `inputFolderPath` and `issueScope` inputs, and the brief prepended to every prompt each script builds; in `design.js`, the removal of the `goal` input; the removal of the `goal` field from the `design-stage` result contract inside the `stage-result-contracts` copied block in all nine scripts that carry it; in `ground.js` and `prior-art-ledger.js`, the optional brief added to the `prior-art-ledger` copied block; and in `rails-run-a-workflow` and `rails-read-me`, the documentation of that brief — the GROUND and DESIGN Inputs lines, the GROUND brief paragraph, the launch precondition requiring your approval of `conversation.md`, and the description of the work folder's contents. An adversary verifies each item against that contract. Anything in the tree beyond this list and this contract's own Surfaces is unauthorized and is a finding.
+9. The `ground-brief` run's work shares this working tree. It is governed by its own contract at `.dev/inprocess/70-ground-brief/contract.md` and is excluded from this contract's judgement. It is exactly this and nothing else: in `ground.js` and `design.js`, the new `workflow-brief` copied block, the `issueNumber`, `inputFolderPath` and `issueScope` inputs, and the brief prepended to every prompt each script builds; in `design.js`, the removal of the `goal` input; the removal of the `goal` field from the `design-stage` result contract inside the `stage-result-contracts` copied block in all nine scripts that carry it; in `ground.js` and `prior-art-ledger.js`, the optional brief added to the `prior-art-ledger` copied block; and in `rails-run-a-workflow` and `rails-read-me`, the documentation of that brief — the GROUND and DESIGN Inputs lines, the GROUND brief paragraph, the launch precondition requiring your approval of `conversation.md`, and the description of the work folder's contents. An adversary verifies each item against that contract. Anything in the tree beyond this list that no Decision in this contract reaches is unauthorized and is a finding.
 
 10. This work runs at L2.
 
@@ -32,7 +32,7 @@ Each decision below was settled in conversation and approved as written.
 
 14. The sentence forbidding a second path to a scope change has one owner: the `scope-boundary` copied module, shared byte-identically by every script that uses it.
 
-15. The prior-art ledger is always produced by running `.agents/workflows/prior-art-ledger.js`. It is a checked-in script that runs at any Level, so the search is never done by hand and no lens is ever skipped. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract you approve for that exact change.
+15. The prior-art ledger is always produced by running `.agents/workflows/prior-art-ledger.js`. It is a checked-in script that runs at any Level, so the search is never done by hand and no lens is ever skipped. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract the human approves for that exact change.
 
 ## Rules to add
 
@@ -41,8 +41,6 @@ None — this change adds no analyzer rule.
 ## The standard / what we're building
 
 The rails and the workflow scripts carry every decision above, consistently, with no passage left contradicting another.
-
-Every decision above is applied in the working tree. Most were applied before this contract existed, which is why it exists: they are recorded here so the adversary panel judges them rather than being told to ignore them.
 
 ## Success definition
 
@@ -55,7 +53,7 @@ For this run: every decision above is in force in the rails and the workflow scr
 The entries below name where the work is known to be. They document the decisions; they do not limit them. Decision 2 binds every place in the rails and the workflow scripts that required the human's raw words, whether or not this list names it. A place that this list misses is still in scope, and a list that disagrees with the tree is the mismatch.
 
 - `.agents/skills/rails-decisions/SKILL.md`, `rails-write-a-contract/SKILL.md`, `rails-run-a-workflow/SKILL.md`, `rails-read-me/SKILL.md`, `rails-real-work/SKILL.md`
-- Every workflow script under `.agents/workflows/` whose agent instructions require the human's raw words, including `architecture.js`, `implement.js`, `refute.js`, `refute-readiness.js`, `rule-phase.js` and `tdd.js`, and the `selected-rule-warnings` copied block shared by `architecture.js` and `tdd.js`.
+- `.agents/workflows/architecture.js`, `implement.js`, `preflight-contract.js`, `refute.js`, `refute-readiness.js`, `rule-phase.js` and `tdd.js`, and the `selected-rule-warnings` copied block shared by `architecture.js` and `tdd.js`.
 - This run's work folder `.dev/inprocess/69-rails-approval-and-records/` and everything in it, including `issue.md` and `contract.md`, whose Scope line must carry the wording `rails-write-a-contract` mandates.
 - `.dev/inprocess/70-ground-brief/` — the in-flight `ground-brief` run's folder.
 - `.agents/workflows/design.js`, `ground.js`, `hidden-decision-scan.js` and `prior-art-ledger.js` — changed only by the in-flight `ground-brief` run and excluded from this contract's judgement by decision 9.
@@ -66,11 +64,9 @@ The entries below name where the work is known to be. They document the decision
 
 ## Reuse ledger
 
-One capability: a single owner for the sentence forbidding a second path to a scope change.
+Produced by `.agents/workflows/prior-art-ledger.js`, recorded as the script returned it.
 
-**extract** — before this change the sentence was hand-typed independently in `architecture.js`, `implement.js`, `rule-phase.js` and `tdd.js`. `grep -rn "the human edits the contract" .agents/workflows/` found those four copies and no owner; CodeGraph returned no shared symbol holding it. Four copies with no owner is an extract, and the copies collapse into the `scope-boundary` copied module, which `eng/check-copied-modules.mjs` holds byte-identical.
-
-Everything else in this change is wording and rules in existing rails and existing agent instructions, and introduces no capability.
+**scope-boundary-sentence-owner — `extract`, high confidence.** Copies at `.agents/workflows/architecture.js:1259`, `implement.js:1258`, `rule-phase.js:1259` and `tdd.js:1259`. The identical `__SCOPE_BOUNDARY` constant is defined verbatim in all four, each inside a `##COPIED-MODULE-BEGIN##` / `##COPIED-MODULE-END##` `scope-boundary` block, and each interpolated into a fix-round preamble rather than restated. `eng/check-copied-modules.mjs:48` already enforces that every copy of a named block stays byte-identical and fails on divergence. Both required lenses, CodeGraph and grep, ran and returned hits rather than nothing, so this is not a `new` ruling: it is a knowingly duplicated, mechanically enforced set of copies — the extract pattern, realised through copy-and-enforce because the Workflow runtime has no module import.
 
 ## What to do
 
@@ -78,15 +74,15 @@ Everything else in this change is wording and rules in existing rails and existi
 
 2. Delete the same exception from the fix-round instruction strings in `architecture.js`, `implement.js`, `rule-phase.js` and `tdd.js`, so no agent is told a second path exists.
 
-3. Correct `rails-write-a-contract`'s closing line, which still requires every decision line to carry the human's own words, so it requires the approved and accepted decision text instead.
+3. `rails-write-a-contract`'s closing line requires every decision line to carry the approved and accepted decision text.
 
-4. Correct the reporting rule in `rails-real-work` rail 5, which currently drops a self-erasing mismatch entirely, so it files one below the fold in its own section and never treats it as a blocker.
+4. `rails-real-work` rail 5 files a self-erasing mismatch below the fold in its own section and never treats it as a blocker.
 
-5. Write decision 6, the single work folder, into `rails-run-a-workflow` where the contract's location is defined, and into `rails-read-me` where the work folders are described, replacing the `.dev/inprocess/<date>-<slug>/` convention.
+5. `rails-run-a-workflow`, where the contract's location is defined, and `rails-read-me`, where the work folders are described, both state decision 6's single work folder and neither describes a `<date>-<slug>` run folder.
 
 6. Write decision 3, the delegated-agent return rule, and decision 7, the per-issue work folder, into the rails if any passage still contradicts them.
 
-7. Search every file under `.agents/skills/` and `.agents/workflows/` for any remaining place that requires the human's own, raw, or quoted words, and correct each one. `refute-readiness.js` is known to carry two: the instruction that a conversational decision must appear "carrying the human's own words", and the check that the Decisions section authorizes it "in the human's own quoted words".
+7. No file under `.agents/skills/` or `.agents/workflows/` requires the human's own, raw, or quoted words for a recorded decision. Every place asks for the wording the human approved.
 
 8. Write decision 12 into `rails-write-a-contract`, so every contract carries it.
 
@@ -94,9 +90,11 @@ Everything else in this change is wording and rules in existing rails and existi
 
 10. Give the scope-boundary sentence one owner. "A fix that changes the contract or an approved design is allowed only after the human edits the contract. There is no second path." is spelled byte-identically in `architecture.js`, `implement.js`, `rule-phase.js` and `tdd.js`. Make it a copied module like the other six, enforced by `eng/check-copied-modules.mjs`.
 
-11. Delete the sentence "The next work is the appd daemon, issues #62 through #67." from `rails-read-me`. Decision 11 does not include it, and it contradicts the rule two lines above it that state is derived and never read from a status document.
+11. `rails-read-me` carries decision 11's paragraph and nothing beyond it. It names no current or next piece of work, because the same file states that current state is derived and never read from a status document.
 
-12. Correct the check count in the readiness stage. `refute-readiness.js` instructs "Run all six checks" but closes by asking for "all four checks", and `rails-run-a-workflow` says the stage runs four checks and lists only four, omitting EXCLUSION and OPEN ITEM. Make all three say six and list all six.
+12. `refute-readiness.js` and `rails-run-a-workflow` both say the readiness stage runs six checks, and both list SURFACE, BOUNDARY, ACCEPTANCE, DECISION, EXCLUSION and OPEN ITEM.
+
+13. Write decision 15 into `rails-dry-code` rail 1: it names `.agents/workflows/prior-art-ledger.js` as the producer and carries the locked-law sentence in the same words the scope law uses. The rail's other reference to the script uses that same spelling.
 
 ## What the agent MAY do
 
@@ -118,11 +116,13 @@ Everything else in this change is wording and rules in existing rails and existi
 
 3. `node eng/check-copied-modules.mjs` exits 0. Paste the command and its full output with the exit code.
 
-4. Every workflow script parses. A workflow script is not valid standalone JavaScript, so the check builds each one through the async function constructor after replacing `export const meta` with `const meta`. Run it for all ten and paste each output with its exit code.
+4. Every workflow script parses. A workflow script is not valid standalone JavaScript, so the check builds each one through the async function constructor after replacing `export const meta` with `const meta`. Run it for every script under `.agents/workflows/` and paste each output with its exit code.
 
-5. No rail contradicts another. An adversary reads every passage in the five rails that concerns recorded decisions, scope changes, self-erasing findings, delegated-agent returns, and work folders, and names each passage it checked and what it says.
+5. No rail contradicts another. An adversary reads every passage in all nine rails under `.agents/skills/` and in every workflow script under `.agents/workflows/` that concerns recorded decisions, scope changes, self-erasing findings, delegated-agent returns, and work folders, and names each passage it checked and what it says.
 
 6. `rails-run-a-workflow` and `rails-read-me` describe one work folder per work item and no longer describe a separate `<date>-<slug>` run folder. An adversary reads both and quotes what each now says.
+
+7. `rails-dry-code` carries decision 15. `grep -n "locked law" .agents/skills/rails-dry-code/SKILL.md` returns the sentence, and `grep -c "\\.claude/workflows/prior-art-ledger" .agents/skills/rails-dry-code/SKILL.md` returns 0. Paste both with their exit codes.
 
 ## Level
 
