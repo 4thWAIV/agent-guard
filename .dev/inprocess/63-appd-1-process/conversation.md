@@ -34,6 +34,8 @@ This run covers GitHub issue #63 in full. The live issue is the authority; where
 
 **`agentguard daemon` does not ask for the user's presence before it runs.** `install`, `init` and `remove` each call `ApprovalGate.RequireApprovalAsync` before touching anything, while `doctor`, `hook` and `version` do not; `daemon` follows the ungated group. Starting the process changes nothing in the user's project, and prompting here would put a presence check in front of the user at every login. Tim's decision, in his words: "we only need the presence check once a client requests work done.  so lazy verify is better here as we have exposed nothing and it would be user jarring to be getting a check on login every time." `install` stays gated as it is today, so writing the login registration remains behind approval.
 
+**Every failure a user sees says what went wrong, why, and how to fix it, and `guard doctor` can diagnose it.** Tim's decision, in his words: "we should be very clear in all of our messages as what went wrong and why and how to fix so the human can self diagnose with `guard doctor`". For this work that means a failed start or a refusal names the actual cause — no login registration, a registration pointing at the wrong binary, a daemon that will not come up — and `doctor` reports the same thing and repairs what it can. `status` stays narrower: it answers whether appd is running now. The registration is install wiring and belongs to `install` and `doctor`.
+
 ## Must reach the contract's Decisions section
 
 Every adversary reads the contract, not this file. A decision that does not cross over is read as an unapproved change, and the round is spent establishing that rather than doing any work. Everything under Decisions above must be carried across; these two fail the run outright if they are missing, rather than merely weakening it.
@@ -41,6 +43,14 @@ Every adversary reads the contract, not this file. A decision that does not cros
 **The `AGS5443` exemption for the macOS lock path.** A suppression with no Decision behind it is a top-severity Lie-catcher finding, and the exemption is worthless unless the adversary can trace it to Tim's own words.
 
 **The two additions to `OwnedPrimitives.cs`.** A change inside `analyzers/` with no Decision behind it is an unapproved rule change, which is the same class of failure.
+
+## Corrections to the GROUND output
+
+`ground-output.json` is the raw result of the fifteen agents. Two of its `autoResolved` records claim more than the principle they cite supports, and DESIGN must not read them as settled.
+
+**Where the daemon's per-OS capability hangs on the services tree is NOT resolved.** The records from `per-os-port-pattern` and `filesystem-and-process-boundaries` both state it is exposed as a new property on `IPlatformServices`. The principles they cite — nothing reaches the outside world except through an interface we own, built in one place and injected everywhere, OS-difference isolated behind the platform interface — settle that it goes behind an owned per-OS interface. They do not settle which container it hangs off, and that is a public-interface change reserved to Tim. The `install-and-setup` record states the boundary correctly: "the interface's exact new member(s) still need Tim's sign-off as a public-interface change." DESIGN proposes the placement; Tim signs it off.
+
+**A citation is stale.** The `per-os-port-pattern` record justifies the ban on raw `System.Diagnostics.Process` by citing "the project's own already-recorded AG0013 ruling." `AG0013` is a retired diagnostic id, folded into `AG0011` before any release, and is listed as retired in `AnalyzerReleases.Unshipped.md`. The substance is correct and matches the recorded decision to grow an owner; only the rule number is wrong.
 
 ## Facts a spike established
 
