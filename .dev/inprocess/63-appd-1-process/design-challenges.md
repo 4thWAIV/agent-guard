@@ -1,5 +1,7 @@
 # appd-1-process — what the next design round has to work out
 
+Historical-input notice — 2026-09-11: The challenges below describe the previous per-user design. The current brief is [conversation.md](conversation.md). References below to the earlier conversation can be read with `git show b4d3a00:.dev/inprocess/63-appd-1-process/conversation.md`; that version's lock discussion takes precedence over this document's claim that a double-checked lock was required. The machine-wide investigation is in handoff.md.
+
 Things that came up after the first DESIGN round and are not settled. Each one needs a design before it can be built. This file exists so none of them is remembered rather than written down.
 
 ## Reading the login-item templates out of the binary

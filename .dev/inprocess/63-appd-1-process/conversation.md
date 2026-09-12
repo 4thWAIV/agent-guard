@@ -1,154 +1,101 @@
-# appd-1-process — what Tim decided in conversation
+# appd-1-process — current conversation brief
 
-This run covers GitHub issue #63 in full. The live issue is the authority; where it and this file disagree, the issue wins. Every decision below is Tim's, settled in conversation, and is the plan. This file records the choices the issue text does not already carry, plus the facts a spike established so no one re-derives them.
+Status: Consolidated wording for Tim's review before GROUND. CLI, server, and viewer are provisional role names. The live issues remain authoritative until their replacement wording is approved and published.
 
-## Decisions
+## Purpose and process roles
 
-### Interaction-mode detection
+AgentGuard uses the same application in three cooperating roles. The CLI receives requests from a person or automation. One headless server runs per machine and coordinates requests. A separate viewer runs as the user in the graphical session where interaction is needed. Multiple users or sessions can have separate viewers connected to the same server.
 
-Tim approved the following wording as written on 2026-09-11:
+Ordinary CLI use remains CLI use. Starting the server is a separate operation from running the application in server mode. Installation and explicit start requests use the OS service manager's canonical start path.
+
+The server's lifetime is independent of graphical logins and viewer processes. Closing a viewer does not stop the server. The CLI provides a way to close viewers.
+
+## Request flow and process identity
+
+The server receives a CLI request and obtains the connecting process's identity from the OS. It identifies the appropriate user and session, then uses an authenticated viewer connection for that session. If no viewer is connected, it requests an OS-mediated launch, waits for an authenticated connection, and delivers the request.
+
+The CLI, server, and viewer use the planned mutual process-identity mechanism. When the server launches a viewer, its returning connection must match the actual launched process instance. User and session association come from OS evidence. The identity check must distinguish that instance from a later process reusing its PID.
+
+The viewer presents information and collects responses. The server retains responsibility for authorizing operations and, when the key work is implemented, signing.
+
+## Presence and signing
+
+The server may delegate presence checking to the viewer in the requesting user's session. The viewer calls the OS presence mechanism and returns its result over the authenticated connection. The server validates that result before using it to authorize the pending operation.
+
+The identity part owns process verification, user/session association, and expected-instance matching. The key/presence part owns delegated-result freshness, operation binding, replay rejection, and authorization. The viewer part supplies the user-facing OS call.
+
+Server startup is unattended. Presence checking and key loading happen when a request first needs them.
+
+Every user working on a project mints their own key, and all the public keys are committed. The server keeps signing and approval associated with the correct user. The full key lifecycle belongs to the key-and-presence work.
+
+## Graphical and CLI interaction
 
 AgentGuard detects whether graphical interaction is available to the requesting client and uses that result to select the default interaction mode. An explicit interaction-mode option takes precedence over detection.
 
-The future terminal/non-interactive switches belong in a separate backlog issue. They should not become implementation scope for the process work.
+Every graphical view has a CLI alternative. A request without usable graphical interaction can be completed through its CLI interaction, subject to the same authorization and presence requirements.
 
-Automatic CLI fallback after a viewer failure remains undecided. An error by default with an explicit fallback option is still a candidate.
+The viewer operates in the requesting user's graphical session on Windows, macOS, and Linux. Coverage includes simultaneous Windows sessions for the same account and Linux Wayland desktops without systemd session integration.
 
-**The CLI provides a `stop` command.**
+The UI uses a .NET web server, a capable browser control, and React.
 
-**`agentguard start`.** It checks whether appd is running and, if needed, asks the OS service manager to launch `agentguard daemon`.
+## Installation and administration
 
-**The daemon verb is `daemon`.** `agentguard daemon` runs the guard binary in daemon mode. It joins the six verbs the binary already has: `hook`, `install`, `init`, `remove`, `doctor`, and `version`.
+Installation establishes protected server binaries, configuration, and OS service definitions. Machine-wide installation requires the appropriate OS administrative authorization. Viewer processes run as their users.
 
-**The Windows autostart entry is a Task Scheduler task with a logon trigger.** Not the Run registry key and not the Startup folder. `schtasks /Run` is the only one of the three that the CLI can also fire on demand, and issue #63 requires one start path to serve both login startup and the CLI's check-and-start.
+Stopping the machine-wide server and changing its configuration are machine-wide administrative operations. Requests through the AgentGuard CLI require both a presence check and OS administrative authorization. Direct operations through the OS service manager are governed by the OS.
 
-**The macOS autostart entry is a LaunchAgent plist under `~/Library/LaunchAgents`, and the Linux one is a systemd user unit.** Both are user-session entries rather than system ones, because appd has to be able to draw a window when the dashboard lands in issue #65. The CLI starts them on demand with `launchctl kickstart` and `systemctl --user start`.
+The presence check for CLI administrative operations must be callable without a running server.
 
-**`agentguard install` writes the autostart entry.** It already places the binary under `~/.agentguard`; writing the autostart entry becomes part of the same verb rather than a separate one.
+The stop command asks the OS service manager to stop the server. It does not change autostart settings or prevent subsequent explicit or client-requested starts. An intentional stop does not trigger crash recovery.
 
-**The CLI decides whether appd is running by testing the lock.** If the lock is held, appd is up — the `Local\` named mutex on Windows, the lock file on Linux and macOS. This is the same object that already enforces single instance, so there is nothing extra to build and nothing that can disagree with it. It replaces shelling out to `launchctl print`, `systemctl --user is-active`, and `schtasks /Query`, which are three different tools with three different output formats to parse. Whether the autostart entry exists is a separate question that the service manager answers, and it belongs to `agentguard install` and `agentguard doctor` rather than to every command the user types.
+Automatic startup is enabled by default and configurable. Disabling it affects automatic starts only. It does not stop a running server, prevent explicit or client-requested starts, or disable crash recovery for a server that is subsequently started.
 
-**appd holds a single-instance lock for as long as it runs, and exits immediately if it cannot acquire it.** The device differs per operating system, because the right primitive differs per operating system. **Windows uses a `Local\` named mutex** — a real kernel object, and the conventional Windows single-instance mechanism. `Local\` scopes it to the logon session and needs no privilege, where creating a `Global\` object requires `SeCreateGlobalPrivilege`, which a standard user does not hold and appd runs unelevated. **Linux and macOS use an exclusive lock on a file in the user's own runtime directory** — `$XDG_RUNTIME_DIR/agentguard/appd.lock` on Linux and `$TMPDIR/agentguard/appd.lock` on macOS, both mode 0700 and belonging to one account, so the lock is one-per-account without anything in the filename. The daemon holds the lock itself rather than relying on the service manager to refuse a second copy, because the service manager only knows about processes it started and a daemon launched directly from a shell would otherwise become a second instance. A CLI probe and a starting daemon can collide over it; that collision fails closed, so it is not a concern. If it ever does need fixing, Tim's answer is a double-checked lock — a prep lock and a real lock.
+## Recovery and settings
 
-**A named mutex is not used on Linux or macOS.** Without the `Global\` prefix .NET scopes it to the POSIX session and silently permits a second holder in another session, which is the real deployment shape because the service manager starts appd in its own session while the CLI runs in the terminal's. With the `Global\` prefix it resolves to a single file under `/tmp/.dotnet/shm/global/` at mode 0666 inside a mode 0777 directory shared by every account on the machine, so two different users would collide on one name. Windows has neither problem, which is why Windows uses the mutex and these two do not.
-
-**The daemon's scope is whatever the platform's own per-user runtime scope already is.** On Windows that is the logon session — one appd per account per logon session — because Windows genuinely runs two interactive sessions for one person at once, a console login and a remote one, each with its own desktop, and `Local\` is scoped that way already. On Linux and macOS it is the account — one appd per account across every session that account has open. Tim approved both halves as the wording now in issue #63: "**Exactly one runs at a time, within the scope the platform itself uses.** On macOS and Linux that is the user account — one appd per account, across every session that account has open. On Windows it is the logon session — one appd per account per logon session..." — his words approving it: "GO all 5 make perfect sense and I approve them." The mechanisms already chosen match: `systemctl --user` talks to a single `user@<uid>.service` manager per account, `$XDG_RUNTIME_DIR` is `/run/user/<uid>`, one directory per account by systemd's own design, and a macOS LaunchAgent lives in the `gui/<uid>` domain, one per account. A second account logging into the same machine always gets its own appd, and neither can see or reach the other's. When the key work lands in issue #67, this means one presence prompt and one key holder per appd — per account on Linux and macOS, per logon session on Windows.
-
-**The macOS lock path uses the shared temp root, and Tim approved an exemption from the rule that forbids it.** `AGS5443` fires on every call to `IEnvironment.GetTempDirectory()`, the owned abstraction over `Path.GetTempPath()`, which on macOS returns `$TMPDIR`. It fires at the call site unconditionally and tests nothing about the directory itself. The rule's own message names two ways out: use `IDirectoryWriter.CreateTempSubdirectory` instead, or justify the shared root with a suppression. The first cannot serve here, because `CreateTempSubdirectory` creates a uniquely-named directory and a lock needs a fixed path that the daemon and the CLI each compute independently and arrive at the same answer — so the rule's second route is the one that applies. Tim's decision, in his words: "This is a place where the exception system is justified... We can except that out. It's the right thing and that's the system working correctly." Every adversary is to read this suppression as Tim's own decision recorded here, not as an unapproved suppression or a rule being dodged. Reaching the same directory by reading the `TMPDIR` environment variable through `IEnvironment` rather than calling `GetTempDirectory()` is not an alternative: it lands in the same place while the analyzer sees nothing, which is a suppression by construction and is forbidden. Linux is unaffected — `$XDG_RUNTIME_DIR` is not the temp root and no call to `GetTempDirectory()` is involved.
-
-**The CLI gains a `status` verb that reports state, including whether appd is running.** Tim's decision: "Okay status it is." It is the first consumer of the running check and it stays afterwards as a diagnostic tool. `verify` was the alternative and was not chosen.
-
-**There is no fixed list of commands that check whether appd is running.** Any command that needs appd runs the check and triggers the canonical start from inside its own code. Tim's decision, in his words: "it would be any that needs to deal with the appd. So we don't have a full list and multiple will need to call it inside of their service code."
-
-**A `desktop` verb that raises the dashboard is future work, not part of this issue.** Tim's decision: it will be the most common consumer of the running check, but it can do nothing until the channel exists in issue #64.
-
-**Two new owners are added to the analyzer's owned-primitive table.** `AG0011` allows a raw OS or CLR primitive only inside the single class that implements its owning interface, so every other type reaches it through that interface and the engine stays mockable. `System.IO.FileStream`, which the Linux and macOS lock needs, and `System.Diagnostics.Process`, which the canonical start needs, have no owner today and are therefore reported everywhere the rule can see them. This work grows an owner for each and registers both in `analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs`. That file sits inside the analyzer fence, so the change is authorised here and is made by RULE-PHASE rather than by an implementer. Whether `System.Threading.Mutex` also needs an owner entry for the Windows side is for RULE-PHASE to determine when it does that work.
-
-**The three autostart-entry identifiers follow the naming the repo already uses.** The existing convention is the polkit action id `com.4thwaiv.agentguard.presence`, owned once in `PolkitAction.Id` and mirrored into `eng/polkit/agentguard-presence.policy`. So the macOS LaunchAgent label is `com.4thwaiv.agentguard.appd`, which makes the file `~/Library/LaunchAgents/com.4thwaiv.agentguard.appd.plist`. The Linux unit is `~/.config/systemd/user/agentguard-appd.service`, because systemd units are not reverse-DNS.
-
-The Windows Task Scheduler entry is named `appd-<user SID>` inside `\AgentGuard\`. Installation substitutes the installing user's Windows SID into the task name and uses that same SID for the logon trigger and task principal. Every lookup and start request uses that user's task name.
-
-**`agentguard daemon` does not ask for the user's presence before it runs.** `install`, `init` and `remove` each call `ApprovalGate.RequireApprovalAsync` before touching anything, while `doctor`, `hook` and `version` do not; `daemon` follows the ungated group. Starting the process changes nothing in the user's project, and prompting here would put a presence check in front of the user at every login. Tim's decision, in his words: "we only need the presence check once a client requests work done.  so lazy verify is better here as we have exposed nothing and it would be user jarring to be getting a check on login every time." `install` stays gated as it is today, so writing the autostart entry remains behind approval.
-
-**Every failure a user sees says what went wrong, why, and how to fix it, and `guard doctor` can diagnose it.** Tim's decision, in his words: "we should be very clear in all of our messages as what went wrong and why and how to fix so the human can self diagnose with `guard doctor`". For this work that means a failed start or a refusal names the actual cause — no autostart entry, an entry pointing at the wrong binary, a daemon that will not come up — and `doctor` reports the same thing and repairs what it can. `status` stays narrower: it answers whether appd is running now. The autostart entry is install wiring and belongs to `install` and `doctor`.
-
-**The three autostart-entry templates ship embedded in the binary.** Rather than composing the macOS property list, the Linux systemd unit, and the Windows task definition as strings in C#, each is a real file in the repository carrying a placeholder for the launcher path, compiled into the binary as an embedded resource and read out at install time. Tim's decision, in his words: "This makes sense, we can even bake them into our binary as Embeded files which dotNet has supported forever." Nothing extra ships beside the binary and nothing can go missing, and the templates are covered by the same signature and install-integrity hash that already protect the binary — so an agent cannot edit a loose file on disk to redirect the login item. The nearest existing shape is `eng/polkit/agentguard-presence.policy`, a checked-in file with a test pinning the action id inside it equal to its C# const; the same pinning applies to the three autostart-entry identifiers here. On Windows this means creating the task from an XML definition rather than command-line flags, so all three platforms work the same way and the definition is reviewable rather than encoded in a flag string. What goes inside the three files is a separate decision and is not yet made.
-
-**The thing that makes appd start at login is called the autostart entry.** Tim's decision: "AutostartEntry it is." It is the macOS LaunchAgent plist, the Linux systemd user unit, or the Windows Task Scheduler task — the definition the platform's own service manager reads to know what appd is and when to start it. The word "registration" is not used for it, because Tim reads that as something a person does to sign themselves up. "Service definition" is not used either, because issue #63 says appd is deliberately not a system service and borrowing the word invites exactly that confusion. Nor is it appd's configuration: appd never reads the file, the operating system does, which leaves the name "configuration" free for settings appd genuinely reads if it ever has any. This name carries into the interface, the per-OS class names, the analyzer identity file, and the contract.
-
-**No new static classes.** The daemon service and everything else this work adds are instance classes reached through an interface. Tim's decision, in his words: "STatic classe are testability pits and create massive code smells. I'd like to kill all and create an ana rule for that. BUt not now, as long as we add no more we can come back and clean this up." The thirty-five that already exist in `src` are evaluated and converted under issue #74, so the existing `ApprovalGate` stays static for now and this work does not follow it as precedent.
-
-## Approved behavior, recovery, configuration, and logging package
-
-Tim approved the following wording and package as presented. The text below preserves that approved wording. The approval settles the behavior and settings, not the implementation mechanisms that the presentation explicitly left unresolved.
-
-### Stop and autostart
-
-The stop command asks the OS service manager to stop appd in the caller’s daemon scope. It does not change autostart settings or prevent subsequent explicit or client-requested starts. An intentional stop does not trigger crash recovery.
-
-Disabling autostart disables login-triggered starts only. It does not stop a running appd, prevent explicit or client-requested starts, or disable crash recovery for an appd that is subsequently started.
-
-The last clause makes the distinction explicit: a manually started daemon still gets crash recovery.
-
-### Automatic restart
+The recovery targets are:
 
 - Windows waits 60 seconds and attempts three restarts.
 - Linux waits 60 seconds and permits four starts within ten minutes, including the initial start.
 - macOS throttles launches to once per 60 seconds and continues retrying without a count limit.
 
-These are similar, not identical. macOS’s throttle is not necessarily a full minute after a crash. An identical “three retries, then stop” policy would require an additional recovery mechanism.
+An explicit Linux start clears an exhausted retry counter and requests another start. Automatic client requests leave the counter intact and report how the user can retry.
 
-Linux’s limit also counts manual starts, so we must resolve how a new start request handles an exhausted limit. Windows restart targeting across sessions and macOS disabling login startup while retaining recovery remain implementation-design questions.
+Save valid changes immediately. Automatic-start enablement affects future automatic starts. Changing it neither starts nor stops the server.
 
-### Explicit Linux retry after exhaustion
+Restart-policy and logging changes apply at the next daemon start. Report settings that are saved but not yet active. Never restart appd merely because someone changes a setting.
 
-Tim approved the following question and its resulting behavior as presented:
+## Logging and diagnostics
 
-“Should an explicit `agentguard start` clear that counter and try immediately, while automatic requests from clients leave it intact?”
+Logs are kept in user-specific folders. Each daemon process run has its own folder, named with its UTC start time and a unique identifier.
 
-- You run `agentguard start`: clear the exhausted counter and request another start.
-- A client needs appd while Linux still refuses starts: report the failure and tell the user how to retry.
-
-### When settings take effect
-
-- Save valid changes immediately.
-- Autostart enablement affects future logins. Changing it neither starts nor stops appd.
-- Restart-policy and logging changes apply at the next daemon start.
-- Report settings that are saved but not yet active.
-- Never restart appd merely because someone changes a setting.
-
-That avoids interrupting the future UI or work already in progress. We still need to establish how each OS manager loads the pending definition.
-
-### Logging
-
-- User-owned root: `~/.agentguard/logs/appd/`.
-- One folder per **daemon process run**, named with its UTC start time and a unique identifier.
 - Keep the latest **five completed runs, plus all currently active runs**.
 - Rotate each file at **10 MiB or 24 hours**, whichever comes first.
 - Keep **five files per run**, including the current file.
 
-That budgets 250 MiB for completed runs, plus 50 MiB per active daemon. Concurrent Windows sessions share the user’s root but write separate run folders. Cleanup must never delete another active daemon’s logs.
+Logs are UTF-8 text. The CLI displays logs and can follow them across file rotation and server restarts. Failures before the server can open its log remain diagnosable through OS-manager diagnostics.
 
-I’m interpreting “session” as a daemon run, not an OS login. A crash and restart therefore creates another folder. The tradeoff is that repeated crashes can push the original failure out of the five-run history.
+Every failure a user sees says what went wrong, why, and how to fix it, and `guard doctor` can diagnose it. Status reports whether the server is running. Installation and doctor handle the OS service definition and its connection to the installed binary.
 
-For reading, the proposed files are UTF-8 text. A proposed `agentguard logs` command displays the latest run for the caller’s daemon scope; `--follow` continues across rotation and daemon restarts. Both command additions need approval.
+## Implementation boundaries
 
-Failures before appd can open its log must remain diagnosable through `doctor` using OS-manager diagnostics.
+Platform contracts belong in `AgentGuard.Abstractions.Contracts`. Internal implementations belong in the corresponding `AgentGuard.CrossPlatform.*` assemblies, with private constructors and static `Create()` factories. Composition goes through `PlatformServices.Create()` and `IPlatformServices`.
 
-The package approval includes the `agentguard logs` command and its `--follow` option presented above; the request for approval in the preserved presentation text is satisfied.
+No new static classes. New capabilities are instance classes reached through interfaces. Tim reviews the actual C# declarations before the interface shape is settled.
 
-## Must reach the contract's Decisions section
+OS definitions that ship with the application are repository files embedded in the binary and read at installation. Their identifiers have one owner and are checked against the embedded definitions.
 
-Every adversary reads the contract, not this file. A decision that does not cross over is read as an unapproved change, and the round is spent establishing that rather than doing any work. Everything under Decisions above must be carried across; these two fail the run outright if they are missing, rather than merely weakening it.
+Raw OS and CLR primitives are reached through their owning interfaces. The existing approval covers adding owners for `System.IO.FileStream` and `System.Diagnostics.Process` to `OwnedPrimitives.cs` where this work needs them. New guardrail rules receive Tim's approval before they are written.
 
-**The `AGS5443` exemption for the macOS lock path.** A suppression with no Decision behind it is a top-severity Lie-catcher finding, and the exemption is worthless unless the adversary can trace it to Tim's own words.
+## Delivery order and GROUND
 
-**The two additions to `OwnedPrimitives.cs`.** A change inside `analyzers/` with no Decision behind it is an unapproved rule change, which is the same class of failure.
+The communication transport is delivered first. It provides connection establishment, message sending and receiving, connection closure, and OS-derived peer information. Tests can exercise both endpoints through the actual OS transport within one process, including checking the peer identity against that process. The transport is independently usable by the CLI, server, and viewer.
 
-## Corrections to the GROUND output
+The process delivery consumes that transport. Cross-process and installed-service integration exercise the boundaries that require distinct processes or users. Product identity verification, viewer launching, and presence-result validation belong to their respective deliveries.
 
-`ground-output.json` is the raw result of the fifteen agents. Two of its `autoResolved` records claim more than the principle they cite supports, and DESIGN must not read them as settled.
+The process delivery provides the machine-wide server's installation, single-instance lifetime, discovery, starting, stopping, recovery, configuration, and diagnostics.
 
-**Tim's ruling on where the daemon's per-OS capability lives.** The two explorers exceeded their authority but were right on the part that matters. Concurred: the assembly and cross-platform structure they described is correct — a new interface owned in `AgentGuard.Abstractions.Contracts`, implemented internally per OS in each `AgentGuard.CrossPlatform.*` assembly with a private constructor and a static `Create()`, reached through the one `PlatformServices.Create()` door, and hanging off `IPlatformServices` the way `IPresenceCheck` was added beside `FileSystem`. Reigned back: how many members and classes it takes. Tim's words: "it got the most important thing right which was the assembly and cross plat structure" and "tried to lock in a desgin too early (we don't know how many properties and classes we need yet)." The daemon needs the autostart entry, the on-demand start, and the lock — and the lock is a mutex on Windows against a file on POSIX — so whether that is one property returning a daemon container or several beside `FileSystem` and `Presence` is DESIGN's to propose and Tim's to sign off. The `install-and-setup` explorer drew this line correctly of its own accord: "the interface's exact new member(s) still need Tim's sign-off as a public-interface change." 
+The remaining deliveries provide the dashboard/viewer, mutual process identity, and key/presence functionality. Session launching and delegated presence are investigated during process GROUND wherever they constrain the server's architecture.
 
-**A citation is stale.** The `per-os-port-pattern` record justifies the ban on raw `System.Diagnostics.Process` by citing "the project's own already-recorded AG0013 ruling." `AG0013` is a retired diagnostic id, folded into `AG0011` before any release, and is listed as retired in `AnalyzerReleases.Unshipped.md`. The substance is correct and matches the recorded decision to grow an owner; only the rule number is wrong.
+GROUND establishes the existing code and reusable owners, the OS capabilities needed by this brief, and the constraints on their implementation. It distinguishes documented capabilities from native experiments. The user experience should be as consistent across Windows, macOS, and Linux as their capabilities allow.
 
-## Facts a spike established
-
-These were run against .NET 10 on macOS during the conversation. They are recorded so no one re-derives them.
-
-**Named `Semaphore` and named `EventWaitHandle` do not exist on Unix.** Both throw `PlatformNotSupportedException: The named version of this synchronization primitive is not supported on this platform.` Named `Mutex` is the only named synchronisation primitive .NET offers on all three platforms.
-
-**An unprefixed named mutex allows two simultaneous holders across POSIX sessions.** With a holder live in a separate POSIX session, a second process reported `TryOpenExisting=False`, `createdNew=True`, and `WaitOne(0)=True`, and acquired its own copy of the same name. With the `Global\` prefix the same test correctly reported `TryOpenExisting=True`, `createdNew=False`, and `WaitOne(0)=False`.
-
-**An exclusive file lock behaves correctly across POSIX sessions.** A `FileStream` opened with `FileShare.None` was refused with an `IOException` while a holder in another POSIX session held the same path, and succeeded when nothing held it.
-
-**Neither mechanism leaves a stale lock.** After the holder was killed with `SIGKILL`, both the named mutex and the file lock were immediately available again, so a killed daemon cannot block its own restart.
-
-**The macOS per-user temporary directory is `$TMPDIR` at mode 0700.** On this machine that is `/var/folders/s5/lkpmbqsn17gcvx02hzxcdvr80000gn/T/`. A socket path beneath it comes to 69 bytes, inside the 104-byte limit for a Unix socket path on macOS.
-
-**Nothing above was run on Linux or Windows.** Linux uses the same .NET Unix code path, and Windows is a genuinely different one. Both are proven on their own CI legs by the pointed-integration tests rather than taken on trust.
-
-## Where the code stands today
-
-Nothing daemon-related exists. There is no mention of a daemon, appd, a LaunchAgent, or systemd anywhere under `src` or `eng`. The per-OS assemblies this work extends are already in place as `AgentGuard.CrossPlatform` with `AgentGuard.CrossPlatform.Linux`, `.MacOS`, and `.Windows` beside it, which is the same shape the presence work used.
+Research questions and remaining mechanism choices are kept in [handoff.md](handoff.md). This brief is the document to review before authorizing GROUND.

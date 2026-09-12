@@ -1,198 +1,118 @@
-# Handoff — appd-1-process
+# Handoff — appd process paused after specification cleanup
 
-For the agent taking over issue #63. Read this once, then work from the files it points at rather than from this document.
+## Current stop point
 
----
+The appd process work is paused at Tim's request. The local specification is prepared for a documentation commit; nothing has been staged or committed by the agent. The live issues still describe the per-user server and are not superseded by these unpublished drafts.
 
-## 1. Boot
+Read [conversation.md](conversation.md) for the current brief. The next delivery is the communication transport, independently testable with both endpoints in one process. The process delivery then consumes it. Product identity verification, viewer launching, and presence-result validation remain separate deliveries.
 
-Read these four in this order before anything else. They are the rails and they override any instinct you have about how to work.
+When Tim resumes this work, first review the narrowed channel scope and the proposed dependency changes in [issue-revisions.md](issue-revisions.md). Approve and publish the replacement issue text before launching work against it. The existing channel work folder is `.dev/backlog/64-appd-2-channel/`; it has not been started or rewritten by this cleanup. Use [review-package.md](review-package.md) for the remaining review steps. Claude remains Tim's intended agent for the later process GROUND.
 
-```
-.agents/skills/rails-read-me/SKILL.md
-.agents/skills/rails-run-a-workflow/SKILL.md
-.agents/skills/rails-decisions/SKILL.md
-.agents/skills/rails-real-work/SKILL.md
-```
+## Read the rails first
 
-Then read the work folder, which is `.dev/inprocess/63-appd-1-process/`:
+Read these files completely, in this order:
 
-- `conversation.md` — every decision Tim has made, in the wording he approved. This is the brief. Treat it as binding.
-- `design-challenges.md` — what the next design round has to work out.
-- `ground-output.json` and `design-output.json` — the recorded stage results. Background, not spec.
+1. `.agents/skills/rails-read-me/SKILL.md`.
+2. `.agents/skills/rails-run-a-workflow/SKILL.md`.
+3. `.agents/skills/rails-decisions/SKILL.md`.
+4. `.agents/skills/rails-real-work/SKILL.md`.
 
-The live GitHub issue always wins over anything in the folder. Read #63 with `gh issue view 63` and read #62, which is the parent holding the whole appd design.
+Read `rails-explorer` for the investigation method and `rails-dry-code` for the reuse ledger. Read the applicable communication skills and `.dev/reference/best-practices-guide.md`. The rails remain the workflow authority; this handoff does not create an alternative workflow.
 
-**Derive state, never read it from a status document — including this one.** The rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and what is planned or open is `gh issue list`.
+The workflow states: “The live issue is the authority: where it and anything in the folder disagree, the issue wins.”
 
----
+## Inputs and their authority
 
-## 2. Where the work stands
+- [conversation.md](conversation.md) is the consolidated current brief awaiting approval of its wording. Earlier decision wording is recoverable with `git show b4d3a00:.dev/inprocess/63-appd-1-process/conversation.md`.
+- [replacement-brief.md](replacement-brief.md) contains the detailed architecture review and investigation background.
+- [decision-reconciliation.md](decision-reconciliation.md) maps retained and proposed replacement decisions to their source wording.
+- [issue-revisions.md](issue-revisions.md) contains the full fetched current and full proposed title/body for the parent and all five child issues, including source timestamps.
+- [autostart-research.md](autostart-research.md) and [design-review-notes.md](design-review-notes.md) contain research. They distinguish documented capabilities from experiments; they are not implementation approval.
+- [design-challenges.md](design-challenges.md) contains historical challenges. Its review notice identifies that status.
+- `ground-output.json` and `design-output.json` are complete original outputs for the previous per-user architecture. Preserve their bytes. They are background, not verdicts on the new architecture.
+- `review-model.json`, `review-view.html`, `render-review.mjs`, and `appd-review.html` are the earlier interface presentation. They are not the new design and selections do not constitute approval.
 
-Branch `appd-1-process`, cut from `rails-doc-cleanup`. Ten commits, working tree clean, nothing pushed.
+Read the live parent and child issues with `gh issue view`: parent architecture (#62), process (#63), channel (#64), dashboard (#65), identity (#66), and key/presence (#67). Read the related conversation records under `.dev/backlog/64-appd-2-channel/` and `.dev/backlog/67-appd-5-key-and-presence/`. The dashboard currently has its requirements in the live issue, not a conversation.md file.
 
-Two of eleven stages are complete. The pipeline is GROUND, DESIGN, CONTRACT, RULE-PHASE, ARCHITECTURE, TDD, IMPLEMENT, READINESS, REFUTE, GATE, REPORT. Stage order never changes and re-running a completed stage needs Tim's explicit yes.
+## State to rederive
 
-**GROUND** ran fifteen agents. All five capabilities came back `new` with both search lenses empty, so nothing is reused and the contract carries no reuse instruction. Twenty open questions were triaged: seven closed by Tim's decisions, one dead, five handed to DESIGN, three delegated to RULE-PHASE, and one resolved as not needed. Twelve auto-resolved records were adjudicated; two over-reached and Tim ruled on them, and that ruling is in `conversation.md`.
+At package preparation, the branch was `appd-1-process`, HEAD was `b4d3a00`, and the working tree was initially clean. Do not reuse that as current state; run `git status --short`, `git branch --show-current`, and `git log -1`.
 
-**DESIGN** ran four agents. The chosen approach turns on one idea: no string, path or command crosses a port into the OS abstraction, so `Start()` takes no argument saying what to launch. A second startup path is not forbidden by a rule someone could suppress — it cannot be written. Sixteen guardrail rules came with it, and Tim signs each one off before RULE-PHASE writes any of them.
+The recorded original GROUND and DESIGN have `panelComplete: true` and no failed roles. No contract or later stage outputs exist in this work folder. This preparation adds documentation only; it does not constitute another stage result. Do not claim that the new architecture has completed GROUND.
 
-**Nothing has been built.** No source file, analyzer or test has been touched. Every change so far is under `.dev/` plus one commit to `rails-real-work`.
+The original DESIGN contains ten reuse instructions. The earlier handoff's claim that the contract carries no reuse instruction was incorrect. Read the original list directly and rerun capability-specific discovery for the new scope; do not copy its old names or verdicts as current facts.
 
-**The next action** is to draft the contract, then run the hidden-decision scan over that draft. The scan is documented under GROUND but cannot run there because it requires a contract file — that defect is filed as issue #73, and for this run the scan happens at CONTRACT where the script works.
+## Proposed process scope for the next GROUND
 
----
+Subject to approval and issue synchronization, investigate delivery of one machine-wide headless server using the same application binary as CLI and viewer roles. The process part installs, discovers, starts, stops, recovers, and diagnoses the server. It consumes the preceding channel delivery. Production viewer, identity protocol, and key/signing implementations remain later deliveries.
 
-## 3. How to talk to Tim
+Investigate the later session-launch and delegated-presence requirements now where they constrain server architecture. Investigating them is not permission to build those features in the process part. The server does not need to draw UI; the viewer runs as its user and connects back.
 
-This is not style. Getting it wrong costs him time, which is the thing you are optimising against.
+Vocabulary remains provisional. Do not invent command names, DTOs, interfaces, paths, service identifiers, or crypto formats to fill gaps.
 
-**Open every message with the verdict or the answer.** No preamble, no recap, no narrating your own mistakes.
+## Concrete investigation questions
 
-**Answer the literal question asked**, in his vocabulary, in the fewest words. When the honest answer is "it does not exist" or "I did not do it", say that plainly and first.
+### Machine-wide lifecycle and installation
 
-**Name the mechanism, never a label for it.** Say "put the user's SID in the Windows pipe name" — not "my pick: one per user". A label makes him ask what it means and costs a whole round trip. This applies to every option, every recommendation, and every line you write into a record.
+Find the existing install/setup, approval, command execution, filesystem, diagnostics, and platform composition owners. Establish what changes are needed for OS system-service installation, protected binary/configuration locations, runtime accounts, singleton enforcement, and machine-wide discovery. Assess direct invocation and concurrent start requests.
 
-**Set the context for each part before you say the point.** He has not read what you read. Referring to a report, an agent, or a finding as though he has seen it makes the message unreadable.
+Compare automatic startup, intentional stop, administrative disablement, explicit retry, and crash recovery. Map the old approved recovery values to the actual system managers or report a required design change. Establish whether saved settings take effect at the desired next start without silently restarting the running server. Distinguish server policy from viewer policy.
 
-**Problems and decisions on top, then a fold** marked `OPTIONAL DETAILS (do not need to read)`, always present, blank when empty. Below the fold means he does not have to read it — so anything raised so a later stage or another agent will not trip on it goes above the fold, whatever kind of note it looks like. Naming a thing and then filing it where he is told not to look is the same as not naming it.
+### Session launch and UI availability
 
-**Report a failure before anything that passed.** Never soften it, never open with what went right.
+Establish each OS's way to launch an unelevated viewer into the requesting user's graphical session. Obtain the actual viewer identity, not a launch-command PID. Windows requires simultaneous interactive sessions for the same account. Linux coverage includes Wayland without systemd session integration. The existing user-manager candidate alone is not evidence of that coverage.
 
-**One recommendation, marked, with one reason.** Not a menu of caveats. If a correct approach and a cheaper wrong one are both visible, take the correct one and say so.
+Determine what can be detected from peer process/user/session evidence, what requires display context, and what happens for no graphical login, SSH, locked/disconnected desktops, logout races, and viewer launch failure. Report OS facts separately from the product decision about automatic CLI fallback.
 
-**Do not surface a settled question.** Before bringing him anything, check whether an approved rule, a recorded decision, or `.dev/reference/best-practices-guide.md` already answers it. If it does, apply it and never raise it.
+### Presence and process identity reuse
 
-**Do not surface a race or defect that fails closed.** Judge it by what happens when it fires, not whether it can. A benign no-op is not a finding.
+Trace the existing presence implementations and their OS calls. Establish whether they can run in the server, viewer, or CLI and what their results establish. Investigate delegated viewer checks without requiring an OS-signed certificate as an invented prerequisite.
 
-**When he corrects you, rebuild the whole answer in one turn** rather than patching the one line.
+Reuse the planned process-identity system conceptually and discover its actual implementation state. Establish mutual peer verification, user/session association, exact launched-instance matching, PID reuse handling, and the relationship between launcher and viewer processes. Existing appd identity is a spec, not a completed subsystem.
 
-**Give the count you claim.** If you say four things, show four numbered items.
+The identity part owns connected-process identity and expected-instance matching. The key/presence part owns freshness, operation binding, replay rejection, and accepting the delegated result. A symmetric key or KDF is a candidate only. Evaluate authenticated IPC guarantees before proposing another mechanism. State the consequences of trusted-process tampering without inflating the project's threat model or claiming a MAC proves an OS check occurred.
 
----
+### Multi-user state and downstream constraints
 
-## 4. What Tim controls, and what you can decide alone
+Identify the surfaces affected by machine-wide service scope: IPC ACLs, per-user requests and keys, viewer association, logs, enrollment, and privilege boundaries. Preserve existing per-user signer attribution. Identify changes needed to install-time key minting without deciding a shared machine key.
 
-The dividing test: does the choice outlive its function and make other code depend on it? If yes, it is his.
+Preserve the .NET web-server, capable browser-engine, and React stack. Establish relevant constraints on whether the web server resides in the privileged server or the viewer; do not select a new transport or UI dependency. Preserve the XPC-from-.NET feasibility requirement and its existing helper/build-target constraints.
 
-### His, always — surface it and wait for an explicit yes
+### Native ownership, reuse, and guardrails
 
-**The Top Layer interface.** The service the CLI calls, and the same service the dashboard will call. Its operations, their shapes, what they return. This is the API footprint and it is the thing he most wants to own.
+Use the existing GROUND workflow's ledger path and its required discovery lenses. Inspect actual code across src, tests, analyzers, and eng. Identify existing owners and extensions instead of reimplementing primitives. The old sixteen rules are unapproved proposals, not the required count for the new architecture.
 
-**The OS Abstraction Layer.** The interfaces that make all three operating systems look identical from above, and what sits on each.
+## Evidence and execution boundaries
 
-**The OS Native Layer grouping.** The wrappers themselves are fixed by the OS or the BCL — they mirror one to one and exist only so they can be faked. What is his is which interface each one sits on and how like concepts are grouped.
+A documented API is not a native launch experiment. Record the OS/version, command or probe, actual outcome, and limits of each result. Do not claim Linux behavior from a macOS run. A suitable Windows host was not available in the earlier local VM inventory; recheck access rather than asserting one exists.
 
-**Every analyzer rule, before it is written.** A rule written into `analyzers/` without his words is an unapproved decision ranked with a weakened test.
+Read-only research and code exploration are distinct from installing a temporary service or running a GUI probe. Obtain approval for the concrete temporary targets and any work exceeding the approved time. Do not install dependencies, create VMs, or change system configuration merely to remove an environment gap. This package grants no experiment permission.
 
-**Anything written onto a user's machine.** Its layout, its contents, its location.
+Do not change source, tests, analyzers, workflow scripts, issue bodies, or approved design while doing the prepared GROUND. Follow the selected workflow's exact permissions once Tim authorizes the rerun. No commit, staging, push, or PR is authorized here.
 
-**Any user- or developer-visible name.** Verb names, file names, identifiers, wire formats.
+## Before launching GROUND
 
-**The rigor level, and waiving any finding.** L1 is the default and needs no approval; L2 and L3 need his explicit yes for that run.
+1. Tim approves the replacement brief, the process scope, and the exact replacement issue wording.
+   The consolidated brief to approve is conversation.md.
+2. Tim authorizes publication; update the live issues and local issue copies and record explicit decision supersessions without changing historical approvals.
+3. Re-read the live issues and approved conversation record. Resolve any input mismatch.
+4. Obtain Tim's explicit authorization for the GROUND rerun and its time scope. Apply every launch precondition in rails-run-a-workflow. An unresolved product decision is not an instruction to let an explorer pick a default.
+5. Preserve the old raw outputs under an explicitly agreed historical location before any stage tool writes the same filenames. Use this work folder, not a second work-item folder.
 
-**Committing, pushing, or opening a pull request.** Never do any of these without his word for that act.
+If the workflow's launch preconditions prevent the proposed investigation while its questions remain open, bring that exact conflict to Tim. This handoff does not waive those preconditions.
 
-### Yours — do it and report it
+GROUND returns its complete recorded output and evidence paths. It does not proceed automatically into DESIGN, write the implementation contract, or rebuild the visual. Tim reviews the findings before authorizing the next completed-stage rerun.
 
-**The Middle Layer.** Everything wiring the Top Layer to the OS Abstraction Layer: the logic inside the service, mapping outcomes into results, hooking work onto machinery that already exists.
+## Communicating with Tim
 
-**How any named thing is internally coded.** A loop, a helper, a private name. Cheaply changed, no ripple.
+The original user instruction says: “Ask before anything over ten minutes, with the estimate.” It also says: “Never push. Never commit, stage, or open a PR without my word for that act.”
 
-**Recordkeeping.** Filing a GitHub issue, creating its work folder, moving that folder between `backlog`, `inprocess` and `completed`, writing the records. These never need his approval, and file the issue the moment work is deferred rather than noting it.
+Apply the current communication skill. Lead with the answer. Show actual C# when asking for interface approval. Use provisional role names until Tim settles vocabulary. OS investigation questions belong to the investigator, not an unexplained list of choices for Tim.
 
-**Running the stages in order** and doing all the work inside an approved unit without stopping to re-ask.
-
-### Rules that bind you regardless
-
-Approval of a unit of work approves all of it. Never split it into stages he did not ask for, stop at a checkpoint he did not ask for, or cut scope without asking a direct question naming exactly what would be cut.
-
-Silence, a topic change, or a request to reword or clarify is never approval. But equally — when he designs by talking, the conversation *is* the ruling, and a record is where you write down what he decided rather than a second gate where you ask again. If you genuinely think something is unruled, say so in the turn it comes up, in one line. Running that judgement silently and revealing it later in a document is the failure that cost the most time in this work so far.
-
-Anchor approval to his actual words, never to "it is already in the code."
-
-Never reach for an exemption, a suppression, or a reclassification to escape a rule that already answers a question. When a rule blocks the clean design, stop and bring him the exception; never reshape the code to slip past the analyzer.
+Every reply uses the plain fold:
 
 ---
 
-## 5. What must be resolved before the contract locks
+OPTIONAL DETAILS (do not need to read)
 
-Four things, and the first blocks outright.
-
-### 5.1 What goes inside the three autostart entries
-
-The autostart entry is what makes appd start at login: a LaunchAgent property list on macOS, a systemd user unit on Linux, a Task Scheduler task on Windows. appd never reads it — the operating system does.
-
-The names and locations are decided and are in `conversation.md`. The contents are not, and this is the on-disk layout of something written onto a user's machine, which is his by the guide. No contract advances with this unanswered.
-
-Five capabilities such a definition can express. Four work on all three platforms: starting at login, running as that user with desktop access, restarting on failure with a delay, and refusing a second copy. Two do not travel. Only Linux and Windows can cap the restart retries — launchd will respawn forever, throttled to one attempt every ten seconds. And **Windows cannot redirect the program's output to a file at all**; a scheduled task's action is an executable and arguments with no output field, and the only workaround is wrapping the command in a shell, which this design's own rules ban.
-
-Two recommendations follow, both awaiting his word. Have appd write its own log file rather than using any service manager's redirection, so all three behave identically and nothing is platform-specific. And restart on failure only, with a delay, capped where the platform has a cap, accepting that macOS keeps trying.
-
-The Linux question stated at the level he can answer: does appd start when the user logs in at all, or only once a desktop is up? Only-with-a-desktop never starts on desktops that lack systemd session integration — sway and i3 among them — and it fails silently. The recommendation is: at login, always.
-
-**None of this was verified against live documentation.** Both research tools were exhausted in the previous session — Perplexity returned a quota error and the web search budget was spent. The Windows output-redirection claim in particular should be confirmed before it goes into the contract.
-
-### 5.2 Which of three shapes the Top Layer takes
-
-Five operations are in play: is appd running, ensure appd is running, what state is the autostart entry in, write it, remove it.
-
-*All five in one service.* One place to look for anything about appd. The cost is that the first two are about a process running right now and the last three are about a file on disk — one interface answering two different questions.
-
-*Two services.* One for the running process, one for the autostart entry. Each has one reason to change. The cost is that ensuring it runs cannot report why it failed without asking the other whether the entry exists, so they are coupled anyway and most callers hold both.
-
-*Two operations, autostart entry stays with setup.* The service is only the two runtime operations; writing, checking and removing the entry stay in the existing setup-condition machinery that `install` and `doctor --fix` already drive. Smallest new surface. The cost is that the dashboard reaches setup rather than the daemon service to show entry state.
-
-### 5.3 How the per-OS pieces group on the platform container
-
-The platform container has two members today: the filesystem, and presence. This work adds three per-OS things — the lock, asking the service manager to start, and the autostart entry.
-
-*Three siblings* takes the container to five flat members, matches exactly what is there, and adds no type.
-
-*One member holding three* takes it to three members with the daemon's three beneath, adds one interface, and buys container-level coverage on the grouping as well as leaf coverage on each part.
-
-The real question is whether the platform container is a flat list of capabilities or a list of subsystems. Presence was one thing so it never forced the choice.
-
-### 5.4 The sixteen guardrail rules
-
-Each needs his sign-off before RULE-PHASE writes it. They are in `design-output.json` under the verdict's rule list. They are three kinds: table entries giving a banned primitive an owner so the raw call is legal in exactly one class, new checks that make a specific shortcut unwritable, and three ordinary tests rather than analyzers.
-
----
-
-## 6. Lingering questions
-
-`design-challenges.md` holds three things the next design round must work out: who owns reading an embedded resource and what that interface looks like, how the lock answers "is it held" on POSIX without taking it — where his double-checked lock is the recorded answer — and whether writing the autostart entry is enough to start it in a session that is already running, which nobody has run on any platform.
-
-Two items came out of GROUND that were never chased. Three analyzer doc comments assert a type "does not exist yet" when the concrete types now do. And the CLI's runtime-identifier threading was flagged as possibly inert, which matters because of what that threading exists to prevent.
-
-Four issues were filed during this work and are not part of #63: **#71** the client and daemon supported-version window, **#72** the auto-resolved record contract, **#73** the hidden-decision scan's stage placement, **#74** evaluating every static class in `src`.
-
----
-
-## 7. Visual status
-
-He needs to see where things stand without reading prose, and the standard is higher than a hand-written page.
-
-A page was published during this work at `https://claude.ai/code/artifact/1af2dbbf-556f-4d71-aefb-5a4653403ef4` showing the layer stack, the two processes, and the three candidate shapes. He called it a good start and not good enough, and the reasons are worth understanding before building the next one.
-
-It was hand-authored from what an agent happened to remember, so it is a snapshot that goes stale the moment anything moves. It did not show position in the pipeline. It did not separate what is waiting on him from what is running from what is done. And it was a one-off rather than something regenerated whenever state changes.
-
-What to build instead: a status surface **derived from the actual state** — the git tree, the work folder, the issue list, the recorded stage outputs — that leads with what is waiting on him, shows where the run sits in the eleven stages, and is regenerated rather than remembered. Issue #65 states the standard he wants in his own words: it populates itself from every build, it is not something an agent updates or remembers to mention, and every value carries its age and whether it still means anything, because a green result from four hours and six commits ago is not evidence.
-
----
-
-## 8. Standing constraints
-
-Never push. Never commit, stage, or open a pull request without his word for that act.
-
-Ask before anything over ten minutes, with the estimate.
-
-Bringing a decision means showing the full current text and the full replacement text, never a summary. What he approves goes in word for word.
-
-Never write his raw words into a spec, document, commit, issue or agent instruction. Clean it, show him, get approval, then write.
-
-Never put an exclusion in an agent's instruction unless it quotes a Decision from the contract.
-
-Nothing goes in the root of `.dev/inprocess/` — work folders only.
-
-Move the work folder from `inprocess` to `completed/run-records/` inside the shipping pull request, before merge, not after.
+This handoff replaces the earlier stale handoff as a review-stage orientation document. The original remains recoverable in git history. Historical GROUND/DESIGN output bytes and the original visual were not modified.

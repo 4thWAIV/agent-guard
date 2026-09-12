@@ -2,6 +2,8 @@
 
 Status: Draft for Tim's approval. Recorded on 2026-09-11 at Tim's request. Recording this brief does not approve every proposed sentence, supersede the live issues, authorize production changes, or authorize rerunning completed stages. CLI, server, and viewer are provisional role names, not selected command or interface names.
 
+The consolidated current brief is [conversation.md](conversation.md). This document retains the detailed review background. References below to earlier process-conversation wording mean the version available with `git show b4d3a00:.dev/inprocess/63-appd-1-process/conversation.md`. Full issue replacements are in [issue-revisions.md](issue-revisions.md), and the prepared Claude handoff is [handoff.md](handoff.md).
+
 ## Proposed direction
 
 AgentGuard uses the same application in three cooperating roles. The CLI receives requests from a person or automation. One headless server runs per machine and coordinates requests. A separate viewer runs as the user in the graphical session where interaction is needed. Multiple users or sessions can have separate viewers connected to the same server.
@@ -9,6 +11,18 @@ AgentGuard uses the same application in three cooperating roles. The CLI receive
 The server receives a CLI request and obtains the connecting process's identity from the OS. It identifies the appropriate user and session, then uses an authenticated viewer connection for that session. If no viewer is connected, it requests an OS-mediated launch, waits for an authenticated connection, and delivers the request. Request correlation, launch races, timeouts, and reconnect behavior remain to be designed.
 
 The viewer presents information and collects responses. The server retains responsibility for authorizing operations and, when the key work is implemented, signing. Neither an ordinary CLI response nor a graphical response by itself substitutes for the required presence check.
+
+### Delegated presence and expected viewer identity
+
+Proposed addition from the subsequent discussion: The server may delegate presence checking to the viewer in the requesting user's session. The viewer calls the OS presence mechanism and returns its result over the authenticated connection. The server validates that result before using it to authorize the pending operation.
+
+Reuse the existing planned mutual process-identity mechanism. This is recorded design, not implemented appd code. When the server launched the viewer, the connecting identity must also match the actual viewer process instance returned or resolved through that launch. The PID of launchctl, systemctl, or another launch-request helper is not the viewer PID. PID reuse after exit must not let a different process inherit this trust.
+
+The identity part owns process verification, user/session association, and expected-instance matching. The key/presence part owns delegated-result freshness, operation binding, replay rejection, and authorization. The viewer part supplies the user-facing OS call. Define these boundaries without a second identity subsystem.
+
+A symmetric key or key derivation may authenticate results, but neither is selected. First establish whether the authenticated IPC connection already supplies the necessary protection. Additional keying requires a secure way to establish and deliver a secret; public PID, user, and session values alone cannot provide one. Message authenticity is not an OS presence certificate. Trust in the result also depends on the verified viewer's code and the OS protection of that process.
+
+GROUND examines existing presence code and OS APIs to establish where each platform's check can run, what it returns, and what the server can validate. It must cover CLI-only interactions and the absence of a running server during administrative operations. It reports limitations against the project's threat model rather than claiming cryptography protects a compromised viewer.
 
 The server's lifetime is independent of graphical logins and viewer processes. Closing a viewer does not stop the server. The CLI provides a way to close viewers. The command vocabulary and the exact scope of that close operation remain to be selected.
 
@@ -56,7 +70,7 @@ No Windows VM was listed by the local Parallels inventory during the earlier res
 
 ## Reconcile existing decisions
 
-The current decision record remains authoritative for its approved wording until replacements are approved. Do not edit historical approvals to make them appear to describe this architecture. The following is an impact assessment, not a list of silently revoked decisions.
+The following compares the earlier decision record with the proposed architecture. It is review history, not a second current brief. Earlier approvals remain attributable to their original wording in git.
 
 | Existing source wording | Proposed treatment |
 |---|---|
@@ -69,11 +83,11 @@ The current decision record remains authoritative for its approved wording until
 | “The CLI decides whether appd is running by testing the lock.” — conversation.md | Reevaluate against a machine-wide service and its access permissions. No replacement detection mechanism is selected here. |
 | “The channel lives where only the user's account can reach it.” — live channel issue | Define how multiple users reach one server while their requests and data remain isolated. A shared endpoint is not automatically permission to access another user's state. |
 | “The Windows pipe name carries the user's SID and the Terminal Services session id” — channel conversation.md | Reevaluate endpoint naming for machine-wide service discovery. Do not use a name supplied by a client as authentication. |
-| “The three autostart-entry templates ship embedded in the binary.” — conversation.md | Retain embedded-definition reuse as a candidate. Reconcile the number and contents with the selected server and viewer mechanisms. |
+| “The three autostart-entry templates ship embedded in the binary.” — conversation.md | Preserve embedded definitions as the agreed approach where definitions remain needed. Reconcile the number and contents with the selected server and viewer mechanisms. |
 | “The macOS lock path uses the shared temp root, and Tim approved an exemption from the rule that forbids it.” — conversation.md | Preserve the original approval. Do not transfer the exemption to a different machine-wide path or operation. |
 | “No new static classes.” — conversation.md | Carry forward unchanged. |
 
-The approved recovery, stop, configuration, logging, and explicit Linux retry wording stays in conversation.md. It must be reviewed against the changed process scope. In particular, the Windows retry settings were derived from Task Scheduler, the stop wording uses the caller's daemon scope, and the logging package assumes per-user daemon runs. This brief does not substitute Service Control Manager settings, machine-wide log locations, new retention limits, or revised permissions for those decisions.
+The original recovery, stop, configuration, logging, and explicit Linux retry wording remains in the process conversation at b4d3a00. The consolidated conversation carries the current behavioral targets. Their machine-wide mechanisms require investigation and design approval.
 
 The existing assembly direction and interface ownership remain the starting constraints. New service, viewer, privilege, and connection interfaces still need actual C# declarations for review. Existing owner-table approvals do not authorize arbitrary new native owners. The sixteen old guardrail proposals and ten DESIGN reuse instructions must be reevaluated rather than accepted or discarded wholesale.
 
@@ -93,15 +107,15 @@ Source: [appd identity](https://github.com/4thWAIV/agent-guard/issues/66). Prese
 
 The XPC-from-.NET feasibility requirement remains in [appd channel](https://github.com/4thWAIV/agent-guard/issues/64). Cross-user communication changes its execution context and must be included in that investigation. No native helper or platform-specific build target is approved by implication.
 
-The key remains part of the later key/presence work. A machine-wide server does not imply one key for every user. Key ownership, storage permissions, unlocked-state scope, logout behavior, and which viewer may approve which request remain to be decided. Preserve the other recorded key requirements in their existing work folder while reconciling that scope.
+The key remains part of the later key/presence work. The existing key conversation records: “Every user working on a project mints their own key, and all the public keys are committed.” Preserve this attribution requirement; a machine-wide server does not imply one shared machine key. Storage permissions, enrollment after machine-wide installation, unlocked-state scope, logout behavior, and which viewer may approve which request need concrete design. Preserve the other recorded key requirements in their existing work folder while reconciling installation assumptions.
 
 ## Decisions and investigations before a contract
 
-Tim reviews the cleaned architecture wording and the replacements identified above. The remaining lasting choices include user/key ownership, viewer lifecycle, request completion and recovery, protected installation locations, runtime privileges, automatic server startup, administrative start permissions, UI hosting, and the scope of CLI viewer closure.
+Tim reviews the cleaned architecture wording and the replacements identified above. The remaining lasting choices include key enrollment and unlocked-state scope, viewer lifecycle, request completion and recovery, protected installation locations, runtime privileges, automatic server startup, administrative start permissions, UI hosting, and the scope of CLI viewer closure. These are not requests to solve OS API facts; investigation first establishes the viable mechanisms.
 
 The agent establishes OS launch and graphical-availability capabilities. Unknown API behavior is investigation work, not a preference question for Tim. If an experiment requires a different mechanism or exposes an unsupported requirement, present the result and the concrete choice before proceeding.
 
-Reconcile the existing five-part issue split and dependency order. A channel-only demonstration must not become an unauthenticated privileged request executor. Propose how identity and authorization precede exposed privileged actions; do not silently reorder issues or expand the process delivery to include the whole product.
+Deliver the communication transport before the process work. Exercise connection establishment, message exchange, connection closure, and OS peer information with both endpoints in one process through the actual transport. The process delivery consumes that implementation and adds installed-service integration. Product identity verification, viewer launching, and presence-result validation remain in their respective deliveries. The proposed parent, process, and channel issues carry this order.
 
 ## Rebuild the interim work products
 
@@ -117,4 +131,4 @@ Draft the contract after the new design and decisions are ready. Run the hidden-
 
 ## Current execution boundary
 
-Two workflow stages completed for the old architecture: GROUND and DESIGN. There is no contract in this work folder. This recording changes only this brief. It does not change GitHub issues, existing approvals, production code, analyzers, tests, the visual, or stage results. No commit, staging, push, or PR is part of this work.
+Two workflow stages completed for the old architecture: GROUND and DESIGN. There is no contract in this work folder. The approved preparation task creates and updates local review documents only. It does not publish GitHub changes, approve the proposed architecture text, implement code, regenerate the visual, or rerun stages. No commit, staging, push, or PR is part of this work.

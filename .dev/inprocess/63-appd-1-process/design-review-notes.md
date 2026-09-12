@@ -1,5 +1,7 @@
 # Design review preparation
 
+Review status — 2026-09-11: Start with [review-package.md](review-package.md) for the proposed machine-wide architecture. The existing review-model.json and appd-review.html still depict the previous per-user interface proposals and are not current architecture. No selection in that visual constitutes approval. The research and earlier proposals below remain historical inputs; current proposed boundaries are in replacement-brief.md and issue-revisions.md.
+
 ## Machine-wide server exploration — 2026-09-10
 
 This exploration does not replace the live issues' per-user architecture. Names, interfaces, and launch definitions remain unapproved. Proposed professional decision wording for later approval: Machine-wide server stop and configuration operations require both a presence check and operating-system administrative authorization. The CLI separately supports closing viewers. This wording has not yet been approved as written.
