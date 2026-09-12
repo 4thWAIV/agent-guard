@@ -1,8 +1,8 @@
 # Appd replacement review package
 
-Status: Paused after local specification cleanup. Prepared for a documentation commit, not for launching GROUND. No issue changes were published and no workflow stages were run. Nothing has been staged or committed by the agent.
+Status: Paused in backlog after local specification cleanup. No issue changes were published and no new workflow stages were run. Recheck git for the current commit and working-tree state. Static-class evaluation is the next intended work, followed by the channel before resuming process delivery.
 
-Resume with the independently testable communication transport, then the appd process that consumes it. The current brief is conversation.md; the full restart context is handoff.md. The existing channel work folder remains in backlog.
+Resume with the independently testable communication transport, then the appd process that consumes it. The current process brief is conversation.md; the full restart context is handoff.md. Channel planning is now in `.dev/inprocess/64-appd-2-channel/`; its brief includes replaceable message structure and verification interface requirements that must be reconciled into the replacement issue wording before publication.
 
 ## Read and approve
 

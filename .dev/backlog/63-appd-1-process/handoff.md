@@ -2,11 +2,11 @@
 
 ## Current stop point
 
-The appd process work is paused at Tim's request. The local specification is prepared for a documentation commit; nothing has been staged or committed by the agent. The live issues still describe the per-user server and are not superseded by these unpublished drafts.
+The appd process work is paused in `.dev/backlog/63-appd-1-process/` at Tim's request. The next intended work is static-class evaluation, followed by the channel before resuming the process delivery. The live issues still describe the per-user server and are not superseded by these unpublished drafts. Recheck git for the current commit and working-tree state.
 
 Read [conversation.md](conversation.md) for the current brief. The next delivery is the communication transport, independently testable with both endpoints in one process. The process delivery then consumes it. Product identity verification, viewer launching, and presence-result validation remain separate deliveries.
 
-When Tim resumes this work, first review the narrowed channel scope and the proposed dependency changes in [issue-revisions.md](issue-revisions.md). Approve and publish the replacement issue text before launching work against it. The existing channel work folder is `.dev/backlog/64-appd-2-channel/`; it has not been started or rewritten by this cleanup. Use [review-package.md](review-package.md) for the remaining review steps. Claude remains Tim's intended agent for the later process GROUND.
+The channel is now being planned in `.dev/inprocess/64-appd-2-channel/`; its conversation.md adds replaceable message structure and identity/verification interface requirements. Tim and Codex own the design. Claude handles authorized investigation and workflow execution, including GROUND, prior-art discovery, and the hidden-decision scan, returning findings to the design discussion. Reconcile and approve the replacement issue text before publication and GROUND. The process work remains paused. Use [review-package.md](review-package.md) for its remaining review steps.
 
 ## Read the rails first
 
@@ -32,7 +32,7 @@ The workflow states: “The live issue is the authority: where it and anything i
 - `ground-output.json` and `design-output.json` are complete original outputs for the previous per-user architecture. Preserve their bytes. They are background, not verdicts on the new architecture.
 - `review-model.json`, `review-view.html`, `render-review.mjs`, and `appd-review.html` are the earlier interface presentation. They are not the new design and selections do not constitute approval.
 
-Read the live parent and child issues with `gh issue view`: parent architecture (#62), process (#63), channel (#64), dashboard (#65), identity (#66), and key/presence (#67). Read the related conversation records under `.dev/backlog/64-appd-2-channel/` and `.dev/backlog/67-appd-5-key-and-presence/`. The dashboard currently has its requirements in the live issue, not a conversation.md file.
+Read the live parent and child issues with `gh issue view`: parent architecture (#62), process (#63), channel (#64), dashboard (#65), identity (#66), and key/presence (#67). Read the related conversation records under `.dev/inprocess/64-appd-2-channel/` and `.dev/backlog/67-appd-5-key-and-presence/`. The dashboard currently has its requirements in the live issue, not a conversation.md file.
 
 ## State to rederive
 
