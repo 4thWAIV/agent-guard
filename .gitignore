@@ -162,3 +162,8 @@ eng/obj/
 
 # Private working area: notes, drafts, and handoffs that never belong in the repository.
 .private/
+
+# Review capture artifacts: browser screenshots and console logs from rendering a
+# review page. Evidence of a session, never an input to one; the page regenerates
+# from its committed model, view and render script.
+.dev/**/review-screenshots/
