@@ -4,6 +4,20 @@ This run covers GitHub issue #63 in full. The live issue is the authority; where
 
 ## Decisions
 
+### Interaction-mode detection
+
+Tim approved the following wording as written on 2026-09-11:
+
+AgentGuard detects whether graphical interaction is available to the requesting client and uses that result to select the default interaction mode. An explicit interaction-mode option takes precedence over detection.
+
+The future terminal/non-interactive switches belong in a separate backlog issue. They should not become implementation scope for the process work.
+
+Automatic CLI fallback after a viewer failure remains undecided. An error by default with an explicit fallback option is still a candidate.
+
+**The CLI provides a `stop` command.**
+
+**`agentguard start`.** It checks whether appd is running and, if needed, asks the OS service manager to launch `agentguard daemon`.
+
 **The daemon verb is `daemon`.** `agentguard daemon` runs the guard binary in daemon mode. It joins the six verbs the binary already has: `hook`, `install`, `init`, `remove`, `doctor`, and `version`.
 
 **The Windows autostart entry is a Task Scheduler task with a logon trigger.** Not the Run registry key and not the Startup folder. `schtasks /Run` is the only one of the three that the CLI can also fire on demand, and issue #63 requires one start path to serve both login startup and the CLI's check-and-start.
@@ -30,7 +44,9 @@ This run covers GitHub issue #63 in full. The live issue is the authority; where
 
 **Two new owners are added to the analyzer's owned-primitive table.** `AG0011` allows a raw OS or CLR primitive only inside the single class that implements its owning interface, so every other type reaches it through that interface and the engine stays mockable. `System.IO.FileStream`, which the Linux and macOS lock needs, and `System.Diagnostics.Process`, which the canonical start needs, have no owner today and are therefore reported everywhere the rule can see them. This work grows an owner for each and registers both in `analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs`. That file sits inside the analyzer fence, so the change is authorised here and is made by RULE-PHASE rather than by an implementer. Whether `System.Threading.Mutex` also needs an owner entry for the Windows side is for RULE-PHASE to determine when it does that work.
 
-**The three autostart-entry identifiers follow the naming the repo already uses.** The existing convention is the polkit action id `com.4thwaiv.agentguard.presence`, owned once in `PolkitAction.Id` and mirrored into `eng/polkit/agentguard-presence.policy`. So the macOS LaunchAgent label is `com.4thwaiv.agentguard.appd`, which makes the file `~/Library/LaunchAgents/com.4thwaiv.agentguard.appd.plist`. The Linux unit is `~/.config/systemd/user/agentguard-appd.service`, because systemd units are not reverse-DNS. The Windows Task Scheduler entry is a task named `appd` inside a folder called `\AgentGuard\`. Tim's decision: "Okay I like all of that."
+**The three autostart-entry identifiers follow the naming the repo already uses.** The existing convention is the polkit action id `com.4thwaiv.agentguard.presence`, owned once in `PolkitAction.Id` and mirrored into `eng/polkit/agentguard-presence.policy`. So the macOS LaunchAgent label is `com.4thwaiv.agentguard.appd`, which makes the file `~/Library/LaunchAgents/com.4thwaiv.agentguard.appd.plist`. The Linux unit is `~/.config/systemd/user/agentguard-appd.service`, because systemd units are not reverse-DNS.
+
+The Windows Task Scheduler entry is named `appd-<user SID>` inside `\AgentGuard\`. Installation substitutes the installing user's Windows SID into the task name and uses that same SID for the logon trigger and task principal. Every lookup and start request uses that user's task name.
 
 **`agentguard daemon` does not ask for the user's presence before it runs.** `install`, `init` and `remove` each call `ApprovalGate.RequireApprovalAsync` before touching anything, while `doctor`, `hook` and `version` do not; `daemon` follows the ungated group. Starting the process changes nothing in the user's project, and prompting here would put a presence check in front of the user at every login. Tim's decision, in his words: "we only need the presence check once a client requests work done.  so lazy verify is better here as we have exposed nothing and it would be user jarring to be getting a check on login every time." `install` stays gated as it is today, so writing the autostart entry remains behind approval.
 
@@ -41,6 +57,65 @@ This run covers GitHub issue #63 in full. The live issue is the authority; where
 **The thing that makes appd start at login is called the autostart entry.** Tim's decision: "AutostartEntry it is." It is the macOS LaunchAgent plist, the Linux systemd user unit, or the Windows Task Scheduler task — the definition the platform's own service manager reads to know what appd is and when to start it. The word "registration" is not used for it, because Tim reads that as something a person does to sign themselves up. "Service definition" is not used either, because issue #63 says appd is deliberately not a system service and borrowing the word invites exactly that confusion. Nor is it appd's configuration: appd never reads the file, the operating system does, which leaves the name "configuration" free for settings appd genuinely reads if it ever has any. This name carries into the interface, the per-OS class names, the analyzer identity file, and the contract.
 
 **No new static classes.** The daemon service and everything else this work adds are instance classes reached through an interface. Tim's decision, in his words: "STatic classe are testability pits and create massive code smells. I'd like to kill all and create an ana rule for that. BUt not now, as long as we add no more we can come back and clean this up." The thirty-five that already exist in `src` are evaluated and converted under issue #74, so the existing `ApprovalGate` stays static for now and this work does not follow it as precedent.
+
+## Approved behavior, recovery, configuration, and logging package
+
+Tim approved the following wording and package as presented. The text below preserves that approved wording. The approval settles the behavior and settings, not the implementation mechanisms that the presentation explicitly left unresolved.
+
+### Stop and autostart
+
+The stop command asks the OS service manager to stop appd in the caller’s daemon scope. It does not change autostart settings or prevent subsequent explicit or client-requested starts. An intentional stop does not trigger crash recovery.
+
+Disabling autostart disables login-triggered starts only. It does not stop a running appd, prevent explicit or client-requested starts, or disable crash recovery for an appd that is subsequently started.
+
+The last clause makes the distinction explicit: a manually started daemon still gets crash recovery.
+
+### Automatic restart
+
+- Windows waits 60 seconds and attempts three restarts.
+- Linux waits 60 seconds and permits four starts within ten minutes, including the initial start.
+- macOS throttles launches to once per 60 seconds and continues retrying without a count limit.
+
+These are similar, not identical. macOS’s throttle is not necessarily a full minute after a crash. An identical “three retries, then stop” policy would require an additional recovery mechanism.
+
+Linux’s limit also counts manual starts, so we must resolve how a new start request handles an exhausted limit. Windows restart targeting across sessions and macOS disabling login startup while retaining recovery remain implementation-design questions.
+
+### Explicit Linux retry after exhaustion
+
+Tim approved the following question and its resulting behavior as presented:
+
+“Should an explicit `agentguard start` clear that counter and try immediately, while automatic requests from clients leave it intact?”
+
+- You run `agentguard start`: clear the exhausted counter and request another start.
+- A client needs appd while Linux still refuses starts: report the failure and tell the user how to retry.
+
+### When settings take effect
+
+- Save valid changes immediately.
+- Autostart enablement affects future logins. Changing it neither starts nor stops appd.
+- Restart-policy and logging changes apply at the next daemon start.
+- Report settings that are saved but not yet active.
+- Never restart appd merely because someone changes a setting.
+
+That avoids interrupting the future UI or work already in progress. We still need to establish how each OS manager loads the pending definition.
+
+### Logging
+
+- User-owned root: `~/.agentguard/logs/appd/`.
+- One folder per **daemon process run**, named with its UTC start time and a unique identifier.
+- Keep the latest **five completed runs, plus all currently active runs**.
+- Rotate each file at **10 MiB or 24 hours**, whichever comes first.
+- Keep **five files per run**, including the current file.
+
+That budgets 250 MiB for completed runs, plus 50 MiB per active daemon. Concurrent Windows sessions share the user’s root but write separate run folders. Cleanup must never delete another active daemon’s logs.
+
+I’m interpreting “session” as a daemon run, not an OS login. A crash and restart therefore creates another folder. The tradeoff is that repeated crashes can push the original failure out of the five-run history.
+
+For reading, the proposed files are UTF-8 text. A proposed `agentguard logs` command displays the latest run for the caller’s daemon scope; `--follow` continues across rotation and daemon restarts. Both command additions need approval.
+
+Failures before appd can open its log must remain diagnosable through `doctor` using OS-manager diagnostics.
+
+The package approval includes the `agentguard logs` command and its `--follow` option presented above; the request for approval in the preserved presentation text is satisfied.
 
 ## Must reach the contract's Decisions section
 
