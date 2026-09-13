@@ -1,0 +1,132 @@
+diff --git a/.dev/backlog/74-static-class-evaluation/issue.md b/.dev/backlog/74-static-class-evaluation/issue.md
+deleted file mode 100644
+index 126c83b..0000000
+--- a/.dev/backlog/74-static-class-evaluation/issue.md
++++ /dev/null
+@@ -1,32 +0,0 @@
+-> The live GitHub issue supersedes this file. Read https://github.com/4thWAIV/agent-guard/issues/74 for the authoritative text.
+-
+-# 74 — Evaluate every static class in src for conversion to an instance class, then fence the count
+-
+-## Why
+-
+-A static class cannot be faked. Anything that calls one is welded to it, so the only way to test around it is to thread its dependencies through as method arguments — which is exactly how these got written, and it is why so much of the Engine passes `ISystemServices` down as a parameter instead of taking it in a constructor. The result is a testability pit and a persistent code smell, and every new one makes the next one look normal.
+-
+-The goal is to remove them. Not now — the count simply must not grow while we get there.
+-
+-## What exists today
+-
+-Thirty-five static classes in `src`, thirty-three of them in `AgentGuard.Engine`. They are not one problem:
+-
+-**Name and path holders**, roughly eight — the setup verb strings, the hook command tokens, the polkit action id, the machine and project paths. These hold constants and nothing else.
+-
+-**Pure functions with no dependencies**, roughly a dozen — hashing, version parsing, the snapshot and region differs, the serializers, the verdict aggregator.
+-
+-**Orchestrators doing real work with services handed in as arguments**, roughly fourteen. This is the group that actually hurts. `ApprovalGate`, `SetupCommands`, `GuardHost` and `GuardEngine` are the notable ones — each does substantial work, each takes the services it needs as a parameter on every call because it has no constructor to inject them into, and none of them can be substituted in a test.
+-
+-Out of scope: the analyzers project, where a hundred and twelve static classes are conventional stateless Roslyn helpers, and the test projects.
+-
+-## The work
+-
+-Evaluate every static class in `src` and rule each one: becomes an instance class with an interface, or stays static with a stated reason. The third group above is where the answer is most likely to be "convert"; the first two may well survive, and the evaluation is what decides that rather than a blanket rule applied up front.
+-
+-Then add an analyzer rule that fails a new static class in `src`, carrying an allowlist of whatever the evaluation ruled acceptable. The rule has to come after the evaluation, or it has nothing correct to allow.
+-
+-## Done when
+-
+-Every static class in `src` carries a ruling, the ones ruled convertible are instance classes reached through an interface, an analyzer fails any new static class outside the allowlist, and the allowlist names each survivor with the reason it survived.
+-
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs b/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+index 8923659..e1107c0 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+@@ -1,6 +1,9 @@
+ // Copyright (c) 4thWAIV. All rights reserved.
+ 
++using System;
+ using System.Collections.Immutable;
++using System.Globalization;
++using System.Linq;
+ using System.Threading;
+ using System.Threading.Tasks;
+ using Microsoft.CodeAnalysis;
+@@ -11,8 +14,10 @@ using Microsoft.CodeAnalysis.Testing;
+ namespace AgentGuard.Analyzers.Tests;
+ 
+ /// <summary>
+-/// Runs an analyzer over a piece of source and returns the diagnostics it produced. It makes no
+-/// pass-or-fail decision of its own; each test asserts on the returned diagnostics itself.
++/// Runs an analyzer over a piece of source and returns the diagnostics it produced. Each test asserts on the
++/// returned diagnostics itself; the runner's one judgement of its own is that every compilation it builds must be
++/// free of compiler errors before any analyzer result is handed back. Without that, a fixture the compiler already
++/// rejected produces no analyzer diagnostics and an accept case asserting none would pass for the wrong reason.
+ /// </summary>
+ internal static class AnalyzerRunner
+ {
+@@ -66,6 +71,8 @@ internal static class AnalyzerRunner
+             references: references,
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+ 
++        ThrowOnCompilerErrors(referenceCompilation, referenceAssemblyName);
++
+         CSharpCompilation compilation = CSharpCompilation.Create(
+             assemblyName: assemblyName,
+             syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+@@ -87,11 +94,14 @@ internal static class AnalyzerRunner
+     {
+         ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+ 
+-        return CSharpCompilation.Create(
++        CSharpCompilation compilation = CSharpCompilation.Create(
+             assemblyName: assemblyName,
+             syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+             references: references,
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
++
++        ThrowOnCompilerErrors(compilation, assemblyName);
++        return compilation;
+     }
+ 
+     /// <summary>
+@@ -126,9 +136,41 @@ internal static class AnalyzerRunner
+     private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync<TAnalyzer>(CSharpCompilation compilation)
+         where TAnalyzer : DiagnosticAnalyzer, new()
+     {
++        ThrowOnCompilerErrors(compilation, compilation.AssemblyName ?? "<unnamed>");
++
+         CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers(
+             ImmutableArray.Create<DiagnosticAnalyzer>(new TAnalyzer()));
+ 
+         return await withAnalyzers.GetAnalyzerDiagnosticsAsync().ConfigureAwait(false);
+     }
++
++    /// <summary>
++    /// Throws when <paramref name="compilation"/> has any compiler error, naming every one of them. A fixture the
++    /// compiler rejects yields no analyzer diagnostics, so an accept case asserting none would pass whether the
++    /// analyzer stayed quiet or the code never compiled. The inaccessibility error (CS0122) is the one that bites:
++    /// a fixture reaching an internal member of a referenced fake assembly without an InternalsVisibleTo grant
++    /// looks exactly like a clean accept.
++    /// </summary>
++    /// <param name="compilation">The compilation to check.</param>
++    /// <param name="assemblyName">The assembly name to name in the failure message.</param>
++    private static void ThrowOnCompilerErrors(Compilation compilation, string assemblyName)
++    {
++        ImmutableArray<Diagnostic> errors = compilation.GetDiagnostics()
++            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
++            .ToImmutableArray();
++
++        if (errors.Length == 0)
++        {
++            return;
++        }
++
++        string detail = string.Join(
++            System.Environment.NewLine,
++            errors.Select(diagnostic => "  " + diagnostic.Id + ": " + diagnostic.GetMessage(CultureInfo.InvariantCulture)));
++
++        throw new InvalidOperationException(
++            "The test fixture compiled into '" + assemblyName + "' has " + errors.Length
++            + " compiler error(s), so any analyzer result over it is meaningless:"
++            + System.Environment.NewLine + detail);
++    }
+ }

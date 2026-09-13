@@ -229,10 +229,14 @@ public class BuilderCompletenessAnalyzerTests
     public async Task BuilderDefinedButNoContainer_IsNotReported()
     {
         // Preventive: without an ISystemServices container to fall behind, the rule does not fire.
+        // IFileReader and IFileWriter are declared because the shared builder above names them; neither is a
+        // container, so the scenario — a builder with no ISystemServices to fall behind — is unchanged.
         const string noContainer = """
             namespace AgentGuard.Abstractions.Contracts
             {
                 public interface IConsole { }
+                public interface IFileReader { }
+                public interface IFileWriter { }
             }
             """;
 

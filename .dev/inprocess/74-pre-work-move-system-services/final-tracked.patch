@@ -1,0 +1,710 @@
+diff --git a/.dev/backlog/74-static-class-evaluation/issue.md b/.dev/backlog/74-static-class-evaluation/issue.md
+deleted file mode 100644
+index 126c83b..0000000
+--- a/.dev/backlog/74-static-class-evaluation/issue.md
++++ /dev/null
+@@ -1,32 +0,0 @@
+-> The live GitHub issue supersedes this file. Read https://github.com/4thWAIV/agent-guard/issues/74 for the authoritative text.
+-
+-# 74 — Evaluate every static class in src for conversion to an instance class, then fence the count
+-
+-## Why
+-
+-A static class cannot be faked. Anything that calls one is welded to it, so the only way to test around it is to thread its dependencies through as method arguments — which is exactly how these got written, and it is why so much of the Engine passes `ISystemServices` down as a parameter instead of taking it in a constructor. The result is a testability pit and a persistent code smell, and every new one makes the next one look normal.
+-
+-The goal is to remove them. Not now — the count simply must not grow while we get there.
+-
+-## What exists today
+-
+-Thirty-five static classes in `src`, thirty-three of them in `AgentGuard.Engine`. They are not one problem:
+-
+-**Name and path holders**, roughly eight — the setup verb strings, the hook command tokens, the polkit action id, the machine and project paths. These hold constants and nothing else.
+-
+-**Pure functions with no dependencies**, roughly a dozen — hashing, version parsing, the snapshot and region differs, the serializers, the verdict aggregator.
+-
+-**Orchestrators doing real work with services handed in as arguments**, roughly fourteen. This is the group that actually hurts. `ApprovalGate`, `SetupCommands`, `GuardHost` and `GuardEngine` are the notable ones — each does substantial work, each takes the services it needs as a parameter on every call because it has no constructor to inject them into, and none of them can be substituted in a test.
+-
+-Out of scope: the analyzers project, where a hundred and twelve static classes are conventional stateless Roslyn helpers, and the test projects.
+-
+-## The work
+-
+-Evaluate every static class in `src` and rule each one: becomes an instance class with an interface, or stays static with a stated reason. The third group above is where the answer is most likely to be "convert"; the first two may well survive, and the evaluation is what decides that rather than a blanket rule applied up front.
+-
+-Then add an analyzer rule that fails a new static class in `src`, carrying an allowlist of whatever the evaluation ruled acceptable. The rule has to come after the evaluation, or it has nothing correct to allow.
+-
+-## Done when
+-
+-Every static class in `src` carries a ruling, the ones ruled convertible are instance classes reached through an interface, an analyzer fails any new static class outside the allowlist, and the allowlist names each survivor with the reason it survived.
+-
+diff --git a/Directory.Build.props b/Directory.Build.props
+index e485fca..9260dd3 100644
+--- a/Directory.Build.props
++++ b/Directory.Build.props
+@@ -73,10 +73,6 @@
+     <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" PrivateAssets="all" />
+   </ItemGroup>
+ 
+-  <ItemGroup Label="Source link">
+-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+-  </ItemGroup>
+-
+   <ItemGroup Label="StyleCop configuration">
+     <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
+   </ItemGroup>
+diff --git a/Directory.Packages.props b/Directory.Packages.props
+index bc9c341..f9a6901 100644
+--- a/Directory.Packages.props
++++ b/Directory.Packages.props
+@@ -44,8 +44,4 @@
+     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.0" />
+   </ItemGroup>
+ 
+-  <ItemGroup Label="Source link">
+-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="8.0.0" />
+-  </ItemGroup>
+-
+ </Project>
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs b/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+index 8923659..50ca2b1 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+@@ -1,6 +1,10 @@
+ // Copyright (c) 4thWAIV. All rights reserved.
+ 
++using System;
++using System.Collections.Generic;
+ using System.Collections.Immutable;
++using System.Globalization;
++using System.Linq;
+ using System.Threading;
+ using System.Threading.Tasks;
+ using Microsoft.CodeAnalysis;
+@@ -11,8 +15,17 @@ using Microsoft.CodeAnalysis.Testing;
+ namespace AgentGuard.Analyzers.Tests;
+ 
+ /// <summary>
+-/// Runs an analyzer over a piece of source and returns the diagnostics it produced. It makes no
+-/// pass-or-fail decision of its own; each test asserts on the returned diagnostics itself.
++/// Runs an analyzer over a piece of source and returns the diagnostics it produced. Each test asserts on the
++/// returned diagnostics itself; the runner's one judgement of its own is that every compilation it builds must
++/// produce exactly the compiler errors the caller declared, which defaults to none.
++/// <para>
++/// An unexpected compiler error does not necessarily stop an analyzer from reporting — a rule that reads syntax, or
++/// one whose symbols still bind, can report over code the compiler rejects. What it does mean is that the fixture is
++/// not the code the test author believed they were testing, so neither an assertion that a diagnostic appeared nor
++/// one that none did can be trusted. A fixture that is invalid ON PURPOSE is legitimate and its analyzer result is
++/// meaningful: such a call site declares the exact errors it expects through
++/// <c>expectedCompilerErrors</c>, and the runner still collects and returns the analyzer's diagnostics for it.
++/// </para>
+ /// </summary>
+ internal static class AnalyzerRunner
+ {
+@@ -25,8 +38,13 @@ internal static class AnalyzerRunner
+     /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
+     /// <param name="source">The C# source to analyze.</param>
+     /// <param name="assemblyName">The assembly name to compile the source into.</param>
++    /// <param name="expectedCompilerErrors">The compiler error identifiers this fixture is expected to produce, one
++    /// entry per expected occurrence. Empty means the fixture must compile cleanly.</param>
+     /// <returns>The diagnostics the analyzer reported.</returns>
+-    internal static async Task<ImmutableArray<Diagnostic>> RunAsync<TAnalyzer>(string source, string assemblyName = "AnalyzerUnderTest")
++    internal static async Task<ImmutableArray<Diagnostic>> RunAsync<TAnalyzer>(
++        string source,
++        string assemblyName = "AnalyzerUnderTest",
++        params string[] expectedCompilerErrors)
+         where TAnalyzer : DiagnosticAnalyzer, new()
+     {
+         ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+@@ -37,7 +55,7 @@ internal static class AnalyzerRunner
+             references: references,
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+ 
+-        return await RunAnalyzerAsync<TAnalyzer>(compilation).ConfigureAwait(false);
++        return await RunAnalyzerAsync<TAnalyzer>(compilation, expectedCompilerErrors).ConfigureAwait(false);
+     }
+ 
+     /// <summary>
+@@ -53,9 +71,16 @@ internal static class AnalyzerRunner
+     /// <param name="assemblyName">The assembly name to compile the source under analysis into.</param>
+     /// <param name="referenceSource">The C# source of the referenced assembly.</param>
+     /// <param name="referenceAssemblyName">The assembly name of the referenced assembly.</param>
++    /// <param name="expectedCompilerErrors">The compiler error identifiers the source under analysis is expected to
++    /// produce, one entry per expected occurrence. Empty means it must compile cleanly. The referenced assembly is
++    /// always required to compile cleanly; a fake the test author cannot compile is never a deliberate scenario.</param>
+     /// <returns>The diagnostics the analyzer reported for the source under analysis.</returns>
+     internal static async Task<ImmutableArray<Diagnostic>> RunWithReferenceAsync<TAnalyzer>(
+-        string source, string assemblyName, string referenceSource, string referenceAssemblyName)
++        string source,
++        string assemblyName,
++        string referenceSource,
++        string referenceAssemblyName,
++        params string[] expectedCompilerErrors)
+         where TAnalyzer : DiagnosticAnalyzer, new()
+     {
+         ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+@@ -66,13 +91,15 @@ internal static class AnalyzerRunner
+             references: references,
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+ 
++        ThrowOnUnexpectedCompilerErrors(referenceCompilation, referenceAssemblyName, Array.Empty<string>());
++
+         CSharpCompilation compilation = CSharpCompilation.Create(
+             assemblyName: assemblyName,
+             syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+             references: references.Add(referenceCompilation.ToMetadataReference()),
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+ 
+-        return await RunAnalyzerAsync<TAnalyzer>(compilation).ConfigureAwait(false);
++        return await RunAnalyzerAsync<TAnalyzer>(compilation, expectedCompilerErrors).ConfigureAwait(false);
+     }
+ 
+     /// <summary>
+@@ -82,16 +109,24 @@ internal static class AnalyzerRunner
+     /// </summary>
+     /// <param name="source">The C# source to compile.</param>
+     /// <param name="assemblyName">The assembly name to compile the source into.</param>
++    /// <param name="expectedCompilerErrors">The compiler error identifiers this fixture is expected to produce, one
++    /// entry per expected occurrence. Empty means the fixture must compile cleanly.</param>
+     /// <returns>The compilation.</returns>
+-    internal static async Task<Compilation> CompileAsync(string source, string assemblyName = "AnalyzerUnderTest")
++    internal static async Task<Compilation> CompileAsync(
++        string source,
++        string assemblyName = "AnalyzerUnderTest",
++        params string[] expectedCompilerErrors)
+     {
+         ImmutableArray<MetadataReference> references = await ResolveReferencesAsync().ConfigureAwait(false);
+ 
+-        return CSharpCompilation.Create(
++        CSharpCompilation compilation = CSharpCompilation.Create(
+             assemblyName: assemblyName,
+             syntaxTrees: new[] { CSharpSyntaxTree.ParseText(source) },
+             references: references,
+             options: new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
++
++        ThrowOnUnexpectedCompilerErrors(compilation, assemblyName, expectedCompilerErrors);
++        return compilation;
+     }
+ 
+     /// <summary>
+@@ -122,13 +157,118 @@ internal static class AnalyzerRunner
+     /// </summary>
+     /// <typeparam name="TAnalyzer">The analyzer to run.</typeparam>
+     /// <param name="compilation">The compilation to analyze.</param>
++    /// <param name="expectedCompilerErrors">The compiler error identifiers the compilation is expected to produce,
++    /// one entry per expected occurrence.</param>
+     /// <returns>The diagnostics the analyzer reported.</returns>
+-    private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync<TAnalyzer>(CSharpCompilation compilation)
++    private static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync<TAnalyzer>(
++        CSharpCompilation compilation, string[] expectedCompilerErrors)
+         where TAnalyzer : DiagnosticAnalyzer, new()
+     {
++        ThrowOnUnexpectedCompilerErrors(
++            compilation, compilation.AssemblyName ?? "<unnamed>", expectedCompilerErrors);
++
+         CompilationWithAnalyzers withAnalyzers = compilation.WithAnalyzers(
+             ImmutableArray.Create<DiagnosticAnalyzer>(new TAnalyzer()));
+ 
+         return await withAnalyzers.GetAnalyzerDiagnosticsAsync().ConfigureAwait(false);
+     }
++
++    /// <summary>
++    /// Throws unless the compiler errors <paramref name="compilation"/> produced are exactly the ones
++    /// <paramref name="expectedCompilerErrors"/> declares, compared by identifier and by how many times each appears.
++    /// A missing expected error, an undeclared error, and a declared error that appears the wrong number of times all
++    /// fail.
++    /// <para>
++    /// The point is not that a compiler error silences the analyzer — it often does not — but that a fixture which
++    /// does not compile the way its author intended is not the code under test, so neither an assertion that a
++    /// diagnostic appeared nor one that none did means anything. A fixture that is invalid on purpose declares its
++    /// errors here and its analyzer result stays meaningful. The inaccessibility error (CS0122) is the one that bites
++    /// silently: a fixture reaching an internal member of a referenced fake without an InternalsVisibleTo grant
++    /// reports nothing and reads exactly like a clean accept.
++    /// </para>
++    /// </summary>
++    /// <param name="compilation">The compilation to check.</param>
++    /// <param name="assemblyName">The assembly name to name in the failure message.</param>
++    /// <param name="expectedCompilerErrors">The expected error identifiers, one entry per expected occurrence.</param>
++    private static void ThrowOnUnexpectedCompilerErrors(
++        Compilation compilation, string assemblyName, string[] expectedCompilerErrors)
++    {
++        ImmutableArray<Diagnostic> actualErrors = compilation.GetDiagnostics()
++            .Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)
++            .ToImmutableArray();
++
++        Dictionary<string, int> actual = Tally(actualErrors.Select(diagnostic => diagnostic.Id));
++        Dictionary<string, int> expected = Tally(expectedCompilerErrors);
++
++        var problems = new List<string>();
++        foreach (string id in actual.Keys.Union(expected.Keys, StringComparer.Ordinal).OrderBy(id => id, StringComparer.Ordinal))
++        {
++            int actualCount = actual.TryGetValue(id, out int a) ? a : 0;
++            int expectedCount = expected.TryGetValue(id, out int e) ? e : 0;
++            if (actualCount != expectedCount)
++            {
++                problems.Add(Describe(id, expectedCount, actualCount));
++            }
++        }
++
++        if (problems.Count == 0)
++        {
++            return;
++        }
++
++        string messages = string.Join(
++            System.Environment.NewLine,
++            actualErrors.Select(
++                diagnostic => "    " + diagnostic.Id + ": " + diagnostic.GetMessage(CultureInfo.InvariantCulture)));
++
++        throw new InvalidOperationException(
++            "The test fixture compiled into '" + assemblyName
++            + "' did not produce the compiler errors this test declares, so it is not the code under test:"
++            + System.Environment.NewLine + string.Join(System.Environment.NewLine, problems.Select(problem => "  " + problem))
++            + (messages.Length == 0
++                ? System.Environment.NewLine + "  The compilation reported no errors."
++                : System.Environment.NewLine + "  Errors reported:" + System.Environment.NewLine + messages));
++    }
++
++    /// <summary>
++    /// Describes one identifier whose expected and actual occurrence counts differ.
++    /// </summary>
++    /// <param name="id">The compiler error identifier.</param>
++    /// <param name="expectedCount">How many occurrences the test declared.</param>
++    /// <param name="actualCount">How many occurrences the compilation produced.</param>
++    /// <returns>The one-line description.</returns>
++    private static string Describe(string id, int expectedCount, int actualCount)
++    {
++        if (expectedCount == 0)
++        {
++            return id + ": not declared, but reported " + actualCount.ToString(CultureInfo.InvariantCulture)
++                + " time(s)";
++        }
++
++        string declared = id + ": declared " + expectedCount.ToString(CultureInfo.InvariantCulture);
++
++        if (actualCount == 0)
++        {
++            return declared + " time(s), but not reported";
++        }
++
++        return declared + " time(s), but reported " + actualCount.ToString(CultureInfo.InvariantCulture)
++            + " time(s)";
++    }
++
++    /// <summary>
++    /// Counts how many times each identifier appears.
++    /// </summary>
++    /// <param name="ids">The identifiers to count.</param>
++    /// <returns>A map from identifier to occurrence count.</returns>
++    private static Dictionary<string, int> Tally(IEnumerable<string> ids)
++    {
++        var tally = new Dictionary<string, int>(StringComparer.Ordinal);
++        foreach (string id in ids)
++        {
++            tally[id] = tally.TryGetValue(id, out int count) ? count + 1 : 1;
++        }
++
++        return tally;
++    }
+ }
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs
+index 65e3ed1..ae2759d 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs
+@@ -229,10 +229,14 @@ public class BuilderCompletenessAnalyzerTests
+     public async Task BuilderDefinedButNoContainer_IsNotReported()
+     {
+         // Preventive: without an ISystemServices container to fall behind, the rule does not fire.
++        // IFileReader and IFileWriter are declared because the shared builder above names them; neither is a
++        // container, so the scenario — a builder with no ISystemServices to fall behind — is unchanged.
+         const string noContainer = """
+             namespace AgentGuard.Abstractions.Contracts
+             {
+                 public interface IConsole { }
++                public interface IFileReader { }
++                public interface IFileWriter { }
+             }
+             """;
+ 
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs
+index d030eb8..f4fb5da 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs
+@@ -48,12 +48,18 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
+     {
+         // Two classes implement ISystemServices; the second is a build error — a hand-rolled container built directly
+         // instead of through SystemServicesBuilder.
+-        string source = ContainersSource + """
++        string source = ContainersSource + $$"""
+ 
+             namespace App
+             {
+-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
+-                public sealed class SneakyServices : AgentGuard.Abstractions.Contracts.ISystemServices { }
++                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
++                {
++            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
++                }
++                public sealed class SneakyServices : AgentGuard.Abstractions.Contracts.ISystemServices
++                {
++            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
++                }
+             }
+             """;
+ 
+@@ -67,11 +73,14 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
+     [Fact]
+     public async Task SingleImplementerOfContainer_IsNotReported()
+     {
+-        string source = ContainersSource + """
++        string source = ContainersSource + $$"""
+ 
+             namespace App
+             {
+-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
++                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
++                {
++            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
++                }
+             }
+             """;
+ 
+@@ -84,12 +93,18 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
+         // The defining difference from AG0025: NO test-system exemption. In a .Tests compilation, two implementers of a
+         // container is still a build error — the only legal container implementers there are the fakes nested inside
+         // SystemServicesBuilder, so a test-declared second implementer is caught.
+-        string source = ContainersSource + """
++        string source = ContainersSource + $$"""
+ 
+             namespace App
+             {
+-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
+-                public sealed class FakeServices : AgentGuard.Abstractions.Contracts.ISystemServices { }
++                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
++                {
++            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
++                }
++                public sealed class FakeServices : AgentGuard.Abstractions.Contracts.ISystemServices
++                {
++            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
++                }
+             }
+             """;
+ 
+@@ -103,14 +118,26 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
+     public async Task SecondImplementerOfSubContainer_IsReported()
+     {
+         // The rule guards all three containers, including the nested IFileSystem and IPlatformServices.
+-        string source = ContainersSource + """
++        string source = ContainersSource + $$"""
+ 
+             namespace App
+             {
+-                public sealed class Fs : AgentGuard.Abstractions.Contracts.IFileSystem { }
+-                public sealed class OtherFs : AgentGuard.Abstractions.Contracts.IFileSystem { }
+-                public sealed class Plat : AgentGuard.Abstractions.Contracts.IPlatformServices { }
+-                public sealed class OtherPlat : AgentGuard.Abstractions.Contracts.IPlatformServices { }
++                public sealed class Fs : AgentGuard.Abstractions.Contracts.IFileSystem
++                {
++            {{SharedAnalyzerSources.FileSystemContainerMembers}}
++                }
++                public sealed class OtherFs : AgentGuard.Abstractions.Contracts.IFileSystem
++                {
++            {{SharedAnalyzerSources.FileSystemContainerMembers}}
++                }
++                public sealed class Plat : AgentGuard.Abstractions.Contracts.IPlatformServices
++                {
++            {{SharedAnalyzerSources.PlatformServicesContainerMembers}}
++                }
++                public sealed class OtherPlat : AgentGuard.Abstractions.Contracts.IPlatformServices
++                {
++            {{SharedAnalyzerSources.PlatformServicesContainerMembers}}
++                }
+             }
+             """;
+ 
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs
+index 0992738..15f0556 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs
+@@ -20,6 +20,9 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
+         }
+         """;
+ 
++    // [LibraryImport] requires a partial method, and the runtime source generator that supplies the implementing half
++    // does not run in a test compilation, so the fixture supplies it. The attributed declaration the rule matches is
++    // unchanged.
+     private const string LibraryImportSource = """
+         using System.Runtime.InteropServices;
+ 
+@@ -27,6 +30,8 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
+         {
+             [LibraryImport("libc", EntryPoint = "rename", StringMarshalling = StringMarshalling.Utf8)]
+             internal static partial int Rename(string oldPath, string newPath);
++
++            internal static partial int Rename(string oldPath, string newPath) => 0;
+         }
+         """;
+ 
+@@ -187,7 +192,10 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
+             }
+             """;
+ 
+-        Assert.Empty(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(source, "AgentGuard.Engine"));
++        // The omitted required argument is the scenario, so the fixture is invalid ON PURPOSE; declaring CS7036 pins
++        // it to exactly that failure and the analyzer's silence below remains the thing under test.
++        Assert.Empty(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(
++            source, "AgentGuard.Engine", "CS7036"));
+     }
+ 
+     [Fact]
+@@ -206,8 +214,12 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
+             }
+             """;
+ 
++        // The fixture is invalid ON PURPOSE — that is the scenario. Both the attribute name and its Attribute-suffixed
++        // form fail to bind, so the compiler reports CS0246 twice; declaring them keeps the fixture pinned to exactly
++        // that failure while the analyzer's own result below stays the thing under test.
+         Diagnostic diagnostic =
+-            Assert.Single(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(source, "AgentGuard.Engine"));
++            Assert.Single(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(
++                source, "AgentGuard.Engine", "CS0246", "CS0246"));
+         Assert.Equal("AG0008", diagnostic.Id);
+     }
+ }
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs
+index fec1cb4..9135968 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs
+@@ -158,7 +158,16 @@ public class LeafPlatformSingleImplementerAnalyzerTests
+ 
+             namespace App
+             {
+-                public sealed class FakeFileSystem : AgentGuard.Abstractions.Contracts.IFileSystem { }
++                public sealed class FakeFileSystem : AgentGuard.Abstractions.Contracts.IFileSystem
++                {
++                    public AgentGuard.Abstractions.Contracts.IFileReader GetFileReader() => throw new System.NotImplementedException();
++
++                    public AgentGuard.Abstractions.Contracts.IDirectoryEnumerator GetDirectoryReader() => throw new System.NotImplementedException();
++
++                    public AgentGuard.Abstractions.Contracts.IFileWriter GetFileWriter() => throw new System.NotImplementedException();
++
++                    public AgentGuard.Abstractions.Contracts.IDirectoryWriter GetDirectoryWriter() => throw new System.NotImplementedException();
++                }
+             }
+             """;
+ 
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs
+index d91cd85..c83094f 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs
+@@ -423,7 +423,10 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
+             }
+             """;
+ 
+-        Assert.Empty(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
++        // The omitted required argument is the scenario, so the fixture is invalid ON PURPOSE; declaring CS7036
++        // pins it to exactly that failure and the analyzer's silence below remains the thing under test.
++        Assert.Empty(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(
++            source, "AgentGuard.CrossPlatform.MacOS", "CS7036"));
+     }
+ 
+     [Fact]
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs
+index c7a8c6c..0ae0eb7 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs
+@@ -131,7 +131,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
+             {
+                 internal sealed class ObjCRuntime : IObjCRuntime
+                 {
+-                    internal bool InRange(int code) => code is 1 and 2;
++                    internal bool InRange(int code) => code is > 1 and < 5;
+                 }
+             }
+             """;
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs b/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs
+index 3951524..2cdecae 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs
+@@ -13,15 +13,22 @@ namespace AgentGuard.Analyzers.Tests;
+ public class NoTimeoutInPresenceImplAnalyzerTests
+ {
+     // The IPresenceCheck/PresenceRequest stub is the shared owner SharedAnalyzerSources.PresenceContract (spelled once,
+-    // consumed by the three presence-rule test classes). These fixtures implement IPresenceCheck without supplying its
+-    // Check method; the analyzer runner returns only the analyzer's own diagnostics, so the incomplete-implementation
+-    // compile error is irrelevant to what these tests assert.
++    // consumed by the three presence-rule test classes). Every fixture here implements IPresenceCheck in full: each
++    // presence class supplies the interface's Check method, because the analyzer runner requires each fixture to
++    // produce exactly the compiler errors its call site declares and these call sites declare none.
+     private const string PresenceContract = SharedAnalyzerSources.PresenceContract;
+ 
++    // The one IPresenceCheck member every fixture in this class must supply, spelled once and interpolated into each
++    // fixture below. The runner requires each fixture to produce exactly the compiler errors its call site declares,
++    // and these declare none, so an implementer that omitted Check would fail the run.
++    private const string PresenceCheckMember = """
++                public int Check() => throw new System.NotImplementedException();
++        """;
++
+     [Fact]
+     public async Task CancellationTokenSourceInPresenceImpl_IsReported()
+     {
+-        string source = PresenceContract + """
++        string source = PresenceContract + $$"""
+ 
+             namespace AgentGuard.CrossPlatform.Linux
+             {
+@@ -30,6 +37,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+                 using AgentGuard.Abstractions.Contracts;
+                 internal sealed class LinuxPresenceCheck : IPresenceCheck
+                 {
++            {{PresenceCheckMember}}
++
+                     internal CancellationTokenSource Arm() => new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                 }
+             }
+@@ -43,7 +52,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+     [Fact]
+     public async Task TaskDelayInPresenceImpl_IsReported()
+     {
+-        string source = PresenceContract + """
++        string source = PresenceContract + $$"""
+ 
+             namespace AgentGuard.CrossPlatform.MacOS
+             {
+@@ -52,6 +61,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+                 using AgentGuard.Abstractions.Contracts;
+                 internal sealed class MacOsPresenceCheck : IPresenceCheck
+                 {
++            {{PresenceCheckMember}}
++
+                     internal Task Pause() => Task.Delay(TimeSpan.FromSeconds(1));
+                 }
+             }
+@@ -65,7 +76,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+     public async Task TaskWaitAsyncInPresenceImpl_IsReported()
+     {
+         // Task.WaitAsync mints a bounded wait; a presence impl may not introduce one — the gate owns the single bound.
+-        string source = PresenceContract + """
++        string source = PresenceContract + $$"""
+ 
+             namespace AgentGuard.CrossPlatform.Windows
+             {
+@@ -74,6 +85,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+                 using AgentGuard.Abstractions.Contracts;
+                 internal sealed class WindowsPresenceCheck : IPresenceCheck
+                 {
++            {{PresenceCheckMember}}
++
+                     internal Task Bounded(Task work) => work.WaitAsync(TimeSpan.FromSeconds(1));
+                 }
+             }
+@@ -89,7 +102,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+     {
+         // TimeProvider.CreateTimer off the injected clock is exactly the path AG0038 mandates as correct, so AG0038 must
+         // NOT flag it; but a presence impl must create no timeout at all, so AG0107 must. The same source proves both.
+-        string source = PresenceContract + """
++        string source = PresenceContract + $$"""
+ 
+             namespace AgentGuard.CrossPlatform.MacOS
+             {
+@@ -98,6 +111,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+                 using AgentGuard.Abstractions.Contracts;
+                 internal sealed class MacOsPresenceCheck : IPresenceCheck
+                 {
++            {{PresenceCheckMember}}
++
+                     internal ITimer Arm(TimeProvider clock) =>
+                         clock.CreateTimer(_ => { }, null, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
+                 }
+@@ -182,13 +197,15 @@ public class NoTimeoutInPresenceImplAnalyzerTests
+     [Fact]
+     public async Task PresenceImplWithoutTimeout_IsNotReported()
+     {
+-        string source = PresenceContract + """
++        string source = PresenceContract + $$"""
+ 
+             namespace AgentGuard.CrossPlatform.Linux
+             {
+                 using AgentGuard.Abstractions.Contracts;
+                 internal sealed class LinuxPresenceCheck : IPresenceCheck
+                 {
++            {{PresenceCheckMember}}
++
+                     internal int Value() => 42;
+                 }
+             }
+diff --git a/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs b/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+index 3fdf273..2689500 100644
+--- a/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
++++ b/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+@@ -3,11 +3,14 @@
+ namespace AgentGuard.Analyzers.Tests;
+ 
+ /// <summary>
+-/// C# source snippets shared verbatim by more than one analyzer test class, held in one place so a byte-identical
+-/// fixture is not spelled twice. <see cref="LinkTargetSource"/> is read by both the AG0011 owner test (which proves
+-/// the rule DOES claim the <c>*Info</c> member read now that the wrappers own <c>*Info</c> wholesale) and the AG0101
+-/// OS-divergent test (which proves it does NOT — that member moved to AG0011) — the same source, exercised by the two
+-/// rules on the two sides of the partition it moved across.
++/// C# source snippets held in one place so a byte-identical fixture is not spelled twice: most are shared verbatim by
++/// more than one analyzer test class, and the three container-implementer member blocks
++/// (<see cref="SystemServicesContainerMembers"/>, <see cref="FileSystemContainerMembers"/>,
++/// <see cref="PlatformServicesContainerMembers"/>) are shared verbatim by more than one test inside
++/// <c>ContainerInterfaceSingleOwnerAnalyzerTests</c>. <see cref="LinkTargetSource"/> is read by both the AG0011 owner
++/// test (which proves the rule DOES claim the <c>*Info</c> member read now that the wrappers own <c>*Info</c>
++/// wholesale) and the AG0101 OS-divergent test (which proves it does NOT — that member moved to AG0011) — the same
++/// source, exercised by the two rules on the two sides of the partition it moved across.
+ /// </summary>
+ internal static class SharedAnalyzerSources
+ {
+@@ -138,9 +141,10 @@ internal static class SharedAnalyzerSources
+     /// test classes that each prepended their own hand-rolled copy (<c>NoTimeoutInPresenceImplAnalyzerTests</c> for
+     /// AG0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for AG0108, and
+     /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for AG0109), so this fixture is spelled exactly once
+-    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> without supplying
+-    /// <c>Check</c> (the analyzer runner returns only the analyzer's own diagnostics, so the incomplete-implementation
+-    /// compile error is irrelevant), AG0108 invokes <c>Check</c>, and AG0109 constructs <c>PresenceRequest</c>.
++    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> and supply
++    /// <c>Check</c> (the analyzer runner requires each fixture to produce exactly the compiler errors its call site
++    /// declares, and these declare none, so an unimplemented member would fail the run), AG0108 invokes <c>Check</c>,
++    /// and AG0109 constructs <c>PresenceRequest</c>.
+     /// </summary>
+     internal const string PresenceContract = """
+         namespace AgentGuard.Abstractions.Contracts
+@@ -228,4 +232,37 @@ internal static class SharedAnalyzerSources
+             public interface IObjCRuntime { }
+         }
+         """;
++
++    /// <summary>
++    /// The service accessors an <c>ISystemServices</c> implementer supplies for the AG0022 container tree declared by
++    /// <c>ContainerInterfaceSingleOwnerAnalyzerTests.ContainersSource</c>, whose root container exposes the
++    /// <c>IFileSystem</c> and <c>IPlatformServices</c> sub-containers. Every AG0022 fixture that declares an
++    /// <c>ISystemServices</c> implementer interpolates this block into the class body, so the pair is spelled exactly
++    /// once instead of once per implementer (LESSON 1, DRY).
++    /// </summary>
++    internal const string SystemServicesContainerMembers = """
++                public AgentGuard.Abstractions.Contracts.IFileSystem FileSystem => throw new System.NotImplementedException();
++
++                public AgentGuard.Abstractions.Contracts.IPlatformServices Platform => throw new System.NotImplementedException();
++        """;
++
++    /// <summary>
++    /// The service accessor an <c>IFileSystem</c> implementer supplies for the same AG0022 container tree, whose
++    /// <c>IFileSystem</c> sub-container exposes the single <c>IFileReader</c> accessor. Interpolated into the class
++    /// body of every AG0022 fixture that declares an <c>IFileSystem</c> implementer, so the accessor is spelled
++    /// exactly once (LESSON 1, DRY).
++    /// </summary>
++    internal const string FileSystemContainerMembers = """
++                public AgentGuard.Abstractions.Contracts.IFileReader GetFileReader() => throw new System.NotImplementedException();
++        """;
++
++    /// <summary>
++    /// The service accessor an <c>IPlatformServices</c> implementer supplies for the same AG0022 container tree, whose
++    /// <c>IPlatformServices</c> sub-container exposes the single <c>IPlatformFileSystem</c> accessor. Interpolated
++    /// into the class body of every AG0022 fixture that declares an <c>IPlatformServices</c> implementer, so the
++    /// accessor is spelled exactly once (LESSON 1, DRY).
++    /// </summary>
++    internal const string PlatformServicesContainerMembers = """
++                public AgentGuard.Abstractions.Contracts.IPlatformFileSystem FileSystem => throw new System.NotImplementedException();
++        """;
+ }

@@ -1,0 +1,14 @@
+ D .dev/backlog/74-static-class-evaluation/issue.md
+ M Directory.Build.props
+ M Directory.Packages.props
+ M analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+ M analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+?? .dev/inprocess/74-pre-work-move-system-services/
+?? analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs

@@ -20,6 +20,9 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
         }
         """;
 
+    // [LibraryImport] requires a partial method, and the runtime source generator that supplies the implementing half
+    // does not run in a test compilation, so the fixture supplies it. The attributed declaration the rule matches is
+    // unchanged.
     private const string LibraryImportSource = """
         using System.Runtime.InteropServices;
 
@@ -27,6 +30,8 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
         {
             [LibraryImport("libc", EntryPoint = "rename", StringMarshalling = StringMarshalling.Utf8)]
             internal static partial int Rename(string oldPath, string newPath);
+
+            internal static partial int Rename(string oldPath, string newPath) => 0;
         }
         """;
 
@@ -187,7 +192,10 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(source, "AgentGuard.Engine"));
+        // The omitted required argument is the scenario, so the fixture is invalid ON PURPOSE; declaring CS7036 pins
+        // it to exactly that failure and the analyzer's silence below remains the thing under test.
+        Assert.Empty(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(
+            source, "AgentGuard.Engine", "CS7036"));
     }
 
     [Fact]
@@ -206,8 +214,12 @@ public class InteropOnlyInCrossPlatformLibrariesAnalyzerTests
             }
             """;
 
+        // The fixture is invalid ON PURPOSE — that is the scenario. Both the attribute name and its Attribute-suffixed
+        // form fail to bind, so the compiler reports CS0246 twice; declaring them keeps the fixture pinned to exactly
+        // that failure while the analyzer's own result below stays the thing under test.
         Diagnostic diagnostic =
-            Assert.Single(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(source, "AgentGuard.Engine"));
+            Assert.Single(await AnalyzerRunner.RunAsync<InteropOnlyInCrossPlatformLibrariesAnalyzer>(
+                source, "AgentGuard.Engine", "CS0246", "CS0246"));
         Assert.Equal("AG0008", diagnostic.Id);
     }
 }

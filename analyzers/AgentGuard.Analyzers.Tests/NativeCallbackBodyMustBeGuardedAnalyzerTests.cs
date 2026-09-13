@@ -423,7 +423,10 @@ public class NativeCallbackBodyMustBeGuardedAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(source, "AgentGuard.CrossPlatform.MacOS"));
+        // The omitted required argument is the scenario, so the fixture is invalid ON PURPOSE; declaring CS7036
+        // pins it to exactly that failure and the analyzer's silence below remains the thing under test.
+        Assert.Empty(await AnalyzerRunner.RunAsync<NativeCallbackBodyMustBeGuardedAnalyzer>(
+            source, "AgentGuard.CrossPlatform.MacOS", "CS7036"));
     }
 
     [Fact]

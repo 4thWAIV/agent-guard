@@ -1,0 +1,193 @@
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+  Failed AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TaskDelayInPresenceImpl_IsReported [49 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.MacOS' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'MacOsPresenceCheck' does not implement interface member 'IPresenceCheck.Check()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TaskDelayInPresenceImpl_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:line 60
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TimeProviderCreateTimerInPresenceImpl_IsReportedByAg0107ButNotAg0038 [57 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.MacOS' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'MacOsPresenceCheck' does not implement interface member 'IPresenceCheck.Check()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TimeProviderCreateTimerInPresenceImpl_IsReportedByAg0107ButNotAg0038() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:line 107
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.CancellationTokenSourceInPresenceImpl_IsReported [3 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.Linux' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'LinuxPresenceCheck' does not implement interface member 'IPresenceCheck.Check()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.CancellationTokenSourceInPresenceImpl_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:line 38
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TaskWaitAsyncInPresenceImpl_IsReported [3 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.Windows' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'WindowsPresenceCheck' does not implement interface member 'IPresenceCheck.Check()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.TaskWaitAsyncInPresenceImpl_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:line 82
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.PresenceImplWithoutTimeout_IsNotReported [4 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.Linux' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'LinuxPresenceCheck' does not implement interface member 'IPresenceCheck.Check()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoTimeoutInPresenceImplAnalyzerTests.PresenceImplWithoutTimeout_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:line 197
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NativeCallbackBodyMustBeGuardedAnalyzerTests.MalformedUserDefinedUnmanagedCallersOnly_WithRequiredArgOmitted_IsNotReported [12 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.MacOS' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS7036: There is no argument given that corresponds to the required parameter 'name' of 'UnmanagedCallersOnlyAttribute.UnmanagedCallersOnlyAttribute(string)'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NativeCallbackBodyMustBeGuardedAnalyzerTests.MalformedUserDefinedUnmanagedCallersOnly_WithRequiredArgOmitted_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NativeCallbackBodyMustBeGuardedAnalyzerTests.cs:line 426
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SingleImplementerOfContainer_IsNotReported [2 s]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AnalyzerUnderTest' has 2 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'Services' does not implement interface member 'ISystemServices.FileSystem'
+  CS0535: 'Services' does not implement interface member 'ISystemServices.Platform'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SingleImplementerOfContainer_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs:line 78
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfSubContainer_IsReported [26 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AnalyzerUnderTest' has 4 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'Fs' does not implement interface member 'IFileSystem.GetFileReader()'
+  CS0535: 'OtherFs' does not implement interface member 'IFileSystem.GetFileReader()'
+  CS0535: 'OtherPlat' does not implement interface member 'IPlatformServices.FileSystem'
+  CS0535: 'Plat' does not implement interface member 'IPlatformServices.FileSystem'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfSubContainer_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs:line 117
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfContainer_InTestAssembly_IsStillReported_NoExemption [15 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.Cli.Tests' has 4 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'Services' does not implement interface member 'ISystemServices.FileSystem'
+  CS0535: 'Services' does not implement interface member 'ISystemServices.Platform'
+  CS0535: 'FakeServices' does not implement interface member 'ISystemServices.FileSystem'
+  CS0535: 'FakeServices' does not implement interface member 'ISystemServices.Platform'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfContainer_InTestAssembly_IsStillReported_NoExemption() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs:line 96
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.UnresolvedInteropAttribute_IsReportedViaSyntacticFallback [24 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.Engine' has 2 compiler error(s), so any analyzer result over it is meaningless:
+  CS0246: The type or namespace name 'DllImportAttribute' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'DllImport' could not be found (are you missing a using directive or an assembly reference?)
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.UnresolvedInteropAttribute_IsReportedViaSyntacticFallback() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs:line 209
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfContainer_IsReported [6 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AnalyzerUnderTest' has 4 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'SneakyServices' does not implement interface member 'ISystemServices.FileSystem'
+  CS0535: 'Services' does not implement interface member 'ISystemServices.FileSystem'
+  CS0535: 'SneakyServices' does not implement interface member 'ISystemServices.Platform'
+  CS0535: 'Services' does not implement interface member 'ISystemServices.Platform'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.ContainerInterfaceSingleOwnerAnalyzerTests.SecondImplementerOfContainer_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/ContainerInterfaceSingleOwnerAnalyzerTests.cs:line 60
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.LibraryImport_OutsideCrossPlatformLibraries_IsReported [22 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.Engine' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS8795: Partial method 'Native.Rename(string, string)' must have an implementation part because it has accessibility modifiers.
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.LibraryImport_OutsideCrossPlatformLibraries_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs:line 47
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.LibraryImport_InLinkSharedLinuxLibrary_IsNotReported [6 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.Linux' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS8795: Partial method 'Native.Rename(string, string)' must have an implementation part because it has accessibility modifiers.
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.LibraryImport_InLinkSharedLinuxLibrary_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs:line 76
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.MalformedSameNamedDllImportAttribute_WithRequiredArgOmitted_IsNotReported [6 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.Engine' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS7036: There is no argument given that corresponds to the required parameter 'name' of 'DllImportAttribute.DllImportAttribute(string)'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests.MalformedSameNamedDllImportAttribute_WithRequiredArgOmitted_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs:line 190
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.NoControlFlowInNativeOpsAnalyzerTests.PatternAndCombinatorInNativeOps_IsReported [4 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.CrossPlatform.MacOS' has 1 compiler error(s), so any analyzer result over it is meaningless:
+  CS8518: An expression of type 'int' can never match the provided pattern.
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.NoControlFlowInNativeOpsAnalyzerTests.PatternAndCombinatorInNativeOps_IsReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoControlFlowInNativeOpsAnalyzerTests.cs:line 139
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.LeafPlatformSingleImplementerAnalyzerTests.ContainerImplementer_InTestProject_IsNotReported [7 ms]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.Tests' has 4 compiler error(s), so any analyzer result over it is meaningless:
+  CS0535: 'FakeFileSystem' does not implement interface member 'IFileSystem.GetFileReader()'
+  CS0535: 'FakeFileSystem' does not implement interface member 'IFileSystem.GetDirectoryReader()'
+  CS0535: 'FakeFileSystem' does not implement interface member 'IFileSystem.GetFileWriter()'
+  CS0535: 'FakeFileSystem' does not implement interface member 'IFileSystem.GetDirectoryWriter()'
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.LeafPlatformSingleImplementerAnalyzerTests.ContainerImplementer_InTestProject_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs:line 165
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.BuilderCompletenessAnalyzerTests.BuilderDefinedButNoContainer_IsNotReported [8 s]
+  Error Message:
+   System.InvalidOperationException : The test fixture compiled into 'AgentGuard.TestHelpers' has 6 compiler error(s), so any analyzer result over it is meaningless:
+  CS0246: The type or namespace name 'IFileReader' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'IFileWriter' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'IFileReader' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'IFileReader' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'IFileWriter' could not be found (are you missing a using directive or an assembly reference?)
+  CS0246: The type or namespace name 'IFileWriter' could not be found (are you missing a using directive or an assembly reference?)
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.AnalyzerRunner.ThrowOnCompilerErrors(Compilation compilation, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 171
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAnalyzerAsync[TAnalyzer](CSharpCompilation compilation) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 139
+   at AgentGuard.Analyzers.Tests.AnalyzerRunner.RunAsync[TAnalyzer](String source, String assemblyName) in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:line 45
+   at AgentGuard.Analyzers.Tests.BuilderCompletenessAnalyzerTests.BuilderDefinedButNoContainer_IsNotReported() in /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs:line 239
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:    17, Passed:   417, Skipped:     0, Total:   434, Duration: 9 s - AgentGuard.Analyzers.Tests.dll (net10.0)

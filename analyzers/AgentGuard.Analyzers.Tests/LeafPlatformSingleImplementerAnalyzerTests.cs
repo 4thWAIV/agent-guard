@@ -158,7 +158,16 @@ public class LeafPlatformSingleImplementerAnalyzerTests
 
             namespace App
             {
-                public sealed class FakeFileSystem : AgentGuard.Abstractions.Contracts.IFileSystem { }
+                public sealed class FakeFileSystem : AgentGuard.Abstractions.Contracts.IFileSystem
+                {
+                    public AgentGuard.Abstractions.Contracts.IFileReader GetFileReader() => throw new System.NotImplementedException();
+
+                    public AgentGuard.Abstractions.Contracts.IDirectoryEnumerator GetDirectoryReader() => throw new System.NotImplementedException();
+
+                    public AgentGuard.Abstractions.Contracts.IFileWriter GetFileWriter() => throw new System.NotImplementedException();
+
+                    public AgentGuard.Abstractions.Contracts.IDirectoryWriter GetDirectoryWriter() => throw new System.NotImplementedException();
+                }
             }
             """;
 

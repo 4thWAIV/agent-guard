@@ -1,0 +1,4 @@
+ D .dev/backlog/74-static-class-evaluation/issue.md
+ M analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs
+?? .dev/inprocess/74-pre-work-move-system-services/
+?? analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs

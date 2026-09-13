@@ -13,15 +13,25 @@ namespace AgentGuard.Analyzers.Tests;
 public class NoTimeoutInPresenceImplAnalyzerTests
 {
     // The IPresenceCheck/PresenceRequest stub is the shared owner SharedAnalyzerSources.PresenceContract (spelled once,
-    // consumed by the three presence-rule test classes). These fixtures implement IPresenceCheck without supplying its
-    // Check method; the analyzer runner returns only the analyzer's own diagnostics, so the incomplete-implementation
-    // compile error is irrelevant to what these tests assert.
+    // consumed by the three presence-rule test classes). A fixture here that declares an IPresenceCheck implementer
+    // supplies the interface's Check method, because the analyzer runner requires each fixture to produce exactly the
+    // compiler errors its call site declares and these call sites declare none. Other fixtures in this class
+    // deliberately declare a class that does NOT implement IPresenceCheck — a native port owner, a native-ops owner,
+    // or an ordinary class — because what the rule does with such a class is itself under test.
     private const string PresenceContract = SharedAnalyzerSources.PresenceContract;
+
+    // The one IPresenceCheck member, spelled once and interpolated into each fixture below that declares an
+    // IPresenceCheck implementer. The runner requires each fixture to produce exactly the compiler errors its call
+    // site declares, and these declare none, so an implementer that omitted Check would fail the run. A fixture whose
+    // class does not implement IPresenceCheck does not interpolate it.
+    private const string PresenceCheckMember = """
+                public int Check() => throw new System.NotImplementedException();
+        """;
 
     [Fact]
     public async Task CancellationTokenSourceInPresenceImpl_IsReported()
     {
-        string source = PresenceContract + """
+        string source = PresenceContract + $$"""
 
             namespace AgentGuard.CrossPlatform.Linux
             {
@@ -30,6 +40,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
                 using AgentGuard.Abstractions.Contracts;
                 internal sealed class LinuxPresenceCheck : IPresenceCheck
                 {
+            {{PresenceCheckMember}}
+
                     internal CancellationTokenSource Arm() => new CancellationTokenSource(TimeSpan.FromSeconds(5));
                 }
             }
@@ -43,7 +55,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
     [Fact]
     public async Task TaskDelayInPresenceImpl_IsReported()
     {
-        string source = PresenceContract + """
+        string source = PresenceContract + $$"""
 
             namespace AgentGuard.CrossPlatform.MacOS
             {
@@ -52,6 +64,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
                 using AgentGuard.Abstractions.Contracts;
                 internal sealed class MacOsPresenceCheck : IPresenceCheck
                 {
+            {{PresenceCheckMember}}
+
                     internal Task Pause() => Task.Delay(TimeSpan.FromSeconds(1));
                 }
             }
@@ -65,7 +79,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
     public async Task TaskWaitAsyncInPresenceImpl_IsReported()
     {
         // Task.WaitAsync mints a bounded wait; a presence impl may not introduce one — the gate owns the single bound.
-        string source = PresenceContract + """
+        string source = PresenceContract + $$"""
 
             namespace AgentGuard.CrossPlatform.Windows
             {
@@ -74,6 +88,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
                 using AgentGuard.Abstractions.Contracts;
                 internal sealed class WindowsPresenceCheck : IPresenceCheck
                 {
+            {{PresenceCheckMember}}
+
                     internal Task Bounded(Task work) => work.WaitAsync(TimeSpan.FromSeconds(1));
                 }
             }
@@ -89,7 +105,7 @@ public class NoTimeoutInPresenceImplAnalyzerTests
     {
         // TimeProvider.CreateTimer off the injected clock is exactly the path AG0038 mandates as correct, so AG0038 must
         // NOT flag it; but a presence impl must create no timeout at all, so AG0107 must. The same source proves both.
-        string source = PresenceContract + """
+        string source = PresenceContract + $$"""
 
             namespace AgentGuard.CrossPlatform.MacOS
             {
@@ -98,6 +114,8 @@ public class NoTimeoutInPresenceImplAnalyzerTests
                 using AgentGuard.Abstractions.Contracts;
                 internal sealed class MacOsPresenceCheck : IPresenceCheck
                 {
+            {{PresenceCheckMember}}
+
                     internal ITimer Arm(TimeProvider clock) =>
                         clock.CreateTimer(_ => { }, null, TimeSpan.FromSeconds(1), Timeout.InfiniteTimeSpan);
                 }
@@ -182,13 +200,15 @@ public class NoTimeoutInPresenceImplAnalyzerTests
     [Fact]
     public async Task PresenceImplWithoutTimeout_IsNotReported()
     {
-        string source = PresenceContract + """
+        string source = PresenceContract + $$"""
 
             namespace AgentGuard.CrossPlatform.Linux
             {
                 using AgentGuard.Abstractions.Contracts;
                 internal sealed class LinuxPresenceCheck : IPresenceCheck
                 {
+            {{PresenceCheckMember}}
+
                     internal int Value() => 42;
                 }
             }
