@@ -1,0 +1,15 @@
+COMMAND: shasum -a 256 <the ten files this TDD round created or edited>
+CWD: /Users/timothystockstill/code/macos/4thWAIV/agent-guard
+CAPTURED: 2026-09-16T05:03:52Z
+----------------------------------------
+d932e45dfe2cc40988c4de97662aea350e8ea5e9ef3b0ae3ed1ad02bd4241efe  analyzers/AgentGuard.Analyzers.Tests/SymbolResolutionTests.cs
+ea5786b5aa6658987fde9b7e7666c320424e33ed2fc7c8c99eb06a258fc11b80  analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+1e25b6e31c859afbc429aca52b4139edaedf614702d8dce2b0a4b9dbd669701f  analyzers/AgentGuard.Analyzers.Tests/TypeTreeTests.cs
+8927e39f76dbc954c6f2f01db30bbb92df3c9cca2c9a24ce64877927a15ff138  analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+147f8e923a4fe325685e2a77720e23a892b6683b4ca439260326d89039443b2f  analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+9ebacef404dc1b38bad9b49477422ba03a947e6ce578d746db2bde33e6d241a7  analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+6059c6f47cd730127f7dd6ebcafc69026aa1ce67d27aee37bcb3eca0c713a6dd  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+a103b6c27fa2394fd51bfd3a6f657e7825db75a6f120e55f93ed5353e1622e25  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+845745de4f71cb0b0a80e9e117f87885632e96d8be2891c1d6fada07b135fbb2  analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs
+12f1c04bcd3cf42cfb82bc174ebd71f72e2dd4391c52600e65e523a8ec990e49  analyzers/AgentGuard.Analyzers.Tests/WrittenNameScannerTests.cs
+EXIT=0

@@ -1,10 +1,8 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Collections.Immutable;
-using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
-using Microsoft.CodeAnalysis.Operations;
 
 namespace AgentGuard.Analyzers;
 
@@ -46,66 +44,15 @@ public sealed class ContractConcreteTypeMustNotBeReferencedAnalyzer : Diagnostic
 
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.EnableConcurrentExecution();
-        context.RegisterSymbolAction(AnalyzeField, SymbolKind.Field);
-        context.RegisterSymbolAction(AnalyzeProperty, SymbolKind.Property);
-        context.RegisterSymbolAction(AnalyzeMethod, SymbolKind.Method);
-        context.RegisterOperationAction(AnalyzeLocal, OperationKind.VariableDeclarator);
-    }
 
-    private static void AnalyzeField(SymbolAnalysisContext context)
-    {
-        var field = (IFieldSymbol)context.Symbol;
-        if (!field.IsImplicitlyDeclared && ContractPattern.ReferencesContractImplementation(field.Type))
-        {
-            ReportFirst(context, field.Locations);
-        }
-    }
-
-    private static void AnalyzeProperty(SymbolAnalysisContext context)
-    {
-        var property = (IPropertySymbol)context.Symbol;
-        if (!property.IsImplicitlyDeclared && ContractPattern.ReferencesContractImplementation(property.Type))
-        {
-            ReportFirst(context, property.Locations);
-        }
-    }
-
-    private static void AnalyzeMethod(SymbolAnalysisContext context)
-    {
-        var method = (IMethodSymbol)context.Symbol;
-
-        if (method.IsImplicitlyDeclared
-            || method.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
-                or MethodKind.EventAdd or MethodKind.EventRemove or MethodKind.EventRaise)
-        {
-            return;
-        }
-
-        if (ContractPattern.ReferencesContractImplementation(method.ReturnType))
-        {
-            ReportFirst(context, method.Locations);
-        }
-
-        foreach (var parameter in method.Parameters.Where(parameter => ContractPattern.ReferencesContractImplementation(parameter.Type)))
-        {
-            ReportFirst(context, parameter.Locations);
-        }
-    }
-
-    private static void AnalyzeLocal(OperationAnalysisContext context)
-    {
-        var declarator = (IVariableDeclaratorOperation)context.Operation;
-        if (ContractPattern.ReferencesContractImplementation(declarator.Symbol.Type))
-        {
-            context.ReportDiagnostic(Diagnostic.Create(Rule, declarator.Symbol.Locations[0]));
-        }
-    }
-
-    private static void ReportFirst(SymbolAnalysisContext context, ImmutableArray<Location> locations)
-    {
-        if (locations.Length > 0)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(Rule, locations[0]));
-        }
+        // The four declaration positions — field, property, method (return and parameters), and local — are the shared
+        // DeclaredTypeScanner lens, which was extracted from this rule and is now also driven by the access rules
+        // (AG0041 and the Engine gates of AG0023/AG0029). This rule keeps exactly the positions it always had: the
+        // invoked-return position the access rules need is registered only by the gated entry point.
+        context.RegisterCompilationStartAction(startContext => DeclaredTypeScanner.RegisterDeclarations(
+            startContext,
+            (declaredType, _, location) => ContractPattern.ReferencesContractImplementation(declaredType)
+                ? Diagnostic.Create(Rule, location)
+                : null));
     }
 }

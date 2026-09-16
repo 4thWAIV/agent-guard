@@ -15,14 +15,16 @@ namespace AgentGuard.Analyzers;
 /// user-declared attribute of the same simple name in a different namespace is not mistaken for the BCL attribute.
 /// <para>
 /// Resolve-first is correct for a real same-named user attribute in another namespace: the attribute resolves to the
-/// user's type, <see cref="WellKnownType.IsAnyOf"/> reports it is not the BCL type, and nothing fires. Resolution has
-/// two tiers because <c>GetSymbolInfo</c> binds the attribute's CONSTRUCTOR: a malformed usage — a required
-/// constructor argument omitted, on the BCL attribute or on a same-named user one — fails overload resolution and
-/// yields no symbol even though the attribute's TYPE still binds, and <c>GetTypeInfo</c> recovers that type. The
-/// syntactic fallback runs ONLY when neither tier binds a type — a genuinely undefined attribute identifier (no such
-/// type in scope, a missing reference or using) — where matching the simple name is the fail-closed choice.
+/// user's type, <see cref="WellKnownType.IsAnyOf"/> reports it is not the BCL type, and nothing fires. Resolution is
+/// tiered because <c>GetSymbolInfo</c> binds the attribute's CONSTRUCTOR: a malformed usage — a required constructor
+/// argument omitted, on the BCL attribute or on a same-named user one — fails overload resolution and yields no symbol
+/// even though the attribute's TYPE still binds, and <c>GetTypeInfo</c> recovers that type. Those mechanics are the
+/// shared <see cref="SymbolResolution.NamedType"/> owner. The syntactic fallback runs ONLY when no tier binds a type —
+/// a genuinely undefined attribute identifier (no such type in scope, a missing reference or using) — where matching
+/// the simple name is the fail-closed choice, and that fallback POLICY stays here.
 /// </para>
-/// This reuses the two existing owners rather than re-deriving either: <see cref="WellKnownType.IsAnyOf"/> owns the
+/// This reuses the three existing owners rather than re-deriving any of them:
+/// <see cref="SymbolResolution.NamedType"/> owns the resolution mechanics, <see cref="WellKnownType.IsAnyOf"/> owns the
 /// resolved (namespace, name) identity match, and <see cref="AttributeSyntaxName"/> owns the syntactic simple-name
 /// extraction and its <c>…Attribute</c> normalization.
 /// </summary>
@@ -43,32 +45,16 @@ internal static class AttributeIdentity
         ImmutableArray<(string Namespace, string Name)> candidates,
         CancellationToken cancellationToken)
     {
-        INamedTypeSymbol? resolved = ResolveAttributeType(semanticModel, attribute, cancellationToken);
+        // The resolution mechanics — constructor's containing type, then the node's own type info, with an error type
+        // treated as no resolution — live in the shared SymbolResolution owner, used identically by
+        // WrittenNameScanner. Only the attribute-specific MATCHING and the syntactic FALLBACK POLICY stay here.
+        INamedTypeSymbol? resolved = SymbolResolution.NamedType(semanticModel, attribute, cancellationToken);
         if (resolved is not null)
         {
             return WellKnownType.IsAnyOf(resolved, candidates);
         }
 
         return MatchesSyntactically(attribute, candidates);
-    }
-
-    // Resolves the attribute's applied type in two tiers: the constructor's containing type (GetSymbolInfo), then the
-    // attribute's own type info (GetTypeInfo) when the constructor does not bind — which happens when a required
-    // constructor argument is omitted and overload resolution fails, yet the attribute TYPE still binds. Returns null
-    // only when neither tier yields a non-error named type (a genuinely undefined identifier — no such type in scope),
-    // so the syntactic fallback runs solely for that unresolved case.
-    private static INamedTypeSymbol? ResolveAttributeType(
-        SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
-    {
-        if (semanticModel.GetSymbolInfo(attribute, cancellationToken).Symbol is IMethodSymbol constructor
-            && constructor.ContainingType is { TypeKind: not TypeKind.Error } fromConstructor)
-        {
-            return fromConstructor;
-        }
-
-        return semanticModel.GetTypeInfo(attribute, cancellationToken).Type is INamedTypeSymbol { TypeKind: not TypeKind.Error } fromTypeInfo
-            ? fromTypeInfo
-            : null;
     }
 
     // The fail-closed fallback: with no resolved type, compare the attribute's syntactic simple name — normalized to

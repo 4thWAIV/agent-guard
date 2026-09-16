@@ -1,0 +1,144 @@
+# Opening build/test bracket — CONTRACT stage
+HEAD: c1c2a1875c14b1a2fb76bf1affc04b386769dccb
+branch: appd-1-process
+captured: 2026-09-15T06:31:05Z
+
+## working tree at capture
+ M .dev/inprocess/74-pre-work-move-system-services/contract.md
+?? .dev/inprocess/74-pre-work-move-system-services/contract-opening-bracket.txt
+?? .dev/inprocess/74-pre-work-move-system-services/conversation.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-brief.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-brief.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-facts.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-ledger.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-output.json
+
+## $ make build
+dotnet restore
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+dotnet build
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentGuard build id computed: 0.1.105808535+c1c2a18 (Day=2449 Time=11735)
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll
+  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+  AgentGuard.CrossPlatform.Linux -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/bin/Debug/net10.0/AgentGuard.CrossPlatform.Linux.dll
+  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll
+  AgentGuard.CrossPlatform.Windows -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/bin/Debug/net10.0/AgentGuard.CrossPlatform.Windows.dll
+  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll
+  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll
+  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll
+  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll
+  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll
+  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll
+  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:24.71
+
+BUILD_EXIT=0
+
+## $ make test
+dotnet restore
+  Determining projects to restore...
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 1.51 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/AgentGuard.Engine.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/AgentGuard.Cli.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/AgentGuard.Tests.csproj (in 1.5 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj (in 1.5 sec).
+dotnet build
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentGuard build id computed: 0.1.105808550+c1c2a18 (Day=2449 Time=11750)
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll
+  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+  AgentGuard.CrossPlatform.Linux -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/bin/Debug/net10.0/AgentGuard.CrossPlatform.Linux.dll
+  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll
+  AgentGuard.CrossPlatform.Windows -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/bin/Debug/net10.0/AgentGuard.CrossPlatform.Windows.dll
+  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll
+  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll
+  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll
+  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll
+  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll
+  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll
+  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:18.96
+dotnet test
+  Determining projects to restore...
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 389 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/AgentGuard.Cli.csproj (in 387 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/AgentGuard.Engine.csproj (in 387 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (in 387 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj (in 387 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj (in 386 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/AgentGuard.Tests.csproj (in 386 ms).
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Debug/net10.0/AgentGuard.Abstractions.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.dll
+  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Debug/net10.0/AgentGuard.CrossPlatform.dll
+A total of 1 test files matched the specified pattern.
+  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Debug/net10.0/AgentGuard.CrossPlatform.MacOS.dll
+  AgentGuard.Boundaries -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/bin/Debug/net10.0/AgentGuard.Boundaries.dll
+  AgentGuard.TestHelpers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/bin/Debug/net10.0/AgentGuard.TestHelpers.dll
+  AgentGuard.Cli -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/bin/Debug/net10.0/guard.dll
+  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll
+  AgentGuard.CrossPlatform.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll (.NETCoreApp,Version=v10.0)
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/bin/Debug/net10.0/AgentGuard.CrossPlatform.Tests.dll (.NETCoreApp,Version=v10.0)
+  AgentGuard.Cli.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/bin/Debug/net10.0/AgentGuard.Cli.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   438, Skipped:     0, Total:   438, Duration: 5 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 364 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 472 ms - AgentGuard.Tests.dll (net10.0)
+
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 378 ms - AgentGuard.Cli.Tests.dll (net10.0)
+
+Attachments:
+  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/TestResults/20e7d9be-6fa4-4884-98a5-9c3393b91bef/coverage.cobertura.xml
+  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/TestResults/29392eee-8124-4681-9cab-ff4f7fb4de3c/coverage.cobertura.xml
+  /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/TestResults/d3ec14f4-96e6-4902-92c8-d955dcd2ddfe/coverage.cobertura.xml
+
+TEST_EXIT=0
