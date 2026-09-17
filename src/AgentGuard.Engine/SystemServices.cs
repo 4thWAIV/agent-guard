@@ -2,9 +2,10 @@
 
 using System;
 using AgentGuard.Abstractions.Contracts;
+using AgentGuard.Boundaries;
 using AgentGuard.CrossPlatform;
 
-namespace AgentGuard.Boundaries;
+namespace AgentGuard.Engine;
 
 /// <summary>
 /// The single concrete <see cref="ISystemServices"/> container AND the one composition factory that builds it
@@ -16,6 +17,16 @@ namespace AgentGuard.Boundaries;
 /// (legal only here and in the builder, AG0015) and builds every owned service by hand.
 /// </summary>
 /// <remarks>
+/// <para>
+/// The container and its factory live in <c>AgentGuard.Engine</c>; the four adapters it assembles —
+/// <c>EnvironmentAdapter</c>, <c>ConsoleAdapter</c>, <c>Ed25519SignatureService</c>, and <c>BuildInfoReader</c> —
+/// stay in <c>AgentGuard.Boundaries</c>, which grants its internals to this assembly alone.
+/// <see cref="Create"/> is therefore the one method in Engine that may reach into <c>AgentGuard.Boundaries</c>
+/// (AG0040, and only through those four factory identities), into the core <c>AgentGuard.CrossPlatform</c> assembly
+/// (AG0023), and into a per-OS implementation assembly (AG0029); it is also the only Engine internal the CLI and the
+/// test <c>SystemServicesBuilder</c> may reach through the grants this assembly declares to them (AG0041).
+/// </para>
+/// <para>
 /// This is the one mandated container shape (container-is-one-class-with-its-own-create): ONE locked class that
 /// implements its contract interface, has a <c>private</c> constructor, and exposes its own
 /// <c>public static ISystemServices Create()</c> build point — never a separate factory type and never a passed-in
@@ -24,6 +35,7 @@ namespace AgentGuard.Boundaries;
 /// frozen rules (a factory returning <see cref="ISystemServices"/> is pinned to <c>Program</c>/the builder, AG0017; a
 /// factory returning the concrete container exposes it, AG0004/AG0006; a service-typed factory parameter is forbidden,
 /// AG0031; a private constructor is unreachable from a sibling class), so the one locked class IS the pattern.
+/// </para>
 /// </remarks>
 internal sealed class SystemServices : ISystemServices
 {
@@ -77,10 +89,11 @@ internal sealed class SystemServices : ISystemServices
     /// Builds the OS/CLR service container once. It reads the clock itself (a direct <c>TimeProvider.System</c>
     /// acquisition is legal only here and in the test builder, AG0015), obtains the OS-uniform filesystem entry point
     /// and GUID factory from the one <see cref="CrossPlatformAdapters"/> factory (the single allowed
-    /// Boundaries → CrossPlatform call, AG0023) and the OS-divergent platform from the one per-OS
-    /// <c>PlatformServices.Create()</c> (the single allowed Boundaries → per-OS call, AG0029), builds the
-    /// Boundaries-owned environment, console, signature, and build-info owners, and assembles the single container by
-    /// constructor injection.
+    /// Engine → CrossPlatform reach, AG0023) and the OS-divergent platform from the one per-OS
+    /// <c>PlatformServices.Create()</c> (the single allowed Engine → per-OS reach, AG0029), builds the
+    /// Boundaries-owned environment, console, signature, and build-info owners through the four permitted adapter
+    /// factories (the single allowed Engine → Boundaries call, AG0040), and assembles the single container by
+    /// constructor injection. Every one of those reaches is permitted from THIS method and nowhere else in Engine.
     /// </summary>
     /// <returns>The single, fully-assembled service container.</returns>
     public static ISystemServices Create()

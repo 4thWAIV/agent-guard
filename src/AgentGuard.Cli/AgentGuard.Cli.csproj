@@ -34,12 +34,12 @@
        fallback) pick DIFFERENT per-OS libraries and bundle both. AgentGuardPlatformRid is not on the SDK's strip
        list, so it survives; when no RID is set it is empty and the engine falls back to the build-host OS. -->
   <ItemGroup>
-    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj">
-      <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
-    </ProjectReference>
     <!-- The composition root builds the one ISystemServices via SystemServices.Create() (AG0017-pinned to Program),
-         so it references Boundaries directly. The same RID threading keeps the per-OS selection consistent. -->
-    <ProjectReference Include="../AgentGuard.Boundaries/AgentGuard.Boundaries.csproj">
+         which now lives in AgentGuard.Engine and is reached through Engine's InternalsVisibleTo grant to "guard"
+         (AG0041 permits that one invocation and nothing else among Engine internals). The direct Boundaries reference
+         is gone with it: Engine owns the container, references Boundaries itself, and imports the per-OS selection, so
+         threading the RID to Engine alone keeps that selection consistent across restore and build. -->
+    <ProjectReference Include="../AgentGuard.Engine/AgentGuard.Engine.csproj">
       <AdditionalProperties Condition="'$(RuntimeIdentifier)' != ''">AgentGuardPlatformRid=$(RuntimeIdentifier)</AdditionalProperties>
     </ProjectReference>
   </ItemGroup>

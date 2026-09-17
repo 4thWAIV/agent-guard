@@ -1,0 +1,208 @@
+MUTATION PROOFS — Acceptance 25 round
+Isolated copy: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy — an rsync of the working tree including the uncommitted delivered test files
+(.git, bin, obj and .dev excluded; the repository's .codegraph/daemon.sock, a unix socket, could not be copied
+and is irrelevant to the build). The shared checkout was never mutated.
+Before this run the copy's analyzers tree was diffed against the delivered one: identical, no output.
+Every build output under analyzers/ is deleted before each run, so no run can read a stale compiled analyzer.
+Each mutation is applied, the FULL analyzer suite is run, and the mutation is reverted before the next.
+STARTED: 2026-09-16T19:00:36Z
+
+======== Unmutated baseline of the copy ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+  Determining projects to restore...
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 311 ms).
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 315 ms).
+  AgentGuard.Analyzers -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 7 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+
+======== M-A25-1 — CompositionPoint.IsContainerFactoryType: caller recognition ignores the NAMESPACE ========
+MUTATED analyzers/AgentGuard.Analyzers/CompositionPoint.cs
+
+--- the mutation ---
+--- /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/CompositionPoint.cs.orig	2026-09-16 13:00:36
++++ /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/CompositionPoint.cs	2026-09-16 13:01:00
+@@ -145,8 +145,10 @@
+         // SystemServices in AgentGuard.Engine — the type whose Create() acquires the clock and wires the container.
+         // Anchored on namespace + name AND the compiled assembly name (both are AgentGuard.Engine) through the shared
+         // WellKnownType.IsInAssembly conjunction.
+-        return WellKnownType.IsInAssembly(
+-            type, EngineAssembly.Name, ContainerFactoryTypeName, EngineAssembly.Name);
++        // MUTATION M-A25-1: caller recognition ignores the NAMESPACE. Name + assembly only.
++        return type is not null
++            && string.Equals(type.Name, ContainerFactoryTypeName, StringComparison.Ordinal)
++            && string.Equals(type.ContainingAssembly?.Name, EngineAssembly.Name, StringComparison.Ordinal);
+     }
+ 
+     private static bool EnclosedBy(ISymbol containingSymbol, Func<INamedTypeSymbol?, bool> isSite)
+
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+  Determining projects to restore...
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 376 ms).
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 379 ms).
+  AgentGuard.Analyzers -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:02.03]     AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [16 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+           ↓ (pos 0)
+Expected: ["PlatformServices", "PlatformServices.Create()"]
+Actual:   []
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs:line 287
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.05]     AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [6 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+           ↓ (pos 0)
+Expected: ["CrossPlatformAdapters", "CrossPlatformAdapters.Create()", "CrossPlatformAdapters.Create()"]
+Actual:   []
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs:line 278
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:04.48]     AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported [8 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+           ↓ (pos 0)
+Expected: ["EnvironmentAdapter.Create()"]
+Actual:   []
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs:line 146
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:05.19]     AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(assemblyName: "AgentGuard.TestHelpers") [FAIL]
+[xUnit.net 00:00:05.20]     AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(assemblyName: "guard") [FAIL]
+  Failed AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(assemblyName: "AgentGuard.TestHelpers") [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 2
+Actual:   0
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.AssertReportsAsync(String source, String assemblyName, String[] expectedSubjects) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs:line 303
+   at AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(String assemblyName) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs:line 255
+--- End of stack trace from previous location ---
+  Failed AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(assemblyName: "guard") [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: 2
+Actual:   0
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.AssertReportsAsync(String source, String assemblyName, String[] expectedSubjects) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs:line 303
+   at AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(String assemblyName) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs:line 255
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     5, Passed:   614, Skipped:     0, Total:   619, Duration: 10 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=1
+
+M-A25-1 REVERTED (CompositionPoint.cs restored byte-identical to the delivered file).
+
+======== M-A25-2 — OneDoorRule.InspectCall: report at the call's FIRST TOKEN, identifier and message unchanged ========
+MUTATED analyzers/AgentGuard.Analyzers/OneDoorRule.cs
+
+--- the mutation ---
+--- /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/OneDoorRule.cs.orig	2026-09-16 13:00:36
++++ /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/OneDoorRule.cs	2026-09-16 13:01:30
+@@ -163,9 +163,12 @@
+         }
+ 
+         string subject = "the called member '" + MemberUseScanner.Describe(member, type) + NotTheDoor;
++
++        // MUTATION M-A25-2: report at the call's FIRST TOKEN instead of the whole call. Same rule identifier, same
++        // message, wrong source location.
+         context.ReportDiagnostic(Diagnostic.Create(
+             rule,
+-            context.Operation.Syntax.GetLocation(),
++            context.Operation.Syntax.GetFirstToken().GetLocation(),
+             context.Compilation.AssemblyName,
+             Failure(subject, doorFailed, siteFailed, CallSiteFailure)));
+     }
+
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+  Determining projects to restore...
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 314 ms).
+  Restored /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 322 ms).
+  AgentGuard.Analyzers -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.97]     AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported [13 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+           ↓ (pos 0)
+Expected: ["EnvironmentAdapter.Create()"]
+Actual:   ["EnvironmentAdapter"]
+           ↑ (pos 0)
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs:line 146
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:03.67]     AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+                                    ↓ (pos 1)
+Expected: ["CrossPlatformAdapters", "CrossPlatformAdapters.Create()", "CrossPlatformAdapters.Create()"]
+Actual:   ["CrossPlatformAdapters", "CrossPlatformAdapters", "CrossPlatformAdapters.Create()"]
+                                    ↑ (pos 1)
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs:line 278
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:08.48]     AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [FAIL]
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [6 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+                               ↓ (pos 1)
+Expected: ["PlatformServices", "PlatformServices.Create()"]
+Actual:   ["PlatformServices", "PlatformServices"]
+                               ↑ (pos 1)
+  Stack Trace:
+     at AgentGuard.Analyzers.Tests.SharedAnalyzerSources.AssertSpans(ImmutableArray`1 diagnostics, String source, String[] expectedSpans) in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:line 977
+   at AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported() in /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/a25-mutation-copy/analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs:line 287
+--- End of stack trace from previous location ---
+
+Failed!  - Failed:     3, Passed:   616, Skipped:     0, Total:   619, Duration: 11 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=1
+
+M-A25-2 REVERTED (OneDoorRule.cs restored byte-identical to the delivered file).
+
+======== The isolated copy after both mutations were reverted, diffed against the shared checkout ========
+$ diff -r --exclude=bin --exclude=obj $REPO/analyzers $COPY/analyzers
+EXIT=0 (no output above means the two analyzers trees are identical)
+
+======== The shared checkout is unchanged by the mutation runs ========
+$ git -C $REPO status --short
+ D .dev/inprocess/74-pre-work-move-system-services/tdd-result.md
+ M analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-affected-classes.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-baseline-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-full-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-intermediate-build.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-mutation-proofs.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-scope-and-digests.txt
+EXIT=0
+
+$ shasum -a 256 <the five changed test files, in the shared checkout>
+db6c6995a18d64a6fc54e759483e9b806c534356e07572b49f3fc428ebfd97e4  analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+1942cc6cfa58ae99297f5a4b9102b3a14cb6e2d12adcccc55b2187d421ab6e3d  analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+e20d7570be1b80a13956ff3c2850e62b8361ab12da1c2390d333c38937955a04  analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+6ec75338a3eb73c3eaae59842c99170c3b3e3fb751f23ce07e2a555cf96d0c26  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+7139aa1d44db1d5e1ec4486218b4ece897b888911da76fcb880f7224acb81a02  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+EXIT=0
+FINISHED: 2026-09-16T19:01:59Z

@@ -69,7 +69,7 @@ Engine's compilation gains a transitive view of BouncyCastle through the Boundar
 
 ## Current checkpoint
 
-Complete CONTRACT against the retained relocation scope. Use the recorded design for the shared `SymbolResolution`, `DeclaredTypeScanner`, and `WrittenNameScanner` responsibilities, preserve documentation links through syntax-based exclusion, and verify identity through existing helpers. Reuse is checked by the existing reviews and targeted tests, not by building an analyzer-source model or ownership/control-flow analysis system. Retain stage review checkpoints and the separate authorization for fix rounds.
+IMPLEMENT has returned its result. READINESS identified missing scope and authorization records; REFUTE was launched and then stopped. `contract.md`, Decisions / Recorded conversation authorizations, now retains the existing architecture acceptance, correction-round permissions, DRY-only review permission, and checkpoint/staging authorization. The contract's Surfaces and Reuse ledger now include the two shared analyzer owners omitted from those lists. Historical stage and reviewer outputs retain their original status; they are not current approval records. No final implementation-review verdict is claimed here.
 
 ## Areas covered by the completed GROUND stage
 

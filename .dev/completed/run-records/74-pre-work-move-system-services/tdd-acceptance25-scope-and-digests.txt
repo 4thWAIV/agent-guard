@@ -1,0 +1,48 @@
+# Acceptance 25 round — scope confirmation, diff check and delivered-file digests
+captured: 2026-09-16T18:59:17Z
+HEAD: a12e58b305c5315bc175332066e90a2d693b1769
+
+$ git diff --check
+EXIT=0
+
+$ git status --short
+ D .dev/inprocess/74-pre-work-move-system-services/tdd-result.md
+ M analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-affected-classes.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-baseline-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-full-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-intermediate-build.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-mutation-proofs.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-acceptance25-scope-and-digests.txt
+EXIT=0
+
+$ git status --short -- src tests eng .github Makefile analyzers/AgentGuard.Analyzers
+EXIT=0 (no output above means nothing under those paths changed: no production code, no analyzer, no project or workflow file)
+
+$ git diff --stat -- analyzers
+ .../DeclaredTypeScannerTests.cs                    |  6 +-
+ .../EngineToBoundariesOneDoorAnalyzerTests.cs      | 29 ++++++-
+ .../OneDoorIntoCrossPlatformAnalyzerTests.cs       | 23 ++++++
+ .../OneDoorIntoPerOsAnalyzerTests.cs               | 24 ++++++
+ .../SharedAnalyzerSources.cs                       | 88 ++++++++++++++++++++--
+ 5 files changed, 157 insertions(+), 13 deletions(-)
+EXIT=0
+
+$ git diff --stat -- analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs
+EXIT=0 (no output above means the runner and its tests are unchanged)
+
+$ shasum -a 256 <the five changed test files>
+db6c6995a18d64a6fc54e759483e9b806c534356e07572b49f3fc428ebfd97e4  analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+1942cc6cfa58ae99297f5a4b9102b3a14cb6e2d12adcccc55b2187d421ab6e3d  analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+e20d7570be1b80a13956ff3c2850e62b8361ab12da1c2390d333c38937955a04  analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+6ec75338a3eb73c3eaae59842c99170c3b3e3fb751f23ce07e2a555cf96d0c26  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+7139aa1d44db1d5e1ec4486218b4ece897b888911da76fcb880f7224acb81a02  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+EXIT=0
+
+$ ls .dev/inprocess/74-pre-work-move-system-services/tdd-result.md
+ls: .dev/inprocess/74-pre-work-move-system-services/tdd-result.md: No such file or directory
+EXIT=1 (non-zero: the deliberate deletion of tdd-result.md is preserved)

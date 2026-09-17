@@ -18,10 +18,12 @@
     <ProjectReference Include="../AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj" />
   </ItemGroup>
 
-  <!-- PlatformServices.Create() is internal (platform-create-internal); AgentGuard.Boundaries reaches this one door
-       through the grant (AG0029). Keyless in source; the signing target injects the public key on a signed build. -->
+  <!-- PlatformServices.Create() is internal (platform-create-internal); AgentGuard.Engine reaches this one door
+       through the grant, and only from SystemServices.Create() (AG0029); the grant moved here from
+       AgentGuard.Boundaries with the container itself. Keyless in source; the signing target injects the public key
+       on a signed build. -->
   <ItemGroup>
-    <InternalsVisibleTo Include="AgentGuard.Boundaries" />
+    <InternalsVisibleTo Include="AgentGuard.Engine" />
     <!-- The per-OS presence spec tests reach the internal IWindowsUserPresence port, WindowsPresenceResult, and
          WindowsPresenceCheck.Map from the one OS-agnostic spec test project, selected onto the Windows impl on the
          Windows CI leg. -->

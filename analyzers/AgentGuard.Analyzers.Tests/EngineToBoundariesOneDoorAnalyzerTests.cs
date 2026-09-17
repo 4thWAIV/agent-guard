@@ -85,6 +85,11 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
     private const string ContainerFactoryMethod = "Create";
 
+    // One of the four permitted identities, written as a fixture calls it. Held once because the compliant theory,
+    // the wrong-site test, the wrong-namespace caller test and the wrong-namespace factory test all make this same
+    // call and must make the same one.
+    private const string PermittedFactoryCall = "EnvironmentAdapter.Create()";
+
     // An assembly that is NOT AgentGuard.Engine. The container declaration below is compiled into it unchanged, so
     // the only thing that differs from the real composition point is the declaring assembly.
     private const string DecoyEngineAssembly = SharedAnalyzerSources.EngineAssemblyName + ".Decoy";
@@ -96,7 +101,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
 
     public static TheoryData<string> PermittedFactoryCalls => new()
     {
-        "EnvironmentAdapter.Create()",
+        PermittedFactoryCall,
         "ConsoleAdapter.Create()",
         "Ed25519SignatureService.Create()",
         "BuildInfoReader.Create()",
@@ -116,9 +121,30 @@ public class EngineToBoundariesOneDoorAnalyzerTests
         // The site is the Create() METHOD, not the SystemServices type: another method on the same class is reported,
         // and the message names the site alone because the called member IS the door.
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
-            SharedAnalyzerSources.InsideOtherContainerMethod(BoundariesUsing, "EnvironmentAdapter.Create()"));
+            SharedAnalyzerSources.InsideOtherContainerMethod(BoundariesUsing, PermittedFactoryCall));
 
         Assert.Single(diagnostics);
+        diagnostics.AssertNamesExactly(
+            RuleId,
+            failedDoorAccusation: null,
+            SharedAnalyzerSources.CallSiteFailureFragment);
+    }
+
+    [Fact]
+    public async Task PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported()
+    {
+        // The privileged CALLER's namespace — the leg of its identity that neither the assembly name nor the type
+        // name covers. The class is named SystemServices, its Create() is static, it is compiled into the real
+        // AgentGuard.Engine assembly, and the call it makes is the genuine permitted factory; only the namespace is
+        // wrong. The caller identity is the conjunction, so the call is reported, and because the called member IS
+        // the door the message names the site alone.
+        string source = SharedAnalyzerSources.InsideContainerFactoryInWrongNamespace(
+            BoundariesUsing, PermittedFactoryCall);
+
+        ImmutableArray<Diagnostic> diagnostics = await RunAsync(source);
+
+        // AG0040 registers the call lens alone, so the one prohibited call is reported once, at the call itself.
+        diagnostics.AssertSpans(source, PermittedFactoryCall);
         diagnostics.AssertNamesExactly(
             RuleId,
             failedDoorAccusation: null,
@@ -201,7 +227,7 @@ public class EngineToBoundariesOneDoorAnalyzerTests
         // Right assembly, wrong namespace: the identity conjunction rejects it.
         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
             SharedAnalyzerSources.InsideContainerFactory(
-                "using DecoyNamespace;", "EnvironmentAdapter.Create()"));
+                "using DecoyNamespace;", PermittedFactoryCall));
 
         Assert.Single(diagnostics);
         diagnostics.AssertNamesExactly(

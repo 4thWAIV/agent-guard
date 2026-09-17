@@ -1,7 +1,6 @@
 // Copyright (c) 4thWAIV. All rights reserved.
 
 using System.Collections.Immutable;
-using System.Linq;
 using System.Threading.Tasks;
 using AgentGuard.Analyzers;
 using Microsoft.CodeAnalysis;
@@ -72,10 +71,7 @@ public class DeclaredTypeScannerTests
         // The three places, read off the diagnostics' own source spans. Only the INVOCATION span can come from the
         // invoked-return registration: the written-name lens reports the name node and the declaration registration
         // reports the method's own identifier, so neither can produce it.
-        Assert.Equal(
-            new[] { "EngineInternal", DeclaringMethod, DeclaringMethod + "()" }.OrderBy(text => text, StringComparer.Ordinal),
-            diagnostics.Select(diagnostic => AnalyzerRunner.SpanText(source, diagnostic))
-                .OrderBy(text => text, StringComparer.Ordinal));
+        diagnostics.AssertSpans(source, "EngineInternal", DeclaringMethod, DeclaringMethod + "()");
 
         Assert.All(
             diagnostics,

@@ -260,6 +260,29 @@ public class OneDoorIntoCrossPlatformAnalyzerTests
     }
 
     [Fact]
+    public async Task DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported()
+    {
+        // The privileged CALLER's namespace — the leg of its identity that neither the assembly name nor the type
+        // name covers. The class is named SystemServices, its Create() is static, it is compiled into the real
+        // AgentGuard.Engine assembly, and the call it makes is the genuine door; only the namespace is wrong. The
+        // caller identity is the conjunction, so the reach is reported, and because it IS the door every message
+        // names the site alone.
+        string source = SharedAnalyzerSources.InsideContainerFactoryInWrongNamespace(
+            SharedAnalyzerSources.CrossPlatformUsing, DoorCall);
+
+        ImmutableArray<Diagnostic> diagnostics = await RunFromEngineAsync(source);
+
+        // All three of this rule's Engine-facing lenses see the one reach, so three diagnostics are required, not
+        // one: the call lens and the carried-type lens both report at the call, and the written-name lens reports at
+        // the door type's own name node. The expected spans are spelled from the fixture's own constants.
+        diagnostics.AssertSpans(source, DoorCall, DoorCall, DoorType);
+        diagnostics.AssertNamesExactly(
+            RuleId,
+            failedDoorAccusation: null,
+            SharedAnalyzerSources.CallSiteFailureFragment);
+    }
+
+    [Fact]
     public async Task SameNamedDoorInAnotherNamespace_FromContainerFactory_IsReported()
     {
         // Right assembly, wrong namespace: the door identity is the namespace-plus-assembly conjunction. The site is

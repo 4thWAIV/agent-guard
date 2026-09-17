@@ -66,7 +66,7 @@ internal static class SharedAnalyzerSources
     /// identity, and each is preserved exactly.
     /// </para>
     /// </summary>
-    internal const string EngineAssemblySource = """
+    internal const string EngineAssemblySource = $$"""
         using System.Runtime.CompilerServices;
 
         [assembly: InternalsVisibleTo("guard")]
@@ -112,7 +112,7 @@ internal static class SharedAnalyzerSources
             }
         }
 
-        namespace AgentGuard.Engine.Decoy
+        namespace {{WrongContainerNamespace}}
         {
             internal static class SystemServices
             {
@@ -134,6 +134,16 @@ internal static class SharedAnalyzerSources
     /// named constant per test class.
     /// </summary>
     internal const string EngineUsing = "using " + EngineAssemblyName + ";";
+
+    /// <summary>
+    /// The namespace a <c>SystemServices</c> container is declared in when a fixture needs the privileged CALLER's
+    /// namespace to be the wrong one. It is a child of the real namespace, the nearest miss there is, so a caller test
+    /// that matched on a prefix rather than on the whole name would wrongly accept it. <see cref="EngineAssemblySource"/>
+    /// interpolates this same constant into its decoy container's <c>namespace</c> declaration, so the wrong-namespace
+    /// container reads the same wherever a test declares one and changing it here moves every declaration and every
+    /// expected message together.
+    /// </summary>
+    internal const string WrongContainerNamespace = EngineAssemblyName + ".Decoy";
 
     /// <summary>
     /// The compiled assembly name of the CLI consumer the Engine grant reaches — <c>guard</c>, not the
@@ -509,21 +519,40 @@ internal static class SharedAnalyzerSources
     /// <returns>The complete fixture source.</returns>
     internal static string EngineCompilation(string usings, string containerBody, string otherEngineTypes)
     {
+        return EngineCompilation(EngineAssemblyName, usings, containerBody, otherEngineTypes);
+    }
+
+    /// <summary>
+    /// The same shell with the container's NAMESPACE supplied by the caller, so a fixture can vary the one leg of the
+    /// privileged caller's identity that the assembly name and the type name do not cover. Only two namespaces are
+    /// ever passed — the real <see cref="EngineAssemblyName"/> and <see cref="WrongContainerNamespace"/> — and both
+    /// flow through this one template, so the correct-namespace and wrong-namespace fixtures differ in the namespace
+    /// and in nothing else.
+    /// </summary>
+    /// <param name="containerNamespace">The namespace the <c>SystemServices</c> container is declared in.</param>
+    /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
+    /// <param name="containerBody">The members of the <c>SystemServices</c> container.</param>
+    /// <param name="otherEngineTypes">Further type declarations inside that namespace.</param>
+    /// <returns>The complete fixture source.</returns>
+    internal static string EngineCompilation(
+        string containerNamespace, string usings, string containerBody, string otherEngineTypes)
+    {
         const string template = """
             {0}
 
-            namespace AgentGuard.Engine
+            namespace {1}
             {{
                 internal sealed class SystemServices
                 {{
-            {1}
+            {2}
                 }}
 
-            {2}
+            {3}
             }}
             """;
 
-        return string.Format(CultureInfo.InvariantCulture, template, usings, containerBody, otherEngineTypes);
+        return string.Format(
+            CultureInfo.InvariantCulture, template, usings, containerNamespace, containerBody, otherEngineTypes);
     }
 
     /// <summary>
@@ -536,8 +565,22 @@ internal static class SharedAnalyzerSources
     /// <returns>The complete fixture source.</returns>
     internal static string InsideContainerFactory(string usings, string expression)
     {
-        string body = "        internal static object Create() => " + expression + ";";
-        return EngineCompilation(usings, body, string.Empty);
+        return ContainerFactoryIn(EngineAssemblyName, usings, expression);
+    }
+
+    /// <summary>
+    /// The same fixture with the container declared in <see cref="WrongContainerNamespace"/> instead: a class still
+    /// named <c>SystemServices</c>, whose <c>Create()</c> is still static, still compiled into the real
+    /// <c>AgentGuard.Engine</c> assembly, reaching the SAME genuine door — with the namespace, and only the namespace,
+    /// wrong. It is the caller-side counterpart of the wrong-namespace decoy each rule already tests on the callee
+    /// side, and all three Engine-gated rules drive it, so it is built here once.
+    /// </summary>
+    /// <param name="usings">The using directives the fixture needs, or an empty string.</param>
+    /// <param name="expression">The expression whose reach is under test.</param>
+    /// <returns>The complete fixture source.</returns>
+    internal static string InsideContainerFactoryInWrongNamespace(string usings, string expression)
+    {
+        return ContainerFactoryIn(WrongContainerNamespace, usings, expression);
     }
 
     /// <summary>
@@ -914,6 +957,52 @@ internal static class SharedAnalyzerSources
     }
 
     /// <summary>
+    /// Asserts that <paramref name="diagnostics"/> points at EXACTLY the source text in <paramref name="expectedSpans"/>
+    /// — one entry per diagnostic, so a position repeated because more than one lens saw the same reach is written out
+    /// twice and a missing, extra or displaced report fails. The two sequences are compared by
+    /// <see cref="AssertSameStrings"/>, so the order the scanners happen to run in is not pinned but the count is:
+    /// this assertion is what pins how many diagnostics a fixture produces, alongside the identifier and message
+    /// checks in <see cref="AssertNamesExactly"/>.
+    /// <para>
+    /// Every expected span is spelled by the asking test from its own fixture constants, never read back off the
+    /// diagnostic, so the assertion proves the reported location is the required one rather than that the rule agrees
+    /// with itself. The text is read through <see cref="AnalyzerRunner.SpanText"/>, the one owner of that lookup.
+    /// </para>
+    /// </summary>
+    /// <param name="diagnostics">The diagnostics the run produced.</param>
+    /// <param name="source">The fixture source that was analyzed.</param>
+    /// <param name="expectedSpans">The source text each expected diagnostic must point at.</param>
+    internal static void AssertSpans(
+        this ImmutableArray<Diagnostic> diagnostics, string source, params string[] expectedSpans)
+    {
+        AssertSameStrings(
+            expectedSpans,
+            diagnostics.Select(diagnostic => AnalyzerRunner.SpanText(source, diagnostic)));
+    }
+
+    /// <summary>
+    /// Asserts that <paramref name="actual"/> holds exactly the strings in <paramref name="expected"/> — the same
+    /// strings and the same number of each. Both sequences are sorted with <see cref="StringComparer.Ordinal"/> and
+    /// then compared in order, so the two are compared as sorted multisets: the order the producing code happens to
+    /// emit them in is not pinned, while a value that appears twice on one side must appear twice on the other. Set
+    /// equality would drop that count and weaken every caller.
+    /// <para>
+    /// The one owner of that comparison. Each caller projects its own expected and actual strings and hands both
+    /// sequences here — <see cref="AssertSpans"/> projects the actual side through
+    /// <see cref="AnalyzerRunner.SpanText"/>, and the AG0041 tests project the expected side through their own
+    /// message builder and the actual side through <see cref="Message"/>.
+    /// </para>
+    /// </summary>
+    /// <param name="expected">The strings the run is required to produce.</param>
+    /// <param name="actual">The strings it did produce.</param>
+    internal static void AssertSameStrings(IEnumerable<string> expected, IEnumerable<string> actual)
+    {
+        Assert.Equal(
+            expected.OrderBy(text => text, StringComparer.Ordinal),
+            actual.OrderBy(text => text, StringComparer.Ordinal));
+    }
+
+    /// <summary>
     /// Asserts that <paramref name="diagnostics"/> names EVERY condition that failed and ONLY those — the paired check
     /// the one-door message contract requires, which a bare presence assertion cannot make: a message that also
     /// accuses a condition which did NOT fail passes a presence check and is still wrong.
@@ -973,6 +1062,15 @@ internal static class SharedAnalyzerSources
     private static string Accusation(string subjectKind, string subject)
     {
         return subjectKind + " '" + subject + "' " + NotTheDoorFragment;
+    }
+
+    // The expression-bodied container factory, in whichever namespace the caller names. The correct-namespace and
+    // wrong-namespace entry points above both come through here, so the two fixtures cannot drift apart in anything
+    // but the namespace.
+    private static string ContainerFactoryIn(string containerNamespace, string usings, string expression)
+    {
+        string body = "        internal static object Create() => " + expression + ";";
+        return EngineCompilation(containerNamespace, usings, body, string.Empty);
     }
 
     // The block-bodied shape of a container member: the declaration, its braces, and the statements between them.

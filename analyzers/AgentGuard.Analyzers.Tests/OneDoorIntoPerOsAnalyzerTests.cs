@@ -268,6 +268,30 @@ public class OneDoorIntoPerOsAnalyzerTests
     }
 
     [Fact]
+    public async Task DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported()
+    {
+        // The privileged CALLER's namespace — the leg of its identity that neither the assembly name nor the type
+        // name covers. The class is named SystemServices, its Create() is static, it is compiled into the real
+        // AgentGuard.Engine assembly, and the call it makes is the genuine door into a real per-OS assembly; only
+        // the namespace is wrong. The caller identity is the conjunction, so the reach is reported, and because it
+        // IS the door every message names the site alone.
+        string source = SharedAnalyzerSources.InsideContainerFactoryInWrongNamespace(
+            SharedAnalyzerSources.CrossPlatformUsing, DoorCall);
+
+        ImmutableArray<Diagnostic> diagnostics = await RunFromEngineAsync(source);
+
+        // Two of this rule's three Engine-facing lenses see the one reach: the call lens reports at the call, and the
+        // written-name lens at the door type's own name node. The carried-type lens does not, because the fake
+        // door's Create() returns object, which is in no guarded assembly. The expected spans are spelled from the
+        // fixture's own constants.
+        diagnostics.AssertSpans(source, DoorCall, DoorType);
+        diagnostics.AssertNamesExactly(
+            RuleId,
+            failedDoorAccusation: null,
+            SharedAnalyzerSources.CallSiteFailureFragment);
+    }
+
+    [Fact]
     public async Task SameNamedDoorInAnotherNamespace_FromContainerFactory_IsReported()
     {
         // Right assembly, wrong namespace. The site is the container factory, so the imitation is the only condition

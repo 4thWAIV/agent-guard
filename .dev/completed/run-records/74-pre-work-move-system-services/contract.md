@@ -117,6 +117,23 @@ Tim approved the direct-dispatch exception for the TDD round, presented as writt
 - Tests for behavior still awaiting IMPLEMENT must expose that missing behavior. Never manufacture RED by breaking working code or weakening expectations.
 - This is a run-specific exception to the conflicting workflow and test-rail instructions. It changes neither the relocation scope nor its acceptance requirements.
 
+IMPLEMENT handoff decision:
+
+- For this relocation, IMPLEMENT accepts passing regression tests for helpers already implemented during RULE-PHASE under the approved TDD exception. This takes precedence over the `implement.js` instruction that every coverage entry must be red; those entries remain truthfully `red: false`. Historical failed review verdicts remain preserved, but a resolved finding is not an outstanding IMPLEMENT blocker merely because the handoff retains that verdict. Unresolved findings remain outstanding, and IMPLEMENT must clear the relocation's production build failure and satisfy the contract's final verification without warning overrides.
+
+### Recorded conversation authorizations
+
+These entries retain authorizations already given; they do not relabel failed reviews or claim that a later delivery received an earlier review. Dates and times below are UTC.
+
+- On 2026-09-16 at 04:17:55, Tim instructed: "Accept the reviewed ARCHITECTURE no-signature result and proceed to TDD using:" followed by `.dev/inprocess/74-pre-work-move-system-services/tdd-worker-instructions.md`. The accepted result requires no new application signatures. The pending-acceptance text in `architecture-result.md` predates this authorization and remains historical.
+- On 2026-09-16 at 16:04:23, Tim instructed: "Perform an L3 correction directly. Preserve the delivered tests’ behavior and independently reported cases." That instruction authorized the shared-constant and evidence-report correction, affected and full-suite test runs, and targeted DRY and Lie-catcher review. It also stated: "Retain the existing test-quality result where its reviewed behavior remains unchanged."
+- On 2026-09-16 at 17:20:16, Tim instructed: "Complete one correction and review of the SystemServices relocation’s TDD delivery report." The instruction limited edits to `tdd-result.md` and required DRY and Lie-catcher review of that correction.
+- On 2026-09-16 at 18:43:32, Tim instructed: "Resume the SystemServices relocation by correcting the missing tests." That instruction authorized the Acceptance 25 wrong-namespace caller tests and diagnostic-location assertions, with test-quality, DRY and Lie-catcher review.
+- On 2026-09-16 at 19:27:55, Tim instructed: "Run one L2 correction of the three DRY violations, followed by one independent DRY-only review. This is the review scope authorized for this correction." That exception applies to the factory-call, string-comparison and wrong-namespace extractions only. `dry-fix-review-dry.md` reviews those changes; the earlier test-quality and Lie-catcher reviews remain reviews of the Acceptance 25 delivery. The full L1 implementation review remains required.
+- Tim explicitly authorized the checkpoint commit and subsequent staging baseline. Codex performed the checkpoint commit `a12e58b` and staged the baseline at Tim's direction. Preserve that index during implementation and review. The prohibition on agents staging or committing without authorization does not invalidate these explicitly requested operations and grants no permission for further staging, commits or pushes.
+
+Approval provenance: the first two dated instructions are user messages in Claude session `c96ea1f7-6b0a-4cef-b29f-2fca152f05fe`; the remaining three are user messages in session `7e128584-a478-42e9-a0ef-5669bb1f47c2`. They are recorded here after the fact, not presented as entries that existed before dispatch. The staging and checkpoint instructions were given directly to Codex in this task's conversation.
+
 ## Rules to add
 
 The rules below enforce application access after relocation. Reuse and review establish the shared implementation; this section adds no rules about how analyzer implementations themselves are written. XML documentation references are excluded by syntax context, and the existing documentation links remain unchanged.
@@ -189,6 +206,8 @@ The relocation preserves behavior, the service surface, adapter ownership, platf
 - `analyzers/AgentGuard.Analyzers/SymbolResolution.cs` and `analyzers/AgentGuard.Analyzers/WrittenNameScanner.cs` — shared resolution and explicit-name scanning, including the documentation exclusion.
 - `analyzers/AgentGuard.Analyzers/AttributeIdentity.cs` — extract shared resolution into `SymbolResolution`, preserving attribute matching and fallback behavior.
 - `analyzers/AgentGuard.Analyzers/PlatformFactory.cs` — expose the existing factory type-identity check for reuse by type-reference scanning.
+- `analyzers/AgentGuard.Analyzers/TypeTree.cs` — share diagnostic type-name formatting through `Describe(ITypeSymbol?)` for the approved access rules.
+- `analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs` — share the core-assembly check and foreign-assembly namespace-decoy check through `IsCoreAssembly` and `IsSharedNamespaceDecoy`, preserving the genuine core and per-OS factory permissions.
 - `analyzers/AgentGuard.Analyzers.Tests/SymbolResolutionTests.cs`, `analyzers/AgentGuard.Analyzers.Tests/WrittenNameScannerTests.cs`, `analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs`, and `analyzers/AgentGuard.Analyzers.Tests/TypeTreeTests.cs` — direct tests where the existing behavioral fixtures do not already prove the shared helper's responsibility; use the existing runner, without a second compilation framework.
 - `analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs` — route its four declared-type registrations through `DeclaredTypeScanner`.
 - `analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md` — the AG0040 and AG0041 rows.
@@ -221,6 +240,10 @@ AG0041 introduces one further capability: rejecting a reference to any internal 
 
 - `extract analyzers/AgentGuard.Analyzers/AttributeIdentity.cs:60-72` — shared symbol/type resolution lives in `SymbolResolution`; both `AttributeIdentity` and `WrittenNameScanner` call it. Preserve attribute-specific matching and fallback in `AttributeIdentity`.
 - `reuse analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs` — behavioral fixtures and direct helper tests use its existing compilation and diagnostic-validation paths. There is no analyzer-source model to build for this relocation.
+- `extract analyzers/AgentGuard.Analyzers/TypeTree.cs` — `Describe(ITypeSymbol?)` owns the repeated type-description formatting used by `EngineInternalsOneDoorAnalyzer` and `OneDoorRule`.
+- `extract analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs` — `IsCoreAssembly` owns the core-assembly comparison; `IsSharedNamespaceDecoy` composes the existing namespace and assembly identity checks once for the Engine gates of AG0023 and AG0029. Each rule still applies its own permitted-factory identity check and rejects an imitation of its own factory.
+
+The two extraction entries above reconcile completed RULE-PHASE corrections with this ledger. They do not claim that a separate prior-art-ledger tool run occurred before those corrections, and do not change the approved access restrictions.
 
 ## What to do
 
@@ -268,7 +291,7 @@ Do not convert static classes, add service interfaces or container members, move
 14. The AG0015 test proves a direct `TimeProvider.System` read is accepted inside `SystemServices` in an `AgentGuard.Engine` compilation and reported elsewhere in Engine.
 15. The existing wiring tests and the four boundary adapter test classes pass unchanged in behavior. `src/AgentGuard.Abstractions/Contracts/ISystemServices.cs` and all four boundary adapter implementations have no behavioral changes, established by `git diff` review.
 16. For each of `osx-arm64`, `linux-x64`, and `win-x64`, run `dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=<rid>`. Each result selects exactly the matching per-OS project and exactly one of them. This checks project selection, not native execution on another OS.
-17. `dotnet msbuild src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj -getItem:ProjectReference` returns `AgentGuard.Abstractions` and nothing else.
+17. `dotnet msbuild src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj -getItem:ProjectReference` returns exactly two project references: `AgentGuard.Abstractions` and `AgentGuard.Analyzers`. The analyzer reference has `OutputItemType=Analyzer` and `ReferenceOutputAssembly=false`.
 18. Every analyzer test in `analyzers/AgentGuard.Analyzers.Tests` passes using the existing compiler-error validation. `AnalyzerRunner.cs` and `AnalyzerRunnerTests.cs` are unchanged from this run's opening baseline. New relocation fixtures compile under the default empty compiler-error expectation; no new expected-compiler-error exception is introduced. Report any failure requiring work outside this relocation contract rather than starting another runner or unrelated-fixture repair.
 19. `git diff --check` passes. Review `git diff` and `git status --short` against every contract boundary. Report any unavailable cross-OS execution explicitly; do not claim it ran.
 20. The AG0023 tests prove the Engine gate reports a reference to a CrossPlatform-core type that is not the door, made from anywhere in an `AgentGuard.Engine` compilation, through both lenses. Through the written-name lens: in `typeof`, in `nameof`, in a cast, in an `is` pattern, as a generic type argument, in a base list, and through a using alias. Through the carried-type lens: as a field type, a property type, a method return type, a method parameter type, a local variable type, the inferred type of a `var` local, and a type argument nested inside a generic or array type. The AG0029 tests prove the same for a per-OS type that is not the door.

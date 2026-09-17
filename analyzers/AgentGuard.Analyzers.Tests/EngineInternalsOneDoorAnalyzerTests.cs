@@ -39,9 +39,11 @@ public class EngineInternalsOneDoorAnalyzerTests
 
     private const string ListOfContainer = "System.Collections.Generic.List<AgentGuard.Engine.SystemServices>";
 
-    private const string DecoyContainerType = "AgentGuard.Engine.Decoy.SystemServices";
+    // The decoy container in its two roles, both built off the one owner of the wrong namespace so a change there
+    // moves the fixture declaration and these expected subjects together.
+    private const string DecoyContainerType = SharedAnalyzerSources.WrongContainerNamespace + ".SystemServices";
 
-    private const string DecoyContainerCreate = "AgentGuard.Engine.Decoy.SystemServices.Create()";
+    private const string DecoyContainerCreate = DecoyContainerType + ".Create()";
 
     // A var local whose inferred type is an Engine internal — the carried-type lens with nothing written out.
     private const string InferredLocalDeclaration =
@@ -247,10 +249,9 @@ public class EngineInternalsOneDoorAnalyzerTests
     public async Task SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(string assemblyName)
     {
         // The privileged identity is the namespace-plus-assembly-plus-name conjunction: a class merely NAMED
-        // SystemServices, with a static Create, declared in AgentGuard.Engine.Decoy, is just another Engine internal —
-        // so both the decoy type and its Create are reported.
-        const string body =
-            "        internal static object Build() => AgentGuard.Engine.Decoy.SystemServices.Create();";
+        // SystemServices, with a static Create, declared in SharedAnalyzerSources.WrongContainerNamespace, is just
+        // another Engine internal — so both the decoy type and its Create are reported.
+        const string body = "        internal static object Build() => " + DecoyContainerCreate + ";";
 
         await AssertReportsAsync(
             Consumer(string.Empty, body), assemblyName, DecoyContainerType, DecoyContainerCreate);
@@ -302,11 +303,9 @@ public class EngineInternalsOneDoorAnalyzerTests
 
         Assert.Equal(expectedSubjects.Length, diagnostics.Length);
         Assert.All(diagnostics, diagnostic => diagnostic.AssertReported(RuleId));
-        Assert.Equal(
-            expectedSubjects.Select(subject => ExpectedMessage(assemblyName, subject))
-                .OrderBy(message => message, StringComparer.Ordinal),
-            diagnostics.Select(diagnostic => diagnostic.Message())
-                .OrderBy(message => message, StringComparer.Ordinal));
+        SharedAnalyzerSources.AssertSameStrings(
+            expectedSubjects.Select(subject => ExpectedMessage(assemblyName, subject)),
+            diagnostics.Select(diagnostic => diagnostic.Message()));
     }
 
     // The message AG0041 has to produce, SPELLED OUT here rather than read from the analyzer: an expectation taken

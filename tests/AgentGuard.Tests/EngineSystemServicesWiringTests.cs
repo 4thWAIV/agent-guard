@@ -8,12 +8,12 @@ using Xunit;
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// Proves the <c>SystemServices.Create()</c> composition in <c>AgentGuard.Boundaries</c> wires every owned service to
+/// Proves the <c>SystemServices.Create()</c> composition in <c>AgentGuard.Engine</c> wires every owned service to
 /// its real adapter: building over <see cref="SystemServicesBuilder.Real"/> and driving each accessor through real
 /// behavior (distinct GUIDs, a system-clock read, the real directory separator, and an end-to-end Ed25519 verify)
 /// exercises the container's construction and its property accessors and asserts the wiring reached the real owners.
 /// </summary>
-public sealed class BoundariesSystemServicesWiringTests
+public sealed class EngineSystemServicesWiringTests
 {
     [Fact]
     public void Real_RandomOwnerProducesDistinctGuids()
