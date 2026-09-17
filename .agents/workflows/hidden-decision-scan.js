@@ -745,12 +745,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1129,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':

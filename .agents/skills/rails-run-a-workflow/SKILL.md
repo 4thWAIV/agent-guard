@@ -64,15 +64,25 @@ GROUND, DESIGN, CONTRACT, RULE-PHASE, ARCHITECTURE and TDD each run **once per c
 
 A completed stage's recorded result is background, not the spec; the contract is the spec. Fix rounds keep changing the tree, so a recorded fact the current code has since overtaken is expected and is never a finding. Each agent's own reading of the live code is the authority on what is true now.
 
+## What a delegated agent returns
+
+A delegated agent returns its verdict, its counts, its failures, and the structured fields the next stage consumes. It never returns a listing produced only to be read.
+
+A structured field the next stage consumes is permitted; a listing produced only to be read is not. Every stage's Outputs line below names structured fields, and none of them authorizes a read-only listing. A stage's own record of which checks it ran is a structured field the pipeline requires, and every stage's Outputs line may name it. A listing lives where the work landed and is read from there when someone needs it.
+
+The return contract is the last paragraph of every agent prompt, so this binds every stage script and every agent launched by hand. Asking an agent for a listing it produced only to be read pulls the whole result back into the context the delegation existed to protect.
+
 ## Launch preconditions
 
-Check all three before launching any agent panel. Each one is a stop, not a warning.
+Check every one of these before launching any agent panel. Each one is a stop, not a warning.
 
 **Nothing is open.** No stage runs while any item is open. An open item is anything approved but not finished, anything the orchestrator has flagged as awaiting the human's decision, anything it would describe to the human as "one more thing", and any part of approved work it cut on its own. Every one of these belongs in front of the human BEFORE the stage, never carried alongside it and never disclosed after. A stage that runs with an open item produces a verdict on work that does not exist yet, and the human finds out at the gate.
 
 **The inputs are whole.** Never launch on an input already known to be abridged, stale, reshaped, or hand-composed. Every recorded artifact is handed over as a file path so there is one copy and nothing to reconcile; the exception is L3, where the work may exist only in the conversation and no file exists to point at. If an input is wrong, fix it or stop and ask — launching anyway spends the whole panel proving what was already known.
 
-**Every decision the work rides on is recorded.** A decision the human gave in conversation is not in force until it is written into the contract with their verbatim words. No panel launches while work depends on an unrecorded decision: the adversaries are right to refuse it, and the round is wasted establishing that.
+**The brief is approved.** GROUND does not launch until the human has approved `conversation.md` in the work item's folder. Every other input either already exists or the human wrote it; that file is the orchestrator's own summary of what the human decided in conversation, and it becomes the brief every explorer works from. An unapproved summary puts the orchestrator's words in the mouths of five agents.
+
+**Every decision the work rides on is recorded.** A decision the human gave in conversation is not in force until it is written into the contract in the wording they approved. No panel launches while work depends on an unrecorded decision: the adversaries are right to refuse it, and the round is wasted establishing that.
 
 **No exclusion the orchestrator wrote.** Every exclusion, waiver, or "do not raise this" in an agent's instruction must quote a Decision from the contract. An exclusion that traces to nothing but the orchestrator is void, and writing one is how an orchestrator hides its own unfinished or unapproved work from the adversaries that exist to catch it. Instructions are typed into a tool call and touch no file, so nothing else can check them — this precondition is the only guard.
 
@@ -82,9 +92,11 @@ Check all three before launching any agent panel. Each one is a stop, not a warn
 
 - **Role:** One fresh explorer per named area. The orchestrator runs the hidden-decision scan before the contract locks.
 - **Scripts:** `ground.js`, which runs the prior-art ledger itself from its inlined copied block when the change introduces a new capability, and `hidden-decision-scan.js`. Do not run `prior-art-ledger.js` separately as part of GROUND; doing so runs the ledger twice.
-- **Inputs:** The repository path, named areas, new capabilities, the requirement, and the draft contract for the hidden-decision scan.
+- **Inputs:** The GitHub issue number, a scope line when the run covers only part of that issue, the issue's input folder path, the repository path, named areas, new capabilities, and the draft contract for the hidden-decision scan.
 - **Outputs:** Grounded facts with evidence, every surface, open questions, structured `autoResolved` records, the reuse ledger, and unresolved forced decisions.
 - **Revoked authority:** Explorers, reuse judges, and decision hunters do not write code, change the contract, or decide anything reserved for the human.
+
+The brief is the GitHub issue and that issue's work folder, which the script receives as the input folder path and which sits in `.dev/inprocess/<issue-number>-<slug>/` once the run starts. Every explorer reads the live issue with `gh issue view` and reads the folder's files. The live issue is the authority: where it and anything in the folder disagree, the issue wins. The folder holds background — `issue.md`, any design document, and `conversation.md`. A run that covers only part of an issue carries a scope line naming the part, and the explorers work to that part.
 
 Run `rails-explorer` fresh before judging any subsystem whose current code-level behavior is not already grounded in this run. It owns the exploration method and evidence requirements. Documentation, comments, prior run records, and memory only point to places to inspect.
 
@@ -96,7 +108,7 @@ The hidden-decision scan uses `rails-decisions` and the best-practices guide. A 
 
 - **Role:** Independent architects propose approaches; one judge selects and merges the approach.
 - **Script:** `design.js`.
-- **Inputs:** The goal, grounded facts, and the optional prior-art ledger from GROUND. The ledger is absent only when the selected Level runs DESIGN without GROUND.
+- **Inputs:** The GitHub issue number, a scope line when the run covers only part of that issue, the issue's input folder path, grounded facts, and the optional prior-art ledger from GROUND. The ledger is absent only when the selected Level runs DESIGN without GROUND.
 - **Outputs:** Candidate approaches, one selected approach, `Rules to add`, risks, required `autoResolved` records for every proposal and the final verdict, and `reuseInstructions: string[]`. The reuse list is empty when no instruction applies.
 - **Revoked authority:** DESIGN does not write production code, tests, analyzers, interfaces, or approvals.
 
@@ -112,13 +124,15 @@ The rule trigger applies to all substantive work: whenever a rule can mechanical
 
 - **Role:** The orchestrator writes and locks the contract.
 - **Script:** No workflow script. Follow `rails-write-a-contract`.
-- **Inputs:** The requirement, grounded facts, surfaces, reuse ledger, selected design, proposed rules, resolved decisions with approving words, and unresolved findings from the hidden-decision scan.
-- **Outputs:** `.dev/inprocess/<date>-<slug>/contract.md` and a clean opening `make build` plus `make test` proof before the first mutating stage.
+- **Inputs:** The requirement, grounded facts, surfaces, reuse ledger, selected design, proposed rules, resolved decisions in the wording the human approved, and unresolved findings from the hidden-decision scan.
+- **Outputs:** `contract.md` inside the work item's folder at `.dev/inprocess/<issue-number>-<slug>/`, and a clean opening `make build` plus `make test` proof before the first mutating stage.
 - **Revoked authority:** No mutating stage starts before the contract is written, every forced decision is resolved, and the opening bracket is green.
 
 Acceptance checks are derived verbatim from the requirement sentences and carry exact rerunnable commands. A clean `make build` and `make test` opening bracket runs once per contract after the contract is written and before RULE-PHASE or any other mutating stage. It establishes the pre-change state before any approved rule, interface, or test changes are written.
 
-Scope changes ONLY by the human editing the contract — or, when the human is unavailable and has given explicit prior authorization for exactly this extension, by recording that authorization verbatim as the change’s ruling provenance and top-lining it.
+One folder per work item, created once and never duplicated. When work starts from an existing issue, its folder moves from `.dev/backlog/` to `.dev/inprocess/`. When the human says to do something and no issue exists, the work starts by filing the issue and creating its folder directly in `.dev/inprocess/<issue-number>-<slug>/`, skipping backlog. The folder moves to `.dev/completed/run-records/` when the work ships. The contract and the run records live inside it. A run never creates a second folder. Filing the issue and moving the folder are recordkeeping and never need the human's approval. This applies to every L1 and L2 run; L3 work produces no contract and no run record, so it needs neither.
+
+Scope changes ONLY by the human editing the contract. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract the human approves for that exact change.
 
 ### RULE-PHASE
 
@@ -142,7 +156,7 @@ Before ARCHITECTURE begins, Tim approves the exact diagnostic IDs and exact inte
 
 For a new type or member, each new body is `throw new NotImplementedException()`. For an expansion, existing bodies remain exactly as they are unless the approved signature must change; ARCHITECTURE never stubs unchanged working code back to a throw. If no signature changes, the stage records that it has nothing to write and proceeds only after its SOLID, DRY, and Lie-catcher panel reviews that contract-backed result.
 
-The human signs off the signature diff in their own words before TDD begins. `rails-decisions` owns that approval rule.
+The human approves the signature diff before TDD begins. `rails-decisions` owns that approval rule.
 
 ### TDD
 
@@ -158,7 +172,7 @@ The no-test result is valid only when the approved contract names no test surfac
 
 #### Selected RULE warnings during ARCHITECTURE and TDD
 
-The orchestrator may pass an optional `ruleWarningIds` list to `architecture.js` and `tdd.js` only for diagnostic IDs that Tim approved verbatim in the contract to remain warnings in that exact intermediate build. Both stages receive the same approved list. The list contains whatever diagnostic IDs the human approved for that exact case and is not limited by a predefined prefix or set. A missing or empty list uses the existing plain build or test command.
+The orchestrator may pass an optional `ruleWarningIds` list to `architecture.js` and `tdd.js` only for diagnostic IDs that Tim approved in the contract to remain warnings in that exact intermediate build. Both stages receive the same approved list. The list contains whatever diagnostic IDs the human approved for that exact case and is not limited by a predefined prefix or set. A missing or empty list uses the existing plain build or test command.
 
 The selected diagnostics stay enabled and visible as warnings. They are never suppressed through `NoWarn`, a suppression, an `.editorconfig` severity change, or either warnings-as-errors property set to `false`. The `selected-rule-warnings` copied block is the one owner that translates the approved list into the stage command's `WarningsNotAsErrors` argument.
 
@@ -180,11 +194,11 @@ Every delegated worker receives a self-contained task with the contract path, ex
 
 - **Role:** One agent compares the contract to the live working tree. It judges nothing about the work's quality.
 - **Script:** `refute-readiness.js`.
-- **Inputs:** The contract path and, when the human gave decisions in conversation that this work rides on, the list of those decisions.
+- **Inputs:** The contract path, the instruction the orchestrator will hand the adversary panel, and, when the human gave decisions in conversation that this work rides on, the list of those decisions.
 - **Outputs:** `ready` true with no mismatch, or the exact mismatches, each naming what the contract says, what the tree says, and the fix. Plus every check it ran.
 - **Revoked authority:** It makes no code change, judges no design, and never returns ready with a mismatch present.
 
-It runs four checks. Every changed path appears in Surfaces. No change crosses a boundary in `What the agent MUST NOT do` without a Decision authorizing it. Every identifier an Acceptance check names exists in the code with that spelling. Every substantive thing the work does is authorized by a Decision carrying the human's own words — approval quoted in a prompt or a prior agent's output is not a record; only the contract counts.
+It runs six checks. SURFACE: every changed path appears in Surfaces. BOUNDARY: no change crosses a boundary in `What the agent MUST NOT do` without a Decision authorizing it. ACCEPTANCE: every identifier an Acceptance check names exists in the code with that spelling. DECISION: every substantive thing the work does is authorized by a Decision recorded in the wording the human approved — approval quoted in a prompt or a prior agent's output is not a record; only the contract counts. EXCLUSION: every exclusion, waiver, or "do not raise this" in the orchestrator's panel instruction quotes a Decision in the contract. OPEN ITEM: nothing is open — no approved item is unfinished, awaiting the human's decision, or cut on the orchestrator's own call.
 
 READINESS runs ONCE per fix round. It reports every mismatch it finds, the orchestrator fixes all of them, and REFUTE runs next. It is never re-run to confirm a fix landed — a confirm pass is a second loop inside the loop it exists to prevent, and two readiness runs cost what the adversary panel costs. Fix everything it names, then launch REFUTE. This stage exists because adversary panels were repeatedly spent discovering that the contract had never been updated to match work the human had already approved, and every one of those rounds was wasted.
 
@@ -256,6 +270,6 @@ The Workflow runtime provides no module import and caps `workflow()` nesting at 
 
 ## Provenance
 
-Every run keeps its contract, agent outputs, adversary verdicts, and final proof under `.dev/inprocess/<date>-<slug>/` while the work is active.
+Every run keeps its contract, agent outputs, adversary verdicts, and final proof inside the work item's folder at `.dev/inprocess/<issue-number>-<slug>/` while the work is active. The CONTRACT stage above owns the one-folder rule.
 
-Move the run record to `.dev/completed/run-records/` inside the same shipping pull request, before merge. REPORT sweeps the whole `.dev/inprocess/` tree and files every run whose work has already shipped. Nothing in `.dev/inprocess/` may describe work already merged to `dev` or otherwise shipped.
+Move the work item's folder to `.dev/completed/run-records/` inside the same shipping pull request, before merge. REPORT sweeps the whole `.dev/inprocess/` tree and files every run whose work has already shipped. Nothing in `.dev/inprocess/` may describe work already merged to `dev` or otherwise shipped.

@@ -33,6 +33,40 @@ async function __workflowInput(args) {
 }
 // ##COPIED-MODULE-END## workflow-input
 
+// ##COPIED-MODULE-BEGIN## workflow-brief
+// This block is shared code, pasted into every workflow script that needs it. The Workflow
+// runtime gives scripts no module import and allows only one level of workflow() nesting,
+// so there is no way to call shared code from another file. Do not edit this copy alone:
+// every copy of a block name must stay byte-identical, and eng/check-copied-modules.mjs
+// fails the moment two copies differ.
+function __workflowBrief(args) {
+  const caller = args && args.caller
+  const issueNumber = args && args.issueNumber
+  const inputFolderPath = args && args.inputFolderPath
+  const issueScope = args && args.issueScope
+
+  if (typeof caller !== 'string' || !caller) {
+    throw new Error('workflow-brief requires args { caller, issueNumber, inputFolderPath, issueScope? }')
+  }
+
+  const issue = typeof issueNumber === 'number' && Number.isFinite(issueNumber)
+    ? String(issueNumber)
+    : (typeof issueNumber === 'string' ? issueNumber.trim() : '')
+  const folder = typeof inputFolderPath === 'string' ? inputFolderPath.trim() : ''
+  if (!issue || !folder) {
+    throw new Error(`${caller} requires issueNumber and inputFolderPath: the GitHub issue number this run works from, and the path of that issue's input folder`)
+  }
+  if (issueScope !== undefined && issueScope !== null && (typeof issueScope !== 'string' || !issueScope.trim())) {
+    throw new Error(`${caller}: issueScope is optional, but when it is given it must be a nonempty string naming the part of the issue this run covers`)
+  }
+
+  const scope = typeof issueScope === 'string' ? issueScope.trim() : ''
+  const scopeSentence = scope ? ` This run covers only part of that issue — ${scope} — so work to that part and nothing beyond it.` : ''
+
+  return `THE BRIEF — read it before you do anything else. This run works from GitHub issue #${issue}. Read the live issue yourself with \`gh issue view ${issue}\`, and read every file in that issue's input folder ${folder}. The live issue is the authority: wherever the live issue and anything in the input folder disagree, the issue wins.${scopeSentence}`
+}
+// ##COPIED-MODULE-END## workflow-brief
+
 // ##COPIED-MODULE-BEGIN## required-agent-runtime
 // This block is shared code, pasted into every workflow script that needs it. The Workflow
 // runtime gives scripts no module import and allows only one level of workflow() nesting,
@@ -745,12 +779,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1163,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1253,7 +1285,9 @@ async function __stageResultContracts(args) {
 const input = await __workflowInput({ caller: 'design', value: args })
 
 const projectPath = input && input.projectPath
-const goal = input && input.goal
+const issueNumber = input && input.issueNumber           // the GitHub issue this run works from
+const inputFolderPath = input && input.inputFolderPath   // that issue's input folder
+const issueScope = input && input.issueScope             // optional; the part of the issue this run covers
 // GROUND's results are handed over as file paths, never as content, so one copy exists and nothing
 // can be altered on the way here. Scripts have no filesystem; each agent opens the file itself.
 const factsPath = input && input.factsPath   // path to GROUND's recorded facts
@@ -1267,10 +1301,12 @@ const angles = (input && input.angles) || [
   { id: 'risk-first', model: 'opus', focus: 'the design that most reduces the chance the AI cuts a corner here — maximize what a guardrail rule can mechanically stop or make greppable.' },
 ]
 
-if (!projectPath || !goal) {
+if (!projectPath) {
   throw new Error(
-    'design requires args { projectPath, goal, factsPath?, ledgerPath?, angles?: [{id, focus}] } (got type: ' + typeof args + ')')
+    'design requires args { projectPath, issueNumber, inputFolderPath, issueScope?, factsPath?, ledgerPath?, angles?: [{id, focus}] }. issueNumber and inputFolderPath are both required (got type: ' + typeof args + ')')
 }
+
+const brief = __workflowBrief({ caller: 'design', issueNumber, inputFolderPath, issueScope })
 
 const proposalContracts = []
 for (const angle of angles) {
@@ -1290,10 +1326,11 @@ for (const [field, value] of [['factsPath', factsPath], ['ledgerPath', ledgerPat
   }
 }
 
-const proposePrompt = (angle) => `You are a software architect proposing ONE approach to the goal below, from a specific angle, grounded in the given facts and the LIVE code. Do NOT write production code. Read .agents/skills/rails-solid-code/SKILL.md, .agents/skills/rails-dry-code/SKILL.md, .agents/skills/rails-real-work/SKILL.md, and .agents/skills/rails-decisions/SKILL.md first; those files own the reusable design and decision criteria. Read .dev/reference/best-practices-guide.md before classifying any choice.
+const proposePrompt = (angle) => `${brief}
+
+You are a software architect proposing ONE approach to the work the brief above describes, from a specific angle, grounded in the given facts and the LIVE code. Do NOT write production code. Read .agents/skills/rails-solid-code/SKILL.md, .agents/skills/rails-dry-code/SKILL.md, .agents/skills/rails-real-work/SKILL.md, and .agents/skills/rails-decisions/SKILL.md first; those files own the reusable design and decision criteria. Read .dev/reference/best-practices-guide.md before classifying any choice.
 
 PROJECT PATH: ${projectPath}
-GOAL: ${goal}
 YOUR ANGLE — ${angle.id}: ${angle.focus}
 GROUND'S RECORDED FACTS — a file path; open and read it yourself: ${JSON.stringify(factsPath || null)}
 GROUND'S PRIOR-ART LEDGER — a file path; open and read it yourself: ${JSON.stringify(ledgerPath || null)}
@@ -1305,9 +1342,10 @@ THREE OUTPUTS, all required:
 
 Return angle="${angle.id}", the approach, keySteps, rulesToAdd, risks, and autoResolved.`
 
-const judgePrompt = (proposals) => `You are the DESIGN judge. Score the candidate approaches below against the code rails and synthesize ONE winner. Read .agents/skills/rails-solid-code/SKILL.md, .agents/skills/rails-dry-code/SKILL.md, .agents/skills/rails-real-work/SKILL.md, and .agents/skills/rails-decisions/SKILL.md first; those files own the scoring and decision criteria. Read .dev/reference/best-practices-guide.md before classifying any choice.
+const judgePrompt = (proposals) => `${brief}
 
-GOAL: ${goal}
+You are the DESIGN judge. Score the candidate approaches below against the code rails and synthesize ONE winner. Read .agents/skills/rails-solid-code/SKILL.md, .agents/skills/rails-dry-code/SKILL.md, .agents/skills/rails-real-work/SKILL.md, and .agents/skills/rails-decisions/SKILL.md first; those files own the scoring and decision criteria. Read .dev/reference/best-practices-guide.md before classifying any choice.
+
 CANDIDATE APPROACHES (JSON): ${JSON.stringify(proposals)}
 GROUND'S PRIOR-ART LEDGER — a file path; open and read it yourself: ${JSON.stringify(ledgerPath || null)}
 
@@ -1342,7 +1380,6 @@ const proposals = panel.results
 
 if (!panel.panelComplete) {
   return {
-    goal,
     proposals,
     panelComplete: false,
     failedRoles: panel.failedRoles,
@@ -1372,7 +1409,6 @@ const judgePanel = await __requiredAgentRuntime({
 
 if (!judgePanel.panelComplete) {
   return {
-    goal,
     proposals,
     verdict: null,
     panelComplete: false,
@@ -1383,6 +1419,6 @@ if (!judgePanel.panelComplete) {
   }
 }
 
-const result = { goal, proposals, verdict: judgePanel.results[0], panelComplete: true, failedRoles: [] }
+const result = { proposals, verdict: judgePanel.results[0], panelComplete: true, failedRoles: [] }
 await __stageResultContracts({ name: 'design-stage', operation: 'validate', result })
 return result

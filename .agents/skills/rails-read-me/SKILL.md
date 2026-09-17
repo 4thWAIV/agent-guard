@@ -41,7 +41,7 @@ Load the owner instead of copying its rules here:
 
 One rule here rather than in the process, because it applies to every deferral whether or not a run is in flight:
 
-- **File deferred work as a GitHub issue the moment it's deferred** — via the `gh` CLI (`gh issue create`) — with the real requirements in the body. A deferral recorded only as a note or memory is untracked and won't happen.
+- **File deferred work as a GitHub issue the moment it's deferred** — via the `gh` CLI (`gh issue create`) — with the real requirements in the body. A deferral recorded only as a note or memory is untracked and won't happen. Filing an issue also creates its work folder, `.dev/backlog/<issue-number>-<slug>/`.
 
 ## Where things live
 
@@ -49,7 +49,9 @@ See `.dev/README.md`. Work moves **backlog → inprocess → completed**. `refer
 
 **Derive the current state, never read it from a status document.** There is no checked-in index of what exists and what is done. List the parts from the source: the rails are `ls .agents/skills/`, the workflow scripts are `ls .agents/workflows/`, shipped work is `ls .dev/completed/run-records/`, work in flight is `ls .dev/inprocess/`, and the analyzer rules are `analyzers/AgentGuard.Analyzers/AnalyzerReleases.*.md`. What is deferred, planned, or undecided lives in the GitHub issues (`gh issue list`) — that is the state tracker.
 
-**The roadmap is `.dev/backlog/`** — the planned-but-not-started work, with the design/plan docs for what is next (currently crypto minting + presence: mint and sign grants, and gate sensitive operations on an OS presence check).
+**The roadmap lives in two places, with two jobs.** `.dev/backlog/` holds the design and plan documents — the long-form thinking about a piece of work. The GitHub issues (`gh issue list`) hold the tracked work items, their order, and what is still open. Read the backlog document to understand what a piece of work is; read the issues to find what is next.
+
+**One folder per work item, created once and never duplicated.** Filing a GitHub issue creates its work folder at `.dev/backlog/<issue-number>-<slug>/`. The folder travels with the work through `backlog`, `inprocess` and `completed`, and is kept for good in whichever of the three the work currently sits in. It holds `issue.md` with the issue body, which the live GitHub issue always supersedes, plus any design document, `conversation.md` — the summary of what the human decided in conversation — and, once the work starts, the contract and the run records. A run never creates a second folder. `rails-run-a-workflow` owns when the folder moves, what a run keeps inside it, and how work the human starts without an issue gets its folder.
 
 **The rails skills are the checked-in source at `.agents/skills/rails-*`** (`.claude/skills` symlinks to it); the workflow scripts are `.agents/workflows/*.js` (`.claude/workflows` symlinks to it too).
 

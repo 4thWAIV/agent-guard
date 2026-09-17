@@ -745,12 +745,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1129,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1259,6 +1257,7 @@ async function __priorArtLedger(args) {
 
   const projectPath = input && input.projectPath
   const capabilities = input && input.capabilities
+  const brief = input && input.brief   // optional; the calling stage's run brief, absent when this stage is invoked on its own
   const priorPanelResults = input && input.priorPanelResults !== undefined ? input.priorPanelResults : []
   const retryRoles = input && input.retryRoles
   const priorStageResult = input && input.priorStageResult
@@ -1267,6 +1266,13 @@ async function __priorArtLedger(args) {
     throw new Error(
       'prior-art-ledger requires args { projectPath, capabilities: [{id, description}] } (got type: ' + typeof args + ')')
   }
+  if (brief !== undefined && brief !== null && (typeof brief !== 'string' || !brief.trim())) {
+    throw new Error('prior-art-ledger: brief is optional, but when it is given it must be a nonempty string carrying the run brief every agent reads')
+  }
+
+  // A stage that has a run brief hands it down, and every agent this block launches leads with it.
+  // Invoked on its own there is no brief, and the prompts below are exactly what they were without one.
+  const briefPreamble = brief ? `${brief.trim()}\n\n` : ''
 
   const searchContracts = []
   for (const capability of capabilities) {
@@ -1276,7 +1282,7 @@ async function __priorArtLedger(args) {
     }))
   }
 
-  const gatherPrompt = (cap) => `You are a code-search agent. Find every existing place in this codebase that ALREADY provides the capability below. Do NOT write code. Never invent a hit — only report real results the tools return. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the discovery lenses and prior-art criteria.
+  const gatherPrompt = (cap) => `${briefPreamble}You are a code-search agent. Find every existing place in this codebase that ALREADY provides the capability below. Do NOT write code. Never invent a hit — only report real results the tools return. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the discovery lenses and prior-art criteria.
 
   PROJECT PATH: ${projectPath}
   CAPABILITY id="${cap.id}": ${cap.description}
@@ -1289,7 +1295,7 @@ async function __priorArtLedger(args) {
   For each hit record: which lens found it, file, line (if known), symbol name, and a one-line snippet.
   Return: capability="${cap.id}", the pooled candidates, lensesRun (every lens you actually ran), lensesEmpty (only lenses that completed and returned nothing), and lensErrors (every lens that failed, or []). A failed lens is not empty and prevents a reuse/extract/new ruling.`
 
-  const evaluatePrompt = (cap, found) => `You are a reuse judge. Rule whether the capability below ALREADY exists in the codebase, using ONLY the pooled search hits provided. Do NOT write code. Do NOT invent hits. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the reuse/extract/new criteria.
+  const evaluatePrompt = (cap, found) => `${briefPreamble}You are a reuse judge. Rule whether the capability below ALREADY exists in the codebase, using ONLY the pooled search hits provided. Do NOT write code. Do NOT invent hits. Read .agents/skills/rails-dry-code/SKILL.md first; it owns the reuse/extract/new criteria.
 
   CAPABILITY id="${cap.id}": ${cap.description}
 

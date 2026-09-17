@@ -1,0 +1,9 @@
+### SourceLink mapping read from the built PDB, snapshot cf018569901823dc
+$ git rev-parse HEAD
+e30c257eb45962721b5320ab59110d148c533503
+
+$ strings -a src/AgentGuard.Engine/bin/Debug/net10.0/AgentGuard.Engine.pdb | grep -o '{"documents".*}'
+{"documents":{"/Users/timothystockstill/code/macos/4thWAIV/agent-guard/*":"https://raw.githubusercontent.com/4thWAIV/agent-guard/e30c257eb45962721b5320ab59110d148c533503/*"}}
+
+$ strings -a analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.pdb | grep -o '{"documents".*}'
+{"documents":{"/Users/timothystockstill/code/macos/4thWAIV/agent-guard/*":"https://raw.githubusercontent.com/4thWAIV/agent-guard/e30c257eb45962721b5320ab59110d148c533503/*"}}

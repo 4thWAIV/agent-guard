@@ -48,12 +48,18 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
     {
         // Two classes implement ISystemServices; the second is a build error — a hand-rolled container built directly
         // instead of through SystemServicesBuilder.
-        string source = ContainersSource + """
+        string source = ContainersSource + $$"""
 
             namespace App
             {
-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
-                public sealed class SneakyServices : AgentGuard.Abstractions.Contracts.ISystemServices { }
+                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
+                {
+            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
+                }
+                public sealed class SneakyServices : AgentGuard.Abstractions.Contracts.ISystemServices
+                {
+            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
+                }
             }
             """;
 
@@ -67,11 +73,14 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
     [Fact]
     public async Task SingleImplementerOfContainer_IsNotReported()
     {
-        string source = ContainersSource + """
+        string source = ContainersSource + $$"""
 
             namespace App
             {
-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
+                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
+                {
+            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
+                }
             }
             """;
 
@@ -84,12 +93,18 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
         // The defining difference from AG0025: NO test-system exemption. In a .Tests compilation, two implementers of a
         // container is still a build error — the only legal container implementers there are the fakes nested inside
         // SystemServicesBuilder, so a test-declared second implementer is caught.
-        string source = ContainersSource + """
+        string source = ContainersSource + $$"""
 
             namespace App
             {
-                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices { }
-                public sealed class FakeServices : AgentGuard.Abstractions.Contracts.ISystemServices { }
+                public sealed class Services : AgentGuard.Abstractions.Contracts.ISystemServices
+                {
+            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
+                }
+                public sealed class FakeServices : AgentGuard.Abstractions.Contracts.ISystemServices
+                {
+            {{SharedAnalyzerSources.SystemServicesContainerMembers}}
+                }
             }
             """;
 
@@ -103,14 +118,26 @@ public class ContainerInterfaceSingleOwnerAnalyzerTests
     public async Task SecondImplementerOfSubContainer_IsReported()
     {
         // The rule guards all three containers, including the nested IFileSystem and IPlatformServices.
-        string source = ContainersSource + """
+        string source = ContainersSource + $$"""
 
             namespace App
             {
-                public sealed class Fs : AgentGuard.Abstractions.Contracts.IFileSystem { }
-                public sealed class OtherFs : AgentGuard.Abstractions.Contracts.IFileSystem { }
-                public sealed class Plat : AgentGuard.Abstractions.Contracts.IPlatformServices { }
-                public sealed class OtherPlat : AgentGuard.Abstractions.Contracts.IPlatformServices { }
+                public sealed class Fs : AgentGuard.Abstractions.Contracts.IFileSystem
+                {
+            {{SharedAnalyzerSources.FileSystemContainerMembers}}
+                }
+                public sealed class OtherFs : AgentGuard.Abstractions.Contracts.IFileSystem
+                {
+            {{SharedAnalyzerSources.FileSystemContainerMembers}}
+                }
+                public sealed class Plat : AgentGuard.Abstractions.Contracts.IPlatformServices
+                {
+            {{SharedAnalyzerSources.PlatformServicesContainerMembers}}
+                }
+                public sealed class OtherPlat : AgentGuard.Abstractions.Contracts.IPlatformServices
+                {
+            {{SharedAnalyzerSources.PlatformServicesContainerMembers}}
+                }
             }
             """;
 

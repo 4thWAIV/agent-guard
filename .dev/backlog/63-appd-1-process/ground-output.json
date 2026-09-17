@@ -1,0 +1,692 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+  "facts": [
+    {
+      "area": "cli-command-surface",
+      "facts": [
+        {
+          "claim": "There is exactly one process entry point and one dispatch mechanism in the whole repo. `Program.Main(string[] args)` (src/AgentGuard.Cli/Program.cs:59-63) builds the real container with `SystemServices.Create()` and calls `new Program(args).Run(SystemServices.Create())`; `Program.Run(ISystemServices services)` (Program.cs:44-49) calls `BuildRootCommand(services)` then `root.Parse(_args).InvokeAsync()`.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:44-63. Confirmed no second path exists: `grep -rn \"new Command(|new RootCommand(|static.*Main(\" src tests analyzers eng` (excluding obj/bin) returns hits only inside this one file, and `grep -rl \"<OutputType>Exe</OutputType>\" src` returns only src/AgentGuard.Cli/AgentGuard.Cli.csproj."
+        },
+        {
+          "claim": "`BuildRootCommand` (Program.cs:65-75) is the single registration point: it builds `new RootCommand(...)` and adds exactly six subcommands, one call per verb, in this fixed source order: hook, install, init, remove, doctor, version. There is no table, dictionary, or reflection/convention-based auto-discovery of verbs \u2014 each is an explicit `root.Subcommands.Add(BuildXCommand(services))` line.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:65-75."
+        },
+        {
+          "claim": "Each verb has its own `private static Command BuildXCommand(ISystemServices services)` factory: BuildHookCommand (96), BuildInstallCommand (123), BuildInitCommand (138), BuildRemoveCommand (145), BuildDoctorCommand (152), BuildVersionCommand (83). The single `ISystemServices` container built once in Main/Run is threaded in as a parameter to every factory and closed over by the lambda passed to `SetAction`; no verb constructs its own container.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:65-164 (all six factory signatures and bodies)."
+        },
+        {
+          "claim": "Options/arguments are plain System.CommandLine objects attached via the Command's collection initializer. `hook`: `Argument<string?> eventArgument` (Arity.ZeroOrOne) + `Option<string> --host` (DefaultValueFactory returns `GuardHost.ClaudeCodeHost`), and `command.TreatUnmatchedTokensAsErrors = false` to tolerate a legacy flag. `install`: `Option<bool> --allow-downgrade`. `doctor`: `Option<bool> --fix`. `init`, `remove`, `version` take none.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:96-121 (hook), 123-136 (install), 152-164 (doctor), 138-150 (init/remove, no options), 83-94 (version, no options)."
+        },
+        {
+          "claim": "The six verbs exercise three distinct `SetAction` shapes against System.CommandLine 2.0.0 (centrally pinned): a sync `Action<ParseResult>` (version \u2014 reads services.BuildInfo/services.Console directly, no return value); a sync `Func<ParseResult,int>` (doctor, via the non-async RunDoctor); and an async `Func<ParseResult, CancellationToken, Task<int>>` (hook, install, init, remove \u2014 each wrapping a Task<CommandOutcome>-or-Task<int>-returning call).",
+          "evidence": "src/AgentGuard.Cli/Program.cs:86-92 (version), 118-119 (hook), 133-134 (install), 141 (init), 148 (remove), 162 (doctor); Directory.Packages.props:18 `<PackageVersion Include=\"System.CommandLine\" Version=\"2.0.0\" />`."
+        },
+        {
+          "claim": "Verb dispatch reaches the Engine through exactly two mechanisms, both declared `namespace AgentGuard.Setup` and physically located under src/AgentGuard.Engine/Setup/ even though the project's <RootNamespace> is AgentGuard.Engine (the namespace is hand-declared per file, not folder-derived). (a) hook calls `GuardHost.ExecuteHookAsync(...)` (GuardHost.cs:38), returning `HookExecution(int ExitCode, string? Message)` which RunHookAsync unpacks straight into the process exit code. (b) install/init/remove call `SetupCommands.Install/Init/Remove(SetupContext, ISystemServices, ...)` (SetupCommands.cs:27,80,120), each returning `Task<CommandOutcome>` (Success/Messages/computed ExitCode) that the shared RunCommandAsync wrapper prints and converts to an exit code; doctor calls the synchronous `SetupCommands.Doctor(SetupContext, bool fix)` (SetupCommands.cs:146), returning `DoctorOutcome` (Healthy/Reports/computed ExitCode) unpacked by RunDoctor. version never reaches the Engine \u2014 it reads `services.BuildInfo` (IBuildInfo) directly.",
+          "evidence": "src/AgentGuard.Engine/Setup/GuardHost.cs:1-56 (namespace + ExecuteHookAsync); src/AgentGuard.Engine/Setup/HookExecution.cs:1-12; src/AgentGuard.Engine/Setup/SetupCommands.cs:1-215; src/AgentGuard.Engine/Setup/CommandOutcome.cs:1-47; src/AgentGuard.Engine/Setup/DoctorOutcome.cs:1-41; src/AgentGuard.Cli/Program.cs:170-251 (RunHookAsync/RunCommandAsync/RunDoctor); src/AgentGuard.Engine/AgentGuard.Engine.csproj:4 (`<RootNamespace>AgentGuard.Engine</RootNamespace>`) vs. every file above's `namespace AgentGuard.Setup;`."
+        },
+        {
+          "claim": "install/init/remove each first build a `SetupContext` via `SetupContext.ForCurrentProcess(services)` (SetupContext.cs:85-105) \u2014 the one factory snapshotting HomeDirectory, ProjectRoot (=GetCurrentDirectory()), ResolvedBinaryPath, RunningVersion (=services.BuildInfo.SemVer), ShellProfilePath, and the owned FileReader/FileWriter/DirectoryWriter/Directories/Random/FileSystem off ISystemServices \u2014 then call `ApprovalGate.RequireApprovalAsync(services, SetupVerb.X)` (ApprovalGate.cs:30) before mutating anything. doctor builds the same SetupContext (Program.cs:234) but is NOT approval-gated: SetupCommands.Doctor's body (SetupCommands.cs:146-180) contains no ApprovalGate call, matching the class doc comment's explicit statement that install/init/remove gate and doctor does not.",
+          "evidence": "src/AgentGuard.Engine/Setup/SetupContext.cs:85-105; src/AgentGuard.Engine/Setup/SetupCommands.cs:27-136 (Install/Init/Remove each call RequireApprovalAsync) vs. 146-180 (Doctor, no such call); src/AgentGuard.Engine/Setup/SetupCommands.cs:12-14 doc comment; src/AgentGuard.Cli/Program.cs:230-234."
+        },
+        {
+          "claim": "The three mutating verbs' tokens are not hardcoded in Program.cs; they come from `SetupVerb.Install/.Init/.Remove` (SetupVerb.cs:17,22,27), reused for the Command name, the ApprovalGate action key, and the PresenceDialogText lookup so the CLI name, dialog text, and decision cannot drift (per its own doc comment). `hook`'s verb/event/host tokens are similarly owned by `HookCommand` (Verb=\"hook\", PreEvent=\"pre\", PostEvent=\"post\", HostOption=\"--host\"), used identically by the CLI parser and by ClaudeSettingsWiring.cs's settings writer. `doctor` and `version` have no equivalent shared-constant owner \u2014 their verb strings are literal in Program.cs.",
+          "evidence": "src/AgentGuard.Engine/Setup/SetupVerb.cs:1-28; src/AgentGuard.Engine/Setup/HookCommand.cs:1-67; src/AgentGuard.Engine/Setup/ClaudeSettingsWiring.cs:46-47,85-86,159-161; src/AgentGuard.Cli/Program.cs:158 (literal \"doctor\"), 85 (literal \"version\")."
+        },
+        {
+          "claim": "Every handler-wrapper catches unhandled exceptions and turns them into a non-zero exit rather than letting them propagate: RunHookAsync catches general Exception (re-throwing only OperationCanceledException) and returns 2; RunCommandAsync and RunDoctor each catch general Exception and return 1. Each catch carries a `[SuppressMessage(\"Design\",\"CA1031...\")]` explicitly justified as a fail-closed boundary. version's body has no try/catch (nothing in it can throw).",
+          "evidence": "src/AgentGuard.Cli/Program.cs:166-201 (RunHookAsync + its SuppressMessage), 203-224 (RunCommandAsync + SuppressMessage), 226-251 (RunDoctor + SuppressMessage), 83-94 (version, no catch)."
+        },
+        {
+          "claim": "`Program` is `internal sealed`; its constructor and `Run` are `internal` (not private) specifically so `AgentGuard.Cli.Tests` can construct it and drive `Run(ISystemServices)` directly, granted via `<InternalsVisibleTo Include=\"AgentGuard.Cli.Tests\" />`. `AgentGuard.Cli.Tests.csproj`'s own header states it 'is the only project that loads and covers the CLI assembly' \u2014 verified true: no other .csproj under tests/ references AgentGuard.Cli.csproj, and both projects are registered in AgentGuard.sln.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:23-49 (internal sealed class, internal ctor, internal Run); src/AgentGuard.Cli/AgentGuard.Cli.csproj:23-28; tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj:1-5; `grep -rln \"AgentGuard.Cli.csproj\" tests --include=\"*.csproj\"` returns only AgentGuard.Cli.Tests.csproj; AgentGuard.sln:10,32."
+        },
+        {
+          "claim": "The CLI test harness never touches the real machine. `CliMachine.RunWithInput` calls `new Program(args).Run(services).GetAwaiter().GetResult()` with a `SystemServicesBuilder.Real()`-based container whose IEnvironment is a `FakeEnvironment` pointed at throwaway temp Home/Project directories and whose IConsole is a `RecordingConsole` capturing stdout/stderr into a `CliResult(int ExitCode, string StandardOutput, string StandardError)`; it also overrides the platform presence check with `FakePresenceCheck.Approved()` so install/init/remove succeed without a real presence UI. Coverage is split into ProgramCliTests.cs (one throwaway-machine test per verb's early/failure path, all six verbs covered) and CliCommandSuccessPathTests.cs (install -> init -> doctor chained against one CliMachine, asserting real files written).",
+          "evidence": "tests/AgentGuard.Cli.Tests/CliMachine.cs:105-122 (RunWithInput body); tests/AgentGuard.Cli.Tests/CliResult.cs:12; tests/AgentGuard.Cli.Tests/ProgramCliTests.cs:16-89 (one test per verb); tests/AgentGuard.Cli.Tests/CliCommandSuccessPathTests.cs:22-73."
+        },
+        {
+          "claim": "AgentGuard.Cli.csproj sets <AssemblyName>guard</AssemblyName> and <OutputType>Exe</OutputType>, and carries exactly two ProjectReferences \u2014 AgentGuard.Engine and AgentGuard.Boundaries \u2014 plus the single PackageReference System.CommandLine. It does not reference AgentGuard.Abstractions directly; those types (ISystemServices, IBuildInfo, HookEvent, etc.) reach Program.cs transitively because both AgentGuard.Boundaries and AgentGuard.Engine reference AgentGuard.Abstractions directly, and Engine's own header states it references only Abstractions (never Boundaries/CrossPlatform/any per-OS assembly).",
+          "evidence": "src/AgentGuard.Cli/AgentGuard.Cli.csproj:1-46; src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj:28-30; src/AgentGuard.Engine/AgentGuard.Engine.csproj:17-23; src/AgentGuard.Abstractions/HookEvent.cs (namespace AgentGuard.Abstractions)."
+        },
+        {
+          "claim": "A build-time analyzer constrains where the CLI's composition call is legal: diagnostic AG0017 (GuardedConstructionAnalyzer) fires on any static factory call whose return type is ISystemServices made anywhere except the `Program` type in the assembly compiled as `guard` (matched by CliAssembly.RootNamespace=\"AgentGuard.Cli\" + CliAssembly.CompiledName=\"guard\") or the test SystemServicesBuilder. Concretely, a new verb's handler must receive ISystemServices as the already-threaded `services` parameter and must never call SystemServices.Create() itself.",
+          "evidence": "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:9-42; analyzers/AgentGuard.Analyzers/CliAssembly.cs:15-31."
+        },
+        {
+          "claim": "Verified live against the working tree (not from any doc): nothing daemon- or appd-related exists anywhere in src/tests/eng, and no process-launch or file-lock abstraction exists yet either. IPlatformServices exposes exactly two capabilities today \u2014 FileSystem and Presence \u2014 with its own doc comment stating it 'is designed to grow.'",
+          "evidence": "`grep -rniE \"daemon|appd\" --include=\"*.cs\" --include=\"*.csproj\" --include=\"*.props\" --include=\"*.targets\" src tests eng` (excluding obj/bin) \u2192 zero matches; `grep -rln \"IProcessLauncher|ProcessStartInfo|IProcessLock|ISingleInstance|FileShare.None|IFileLock\" src` \u2192 zero matches; src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:1-23."
+        },
+        {
+          "claim": "`doctor` already reaches a reusable detect/repair extend-point that a new capability can plug into without new CLI-level plumbing: `ISetupCondition` (internal interface, Detect+Repair) is implemented by 9 condition classes collected into 3 static lists in SetupConditions.cs \u2014 `Machine` (5, detected by doctor), `MachineStructural` (4, applied by install), `Project` (4, applied by init). SetupCommands.Doctor iterates whichever list applies, calling Detect/Repair uniformly and printing Name/Scope/Status/Reason per condition, so a new condition added to one of these lists automatically gets doctor's existing report-and-`--fix`-repair behavior with no new Program.cs wiring beyond constructing the condition instance.",
+          "evidence": "src/AgentGuard.Engine/Setup/ISetupCondition.cs:1-37; src/AgentGuard.Engine/Setup/SetupConditions.cs:1-48 (the three lists); src/AgentGuard.Engine/Setup/SetupCommands.cs:146-180 (Doctor's iteration); src/AgentGuard.Cli/Program.cs:230-251 (RunDoctor reading report.Status/.Scope/.Name/.Detail)."
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Cli/Program.cs \u2014 the sole verb registry and dispatcher: BuildRootCommand plus the six BuildXCommand factories, Main/Run.",
+        "src/AgentGuard.Cli/AgentGuard.Cli.csproj \u2014 CLI project references, AssemblyName (guard), the AgentGuard.Cli.Tests InternalsVisibleTo grant, the System.CommandLine package reference.",
+        "src/AgentGuard.Engine/Setup/SetupVerb.cs \u2014 canonical owner of the install/init/remove verb-token constants.",
+        "src/AgentGuard.Engine/Setup/HookCommand.cs \u2014 canonical owner of the hook verb/event/host tokens, shared with the settings writer.",
+        "src/AgentGuard.Engine/Setup/SetupCommands.cs \u2014 the Engine-side handler behind install/init/remove/doctor.",
+        "src/AgentGuard.Engine/Setup/SetupContext.cs \u2014 the per-command context snapshot built from ISystemServices for install/init/remove/doctor.",
+        "src/AgentGuard.Engine/Setup/GuardHost.cs and HookExecution.cs \u2014 the Engine-side handler and result record behind hook.",
+        "src/AgentGuard.Engine/Setup/ApprovalGate.cs \u2014 the presence-approval gate install/init/remove call before mutating.",
+        "src/AgentGuard.Engine/Setup/CommandOutcome.cs, DoctorOutcome.cs, DoctorReport.cs \u2014 the result DTOs Program.cs unpacks into console lines and exit codes.",
+        "src/AgentGuard.Engine/Setup/ISetupCondition.cs, SetupConditions.cs, and its 9 implementers (MachineCondition-derived and direct) \u2014 the detect/repair extend-point install/init/doctor share.",
+        "src/AgentGuard.Boundaries/SystemServices.cs \u2014 the sole concrete ISystemServices and its Create() composition factory, analyzer-pinned (AG0017) to Program and the test builder.",
+        "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs, IBuildInfo.cs, IPlatformServices.cs \u2014 the container/contract interfaces every handler's services flow through.",
+        "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs and CliAssembly.cs \u2014 the build-time rule constraining where SystemServices.Create() may legally be called.",
+        "Directory.Packages.props \u2014 the centrally pinned System.CommandLine version (2.0.0).",
+        "AgentGuard.sln \u2014 the two solution entries (AgentGuard.Cli, AgentGuard.Cli.Tests) that make this the one registered exe plus its one test project.",
+        "tests/AgentGuard.Cli.Tests/ (ProgramCliTests.cs, CliCommandSuccessPathTests.cs, CliRunner.cs, CliMachine.cs, CliResult.cs) plus the linked tests/Shared/AgentGuardLayout.cs and SettingsProbe.cs \u2014 the one test project exercising every verb through the Program.Run IVT seam; where new-verb coverage would be added to look like the six already there."
+      ],
+      "openQuestions": [
+        "Which CLI invocation(s) perform the 'check whether appd is running, and if not, trigger the canonical start' behavior issue #63 requires? The issue frames it as a general CLI property without naming a verb ('The CLI checks whether appd is running... The CLI detects whether it is already running before deciding to start it'). conversation.md pins the separate 'does login-registration exist' check to install/doctor ('it belongs to `agentguard install` and `agentguard doctor` rather than to every command the user types') but never states which verb(s) run the is-appd-running-and-start-if-not check itself. Candidates the tree leaves open: only inside install (matching the issue's 'installing onto an already-running login session' framing), install plus doctor --fix (reusing the ISetupCondition extend-point at the corresponding fact), or a check every existing verb runs before dispatch. This determines whether #63 touches only BuildRootCommand (one new verb) or also the bodies of one or more of the five existing Build*Command factories.",
+        "Where does the new `daemon` verb's Engine-side logic live, and what does it return? The six existing verbs establish two shapes under namespace AgentGuard.Setup: a SetupCommands-style static class returning a CommandOutcome/DoctorOutcome-style record (install/init/remove/doctor), or a GuardHost-style dedicated static class returning its own outcome record (hook). Nothing in the brief or the working tree says whether a daemon verb \u2014 which starts and detaches a long-running process rather than performing a one-shot mutation \u2014 fits either existing shape or needs a third; this is a DESIGN-stage choice.",
+        "Does the daemon verb go through ApprovalGate/presence approval like install/init/remove, or is it unapproved like doctor/hook/version? Issue #63 excludes identity checking from this part's scope, which suggests no presence gate, but this is not recorded as a decision anywhere in the brief materials, and it determines whether the handler follows the RunCommandAsync pattern (which assumes an approval-gated Task<CommandOutcome>) or needs its own wrapper the way hook and doctor each have one."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Whether the new `daemon` verb's CLI handler must catch unhandled exceptions and fail closed with a non-zero exit, or may let an exception propagate out of InvokeAsync().",
+          "resolution": "It must fail closed: wrap the handler the same way every existing verb does, turning any unhandled exception into a non-zero exit and a spoken message, never letting one propagate unhandled.",
+          "principle": "best-practices-guide 5a (\"Fail closed is the default. Assert every expectation, and when one does not hold, fail closed by throwing an exception \u2014 never a silent ignore.\") and 5b (\"Exit non-zero on failure, so scripts and CI can tell it failed.\")",
+          "evidence": "All six existing verbs already do this uniformly: RunHookAsync catches general Exception and returns 2 (Program.cs:196-200), RunCommandAsync catches general Exception and returns 1 (Program.cs:219-223), RunDoctor catches general Exception and returns 1 (Program.cs:246-250); each catch carries a [SuppressMessage(\"Design\",\"CA1031...\")] explicitly justified as a fail-closed boundary (Program.cs:166-169, 203-206, 226-229); version's body has nothing that can throw."
+        },
+        {
+          "choice": "Whether the new `daemon` verb's tests may exercise the CLI against the real OS/filesystem, or must use the same injected-fake pattern as the existing six verbs' tests.",
+          "resolution": "They must use the same pattern: drive the internal Program.Run(ISystemServices) seam through CliRunner/CliMachine with a SystemServicesBuilder.Real()-based container whose IEnvironment is a FakeEnvironment and IConsole is a RecordingConsole, never a real process launch or real HOME/working directory.",
+          "principle": "best-practices-guide 6a (\"Unit tests use fakes for outside-world dependencies \u2014 filesystem, clock, network, and environment \u2014 so the unit tests stay deterministic. Pointed-integration tests exercise the real OS adapter on the per-OS test legs.\")",
+          "evidence": "Every existing verb's CLI-level test already follows exactly this shape with no exception: tests/AgentGuard.Cli.Tests/CliMachine.cs:105-122 (RunWithInput built on FakeEnvironment + RecordingConsole + FakePresenceCheck.Approved()); tests/AgentGuard.Cli.Tests/ProgramCliTests.cs and CliCommandSuccessPathTests.cs both route every one of the six verbs through this same CliRunner/CliMachine seam with no verb-specific deviation."
+        }
+      ]
+    },
+    {
+      "area": "install-and-setup",
+      "facts": [
+        {
+          "claim": "The CLI exposes exactly six verbs today, all wired in one place, and every setup-command handler is a thin wrapper that builds a SetupContext and calls straight into AgentGuard.Setup.SetupCommands.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:68-73 (BuildRootCommand adds hook/install/init/remove/doctor/version); handlers at 129-134 (install), 138-143 (init), 145-150 (remove), 152-164 (doctor) each call SetupCommands.Install/Init/Remove/Doctor with SetupContext.ForCurrentProcess(services)."
+        },
+        {
+          "claim": "SetupVerb owns only the three *mutating* verb strings (install/init/remove); doctor and version are bare literals with no owning constant, and hook has its own separate constant.",
+          "evidence": "src/AgentGuard.Engine/Setup/SetupVerb.cs:12-28 defines Install/Init/Remove only, reused at Program.cs:129,140,147, in PresenceDialogText.For (PresenceDialogText.cs:20-33), and in ApprovalGate calls (SetupCommands.cs:31,84,124). Program.cs:158 spells \"doctor\" and Program.cs:85 spells \"version\" as inline literals. HookCommand.Verb (HookCommand.cs:20) is hook's own constant."
+        },
+        {
+          "claim": "install, init, and remove each call the approval gate exactly once, first, and return early on any non-approved reason; doctor never calls it \u2014 proven behaviorally, not just by reading.",
+          "evidence": "SetupCommands.cs:31-35 (Install), 84-88 (Init), 124-128 (Remove); Doctor (146-180) has no such call. tests/AgentGuard.Tests/SetupCommandGatingTests.cs:116-128 (GatedCommandsConsultPresence_ButDoctorDoesNot) asserts the fake presence check's CallCount stays at 1 after install succeeds and a following doctor(fix:false) call."
+        },
+        {
+          "claim": "install's full body: gate, resolve/validate the running binary and SemVer, refuse a downgrade unless --allow-downgrade, run ApplyConditions over SetupConditions.MachineStructural, then write the machine state record directly (never through a condition).",
+          "evidence": "SetupCommands.cs:27-71. MachineStructural (SetupConditions.cs:30-36) deliberately excludes BinaryHashCondition, whose Repair always returns NotRepairable (BinaryHashCondition.cs:19-20) precisely because a hash mismatch must be reported, never fabricated; install writes the hash itself via CreationHelper.WriteMachineState (CreationHelper.cs:104-105)."
+        },
+        {
+          "claim": "Everything install writes lives under {HomeDirectory}/.agentguard and every write routes through one of two owned primitives (AtomicFile or SymlinkOps/IPlatformFileSystem) \u2014 no raw filesystem call exists in this path.",
+          "evidence": "MachinePaths.Root (MachinePaths.cs:49). Writes: versions/{semver}/guard + chmod (CreationHelper.cs:24-54); current -> versions/{version} symlink (61-70); bin/guard -> ../current/guard symlink (77-85, MachinePaths.cs:130-160); PATH line in the resolved shell profile (92-96); state.json = {Version,Sha256} (104-105, InstallState.cs:11)."
+        },
+        {
+          "claim": "init refuses unless the machine is installed and unless the Claude settings merge finds no real conflict; on success it creates the project base then applies the four Project conditions in a fixed order.",
+          "evidence": "SetupCommands.cs:90-93 (bin/guard existence check), 204-214 (PreflightSettings via ClaudeSettingsWiring.AddGuardEntries), 102 (CreationHelper.EnsureAgentGuardBase \u2014 CreationHelper.cs:112-119, grant public key deliberately never generated), 103 (ApplyConditions over SetupConditions.Project = ConfigJsonCondition, VersionStampCondition, HookEntriesCondition, GitignoreCondition, SetupConditions.cs:41-47)."
+        },
+        {
+          "claim": "remove is not condition-driven at all: it directly strips the guard's own hook entries from .claude/settings.json and recursively deletes the project's .agentguard/, and never touches the machine-scope ~/.agentguard install.",
+          "evidence": "SetupCommands.cs:120-136 calling CreationHelper.UnwireSettings and CreationHelper.RemoveAgentGuardDirectory (CreationHelper.cs:174-192, 209-216)."
+        },
+        {
+          "claim": "doctor is the single place that both detects and (--fix) repairs; it always evaluates the 5 Machine conditions and additionally evaluates the 4 Project conditions only when the project is initialized; --fix repairs only conditions detected exactly Broken, never CannotVerify ones, and either status leaves the outcome unhealthy.",
+          "evidence": "SetupCommands.cs:146-180; SetupConditions.Machine = MachineStructural(4) + BinaryHashCondition (SetupConditions.cs:17-24); ProjectPaths.IsInitialized gate at SetupCommands.cs:150 (ProjectPaths.cs:76); Broken-only repair at 155-164; ConditionStatus.CannotVerify is documented as 'never treated as healthy' (ConditionStatus.cs:21-24); DoctorOutcome.Healthy/ExitCode at DoctorOutcome.cs:22,32."
+        },
+        {
+          "claim": "Every condition shares one 4-member shape (Name, Scope, Detect, Repair); the 4 machine-structural conditions plus BinaryHashCondition all inherit MachineCondition, which supplies the missing/unreadable short-circuit for free \u2014 two of the four (BinSymlinkCondition, PathProfileCondition) inherit it purely for that short-circuit and never touch the InstallState payload they're handed.",
+          "evidence": "ISetupCondition.cs:11-37; MachineCondition.cs:10-40 (Detect reads MachineInspection.Read once, branches Missing->Broken / Unreadable->CannotVerify, else delegates to DetectInstalled); BinSymlinkCondition.cs:20-32 and PathProfileCondition.cs:20-36 both ignore their `state` parameter."
+        },
+        {
+          "claim": "install and doctor are proven, by construction, never to re-derive layout logic: both route through the same generic ApplyConditions loop / the same condition lists, differing only in which list they pass and whether they gate on approval first.",
+          "evidence": "SetupCommands.cs:182-202 (private ApplyConditions is generic over any IReadOnlyList<ISetupCondition>, used by Install at 62 and Init at 103); Doctor's own loops (155-179) contain zero condition-specific branching."
+        },
+        {
+          "claim": "IPlatformServices is an explicit, already-exercised extend point for exactly this kind of new capability: its own doc comment promises growth with no restructuring, and it already grew once (Presence), with each OS supplying its own implementation composed through a per-OS partial factory.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:6-9,11-22 (FileSystem + Presence, 'designed to grow... future capabilities... become additional properties here'); per-OS composition e.g. src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.MacOS.cs:15-19 (CreatePresence partial), mirrored by Linux/Windows siblings and by the per-OS Presence/ folders (IPolkitAuthority, ILocalAuthentication, IWindowsHello*)."
+        },
+        {
+          "claim": "No process-launching, daemon, LaunchAgent, systemd-unit, or Task-Scheduler code exists anywhere in the working tree today, and there is no existing process-spawn/detect abstraction of any kind to extend.",
+          "evidence": "grep -rniE \"daemon|appd|launchagent|launchdaemon|systemd|schtasks|task scheduler\" across src/tests/eng/analyzers returns no real hits (only unrelated AppDomain/AppContext/SystemDiagnostics substrings); grep -rn \"ProcessStartInfo|Process\\.Start|IProcess\\b\" across src returns nothing."
+        },
+        {
+          "claim": "InstallIntegrity is a second, independent reader of the same ~/.agentguard layout (used only to gate `guard hook` runs), but it reuses MachinePaths' bare-root overloads rather than re-deriving the layout, so it is a second caller, not a duplicate owner.",
+          "evidence": "InstallIntegrity.cs:56-105 (Check denies unless current's binary hash matches state.json), 108-124 (FindInstallRoot walks up from the resolved binary path, never $HOME); it calls MachinePaths.CurrentBinaryIn/StateFileIn/VersionsDirectoryIn/CurrentIn (MachinePaths.cs:56,63,70,77) exactly as machine conditions do."
+        },
+        {
+          "claim": "The machine install record and the project wiring record share the identical filename 'state.json' but are two unrelated files at two unrelated roots with two unrelated schemas \u2014 a same-name/different-store trap.",
+          "evidence": "MachinePaths.StateFileName='state.json' (MachinePaths.cs:30) backs ~/.agentguard/state.json = InstallState{Version,Sha256} (InstallState.cs:11); ProjectPaths.StateFile (ProjectPaths.cs:37-38) backs {project}/.agentguard/state.json = ProjectState{GuardVersion} (ProjectState.cs:10). VersionStampCondition.Detect (VersionStampCondition.cs:22-65) is the one place both are read together to detect drift."
+        },
+        {
+          "claim": "'.agentguard' as a directory-name segment is a single hardcoded literal owned in one place and referenced, not re-spelled, by both the machine-root and project-root path owners \u2014 the two roots share a name but are otherwise unrelated directories.",
+          "evidence": "src/AgentGuard.Engine/CoreSystemPaths.cs:22 (InRepoDirectoryName = \".agentguard\"); MachinePaths.RootDirectoryName (MachinePaths.cs:20) and ProjectPaths.AgentGuardDirectory (ProjectPaths.cs:21-22) both reference it."
+        },
+        {
+          "claim": "Every text write in this area passes through exactly one BCL call, File.WriteAllText with no explicit Encoding argument (.NET's documented default there is UTF-8 without a BOM), and the atomic-write primitive takes a plain string rather than a JSON-specific type \u2014 so it is already shaped to accept any hand-built text format, not just JSON.",
+          "evidence": "src/AgentGuard.CrossPlatform/FileWriterAdapter.cs:30 (WriteAllText(path, contents) => File.WriteAllText(path, contents)); AtomicFile.WriteAllText(string path, string content) at AtomicFile.cs:53; SetupJson.cs:21-38 shows the only JSON-specific layer sits above this, in the caller, not in the writer."
+        },
+        {
+          "claim": "Build-environment fact verified live this session: the repo's SDK pin cannot currently resolve on this machine, so no dotnet build/test could be run to produce a fresh command-output probe \u2014 every claim above rests on direct working-tree reads (confirmed clean against HEAD) plus one already-committed test file.",
+          "evidence": "global.json:1-4 pins version \"10.0.400\", rollForward \"disable\"; `~/.dotnet/dotnet --version` fails live with \"Requested SDK version: 10.0.400 ... A compatible .NET SDK was not found\" against installed SDKs 8.0.100/9.0.310/10.0.100. `git status --short` on src/AgentGuard.Engine/Setup, src/AgentGuard.Cli, and IPlatformServices.cs returned empty (clean) on branch appd-1-process at commit 616c434."
+        }
+      ],
+      "surfaces": [
+        "~/.agentguard/ \u2014 machine install root (MachinePaths.Root)",
+        "~/.agentguard/versions/{version}/guard \u2014 per-version binary store",
+        "~/.agentguard/current \u2014 symlink to versions/{version}",
+        "~/.agentguard/bin/guard \u2014 stable launcher symlink to ../current/guard; the one absolute path hooks and (per conversation.md) a login registration would point at",
+        "~/.agentguard/state.json \u2014 machine InstallState{Version,Sha256}",
+        "the shell profile file resolved by ShellProfile.Resolve($SHELL, home) \u2014 carries the PATH line",
+        "{project}/.agentguard/ \u2014 project wiring root (ProjectPaths.AgentGuardDirectory)",
+        "{project}/.agentguard/config.json \u2014 ProjectConfig",
+        "{project}/.agentguard/state.json \u2014 ProjectState{GuardVersion} (distinct from the machine state.json above despite the identical name)",
+        "{project}/.agentguard/grants/ \u2014 created empty; not populated by this build",
+        "{project}/.agentguard/grant-public-key \u2014 path is defined (ProjectPaths.PublicKeyFile) but is read-if-present only; no ISetupCondition and no doctor coverage exists for it today",
+        "{project}/.claude/settings.json \u2014 Pre/Post hook entries (ClaudeSettings/ClaudeSettingsWiring)",
+        "{project}/.gitignore \u2014 runtime-store ignore lines (GitignoreWiring)",
+        "CoreSystemPaths.BashReferenceTokens \u2014 the derived deny-list the File Guard's own Precheck uses; any new *project-relative* path this area introduces would need adding here to stay protected (a new *machine-scope* path under ~/.agentguard is outside the repo root and not applicable)",
+        "IPlatformServices (Abstractions.Contracts) \u2014 the container a new capability would be added to, currently FileSystem + Presence, each with one implementation per OS under AgentGuard.CrossPlatform.{Linux,MacOS,Windows}",
+        "Not-yet-existing surfaces this work would create (none present in the tree today): a macOS LaunchAgent plist under ~/Library/LaunchAgents (location given in conversation.md, not yet in code); a Linux systemd user unit (directory not specified anywhere read); a Windows Task Scheduler task (an OS API object, not a filesystem path)"
+      ],
+      "openQuestions": [
+        "Exact insertion point for the login-registration write inside SetupCommands.Install / SetupConditions.MachineStructural \u2014 a new ISetupCondition entry (mirroring the existing four) vs. a bespoke post-loop call \u2014 is not settled by the code or by any approved principle; both shapes fit the existing pattern, and if it becomes a condition it would need to run after BinSymlinkCondition since it should point at the stable bin/guard path that condition establishes.",
+        "Whether the new condition subclasses MachineCondition (like BinSymlinkCondition/PathProfileCondition, which ignore the InstallState payload) or implements ISetupCondition directly (like the four Project conditions) \u2014 the code demonstrates both shapes with no behavioral requirement forcing one.",
+        "Where the issue's 'the CLI checks whether appd is running and starts it via the canonical path' behavior (required on every command) attaches \u2014 nothing in Program.cs or SetupCommands performs any cross-cutting pre-dispatch step today, and this codebase does not itself draw the line between that per-invocation check and the install/doctor-owned registration check the conversation record describes; it may belong to a different area (CLI dispatch / daemon lifecycle) entirely.",
+        "Whether the new per-OS capability is added as a third member of IPlatformServices (the interface's own documented growth path, already used once for Presence) or as a separate container \u2014 no approved best-practices-guide principle picks between the two, and either way the new interface member(s) need Tim's sign-off as a public-interface change.",
+        "Whether InstallIntegrity's trust check should ever be extended to cover the login-registration record (today it validates only current's binary hash) \u2014 not addressed by the issue, the conversation record, or the code; 'no identity checking' being out of scope for #63 suggests it plausibly stays out for now, but nothing rules it out explicitly.",
+        "The exact on-disk location for the Linux systemd user unit and the exact task name/folder for the Windows Task Scheduler entry are not stated in the issue, the conversation record, or anywhere in the code (only the macOS ~/Library/LaunchAgents location is given) \u2014 these remain open unless decided elsewhere outside what this run was handed."
+      ],
+      "autoResolved": [
+        {
+          "choice": "How should a new install-time write (e.g., a login-registration record) reach the filesystem?",
+          "resolution": "Through the same owned services every existing Setup write already uses \u2014 AtomicFile.For(context) / context.FileWriter / context.DirectoryWriter \u2014 never a raw System.IO.File/Directory call.",
+          "principle": "Best-practices guide 2a/6a (Boundary abstraction: 'Nothing reaches the outside world except through an interface we own'; 'Every dependency is injected through an interface so a test can substitute it').",
+          "evidence": "Every write in src/AgentGuard.Engine/Setup/CreationHelper.cs (state.json at 104-105, config.json at 134, project state.json at 144, .claude/settings.json at 166, the two symlinks via SymlinkOps at 237) and every read (SafeRead.For(context), e.g. PathProfileCondition.cs:28, ConfigJsonCondition.cs:28, GitignoreCondition.cs:27) already goes through an owned interface; no raw File./Directory. call appears anywhere in src/AgentGuard.Engine/Setup/*.cs."
+        },
+        {
+          "choice": "Where should the OS-specific mechanics of a new platform capability (e.g. the daemon login-registration mechanism) live?",
+          "resolution": "Behind a platform interface owned by the engine, one implementation per OS, composed through the existing per-OS PlatformServices.Create() factory pattern \u2014 never a runtime OS branch inside Setup code. Only the shape of the mechanism (interface-behind-a-boundary, one-per-OS) is auto-resolved this way; the interface's exact new member(s) still need Tim's sign-off as a public-interface change.",
+          "principle": "Best-practices guide 1b (OS-agnostic by default; OS-difference is the rare exception, isolated behind the platform interface and declared \u2014 'the interface change comes to Tim') and 2e (escalate to a full owned interface + factory once a boundary wraps something stateful/actionable).",
+          "evidence": "IPlatformServices.cs:6-9 documents itself as designed to grow this way and already did once, for Presence; each OS supplies its own CreatePresence() partial (e.g. src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.MacOS.cs:15-19), matching the per-OS folder pattern (CrossPlatform.{Linux,MacOS,Windows}/Presence/*)."
+        },
+        {
+          "choice": "What text encoding should a new record file this area writes use?",
+          "resolution": "UTF-8 without a byte-order mark, inherited for free from the existing write primitive \u2014 no new encoding decision is needed.",
+          "principle": "Best-practices guide 4a ('Text is UTF-8 without a byte-order mark, unless an existing file or a required format says otherwise').",
+          "evidence": "src/AgentGuard.CrossPlatform/FileWriterAdapter.cs:30 \u2014 WriteAllText(path, contents) => File.WriteAllText(path, contents) \u2014 passes no explicit Encoding, and .NET's documented default for File.WriteAllText(string,string) is UTF-8 without a BOM; every Setup write reaches disk through exactly this one adapter method."
+        }
+      ]
+    },
+    {
+      "area": "per-os-port-pattern",
+      "facts": [
+        {
+          "claim": "The pattern is exactly four assemblies, matched by EXACT assembly name: the OS-agnostic contract assembly AgentGuard.CrossPlatform, plus its three per-OS implementations .MacOS/.Linux/.Windows. These are the ONLY assemblies where native interop (P/Invoke) and OS branching are legal; a same-shaped sibling like AgentGuard.CrossPlatform.Tests is deliberately excluded from the exemption.",
+          "evidence": "src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj:1-9 ('Contract assembly... ZERO native code lives here... one of the four AgentGuard.CrossPlatform.* libraries the interop/OS-branching analyzers (AG0008/AG0009) exempt'); analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs:44-50,66-73 (PlatformAssemblyNames = {RootName, MacOsName, LinuxName, WindowsName}, 'The match is exact... AgentGuard.CrossPlatform.Tests is deliberately NOT a member')."
+        },
+        {
+          "claim": "The actual capability interfaces (IPlatformServices, IPlatformFileSystem, IPresenceCheck, ISystemServices) do NOT live in AgentGuard.CrossPlatform - they were relocated to AgentGuard.Abstractions.Contracts. AgentGuard.CrossPlatform itself holds only the concrete per-OS PlatformServices composition classes plus OS-uniform composition helpers shared by all three per-OS libraries (CrossPlatformAdapters, PlatformFileSystemComposition/Parts/Shared, FileInfoFactory, AbstractedFileInfo/AbstractedDirectoryInfo, RandomGeneratorAdapter, RequiresNativeSpecTestAttribute).",
+          "evidence": "src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj:11-12 ('The relocated platform interfaces (IPlatformFileSystem/IPlatformServices) now live in AgentGuard.Abstractions.Contracts'); src/AgentGuard.Abstractions/Contracts/{IPlatformServices,IPlatformFileSystem,IPresenceCheck,ISystemServices}.cs; file listing of src/AgentGuard.CrossPlatform/*.cs (non-per-OS) via find."
+        },
+        {
+          "claim": "Choosing which per-OS assembly a build actually references is a BUILD-TIME MSBuild decision, never a runtime OS check - no RuntimeInformation.IsOSPlatform/OperatingSystem.Is* call anywhere selects which PlatformServices implementation loads. One shared file, src/AgentGuard.CrossPlatform/PlatformImplementation.targets, is imported by every consumer (Boundaries, the CrossPlatform test project) and does an MSBuild <Choose> keyed on $(AgentGuardPlatformRid) (falls back to $(RuntimeIdentifier), then to the build-host OS via $([MSBuild]::IsOSPlatform(...)) ONLY when neither is set) to add exactly one per-OS ProjectReference; an unresolved case is a hard build error via the _AgentGuardFailOnUnresolvedPlatformImpl target.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformImplementation.targets:1-59 (full file, the <Choose>/<When> blocks and the <Error> target); src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj:36 (<Import Project='.../PlatformImplementation.targets' />); tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj:84 (same import)."
+        },
+        {
+          "claim": "The RID threading that makes the above selection consistent across restore and a self-contained cross-RID publish is itself a recorded, previously-approved decision, made necessary because the SDK strips RuntimeIdentifier off this project's *library* references during a self-contained publish. The CLI passes AgentGuardPlatformRid=$(RuntimeIdentifier) as an AdditionalProperties global property (not on the SDK's strip list) down its ProjectReferences so restore and the stripped library build agree on one per-OS project.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformImplementation.targets:8-22 ('Selection rule (scan-resolutions #1, Tim approved 2026-08-09)... Why $(AgentGuardPlatformRid) and not $(RuntimeIdentifier) directly...'); src/AgentGuard.Cli/AgentGuard.Cli.csproj:30-44 (AdditionalProperties on the Engine and Boundaries ProjectReferences)."
+        },
+        {
+          "claim": "PlatformServices is the single per-OS container class, always the same locked shape: internal sealed (partial for POSIX) class implementing IPlatformServices, private constructor, one public static IPlatformServices Create(). macOS and Linux SHARE one PlatformServices class via file-linking (partial, with CreatePresence() split into an OS-specific fragment); Windows authors an entirely separate, non-partial PlatformServices class of the same name/namespace in its own assembly (no collision - different assemblies).",
+          "evidence": "src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs:20-53 (shared partial class, Create(), 'private static partial IPresenceCheck CreatePresence();'); .../PlatformServices.MacOS.cs:15-18 and src/AgentGuard.CrossPlatform.Linux/Posix/PlatformServices.Linux.cs:15-17 (the two OS bodies); src/AgentGuard.CrossPlatform.Windows/Windows/PlatformServices.cs:19-50 (separate full class, own Create())."
+        },
+        {
+          "claim": "Linux carries NO POSIX source of its own for the shared parts - its csproj <Compile Include=... Link=...>s three macOS-authored files (PosixNativeMethods.cs, PosixFileSystem.cs, PlatformServices.cs) verbatim into its own compilation: one source, not duplicated, not collapsed into a shared base class (a real second copy would double-compile the same type+namespace into one assembly, a compiler error). Windows does NOT participate in this link; it authors its own WindowsFileSystem/PlatformServices/native methods under Windows/ because re-pointing a version-pointer directory symlink on Windows needs DeviceIoControl(FSCTL_SET_REPARSE_POINT) in place, not rename(2).",
+          "evidence": "src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj:1-4,28-32 (comment + three <Compile Include=... Link=...> lines); src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj:1-9 ('it does NOT link the POSIX source... rewrites the existing link's reparse data in place instead')."
+        },
+        {
+          "claim": "Where POSIX-shared code must still diverge per OS, the identical mechanism is used twice: the shared (link-shared) file declares a 'private static partial' method, and each OS supplies its own body in a SEPARATE, OS-suffixed fragment file compiled only into that OS's own project (never link-shared) - once for PlatformServices.CreatePresence() (macOS wires LocalAuthentication, Linux wires polkit) and independently again for PosixFileSystem.TryQueryNativeCaseSensitivity (macOS uses native pathconf, Linux 'has no native case-sensitivity query... reports failure and defers to the shared OS-uniform fallback probe').",
+          "evidence": "src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs:50-53 and PlatformServices.MacOS.cs / PlatformServices.Linux.cs (full files, both under 20 lines); src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs:157-161 (partial declaration) and src/AgentGuard.CrossPlatform.Linux/Posix/PosixFileSystem.Linux.cs:1-21 (full file, 'genuinely Linux-specific behavior... not a DRY violation')."
+        },
+        {
+          "claim": "Every per-OS Create() builds its file system from OS-uniform 'parts' produced by ONE shared helper, PlatformFileSystemComposition.Create() (pulls owned adapters from CrossPlatformAdapters.Create(), wraps them in PlatformFileSystemShared, builds the IFileInfoFactory); each per-OS Create() then differs only in the single line building its own PosixFileSystem/WindowsFileSystem from those parts. Both file-system classes are internal sealed with private constructors and route every OS-uniform operation (mkdir, delete, exists, case-sensitivity fallback) through the injected PlatformFileSystemShared rather than a raw call of their own.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformFileSystemComposition.cs:1-36 (full file); src/AgentGuard.CrossPlatform/PlatformFileSystemParts.cs (named record per AG0002, not a tuple); PlatformServices.cs:44-48 (POSIX) and Windows PlatformServices.cs:43-50 both calling PlatformFileSystemComposition.Create() then PosixFileSystem.Create(parts.Shared, parts.Factory) / WindowsFileSystem.Create(...)."
+        },
+        {
+          "claim": "AgentGuard.Boundaries reaches a per-OS assembly through exactly one door: the static call global::AgentGuard.CrossPlatform.PlatformServices.Create() inside SystemServices.Create(). This is a DIFFERENT enforced door from the one used to reach the core CrossPlatform assembly's CrossPlatformAdapters (AG0023) - AG0029 (BoundariesToPerOsOneDoorAnalyzer) governs the per-OS door specifically, and InternalsVisibleTo from each per-OS csproj grants Boundaries (and AgentGuard.CrossPlatform.Tests) visibility to the otherwise-internal Create().",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:86-97 (the one call site); analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs:25,31-36 (DiagnosticId 'AG0029', 'the one legal door into a per-OS assembly is PlatformServices.Create()'); each per-OS .csproj's <InternalsVisibleTo Include=\"AgentGuard.Boundaries\" />."
+        },
+        {
+          "claim": "IPlatformServices is documented and built as a deliberately growable capability container - today exactly two members, FileSystem and Presence, each added the identical way (a new interface in Abstractions, a private-ctor+static-Create per-OS implementation, wired into the one Create()); its own doc comment names 'a future capability (for example a biometric/keychain surface)' as the intended extension shape. AG0010 (PlatformFactoryMustReturnContainerAnalyzer) pins every per-OS Create() to return this container interface, never a bare service.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:6-22 (both members + growth comment); analyzers/AgentGuard.Analyzers/PlatformFactoryMustReturnContainerAnalyzer.cs:26,33-38 (DiagnosticId 'AG0010')."
+        },
+        {
+          "claim": "AgentGuard.Engine (the OS-agnostic engine) never references Boundaries, CrossPlatform, or any per-OS assembly - it depends only on AgentGuard.Abstractions and consumes IPlatformServices purely through injected interfaces reached off ISystemServices, confirmed by its actual csproj content (no such ProjectReference exists).",
+          "evidence": "src/AgentGuard.Engine/AgentGuard.Engine.csproj:9-23 ('it does not reference Boundaries, CrossPlatform, or any per-OS assembly'; the only <ProjectReference> is to AgentGuard.Abstractions)."
+        },
+        {
+          "claim": "The presence capability follows a strict, uniform layered shape per OS that all converge on the one OS-agnostic IPresenceCheck (Abstractions): Layer A IPresenceCheck.Check(request, services, ct); Layer B a per-OS 'sealed class XPresenceCheck : IPresenceCheck' (private ctor + internal static Create) that calls its OS's flow port exactly once and maps the plain result to ApprovalReason through a small PURE, independently-table-tested Map function; Layer C the per-OS FLOW PORT interface (ILocalAuthentication macOS / IPolkitAuthority Linux / IWindowsUserPresence Windows), each with exactly one production implementer (enforced by AG0114); Layer D, present only on macOS (one interface, IObjCRuntime) and Windows (TWO interfaces, IWindowsHelloNativeOps + ICredentialPromptNativeOps, because 'Hello and the credential prompt are independent native subsystems sharing no handle') - stateless, field-free, branchless raw-call-only 'native-ops' owners one level below the flow port. Linux has NO native-ops layer at all: IPolkitAuthority's sole implementer talks to polkit over managed D-Bus (Tmds.DBus.Protocol) and is explicitly 'native-call-free... NOT a native-interop owner.'",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPresenceCheck.cs:16-28; src/AgentGuard.CrossPlatform.MacOS/Presence/MacOsPresenceCheck.cs (full file, Map at lines 52-60) and ILocalAuthentication.cs:8-25, IObjCRuntime.cs:8-96; src/AgentGuard.CrossPlatform.Linux/Presence/LinuxPresenceCheck.cs (full file) + PolkitDecision.cs (full file) + IPolkitAuthority.cs:8-20 ('native-call-free... NOT a native-interop owner'); src/AgentGuard.CrossPlatform.Windows/Presence/WindowsPresenceCheck.cs (full file), IWindowsUserPresence.cs:8-28, IWindowsHelloNativeOps.cs:7-20, ICredentialPromptNativeOps.cs:7-22 ('macos-one-windows-two-native-ops')."
+        },
+        {
+          "claim": "The exact set of native-ops owners that MUST carry their own pointed-integration 'NativeSpec' test is declared exactly once, ON the owner interfaces themselves, via an internal [RequiresNativeSpecTest] marker attribute defined in AgentGuard.CrossPlatform: macOS IObjCRuntime, Linux IPolkitAuthority, Windows ICredentialPromptNativeOps. IWindowsHelloNativeOps (interactive-only) and the three flow ports are deliberately NOT marked (fake-tested instead) so the required set cannot silently drift from a separate list.",
+          "evidence": "src/AgentGuard.CrossPlatform/RequiresNativeSpecTestAttribute.cs:8-21 (full doc comment naming all three owners and the exclusions); the attribute applied at IObjCRuntime.cs:22, IPolkitAuthority.cs:19, ICredentialPromptNativeOps.cs:21; tests/AgentGuard.CrossPlatform.Tests/Presence/NativeSpecCoverageConventionTests.cs and .../MacOS/MacOsObjCRuntimeSpecTests.cs, .../Windows/WindowsCredentialPromptNativeOpsSpecTests.cs, .../Linux/TmdsPolkitAuthoritySerializationSpecTests.cs (the three required spec tests actually present, per directory listing)."
+        },
+        {
+          "claim": "The pattern is enforced by an extensive, named analyzer rule set - 40+ rules total (AG0001-AG0039, AG0101-AG0116, AGS5443), of which the ones directly governing this area are AG0008 (interop confined to the four libraries), AG0009/AG0037 (OS branching banned outside them / single-OS positive branch banned inside a link-shared file), AG0010 (Create() must return the container interface), AG0023/AG0029 (the two distinct one-door rules into CrossPlatform vs a per-OS assembly), AG0030 (no test-project source type may implement a leaf/platform interface), and the presence-native family AG0101, AG0106-AG0116 (one-owner-per-native-port, no branching/state/async/timeout/caching in native-ops, no self-registered polkit agent, presence Check callable only from the approval gate, D-Bus confined to the polkit port, etc.).",
+          "evidence": "grep -rn 'public const string DiagnosticId' analyzers/AgentGuard.Analyzers/*.cs (full enumerated list pairing every ID to its file, captured verbatim); NoOsBranchingOutsideCrossPlatformAnalyzer.cs:10-24 (AG0009/AG0037 with the one allowed cross-POSIX gate, IsWindows()/IsWindowsVersionAtLeast); NativePresencePortSingleImplementerAnalyzer.cs (AG0114); PresenceCheckOnlyFromApprovalGateAnalyzer.cs (AG0108, confirmed the sole legal caller is AgentGuard.Setup.ApprovalGate, which calls services.Platform.Presence.Check(...) at src/AgentGuard.Engine/Setup/ApprovalGate.cs:40)."
+        },
+        {
+          "claim": "The test suite mirrors the production split exactly and reuses the SAME build-time RID-selection mechanism a second, independent time (its own <Choose> block plus its own import of PlatformImplementation.targets), removing all three Presence/{MacOS,Linux,Windows}/**/*.cs globs by default and re-including only the RID-selected one, so no #if/OperatingSystem.Is* appears in the OS-agnostic spec source even though the project is deliberately NOT one of the four exempted platform libraries. A native 'smoke' test that pops a real OS auth prompt is excluded from compilation unless the CI workflow itself sets AgentGuardRunNativeSmoke=true - a build-directive opt-in, not a runtime Skip, 'so NoOsSkipInTests (AG0026) stays clean.'",
+          "evidence": "tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj:1-52,83-84 (full selection block, Compile Remove/Include, the native-smoke gate, and the targets import); .github/workflows/ci.yml lines 63/212/340 (AgentGuardRunNativeSmoke: \"true\" set on the macos/windows/linux jobs respectively)."
+        },
+        {
+          "claim": "CI's Linux leg (the only current proof the Linux per-OS implementation actually works) runs on ubuntu-24.04-arm - i.e. ARM64, not x64. The macos/windows/release jobs run on their native GitHub runners (macos-latest/windows-latest/macos-latest).",
+          "evidence": ".github/workflows/ci.yml:333 ('linux:' job, 'runs-on: ubuntu-24.04-arm') versus lines 56, 205, 436 ('macos-latest' / 'windows-latest' / 'macos-latest')."
+        },
+        {
+          "claim": "Nothing daemon/appd/LaunchAgent/LaunchDaemon/systemd/schtasks-related, and no file-lock (FileShare.None) or named-Mutex code, exists anywhere in the live tree today (src, tests, analyzers, eng) - confirmed by a case-insensitive grep across all four trees returning zero real hits. The whole daemon mechanism issue #63 describes (login registration, single-instance detection, canonical start) is unbuilt; the per-os-port-pattern this area grounds is the only existing infrastructure it would extend.",
+          "evidence": "grep -rniE 'daemon|appd|launchagent|launchdaemon|systemd|schtasks|\\\\.lock\\\\b' --include='*.cs' --include='*.csproj' --include='*.targets' --include='*.props' ./src ./tests ./analyzers ./eng -> only unrelated false positives (SystemDiagnostics/SystemDirectoryEnumerator name substrings); grep -rln 'FileShare.None|Mutex\\\\(' ./src ./tests -> no output."
+        },
+        {
+          "claim": "Process launching (System.Diagnostics.Process / ProcessStartInfo) is banned EVERYWHERE in the codebase today - there is no owned interface anywhere for shelling out to an external command or binary. This is a deliberate, already-recorded prior decision (formerly its own rule AG0013, now folded into the table-driven AG0011/RawPrimitiveOnlyInOwnerAnalyzer), justified in its own contract as 'nowhere (no use today) - grow an interface first if ever needed,' with Tim's direct quote on record: 'I'm okay with this background.'",
+          "evidence": "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs:126-131 (ProcessTypes resolves to no owner; 'Process launching is not a wrapped primitive (was AG0013)... banned everywhere; grow an owned interface first if the capability is ever needed'); .dev/completed/run-records/2026-08-11-lockdown-and-coverage/contract.md:157-158 and clr-primitive-lockdown/contract.md:115 (history + Tim's quote); grep -rln 'IProcessRunner|ProcessStartInfo|Process.Start' ./src ./tests -> zero hits."
+        },
+        {
+          "claim": "STALE COMMENT (confirmed, x3): at least three analyzer doc comments assert a type or capability 'does not exist yet' / 'the only native calls today are the filesystem family,' but the concrete types they say are absent were added in the SAME commit as the analyzer itself and demonstrably exist in the tree right now: (1) NativePresencePortSingleImplementerAnalyzer.cs (AG0114) says 'none of the native-ops owners exists yet,' but ObjCRuntime:IObjCRuntime, WindowsHelloNativeOps:IWindowsHelloNativeOps, and CredentialPromptNativeOps:ICredentialPromptNativeOps all exist as the sole implementers of those exact interfaces; (2) PresenceCheckOnlyFromApprovalGateAnalyzer.cs (AG0108) says 'IPresenceCheck does not exist yet,' but it exists and is actively called from ApprovalGate; (3) PresenceNativeInteropOwnerAnalyzer.cs (AG0113) says 'the only native calls today are the filesystem family... this compiles clean,' but the same commit added real presence P/Invokes (objc_msgSend, CredUIPromptForWindowsCredentials, LogonUser) in ObjCRuntime.cs/WindowsHelloNativeOps.cs/CredentialPromptNativeOps.cs. This 'Preventive; X does not exist yet' phrasing is a deliberate, repo-wide authoring convention (found verbatim in >10 analyzer files, e.g. NoAsyncOrchestrationInNativeOpsAnalyzer.cs, NoControlFlowInNativeOpsAnalyzer.cs, NoStateInNativeOpsAnalyzer.cs, NoTimeoutInPresenceImplAnalyzer.cs, NoInlinePromptLiteralAtPresenceCallAnalyzer.cs, NoAuthenticationAgentRegistrationAnalyzer.cs) marking rules written ahead of the feature; the three confirmed cases show the comments were never revisited once that same feature landed. The other files with the same phrase were not individually re-verified against the tree.",
+          "evidence": "git log -1 --format='%ci %h %s' -- analyzers/AgentGuard.Analyzers/NativePresencePortSingleImplementerAnalyzer.cs AND the same command against src/AgentGuard.CrossPlatform.MacOS/Presence/ObjCRuntime.cs -> both print '2026-08-29 19:48:51 -0600 b44395a feat(presence): OS presence check + deep native-ops seam + coverage over the 75% floor'; same commit hash confirmed for PresenceNativeInteropOwnerAnalyzer.cs; grep -n 'class ObjCRuntime|class WindowsHelloNativeOps|class CredentialPromptNativeOps' confirms all three concrete implementers; grep -n 'LibraryImport|objc_msgSend|CredUIPromptForWindowsCredentials|LogonUser' confirms the real P/Invokes exist in those same files; grep -rn 'Preventive' analyzers/AgentGuard.Analyzers/*.cs lists the ~14 files carrying the convention."
+        },
+        {
+          "claim": "Minor inert-wiring note: AgentGuard.Cli.csproj threads AgentGuardPlatformRid=$(RuntimeIdentifier) onto its ProjectReference to AgentGuard.Engine with a comment claiming this keeps 'the per-OS implementation selection... consistent' for 'the engine' - but AgentGuard.Engine.csproj neither imports PlatformImplementation.targets nor references AgentGuard.CrossPlatform at all, so that AdditionalProperties global property is inert on the Engine reference today; only the identical threading onto the Boundaries reference two lines below actually has any effect.",
+          "evidence": "src/AgentGuard.Cli/AgentGuard.Cli.csproj:30-45 (both ProjectReference blocks with the same AdditionalProperties, side by side) versus src/AgentGuard.Engine/AgentGuard.Engine.csproj:9-23 (no CrossPlatform reference, no targets import)."
+        },
+        {
+          "claim": "The CLI's Program.cs is the sole caller of SystemServices.Create() (the composition root, gated to it and the test builder by AG0017/InternalsVisibleTo) and threads the resulting ISystemServices through every verb's Build*Command(ISystemServices) method. Exactly six verbs exist live in the tree today - version, hook, install, init, remove, doctor - matching the count and names the issue's input-folder notes claim a seventh ('daemon') would join.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:62 ('return new Program(args).Run(SystemServices.Create());'), and the six 'new Command(...)' call sites at lines 85, 109, 129, 140, 147, 158; src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj:19-26 (InternalsVisibleTo 'guard' = the Cli's AssemblyName, confirmed at src/AgentGuard.Cli/AgentGuard.Cli.csproj:6)."
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs",
+        "src/AgentGuard.Abstractions/Contracts/IPlatformFileSystem.cs",
+        "src/AgentGuard.Abstractions/Contracts/IPresenceCheck.cs",
+        "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs",
+        "src/AgentGuard.CrossPlatform/PlatformImplementation.targets",
+        "src/AgentGuard.CrossPlatform/CrossPlatformAdapters.cs",
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemComposition.cs",
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemParts.cs",
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemShared.cs",
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemBase.cs",
+        "src/AgentGuard.CrossPlatform/FileInfoFactory.cs",
+        "src/AgentGuard.CrossPlatform/AbstractedFileInfo.cs",
+        "src/AgentGuard.CrossPlatform/AbstractedDirectoryInfo.cs",
+        "src/AgentGuard.CrossPlatform/AbstractedFileSystemInfo.cs",
+        "src/AgentGuard.CrossPlatform/AbstractedFileSystemInfoForwarder.cs",
+        "src/AgentGuard.CrossPlatform/RandomGeneratorAdapter.cs",
+        "src/AgentGuard.CrossPlatform/RequiresNativeSpecTestAttribute.cs",
+        "src/AgentGuard.CrossPlatform/FileSystem.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.MacOS.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.MacOS.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixNativeMethods.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixNativeMethods.MacOS.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/ILocalAuthentication.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/IObjCRuntime.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/LocalAuthentication.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/ObjCRuntime.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/MacOsPresenceCheck.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Presence/LaResult.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Posix/PlatformServices.Linux.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Posix/PosixFileSystem.Linux.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Presence/IPolkitAuthority.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Presence/TmdsPolkitAuthority.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Presence/LinuxPresenceCheck.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Presence/PolkitDecision.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Presence/{PolkitAction,PolkitCheckAuthorizationRequest,PolkitResult,PolkitSubject}.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Windows/PlatformServices.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Windows/WindowsFileSystem.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Windows/WindowsNativeMethods.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/{IWindowsUserPresence,WindowsUserPresence}.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/{IWindowsHelloNativeOps,WindowsHelloNativeOps}.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/{ICredentialPromptNativeOps,CredentialPromptNativeOps,CredentialFields,CredentialPromptOutcome}.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/WindowsPresenceCheck.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/WindowsPresenceResult.cs",
+        "src/AgentGuard.Boundaries/SystemServices.cs",
+        "src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj",
+        "src/AgentGuard.Cli/AgentGuard.Cli.csproj",
+        "src/AgentGuard.Cli/Program.cs",
+        "src/AgentGuard.Engine/AgentGuard.Engine.csproj",
+        "src/AgentGuard.Engine/Setup/ApprovalGate.cs",
+        "tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/NativeSpecCoverageConventionTests.cs",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/NativeSpecOwnerAttribute.cs",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/PresenceNativeSmokeTests.cs",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/MacOS/**",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/Linux/**",
+        "tests/AgentGuard.CrossPlatform.Tests/Presence/Windows/**",
+        "tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs",
+        "analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs",
+        "analyzers/AgentGuard.Analyzers/PlatformFactory.cs",
+        "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs",
+        "analyzers/AgentGuard.Analyzers/NativeInteropUse.cs",
+        "analyzers/AgentGuard.Analyzers/{InteropOnlyInCrossPlatformLibrariesAnalyzer,NoOsBranchingOutsideCrossPlatformAnalyzer,PlatformFactoryMustReturnContainerAnalyzer,BoundariesToCrossPlatformOneDoorAnalyzer,BoundariesToPerOsOneDoorAnalyzer,LeafPlatformSingleImplementerAnalyzer,OsDivergentFilesystemOnlyInCrossPlatformAnalyzer}.cs",
+        "analyzers/AgentGuard.Analyzers/{PresenceNativeInteropOwnerAnalyzer,NativePresencePortSingleImplementerAnalyzer,PresenceCheckOnlyFromApprovalGateAnalyzer,NoAuthenticationAgentRegistrationAnalyzer,NoCachedNativeAuthContextAnalyzer,NoTimeoutInPresenceImplAnalyzer,NoInlinePromptLiteralAtPresenceCallAnalyzer,DbusOnlyInPolkitAuthorityAnalyzer,NoControlFlowInNativeOpsAnalyzer,NoAsyncOrchestrationInNativeOpsAnalyzer,NoStateInNativeOpsAnalyzer}.cs",
+        ".github/workflows/ci.yml",
+        "eng/polkit/agentguard-presence.policy",
+        ".dev/completed/run-records/2026-08-11-lockdown-and-coverage/contract.md",
+        ".dev/completed/run-records/2026-08-11-lockdown-and-coverage/clr-primitive-lockdown/contract.md",
+        ".dev/inprocess/63-appd-1-process/conversation.md",
+        ".dev/inprocess/63-appd-1-process/issue.md"
+      ],
+      "openQuestions": [
+        "Whether new daemon-facing per-OS capabilities (detect-already-running, trigger the canonical start, verify/write the login-startup registration) should be added as new members on the existing IPlatformServices container (the same way Presence was added alongside FileSystem), or via a separate new capability path - the ground truth proves the SHAPE any such extension must take (interface in Abstractions, internal per-OS implementation with private-ctor+static-Create, reached only through the one PlatformServices.Create() door) but not which container it lands on.",
+        "Whether the exclusive-file-lock the issue's conversation notes decide on for single-instance/running detection needs any OS-divergent code at all inside this pattern, or is fully expressible through the already OS-uniform IFileSystem/IFileWriter boundary in AgentGuard.Boundaries with zero new per-OS interface - nothing in the current tree answers this because no lock code exists anywhere yet (see the 'nothing daemon-related exists' fact).",
+        "How the daemon's canonical-start step would actually invoke each OS's service manager (launchctl kickstart / systemctl --user start / schtasks /Run) given that System.Diagnostics.Process/ProcessStartInfo is banned everywhere today with no owned interface grown yet. The existing AG0009 ban on OS branching outside the four platform libraries strongly implies any such capability would have to become a NEW per-OS interface behind IPlatformServices (the IPresenceCheck shape), but that is an inference from the existing rules, not something already decided or built.",
+        "Whether a new daemon-side native-ops interface (if any daemon capability turns out to need raw OS calls, e.g. a native service-manager API rather than shelling out) would need the same [RequiresNativeSpecTest]/NativeSpecCoverageConventionTests guarantee the presence native-ops owners get - the attribute's own doc comment notes it is 'NOT (yet) read by the presence analyzers... tracked as issue #50', so the coverage guarantee for a brand-new owner outside presence is not itself analyzer-enforced today."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Where new OS-divergent capability code for the daemon (or any future platform capability) should live, and how it should be exposed to OS-agnostic callers.",
+          "resolution": "Behind a new interface owned in AgentGuard.Abstractions.Contracts, implemented internally per-OS in the matching AgentGuard.CrossPlatform.{MacOS,Linux,Windows} assembly with a private constructor and a static Create(), and exposed as a new property on the already-growable IPlatformServices container built inside the one PlatformServices.Create() - the exact shape IPresenceCheck was added in alongside FileSystem.",
+          "principle": "2a (nothing reaches the outside world except through an interface we own); 2b (built in one place, injected everywhere); 1b (OS-agnostic by default, OS-difference isolated behind the platform interface).",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:6-9,18-22 ('exposes one capability today, FileSystem, and is designed to grow \u2014 future capabilities... become additional properties here with no restructuring of the factory or its callers'); every per-OS PlatformServices.Create() (macOS/Linux Posix/PlatformServices.cs:44-48, Windows Windows/PlatformServices.cs:43-50) already assembles its container this way for Presence."
+        },
+        {
+          "choice": "Whether picking which per-OS assembly's code runs for a given build/publish may branch on the current OS at runtime (RuntimeInformation.IsOSPlatform / OperatingSystem.Is*), or must be decided another way.",
+          "resolution": "No runtime OS branching anywhere outside the four AgentGuard.CrossPlatform.* libraries (AG0009). Selection of the per-OS implementation is a build-time MSBuild <Choose> keyed on the target RuntimeIdentifier (falling back to the build-host OS ONLY when no RID is set), centralized in one imported file, PlatformImplementation.targets, reused unchanged by every consumer.",
+          "principle": "1c (act for the target, never assume the host machine matters) plus the project's own already-approved scan-resolution ('Selection rule (scan-resolutions #1, Tim approved 2026-08-09)').",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformImplementation.targets:1-59 (full selection logic and the approval note); analyzers/AgentGuard.Analyzers/NoOsBranchingOutsideCrossPlatformAnalyzer.cs (AG0009, bans OS branching outside the four libraries)."
+        },
+        {
+          "choice": "How to split a per-OS capability's raw native interop from its testable branching/mapping logic once the wrapped primitive is more than plain data (e.g. a stateful native call sequence with async completion, not a simple field read).",
+          "resolution": "Put a thin, stateless, field-free 'native-ops' interface directly below the fake-testable flow-port orchestrator, holding only synchronous straight-line raw calls with no branching, task wiring, or caching; the orchestrator (the flow port) owns all branching, mapping, and cancellation. More than one native-ops interface is warranted when two native subsystems share no handle (Windows: Hello vs. the credential prompt).",
+          "principle": "2e (escalate a boundary abstraction the moment the lightweight version gets complex; give it a full owned interface; map one-for-one to only the members needed today).",
+          "evidence": "src/AgentGuard.CrossPlatform.MacOS/Presence/IObjCRuntime.cs:8-23 and ILocalAuthentication.cs:8-16; src/AgentGuard.CrossPlatform.Windows/Presence/IWindowsHelloNativeOps.cs:7-20 and ICredentialPromptNativeOps.cs:7-22 ('macos-one-windows-two-native-ops'); enforced by AG0106/AG0113/AG0114/AG0115/AG0116."
+        },
+        {
+          "choice": "Whether a daemon capability that must shell out to an external command (a service-manager binary) may call System.Diagnostics.Process directly, or needs to go behind an owned interface first.",
+          "resolution": "No raw call: Process/ProcessStartInfo are banned everywhere in the codebase today with no owner at all (a deliberate, already-recorded decision, not an oversight) - 'grow an owned interface first if the capability is ever needed.' Any daemon work that needs to launch launchctl/systemctl/schtasks must grow that owned interface rather than reach for the raw BCL type.",
+          "principle": "6a (every dependency is injected through an interface so a test can substitute it; a class never news up its own dependency) plus the project's own already-recorded AG0013 ruling.",
+          "evidence": "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs:126-131 (ProcessTypes resolves to no owner - banned everywhere); .dev/completed/run-records/2026-08-11-lockdown-and-coverage/contract.md:157-158 ('AG0013 (Process forbidden) is forbidden everywhere rather than abstracted, with an interface to be grown first if ever needed'; Tim: 'I'm okay with this background.')."
+        }
+      ]
+    },
+    {
+      "area": "filesystem-and-process-boundaries",
+      "facts": [
+        {
+          "claim": "File writes are owned exclusively by IFileWriter, implemented only by the sealed FileWriterAdapter in AgentGuard.CrossPlatform (private ctor, internal static Create()); every member mirrors a whole-file System.IO.File static call (WriteAllBytesAsync, WriteAllText, Copy, Move, DeleteFile via File.Delete) \u2014 none opens or returns a stream/handle.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IFileWriter.cs:9-50; src/AgentGuard.CrossPlatform/FileWriterAdapter.cs:18-41 (class FileWriterAdapter : IFileWriter, File.WriteAllBytesAsync/WriteAllText/Copy/Move/File.Delete, `internal static IFileWriter Create() => new FileWriterAdapter();`)."
+        },
+        {
+          "claim": "File reads are owned exclusively by IFileReader, implemented only by FileReaderAdapter in AgentGuard.CrossPlatform; every member (Exists, ReadAllBytes[Async], ReadAllText[Async], GetAttributes, GetLastWriteTimeUtc) is a whole-file/attribute read \u2014 no member returns a stream or handle.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IFileReader.cs:11-63; `grep -n \"class FileReaderAdapter\" src/AgentGuard.CrossPlatform/FileReaderAdapter.cs` -> line 17, `internal sealed class FileReaderAdapter : IFileReader`."
+        },
+        {
+          "claim": "Directory writes are owned exclusively by IDirectoryWriter, implemented only by DirectoryWriterAdapter in AgentGuard.CrossPlatform. Its only 'temp' primitive, CreateTempSubdirectory(prefix), wraps Directory.CreateTempSubdirectory and always mints a fresh, uniquely-named directory under the temp root \u2014 there is no member for creating/opening a fixed, well-known, deterministically-named path.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IDirectoryWriter.cs:9-40 (CreateDirectory, DeleteDirectory, SetLastWriteTimeUtc, CreateTempSubdirectory); `grep -n \"class DirectoryWriterAdapter\" src/AgentGuard.CrossPlatform/DirectoryWriterAdapter.cs` -> line 15."
+        },
+        {
+          "claim": "Directory reads/enumeration are owned exclusively by IDirectoryEnumerator, implemented only by DirectoryEnumeratorAdapter in AgentGuard.CrossPlatform.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IDirectoryEnumerator.cs:12-59; `grep -n \"class DirectoryEnumeratorAdapter\" src/AgentGuard.CrossPlatform/DirectoryEnumeratorAdapter.cs` -> line 23."
+        },
+        {
+          "claim": "All four filesystem interfaces are reached only through one aggregate, IFileSystem (GetFileReader/GetDirectoryReader/GetFileWriter/GetDirectoryWriter/GetFileInfo/GetDirectoryInfo), built once by FileSystem.Create() inside AgentGuard.CrossPlatform and exposed on ISystemServices.FileSystem via the single CrossPlatformAdapters.Create() door Boundaries reaches into this assembly through.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IFileSystem.cs:14-54; src/AgentGuard.CrossPlatform/CrossPlatformAdapters.cs:74-84 (Create() calls global::AgentGuard.CrossPlatform.FileSystem.Create() then pulls the four adapters off it); src/AgentGuard.Boundaries/SystemServices.cs:93 (adapters.FileSystem wired onto the container)."
+        },
+        {
+          "claim": "Stateful filesystem entries (FileInfo/DirectoryInfo) are wrapped by IFileInfo/IDirectoryInfo/IFileSystemInfo per the escalated-boundary-abstraction principle (2e), but the wrapper's only members are FullName, Attributes, and LinkTarget \u2014 none exposes opening the entry for reading, writing, or locking.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IFileSystemInfo.cs:15-32; src/AgentGuard.Abstractions/Contracts/IFileInfo.cs:13-15 (empty beyond IFileSystemInfo); `grep -n \"FileStream|\\\\.Open(|OpenRead|OpenWrite|OpenHandle|SafeFileHandle\" src/AgentGuard.CrossPlatform/AbstractedFileInfo.cs src/AgentGuard.Abstractions/Contracts/IFileInfo.cs` returned no output."
+        },
+        {
+          "claim": "System.IO.FileStream (with DriveInfo, StreamReader, StreamWriter, FileSystemWatcher) is explicitly documented in the analyzer source as having zero usage in the tree and no member on any of the four filesystem interfaces, so it is banned everywhere with no owner \u2014 the identical treatment given to System.Diagnostics.Process \u2014 and this is proven by a passing analyzer test asserting the ban holds even inside AgentGuard.Engine.",
+          "evidence": "analyzers/AgentGuard.Analyzers/FilesystemMembers.cs:29-41, exact text: 'They have zero usage in the tree today and no member on any of the four filesystem interfaces, so they get NO owning interface: they are banned everywhere (the same \"nowhere \u2014 grow an interface first\" pattern as AG0013's forbidden Process)'; analyzers/AgentGuard.Analyzers.Tests/RawPrimitiveOnlyInOwnerAnalyzerTests.cs:413-426, test FileStreamConstruction_OutsideOwner_IsReported asserts `new FileStream(path, FileMode.Open)` is reported as AG0011 inside AgentGuard.Engine."
+        },
+        {
+          "claim": "System.Diagnostics.Process and ProcessStartInfo have no owner anywhere in the codebase and are a build error (AG0011) in EVERY assembly including AgentGuard.Boundaries \u2014 there is no interface today through which any code launches a process, and the analyzer source names this as deliberate ('grow an owned interface first if the capability is ever needed').",
+          "evidence": "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs:126-131 ('Process launching is not a wrapped primitive (was AG0013): System.Diagnostics.Process and ProcessStartInfo are banned everywhere; grow an owned interface first if the capability is ever needed.'); analyzers/AgentGuard.Analyzers.Tests/RawPrimitiveOnlyInOwnerAnalyzerTests.cs:911-917, test ProcessStart_IsReportedEverywhere_BannedWithNoOwner run against assembly 'AgentGuard.Boundaries' with comment 'Process launching has no owner \u2014 banned everywhere, including AgentGuard.Boundaries'; `grep -rn \"System.Diagnostics.Process\\\\b|Process\\\\.Start|new Process\\\\(|ProcessStartInfo\" src tests analyzers eng --include=\"*.cs\"` has zero hits inside src/, only inside the analyzer's own proving test fixtures."
+        },
+        {
+          "claim": "No exclusive-access file open exists anywhere in the tree today. The only FileShare-family hit in the whole codebase is a raw Win32 FILE_SHARE_READ|WRITE|DELETE constant (non-exclusive) used for two narrow, short-lived native handle opens on Windows; the managed System.IO.FileShare enum, and FileShare.None specifically, appear nowhere.",
+          "evidence": "`grep -rniE \"FileShare\" src tests analyzers --include=\"*.cs\"` -> only src/AgentGuard.CrossPlatform.Windows/Windows/WindowsNativeMethods.cs:39 (`internal const uint FileShareReadWriteDelete = 0x00000001 | 0x00000002 | 0x00000004;`) and its two call sites at src/AgentGuard.CrossPlatform.Windows/Windows/WindowsFileSystem.cs:152,217."
+        },
+        {
+          "claim": "The one place the codebase already opens a raw native file handle is Windows-only, inside the sole IPlatformFileSystem implementer WindowsFileSystem, via a kernel32 CreateFileW P/Invoke owned by WindowsNativeMethods \u2014 used only to (a) read the NTFS per-directory case-sensitivity flag and (b) rewrite a version-pointer symlink's reparse data in place. Both opens use non-exclusive sharing and close the handle immediately (`using SafeFileHandle`) after one operation; neither is held open for a process lifetime, and POSIX (macOS/Linux) has no native-handle equivalent \u2014 PosixFileSystem routes every call through managed System.IO.File/Directory.",
+          "evidence": "src/AgentGuard.CrossPlatform.Windows/Windows/WindowsFileSystem.cs:141-160 (TryQueryCaseSensitive) and :217-233 (OpenLinkForReparseWrite), both `using SafeFileHandle handle = WindowsNativeMethods.CreateFile(...)`; src/AgentGuard.CrossPlatform.Windows/Windows/WindowsNativeMethods.cs:65-74 (CreateFile LibraryImport declaration); src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs and PosixFileSystem.MacOS.cs contain no CreateFile/native-handle equivalent."
+        },
+        {
+          "claim": "Environment reads are owned exclusively by IEnvironment, implemented only by the sealed EnvironmentAdapter in AgentGuard.Boundaries. GetEnvironmentVariable(string name) is a fully generic pass-through to System.Environment.GetEnvironmentVariable \u2014 not scoped to any particular variable name \u2014 already used in production with \"SHELL\" and exercised in tests with \"PATH\", \"AGENTGUARD_EXPECT_ARCH\", and a deliberately-unset name.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IEnvironment.cs:31; src/AgentGuard.Boundaries/EnvironmentAdapter.cs:19-33 (class EnvironmentAdapter : IEnvironment, `public string? GetEnvironmentVariable(string name) => Environment.GetEnvironmentVariable(name);`); src/AgentGuard.Engine/Setup/SetupContext.cs:90 (`environment.GetEnvironmentVariable(\"SHELL\")`); tests/AgentGuard.Tests/BoundariesEnvironmentAdapterTests.cs:36,42; tests/AgentGuard.Tests/ProcessArchitectureTests.cs:51; tests/AgentGuard.TestHelpers/FakeEnvironment.cs:104-105 (fake honors any name via a dictionary)."
+        },
+        {
+          "claim": "None of the three env vars conversation.md names for the per-OS lock-path root (XDG_RUNTIME_DIR, TMPDIR, LOCALAPPDATA) is read anywhere in the tree today; the only mentions anywhere in the repository are in planning prose, never in code.",
+          "evidence": "`grep -rn \"XDG_RUNTIME_DIR|TMPDIR|LOCALAPPDATA|APPDATA\\\\b\" src tests analyzers eng --include=\"*.cs\" -i` returned zero hits; `grep -rn \"XDG_RUNTIME_DIR|TMPDIR|LOCALAPPDATA\" -i .dev .agents` returned exactly two hits, both prose: .dev/backlog/62-appd-umbrella/issue.md:86 and .dev/inprocess/63-appd-1-process/conversation.md:17."
+        },
+        {
+          "claim": "IEnvironment.GetTempDirectory() already exists (wraps Path.GetTempPath(), which on macOS resolves $TMPDIR) but every call site of it anywhere in the codebase is a hard build error under a dedicated rule (AGS5443 / TempRootBackDoorAnalyzer) written because the shared OS temp root is publicly writable (Sonar S5443). Today's one caller, EnvironmentAdapter itself, is suppressed on the express justification that callers never write into the shared root directly. The rule's own message still names a shared-root use as possible, but only 'with a suppression'.",
+          "evidence": "analyzers/AgentGuard.Analyzers/TempRootBackDoorAnalyzer.cs:44 (DiagnosticId = \"AGS5443\"), :51-56 (messageFormat: \"...create a uniquely-named subdirectory with IDirectoryWriter.CreateTempSubdirectory instead, or justify the shared root with a suppression\"); src/AgentGuard.Boundaries/EnvironmentAdapter.cs:38-43 ([SuppressMessage(\"Security Hotspot\",\"S5443:...\", Justification=\"...callers never write into the shared root directly \u2014 they create an atomic, uniquely-named subdirectory through IDirectoryWriter.CreateTempSubdirectory.\")]); `grep -rn \"GetTempDirectory()\" src --include=\"*.cs\"` shows only the interface declaration and this one implementation, zero other production call sites."
+        },
+        {
+          "claim": "No named synchronization primitive (Mutex/Semaphore/EventWaitHandle) exists anywhere in the tree, matching conversation.md's claim that nothing daemon-related exists yet.",
+          "evidence": "`grep -rn \"Mutex\\\\b\" src tests --include=\"*.cs\"` returned zero hits."
+        },
+        {
+          "claim": "The CLI's live verb set is exactly hook, install, init, remove, doctor, version, wired from one composition point; no daemon verb exists yet.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:65-75 (BuildRootCommand adds BuildHookCommand/BuildInstallCommand/BuildInitCommand/BuildRemoveCommand/BuildDoctorCommand/BuildVersionCommand only), :59-63 (Main builds SystemServices.Create() once and calls Run)."
+        },
+        {
+          "claim": "agentguard install today writes only the machine binary tree under ~/.agentguard (versions/<v>/guard, the current symlink, bin/guard, and state.json holding exactly {Version, Sha256}) \u2014 nothing about login-startup registration exists in that record. Every one of those paths is computed from IEnvironment.GetHomeDirectory() through the single owner MachinePaths, never from XDG_RUNTIME_DIR/TMPDIR/LOCALAPPDATA.",
+          "evidence": "src/AgentGuard.Engine/Setup/MachinePaths.cs:14-160 (all paths built off context.HomeDirectory); src/AgentGuard.Engine/Setup/InstallState.cs:11 (`internal sealed record InstallState(string Version, string Sha256);`); src/AgentGuard.Engine/Setup/SetupContext.cs:85-105 (ForCurrentProcess)."
+        },
+        {
+          "claim": "Adding a new platform capability follows one proven, repeated shape: an interface in AgentGuard.Abstractions.Contracts exposed as a property on IPlatformServices (today: FileSystem and Presence), with each per-OS PlatformServices.Create() wiring its own single implementer through a private constructor + static factory \u2014 the exact shape Presence/IPresenceCheck already demonstrates.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:12-19; src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs:20-53 + PlatformServices.MacOS.cs:15-18 (CreatePresence => MacOsPresenceCheck.Create(...)); src/AgentGuard.CrossPlatform.Linux/Posix/PlatformServices.Linux.cs:15-17 (CreatePresence => LinuxPresenceCheck.Create(new TmdsPolkitAuthority())); src/AgentGuard.CrossPlatform.Windows/Windows/PlatformServices.cs:19-50."
+        },
+        {
+          "claim": "There is no precedent anywhere in the tree of shelling out to an external OS tool. The one native/managed-substitute case that exists (the Linux polkit presence check) deliberately avoids Process entirely, talking to org.freedesktop.PolicyKit1 over managed D-Bus and is explicitly documented as native-call-free.",
+          "evidence": "src/AgentGuard.CrossPlatform.Linux/Presence/IPolkitAuthority.cs:15-16 ('It is native-call-free (managed D-Bus), so it is NOT a native-interop owner'); src/AgentGuard.CrossPlatform.Linux/Presence/TmdsPolkitAuthority.cs:9-13; `grep -rln \"launchctl|systemctl|schtasks|LaunchAgent|systemd\" --include=\"*.sh\" --include=\"*.yml\" --include=\"*.yaml\" --include=\"*.ps1\" .` returned zero hits."
+        },
+        {
+          "claim": "OS-conditional branching (OperatingSystem.Is*, RuntimeInformation.IsOSPlatform, platform #if) is confined by an enforced, already-LOCKED rule pair (AG0009 outside the per-OS libraries; its inverse AG0037 for a link-shared file inside them) to the AgentGuard.CrossPlatform.* per-OS libraries; this is followed everywhere today, not merely declared.",
+          "evidence": "analyzers/AgentGuard.Analyzers/NoOsBranchingOutsideCrossPlatformAnalyzer.cs:12-24; `grep -rn \"RuntimeInformation.IsOSPlatform|OSPlatform\\\\.\" src --include=\"*.cs\"` excluding AgentGuard.CrossPlatform.Linux/MacOS/Windows returned zero hits."
+        },
+        {
+          "claim": "The presence-specific single-implementer/native-interop governance (AG0105-AG0116) matches candidates by literal (namespace, name) identity recorded once in PresenceContracts.cs, scoped explicitly to the presence ports (IPresenceCheck, ILocalAuthentication, IWindowsUserPresence, IPolkitAuthority, IObjCRuntime, etc.). It does not generalize to a new interface by shape alone \u2014 a new process-launch or file-lock port gets none of this governance automatically.",
+          "evidence": "analyzers/AgentGuard.Analyzers/PresenceContracts.cs:9-16 ('The single home for the identities the OS-presence guardrails (AG0105-AG0116) match against'), :44-99 (each port spelled by literal namespace+name, e.g. LocalAuthentication, WindowsUserPresence, PolkitAuthority, ObjCRuntime)."
+        },
+        {
+          "claim": "A general (not presence-specific) single-implementer mechanism, AG0030 (LeafPlatformSingleImplementerAnalyzer), already covers any future filesystem leaf added under the existing nested-container walk automatically with no edit \u2014 but this only covers interfaces nested the way IFileReader/IDirectoryEnumerator/IFileWriter/IDirectoryWriter/IPlatformFileSystem already are, not an unrelated brand-new capability.",
+          "evidence": "analyzers/AgentGuard.Analyzers/LeafPlatformSingleImplementerAnalyzer.cs:9-25, quote: 'a future filesystem leaf added under a nested container is guarded automatically with no edit here', scoped to 'the four filesystem leaves ... and IPlatformFileSystem'."
+        },
+        {
+          "claim": "A proven, working cross-RID regression check already exists verifying a self-contained publish of AgentGuard.Cli bundles exactly one AgentGuard.CrossPlatform.<OS> family \u2014 relevant because any new per-OS daemon/registration code must not break this single-library invariant when cross-published.",
+          "evidence": "eng/check-single-platform-lib.sh:1-38 (full script: publishes a given RID and asserts exactly one AgentGuard.CrossPlatform.{MacOS,Linux,Windows} family appears in the output)."
+        }
+      ],
+      "surfaces": [
+        "~/.agentguard/state.json \u2014 the existing machine-install record; today holds exactly {Version, Sha256} (src/AgentGuard.Engine/Setup/InstallState.cs:11) and carries nothing about login-startup registration; a natural but currently-empty landing spot for any new registration-status bookkeeping doctor/install would need.",
+        "~/.agentguard/{versions/<v>/guard, current/guard, bin/guard} \u2014 the installed binary tree the daemon verb would exec, all path-composed by the single owner src/AgentGuard.Engine/Setup/MachinePaths.cs off IEnvironment.GetHomeDirectory().",
+        "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs \u2014 the canonical registry mapping every raw OS/CLR primitive to its one legal owner (or explicitly to 'banned everywhere', as Process and FileStream are today); any new owner this work creates must be registered here or the primitive stays banned even from its own implementer.",
+        "analyzers/AgentGuard.Analyzers/FilesystemMembers.cs \u2014 the companion registry naming the filesystem member-to-owner partition and the explicit stream/drive/watcher ban list (DriveInfo, FileStream, StreamReader, StreamWriter, FileSystemWatcher).",
+        "analyzers/AgentGuard.Analyzers/PresenceContracts.cs \u2014 the canonical registry of per-OS 'port' identities the presence-specific governance (AG0105-AG0116) matches against; the template a parallel daemon-port registry (or a RULE-PHASE decision to fold into AG0011/AG0030 instead) would follow.",
+        "tests/AgentGuard.TestHelpers/FakeEnvironment.cs (the private _variables dictionary) \u2014 the in-memory double every new GetEnvironmentVariable call site (XDG_RUNTIME_DIR/TMPDIR/LOCALAPPDATA) must be exercised against for deterministic unit tests.",
+        "tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs \u2014 the one test-side composition point (Fake()/Real()) wiring IEnvironment/IPlatformServices/etc. for every test; any new daemon capability's fake wiring lands here.",
+        "The per-OS lock-file paths conversation.md decided but that exist nowhere in the tree yet: %LOCALAPPDATA%\\AgentGuard\\appd.lock (Windows), $XDG_RUNTIME_DIR/agentguard/appd.lock (Linux), $TMPDIR/agentguard/appd.lock (macOS) \u2014 net-new surfaces, not yet backed by any owner interface.",
+        "The per-OS login-registration artifacts likewise decided but not yet built: a macOS LaunchAgent plist under ~/Library/LaunchAgents (literal file name not yet decided anywhere in the tree or the input folder), a Linux systemd user unit (only 'a systemd user unit' is decided \u2014 its literal path, e.g. under ~/.config/systemd/user/, is not yet spelled anywhere), and a Windows Task Scheduler task (not a filesystem path \u2014 a registered OS object reached via the Task Scheduler API or schtasks).",
+        "src/AgentGuard.CrossPlatform.Windows/Windows/WindowsNativeMethods.cs \u2014 the one existing raw-native-handle (CreateFile/DeviceIoControl/GetFileInformationByHandleEx) owner on Windows, the closest existing analog/extension point for a native exclusive-lock implementation on that OS."
+      ],
+      "openQuestions": [
+        "Is the macOS lock path ($TMPDIR/agentguard/appd.lock) the same 'shared publicly-writable root back door' that AGS5443/TempRootBackDoorAnalyzer exists specifically to close (whose one current suppression is justified on 'callers never write into the shared root directly'), or is a fixed, deliberately-discoverable subdirectory a legitimately different case the rule's own message anticipates ('...or justify the shared root with a suppression')? No approved principle distinguishes the two shapes of 'using the shared temp root', and weakening/adding an exception to an existing guard is the kind of choice best-practices category 3b reserves for Tim rather than auto-resolving.",
+        "Process/ProcessStartInfo and FileStream/DriveInfo/StreamReader/StreamWriter/FileSystemWatcher are each independently 'banned everywhere, grow an interface first' (AG0011), and the presence-specific single-implementer/native-interop governance (AG0105-AG0116) is scoped by literal identity to the presence ports only (PresenceContracts.cs). Nothing in the tree or an approved principle says whether the daemon's new process-launch and exclusive-lock owners should be folded into the existing generic AG0011/AG0030 machinery (by registering them in OwnedPrimitives.cs / the nested-leaf container walk) or need their own new parallel rule family the way presence got AG0105-AG0116 \u2014 this is RULE-PHASE-shaped work with no existing default to fall back on.",
+        "Windows already owns exactly one raw-native-handle mechanism (WindowsNativeMethods.CreateFile, non-exclusive share mode, opened and closed within one narrow operation) inside WindowsFileSystem; conversation.md's spike instead proved the managed FileStream/FileShare.None route, but only on macOS ('Nothing above was run on Linux or Windows'). Nothing in the tree or the recorded decisions says whether the Windows exclusive lock should extend the existing native CreateFile owner (share mode 0) or introduce a second, separate managed-FileStream file-opening path alongside it."
+      ],
+      "autoResolved": [
+        {
+          "choice": "How should the daemon's process-launch and exclusive-file-lock code reach Process/ProcessStartInfo and FileStream, given both are currently raw-banned everywhere with zero owner?",
+          "resolution": "Never raw, and never through a rule suppression to bypass the ban. Build a new owned interface first \u2014 an interface in AgentGuard.Abstractions.Contracts, one sealed implementer with a private constructor and a static factory, injected through ISystemServices/IPlatformServices \u2014 following the exact single-owner shape every other primitive in the tree already uses. The ban's own documentation names this as the intended path.",
+          "principle": "best-practices-guide 2a (nothing reaches the outside world except through an interface we own), 2b (built in one place, injected everywhere), and 2e (once a wrapped primitive is stateful/actionable rather than plain data, escalate to a full owned interface with a factory \u2014 the same treatment already given to FileInfo/DirectoryInfo).",
+          "evidence": "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs:126-131 (Process: 'grow an owned interface first if the capability is ever needed'); analyzers/AgentGuard.Analyzers/FilesystemMembers.cs:29-41 (FileStream/DriveInfo/etc.: 'the same \"nowhere \u2014 grow an interface first\" pattern as AG0013's forbidden Process'); analyzer tests ProcessStart_IsReportedEverywhere_BannedWithNoOwner and FileStreamConstruction_OutsideOwner_IsReported proving the ban holds in every assembly including AgentGuard.Boundaries/AgentGuard.Engine."
+        },
+        {
+          "choice": "Where should OS-specific logic live for deciding the per-OS lock path and the per-OS login-startup/on-demand-start mechanism?",
+          "resolution": "Behind IPlatformServices inside the per-OS AgentGuard.CrossPlatform.{MacOS,Linux,Windows} assemblies \u2014 never as inline OperatingSystem.Is*/RuntimeInformation.IsOSPlatform/#if branching in Engine, Cli, or Boundaries, and never as a single-OS positive branch inside a file link-shared across per-OS projects.",
+          "principle": "best-practices-guide 1b (OS-agnostic by default; OS-difference is the rare exception, isolated behind the platform interface) \u2014 already enforced as LOCKED analyzer rules AG0009 and AG0037.",
+          "evidence": "analyzers/AgentGuard.Analyzers/NoOsBranchingOutsideCrossPlatformAnalyzer.cs:12-24; empirically verified with grep for RuntimeInformation.IsOSPlatform / OSPlatform. across src excluding the three per-OS assemblies -> zero hits, i.e. the rule holds everywhere today."
+        },
+        {
+          "choice": "How should the daemon read a specific named environment variable (a per-user runtime-directory variable such as XDG_RUNTIME_DIR/TMPDIR/LOCALAPPDATA) \u2014 directly off System.Environment, or through the existing abstraction?",
+          "resolution": "Through the existing, already-generic IEnvironment.GetEnvironmentVariable(name) seam \u2014 no new interface member or owner is needed for this half of the read; the seam already takes an arbitrary name and is already exercised in production ('SHELL') and in tests with arbitrary names.",
+          "principle": "best-practices-guide 2a/2b (nothing reaches the outside world except through an interface we own; built in one place, injected everywhere).",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IEnvironment.cs:31; src/AgentGuard.Boundaries/EnvironmentAdapter.cs:33; src/AgentGuard.Engine/Setup/SetupContext.cs:90; tests/AgentGuard.TestHelpers/FakeEnvironment.cs:104-105; tests/AgentGuard.Tests/BoundariesEnvironmentAdapterTests.cs:36,42."
+        }
+      ]
+    },
+    {
+      "area": "analyzer-fence",
+      "facts": [
+        {
+          "claim": "AG0008 (InteropOnlyInCrossPlatformLibrariesAnalyzer) trips on any method carrying [DllImport] or [LibraryImport] declared in a compilation that is NOT one of the four AgentGuard.CrossPlatform* assemblies. It governs only the DECLARATION site, not the call site.",
+          "evidence": "analyzers/AgentGuard.Analyzers/InteropOnlyInCrossPlatformLibrariesAnalyzer.cs:22 (DiagnosticId=\"AG0008\"), :58-66 (OnCompilationStart returns early when CrossPlatformBoundary.IsCrossPlatformLibrary(compilation), else registers on SyntaxKind.Attribute), :73-74 (AnalyzeAttribute delegates to AppliedAttributeBan.Report against PInvoke.InteropAttributes). PInvoke.cs:35-38 defines InteropAttributes as exactly (System.Runtime.InteropServices, DllImportAttribute) and (\u2026, LibraryImportAttribute). CrossPlatformBoundary.cs:52-57 matches exactly the 4 assembly names AgentGuard.CrossPlatform / .MacOS / .Linux / .Windows (a sibling like AgentGuard.CrossPlatform.Tests is NOT a member, per :49-51 comment). Test-proven: analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs `DllImport_OutsideCrossPlatformLibraries_IsReported` asserts diagnostic id \"AG0008\" for a DllImport method compiled as assembly \"AgentGuard.Engine\"."
+        },
+        {
+          "claim": "AG0101 (OsDivergentFilesystemOnlyInCrossPlatformAnalyzer) separately confines the P/Invoke CALL SITE and any Marshal use to the one class implementing IPlatformFileSystem inside one of the THREE per-OS impl libraries (not the core AgentGuard.CrossPlatform contract assembly) \u2014 with the sole exception of a small, closed, hand-named list of presence-only native-ops owner interfaces. It also bans the OS-divergent static File/Directory members (CreateSymbolicLink, ResolveLinkTarget, SetUnixFileMode, GetUnixFileMode) outside that same IPlatformFileSystem owner, with no presence exemption on that branch.",
+          "evidence": "analyzers/AgentGuard.Analyzers/OsDivergentFilesystemOnlyInCrossPlatformAnalyzer.cs:48 (DiagnosticId=\"AG0101\"), :86-127 (Inspect: exempt only IsFilesystemOwnerClass, i.e. OwnerClass.IsOwner against ContractInterfaces.PlatformFileSystem gated by CrossPlatformBoundary.IsAnyPerOsImplementationLibrary, lines 129-138 \u2014 explicitly NOT the core assembly, per doc comment lines 17-20); native-interop branch at :106-115 recognized via NativeInteropUse.IsNativeUse (NativeInteropUse.cs:46-47) and exempted ONLY when PresenceContracts.IsInNativeOpsOwner(context) (PresenceContracts.cs:227-229) \u2014 a closed set of exactly IObjCRuntime (macOS) and IWindowsHelloNativeOps/ICredentialPromptNativeOps (Windows), hand-named at PresenceContracts.cs:93-138; the static-member branch at :117-126 checks FilesystemMembers.IsOsDivergentMember with no such exemption. FilesystemMembers.cs:165-170 names the 4 governed static member names."
+        },
+        {
+          "claim": "AG0101's native-ops exemption is scoped only to the presence family and is not open-ended: a new capability's native interop (e.g. a future appd/daemon native call) is not automatically exempt anywhere; extending the exemption requires editing the hand-named PresenceContracts set (or an equivalent new rule), which is a rule-phase-level change.",
+          "evidence": "PresenceContracts.cs:9-23 doc comment states the identities are 'spelled exactly once here' and lists exactly the presence ports/native-ops owners; PresenceContracts.cs:227-229 `IsInNativeOpsOwner` checks only ObjCRuntime/WindowsNativeOps \u2014 no generic 'any new owner' path. OsDivergentFilesystemOnlyInCrossPlatformAnalyzer.cs:98-103 comment: the presence exemption is 'family-scoped, Tim's personal yes.'"
+        },
+        {
+          "claim": "AG0011 (RawPrimitiveOnlyInOwnerAnalyzer) trips on any construction, method call, property/field read, or method-group reference to a governed raw OS/CLR primitive made outside the single class that both implements that primitive's one owning interface AND compiles into the owner's assembly. Two of its owner-table entries are directly load-bearing for issue #63's design: System.Diagnostics.Process/ProcessStartInfo and System.IO.FileStream both currently have NO owner and are reported EVERYWHERE, with no assembly or class exempt.",
+          "evidence": "analyzers/AgentGuard.Analyzers/RawPrimitiveOnlyInOwnerAnalyzer.cs:30 (DiagnosticId=\"AG0011\"), :61-83 (Inspect calls OwnedPrimitives.Resolve then OwnerClass.IsOwner). MemberUseScanner.cs:29-34 lists the 5 governed OperationKinds (Invocation, ObjectCreation, PropertyReference, FieldReference, MethodReference) \u2014 so both `new FileStream(...)` and `File.Open(...)`/`Process.Start(...)` are in scope. OwnedPrimitives.cs:127-131 and :319-321 mark Process/ProcessStartInfo `OwnedPrimitive.BannedEverywhere` ('Process launching is not a wrapped primitive... banned everywhere; grow an owned interface first if the capability is ever needed'). FilesystemMembers.cs:30-43 lists FileStream (plus DriveInfo/StreamReader/StreamWriter/FileSystemWatcher) as having 'NO owning interface... banned everywhere', consumed by OwnedPrimitives.cs:216-224 (ResolveStreamsAndEnumeration returns BannedEverywhere for any of those types, regardless of member). Plain `File.Open(...)` also has no owner: 'Open' is absent from FileReaderMemberNames/FileWriterMemberNames (FilesystemMembers.cs:125-156) and from SharedNameOwners, so OwningInterfaceFor falls through to NoOwner (FilesystemMembers.cs:257). Test-proven: RawPrimitiveOnlyInOwnerAnalyzerTests.cs `ProcessStart_IsReportedEverywhere_BannedWithNoOwner` runs `Process.Start(\"guard\")` compiled AS `AgentGuard.Boundaries` (an owner assembly for other primitives) and still asserts AG0011 fires, with in-file comment 'Process launching has no owner \u2014 banned everywhere, including AgentGuard.Boundaries'; `FileStreamConstruction_OutsideOwner_IsReported` asserts AG0011 on `new FileStream(path, FileMode.Open)`."
+        },
+        {
+          "claim": "The conversation record's decided daemon mechanisms \u2014 an exclusive FileStream lock opened with FileShare.None, and shelling out to `launchctl kickstart` / `systemctl --user start` / `schtasks /Run` for the canonical start path \u2014 use exactly the two primitives (FileStream, Process) that AG0011 currently bans everywhere. As recorded, neither has an existing owner class to be written inside; a new owned interface is required before either compiles under this repo's analyzer fence (promoted to a build error, see below).",
+          "evidence": "'.dev/inprocess/63-appd-1-process/conversation.md' lines describing 'A FileStream opened with FileShare.None was refused with an IOException' and 'The CLI starts them on demand with launchctl kickstart and systemctl --user start', cross-referenced against OwnedPrimitives.cs:127-131/216-224/319-321 (Process and FileStream both BannedEverywhere) \u2014 this is my own cross-reference of the two documents, not an assertion made by either document itself."
+        },
+        {
+          "claim": "AG0009 and AG0037 are the same analyzer (NoOsBranchingOutsideCrossPlatformAnalyzer) reporting two inverse things: AG0009 bans any OperatingSystem.Is*/RuntimeInformation.IsOSPlatform call or platform #if OUTSIDE the four CrossPlatform assemblies; AG0037 bans a single-OS POSITIVE OperatingSystem.Is* call (IsMacOS/IsLinux/IsFreeBSD/etc.) INSIDE one of the three per-OS impl libraries specifically \u2014 only the cross-POSIX gate !OperatingSystem.IsWindows()/IsWindowsVersionAtLeast is allowed there.",
+          "evidence": "analyzers/AgentGuard.Analyzers/NoOsBranchingOutsideCrossPlatformAnalyzer.cs:34 (AG0009), :39 (AG0037/SingleOsBranchDiagnosticId), :93-113 (OnCompilationStart: per-OS assembly registers only AnalyzeSingleOsBranch/AG0037 and returns; core CrossPlatform assembly registers neither; everything else registers AnalyzeInvocation+AnalyzePlatformDirectives/AG0009), :47-54 (AllowedWindowsGateMethods = {IsWindows, IsWindowsVersionAtLeast} is the only exemption inside a per-OS library), :115-132 (AnalyzeSingleOsBranch logic). Test-proven: NoOsBranchingOutsideCrossPlatformAnalyzerTests.cs `OperatingSystemIsWindows_OutsideCrossPlatformLibraries_IsReported` (AG0009 vs assembly \"AgentGuard.Engine\") and `SingleOsBranch_InPerOsImplementationLibrary_IsReportedAsAg0037` (AG0037 vs assembly \"AgentGuard.CrossPlatform.MacOS\", in-file comment: 'the current PosixFileSystem.IsMacOS() violation')."
+        },
+        {
+          "claim": "AG0037's rationale is grounded in a real, live cross-project file-sharing mechanism: AgentGuard.CrossPlatform.Linux does not author its own POSIX source \u2014 it <Compile Include>-links three .cs files straight out of AgentGuard.CrossPlatform.MacOS/Posix/ into its own compilation. A positive single-OS branch in one of those linked files would compile dead into whichever OS did not intend it.",
+          "evidence": "src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj: `<Compile Include=\"../AgentGuard.CrossPlatform.MacOS/Posix/PosixNativeMethods.cs\" Link=\"Posix/PosixNativeMethods.cs\" />` (and PosixFileSystem.cs, PlatformServices.cs likewise), with the csproj's own header comment: 'it <Compile Include=\u2026Link=\u2026>-shares the single authored MacOS POSIX source across project directories \u2014 ONE source, linked mac -> linux'. This is the live prior-art shape the daemon work's own decision record points to reusing (conversation.md: 'the per-OS assemblies this work extends are already in place... which is the same shape the presence work used')."
+        },
+        {
+          "claim": "AG0025 (OneOwnerPerInterfaceAnalyzer) reports a second named type (class/struct/record/record struct) in the same compilation implementing one of the 'owner interfaces' \u2014 but that owner-interface set is not fixed; it is DERIVED per-compilation by walking ISystemServices through every property/zero-arg-method whose return type is an interface declared in the AgentGuard.Abstractions.Contracts namespace, recursing into sub-containers. A shipping assembly gets no exemption; only the test-system assembly is exempted (it deliberately ships a fake AND a Wrap proxy per owned interface).",
+          "evidence": "analyzers/AgentGuard.Analyzers/OneOwnerPerInterfaceAnalyzer.cs:30 (DiagnosticId=\"AG0025\"), :62-79 (OnCompilationStart: early-return only for TestAssembly.IsTestSystemAssembly, else BoundaryServices.Resolve(compilation) then SecondImplementerGuard.Register). BoundaryServices.cs:9-27 doc + :154-160 (ServiceAccessorInterface requires the candidate's namespace to be KnownNamespaces.AgentGuardAbstractionsContracts) + :212-239 (BuildNode walk) + :245-279 (FlattenLeaves collects only LEAF service interfaces, skipping containers). Test-proven: OneOwnerPerInterfaceAnalyzerTests.cs `SecondImplementerOfOwnerInterface_InShippingAssembly_IsReported` fires AG0025 (message contains 'IFileReader') when the same fake+proxy pair that is legal in TestHelpers is compiled as assembly \"AgentGuard.Boundaries\"."
+        },
+        {
+          "claim": "Confirmed live: ISystemServices exposes FileSystem/Environment/Random/Console/Platform/Signatures/BuildInfo/Clock, and the Platform container (IPlatformServices) exposes exactly FileSystem and Presence. This is the actual extend-point AG0025's walk starts from today, and it is precisely how the presence work's per-OS capability (IPresenceCheck) got AG0025's one-owner protection \u2014 as a new leaf property on IPlatformServices.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs:11 (interface declaration), :17,22,27,32,37,42,47,52 (the 8 accessors). src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs:11 (interface declaration), :16 (FileSystem), :22 (Presence, doc comment: 'the per-OS IPresenceCheck the approval gate consumes')."
+        },
+        {
+          "claim": "A brand-new interface AG0025 is meant to protect (e.g. a new per-OS daemon capability) is invisible to AG0025 \u2014 and to AG0022's sibling container check \u2014 unless it is wired in as a reachable accessor under ISystemServices/IPlatformServices in the AgentGuard.Abstractions.Contracts namespace. Until wired in, nothing in this analyzer family stops a second stray implementer of a hand-rolled interface from compiling silently.",
+          "evidence": "This is a direct structural consequence of the derivation mechanism cited above (BoundaryServices.cs ServiceAccessorInterface's namespace + accessor-shape gate) \u2014 an interface declared elsewhere, or one never exposed through a property/zero-arg method on the container tree, is never added to DerivedServices.ServiceInterfaces (DerivedServices.cs:34) and so AG0025's SecondImplementerGuard.Register (OneOwnerPerInterfaceAnalyzer.cs:78) is called with a candidate set that never contains it."
+        },
+        {
+          "claim": "AG0022 (ContainerInterfaceSingleOwnerAnalyzer) and AG0030 (LeafPlatformSingleImplementerAnalyzer) are narrower siblings that do NOT do what AG0025 does, and neither enforces 'exactly one macOS / one Linux / one Windows implementer' of a per-OS interface in production code. AG0022 governs only CONTAINER-shaped interfaces (ISystemServices, IFileSystem, IPlatformServices, and any future nested container) with no test exemption. AG0030 fires ONLY inside .Tests compilations, banning a hand-rolled test implementer of the 4 filesystem leaves or IPlatformFileSystem; it never runs against production/shipping code.",
+          "evidence": "ContainerInterfaceSingleOwnerAnalyzer.cs:35 (AG0022), :73-78 (candidate set = BoundaryServices.ContainerInterfaces, no test-assembly early return, unlike AG0025). LeafPlatformSingleImplementerAnalyzer.cs:38 (AG0030), :76-79 ('if (!TestAssembly.IsTestAssembly(context.Compilation)) return;' \u2014 a non-test compilation registers nothing), :93 (permittedImplementers: 0, i.e. even ONE test-project source implementer is reported). Per-RID exclusivity of a per-OS interface's implementer today falls out structurally from each per-OS project being its own separate compilation (verified: AgentGuard.CrossPlatform.MacOS/.Linux/.Windows each has its own .csproj and AssemblyName under src/), not from any analyzer that inspects across RIDs."
+        },
+        {
+          "claim": "Every one of these rules applies automatically, at build-breaking severity, to any new project or file added anywhere under src/ with zero additional wiring: the analyzer project is referenced as an Analyzer-only ProjectReference by every other project via a repo-wide Directory.Build.props condition, and TreatWarningsAsErrors is on repo-wide. No severity override for any of AG0008/9/11/22/25/30/37/101 exists in .editorconfig or the test-only relaxations globalconfig.",
+          "evidence": "Directory.Build.props:36 `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`; :88-91 `<ItemGroup Label=\"Custom analyzer wiring\" Condition=\"'$(AgentGuardIsAnalyzerProject)' != 'true'\"><ProjectReference Include=\"...analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj\" OutputItemType=\"Analyzer\" ReferenceOutputAssembly=\"false\" />`. `grep -n \"AG0008\\|AG0009\\|AG0011\\|AG0022\\|AG0025\\|AG0030\\|AG0037\\|AG0101\" .editorconfig` returned no output (command run, exit clean, zero matches). eng/agentguard-test-analyzer-relaxations.globalconfig (read in full) relaxes only SA0001/SA1600/CS1591/CA1707/CA1515/CA2007 \u2014 none of the AG ids."
+        },
+        {
+          "claim": "The CLI has exactly one composition point (Program.Main) and exactly six existing verbs today, confirming the conversation record's claim word for word; a new `daemon` verb added the same way (another BuildXCommand(services) subcommand under BuildRootCommand) does not create a second composition point and is not itself flagged by any of the four fenced rules.",
+          "evidence": "src/AgentGuard.Cli/Program.cs:59-63 (Main is the sole call site of SystemServices.Create()), :65-75 (BuildRootCommand registers exactly hook/install/init/remove/doctor/version as subcommands at lines 68-73). src/AgentGuard.Cli/AgentGuard.Cli.csproj: `<AssemblyName>guard</AssemblyName>`, matching CliAssembly.cs:21,30 (RootNamespace=\"AgentGuard.Cli\", CompiledName=\"guard\") \u2014 the identity pair AG0017 (GuardedConstructionAnalyzer, not one of the four assigned rules but the adjacent composition-point gate) matches against."
+        },
+        {
+          "claim": "Both AG0008 and AG0009's outward ban, and AG0101's owner-class narrowing, key off the exact same 4-assembly identity set, matched by exact AssemblyName string equality \u2014 not a namespace prefix or folder path.",
+          "evidence": "CrossPlatformBoundary.cs:19-31 (RootName=\"AgentGuard.CrossPlatform\", MacOsName/LinuxName/WindowsName = RootName+\".MacOS\"/\".Linux\"/\".Windows\"), :52-57 (PlatformAssemblyNames = exactly those 4, ImmutableHashSet.Create with StringComparer.Ordinal), :78-82 (IsCrossPlatformLibrary tests compilation.AssemblyName against that set) \u2014 comment at :49-51 explicitly notes a sibling like AgentGuard.CrossPlatform.Tests is deliberately NOT a member."
+        }
+      ],
+      "surfaces": [
+        "analyzers/AgentGuard.Analyzers/InteropOnlyInCrossPlatformLibrariesAnalyzer.cs (AG0008 \u2014 interop declaration site)",
+        "analyzers/AgentGuard.Analyzers/OsDivergentFilesystemOnlyInCrossPlatformAnalyzer.cs (AG0101 \u2014 interop call site + Marshal + OS-divergent static filesystem members)",
+        "analyzers/AgentGuard.Analyzers/RawPrimitiveOnlyInOwnerAnalyzer.cs (AG0011 \u2014 raw OS/CLR primitive owner table)",
+        "analyzers/AgentGuard.Analyzers/NoOsBranchingOutsideCrossPlatformAnalyzer.cs (AG0009 outward ban + AG0037 inverted single-OS-branch ban)",
+        "analyzers/AgentGuard.Analyzers/OneOwnerPerInterfaceAnalyzer.cs (AG0025 \u2014 general owner-interface one-implementer check)",
+        "analyzers/AgentGuard.Analyzers/ContainerInterfaceSingleOwnerAnalyzer.cs (AG0022 \u2014 container-only sibling)",
+        "analyzers/AgentGuard.Analyzers/LeafPlatformSingleImplementerAnalyzer.cs (AG0030 \u2014 .Tests-only sibling)",
+        "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs (the one owner table AG0011 resolves against; where Process/ProcessStartInfo/FileStream are marked banned-everywhere)",
+        "analyzers/AgentGuard.Analyzers/FilesystemMembers.cs (per-member File/Directory owner split; the stream/watcher/drive no-owner set; the OS-divergent static member names AG0101 reads)",
+        "analyzers/AgentGuard.Analyzers/OwnerClass.cs, MemberUseScanner.cs, OwnedPrimitive.cs, SecondImplementerGuard.cs (shared mechanics every rule above is built from)",
+        "analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs (the exact 4-assembly identity set AG0008/AG0009/AG0101 all gate on)",
+        "analyzers/AgentGuard.Analyzers/PInvoke.cs, NativeInteropUse.cs (interop-attribute and native-use identity, shared by AG0008/AG0101/AG0113)",
+        "analyzers/AgentGuard.Analyzers/PresenceContracts.cs (the closed, hand-named presence native-ops-owner exemption AG0101/AG0113/AG0114 key off)",
+        "analyzers/AgentGuard.Analyzers/BoundaryServices.cs, DerivedServices.cs, ContractInterfaces.cs (the ISystemServices-derived owner-interface set AG0024/AG0025/AG0031 all read; the live extend-point mechanism)",
+        "analyzers/AgentGuard.Analyzers/CliAssembly.cs, CompositionPoint.cs (the CLI's one composition-point identity, adjacent to 'new CLI verb')",
+        "analyzers/AgentGuard.Analyzers/AnalyzerReleases.Shipped.md, AnalyzerReleases.Unshipped.md (the id registry; Shipped.md is currently empty \u2014 every id including the 8 above is still Unshipped)",
+        "analyzers/AgentGuard.Analyzers.Tests/InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs, NoOsBranchingOutsideCrossPlatformAnalyzerTests.cs, OneOwnerPerInterfaceAnalyzerTests.cs, RawPrimitiveOnlyInOwnerAnalyzerTests.cs, ContainerInterfaceSingleOwnerAnalyzerTests.cs, LeafPlatformSingleImplementerAnalyzerTests.cs (the proof fixtures each claim above cites)",
+        "Directory.Build.props (repo-wide TreatWarningsAsErrors + the Analyzer-only ProjectReference wired into every non-analyzer project \u2014 the mechanism that makes all 4 fenced areas automatically apply to any new project/file)",
+        ".editorconfig (per-rule severity declarations; confirmed no override for any of the 8 ids in play)",
+        "eng/agentguard-test-analyzer-relaxations.globalconfig (test-only relaxations; confirmed none touch these ids)",
+        "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs, IPlatformServices.cs (the live container tree AG0025's owner set is derived from; the concrete extend-point a new appd interface would need to join)",
+        "src/AgentGuard.CrossPlatform/*.csproj, AgentGuard.CrossPlatform.MacOS/*.csproj, .Linux/*.csproj, .Windows/*.csproj (the exact 4 assembly names/identities the interop + OS-branching gates match against; the Linux csproj's live <Compile Include Link> glob is the concrete grounding for AG0037)",
+        "src/AgentGuard.Cli/Program.cs, AgentGuard.Cli.csproj (the six live verbs, the one Main composition point, the AssemblyName=\"guard\" identity \u2014 where a new `daemon` verb attaches)",
+        ".dev/inprocess/63-appd-1-process/conversation.md (records the FileStream-lock and Process-shell-out mechanisms that collide with AG0011's current owner table; not itself a code surface but the decision record this area's facts are tested against)"
+      ],
+      "openQuestions": [
+        "Which interface(s) will own the daemon's exclusive-lock primitive and the per-OS canonical-start process launch? conversation.md fixes the MECHANISM (an exclusive FileStream lock; shelling to launchctl kickstart / systemctl --user start / schtasks /Run) but today both System.IO.FileStream and System.Diagnostics.Process/ProcessStartInfo have NO owner under AG0011's table and are reported everywhere ('grow an owned interface first'). No file in the issue, conversation.md, or the working tree names the new interface(s) that would own these calls. This is a new-interface/new-dependency choice squarely inside rails-decisions' boundary (adds an interface, a mechanism other code depends on) and is not recorded as decided anywhere I can find.",
+        "Where in the ISystemServices/IPlatformServices tree will the new daemon capability (lock + canonical-start + login registration) be wired as a reachable accessor? Until it is added as a property/zero-arg method returning an AgentGuard.Abstractions.Contracts interface somewhere under that tree, AG0025 (and AG0022, if it were itself a container) cannot see it at all, so a second stray implementer would compile silently. Neither the issue nor conversation.md names the accessor or its position (e.g. a new property beside IPlatformServices.FileSystem/Presence, mirroring how presence was added).",
+        "If the daemon ever needs native interop directly (the issue's 'must be able to draw a window later' constraint hints part 3 might, e.g. Task Scheduler's COM API, launchd/XPC, or a window handle), AG0101's native-ops exemption is a closed, hand-named list scoped to presence (PresenceContracts.AllNativeOpsOwners). Extending it \u2014 or adding an analogous appd-family carve-out \u2014 is a rule-phase-level change nobody has scoped in this issue or its input folder.",
+        "Is the per-OS lock-PATH computation (%LOCALAPPDATA%\\AgentGuard\\appd.lock vs $XDG_RUNTIME_DIR/agentguard/appd.lock vs $TMPDIR/agentguard/appd.lock) meant to be resolved inside the existing IEnvironment owner, or through a new/extended IPlatformServices accessor? conversation.md fixes the three literal paths but not which owner decides 'which template for this OS' \u2014 left unresolved, an inline OperatingSystem.Is* branch anywhere outside AgentGuard.CrossPlatform to pick between them is exactly AG0009's target shape, and the working tree has no existing multi-path-by-OS precedent to confirm the intended pattern against (IPlatformServices today exposes only FileSystem and Presence, neither of which currently branches on OS by literal path template)."
+      ],
+      "autoResolved": []
+    }
+  ],
+  "ledger": {
+    "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+    "verdicts": [
+      {
+        "capability": "daemon-process-lifetime",
+        "decision": "new",
+        "evidence": "Pooled search returned zero candidates with both required lenses (codegraph, grep) completed and listed in lensesEmpty, no lensErrors \u2014 per rails-dry-code, a new ruling is valid when both required lenses completed and found nothing.",
+        "confidence": "high",
+        "owner": "",
+        "copies": []
+      },
+      {
+        "capability": "login-startup-registration",
+        "decision": "new",
+        "evidence": "Both required lenses (codegraph, grep) ran to completion and returned zero candidates (lensesRun and lensesEmpty both list codegraph and grep, candidates=[]). No existing code implements per-platform login-startup registration for the guard binary.",
+        "confidence": "high",
+        "owner": "",
+        "copies": []
+      },
+      {
+        "capability": "on-demand-service-start",
+        "decision": "new",
+        "evidence": "Both required lenses (codegraph, grep) ran to completion and returned zero candidates (lensesRun and lensesEmpty both list codegraph and grep; candidates=[]; lensErrors=[]). No prior implementation of asking the platform service manager to start an already-registered login item exists in the codebase.",
+        "confidence": "high",
+        "copies": []
+      },
+      {
+        "capability": "single-instance-lock",
+        "decision": "new",
+        "evidence": "Both required lenses (codegraph, grep) ran to completion and returned zero candidates (lensesRun=[\"codegraph\",\"grep\"], lensesEmpty=[\"codegraph\",\"grep\"], no lensErrors, candidates=[]). Per rails-dry-code, a new ruling is valid only when both required lenses completed and appear empty \u2014 that condition is met, so no existing single-instance-lock mechanism was found anywhere in the codebase.",
+        "confidence": "high",
+        "owner": "",
+        "copies": []
+      },
+      {
+        "capability": "lock-liveness-probe",
+        "decision": "new",
+        "evidence": "Pooled search returned zero candidates; both required lenses (codegraph, grep) ran and are listed in lensesEmpty with no lensErrors, satisfying the rail's condition for a valid \"new\" ruling.",
+        "confidence": "high",
+        "owner": "",
+        "copies": []
+      }
+    ],
+    "panelComplete": true,
+    "failedRoles": []
+  },
+  "panelComplete": true,
+  "failedRoles": []
+}

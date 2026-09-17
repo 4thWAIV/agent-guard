@@ -131,7 +131,7 @@ public class NoControlFlowInNativeOpsAnalyzerTests
             {
                 internal sealed class ObjCRuntime : IObjCRuntime
                 {
-                    internal bool InRange(int code) => code is 1 and 2;
+                    internal bool InRange(int code) => code is > 1 and < 5;
                 }
             }
             """;

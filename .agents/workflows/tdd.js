@@ -745,12 +745,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1130,7 +1129,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1249,6 +1247,18 @@ async function __stageResultContracts(args) {
 }
 // ##COPIED-MODULE-END## stage-result-contracts
 
+// ##COPIED-MODULE-BEGIN## scope-boundary
+// This block is shared code, pasted into every workflow script that needs it. The Workflow
+// runtime gives scripts no module import and allows only one level of workflow() nesting,
+// so there is no way to call shared code from another file. Do not edit this copy alone:
+// every copy of a block name must stay byte-identical, and eng/check-copied-modules.mjs
+// fails the moment two copies differ.
+//
+// The one owner of the scope-boundary sentence every fix-round agent is handed. Scope changes
+// only when the human edits the contract, so every stage states that boundary in the same words.
+const __SCOPE_BOUNDARY = 'A fix that changes the contract or an approved design is allowed only after the human edits the contract. There is no second path.'
+// ##COPIED-MODULE-END## scope-boundary
+
 // ##COPIED-MODULE-BEGIN## selected-rule-warnings
 // This block is shared code, pasted into every workflow script that needs it. The Workflow
 // runtime gives scripts no module import and allows only one level of workflow() nesting,
@@ -1298,7 +1308,7 @@ async function __selectedRuleWarnings(args) {
   const policyPrompt = ruleWarningIds.length === 0
     ? `RULE WARNING OVERRIDE: None. Run the existing plain \`${command}\` command.`
     : `SELECTED RULE WARNINGS FOR THIS ${stage} BUILD: ${ruleWarningIds.join(', ')}
-  - APPROVAL GATE: Before ${writeAction}, find Tim's verbatim approval in the contract for EVERY selected diagnostic ID to remain a warning during ${stage}. If any selected ID lacks that verbatim approval, STOP immediately and report the missing ID. Do not write files and do not launch a build.
+  - APPROVAL GATE: Before ${writeAction}, find Tim's recorded approval in the contract for EVERY selected diagnostic ID to remain a warning during ${stage}. If any selected ID lacks that recorded approval, STOP immediately and report the missing ID. Do not write files and do not launch a build.
   - Run \`${command}\`. The selected diagnostics must remain enabled and visible as warnings.
   - Do not use NoWarn, a suppression, an .editorconfig severity change, TreatWarningsAsErrors=false, or CodeAnalysisTreatWarningsAsErrors=false.
   - This argument applies only to the approved ${stage} build. Do not add it to GATE.`
@@ -1340,7 +1350,7 @@ const ruleWarningPolicyPrompt = warningConfiguration.policyPrompt
 const refutationPath = __optionalArtifactPath('tdd', 'refutationPath', input && input.refutationPath)
 
 const fixModePreamble = refutationPath
-  ? `THIS IS A FIX ROUND, NOT AN INITIAL WRITE. Apply EXACTLY the confirmed fixes below — nothing more. When the contract authorizes tests, fix the existing tests without rewriting them from scratch and re-prove they are RED for the required behavior. When the contract names no test surface and forbids test changes, do not create a test or invent RED; return and re-check the exact approved no-test result. A fix that changes the contract or an approved design is allowed only after the human edits the contract, or when the human gave explicit prior authorization for exactly that extension and the authorization is recorded verbatim as ruling provenance:
+  ? `THIS IS A FIX ROUND, NOT AN INITIAL WRITE. Apply EXACTLY the confirmed fixes below — nothing more. When the contract authorizes tests, fix the existing tests without rewriting them from scratch and re-prove they are RED for the required behavior. When the contract names no test surface and forbids test changes, do not create a test or invent RED; return and re-check the exact approved no-test result. ${__SCOPE_BOUNDARY}
 
 ${refutationPath} — open and read that file; it holds the findings you must fix.
 

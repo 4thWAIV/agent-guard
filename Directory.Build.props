@@ -73,10 +73,6 @@
     <PackageReference Include="Philips.CodeAnalysis.DuplicateCodeAnalyzer" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Label="Source link">
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-  </ItemGroup>
-
   <ItemGroup Label="StyleCop configuration">
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)stylecop.json" Link="stylecop.json" />
   </ItemGroup>

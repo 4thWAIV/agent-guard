@@ -1,0 +1,945 @@
+{
+  "title": "appd interface review",
+  "stage": "Contract preparation — new requirements not yet contracted",
+  "draftStatus": "Every proposed signature and rule is awaiting approval",
+  "sources": [
+    "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs",
+    "src/AgentGuard.Abstractions/Contracts/IPlatformFileSystem.cs",
+    "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs",
+    "src/AgentGuard.Abstractions/Contracts/IBuildInfo.cs",
+    "src/AgentGuard.Engine/Setup/ISetupCondition.cs",
+    "src/AgentGuard.Engine/Setup/SetupConditions.cs",
+    "src/AgentGuard.Engine/Setup/MachinePaths.cs",
+    ".dev/inprocess/63-appd-1-process/conversation.md",
+    ".dev/inprocess/63-appd-1-process/design-output.json",
+    ".dev/inprocess/63-appd-1-process/autostart-research.md"
+  ],
+  "nodes": [
+    {
+      "id": "client",
+      "layer": 0,
+      "label": "CLI / future dashboard",
+      "status": "Consumer",
+      "code": "// Existing entry points: install and doctor.\n// Proposed appd consumers: status, start and stop.\n// Dashboard is a future consumer of the same service surface.",
+      "question": "Which operations should both the CLI and dashboard reach?",
+      "paths": [
+        "start",
+        "stop",
+        "configure"
+      ],
+      "rules": [
+        15
+      ]
+    },
+    {
+      "id": "daemon-command",
+      "layer": 0,
+      "label": "agentguard daemon",
+      "status": "Approved verb; unbuilt",
+      "code": "// Entry point reached by the OS service manager.\n// Acquires the single-instance lock, then runs until stopped.\n// It does not call StartAsync again.",
+      "question": "The daemon entry point and the client-side start operation are separate call paths.",
+      "paths": [
+        "host"
+      ],
+      "rules": [
+        12,
+        15
+      ]
+    },
+    {
+      "id": "runtime",
+      "layer": 1,
+      "label": "IDaemonService",
+      "status": "Draft interface",
+      "code": "public interface IDaemonService\n{\n    bool IsRunning();\n    Task StartAsync(CancellationToken ct);\n    Task StopAsync(CancellationToken ct);\n}",
+      "question": "Review these operation names, return types and cancellation shape. Start and stop report failure by exception; returning means the requested state was observed. That behavior is proposed, not approved.",
+      "paths": [
+        "start",
+        "stop"
+      ],
+      "rules": [
+        4,
+        9
+      ]
+    },
+    {
+      "id": "autostart-service",
+      "layer": 1,
+      "label": "IAutostartEntryService",
+      "status": "Draft interface",
+      "code": "public interface IAutostartEntryService\n{\n    Task<AutostartEntryState> InspectAsync(CancellationToken ct);\n    Task SetEnabledAsync(bool enabled, CancellationToken ct);\n}\n\n// AutostartEntryState: result shape is still unwritten.\n// It needs existence, enabled state and actionable diagnosis.\n// Retry/log settings are not silently hidden in a DTO.\n// Their operations follow the policy decision.",
+      "question": "Runtime and persistent configuration have separate owners in this candidate. Installation/removal stay with setup. The inspection result and further settings remain explicit design questions.",
+      "paths": [
+        "configure"
+      ],
+      "rules": [
+        4
+      ]
+    },
+    {
+      "id": "service-implementation",
+      "layer": 2,
+      "label": "DaemonService",
+      "status": "Draft middle layer",
+      "code": "// StartAsync:\n//   probe lock -> inspect entry if needed -> OS start -> observe lock\n// StopAsync:\n//   probe lock -> OS stop -> observe lock released\n// No arbitrary executable, command or lock path comes from callers.\n// Timeout values and failure result contracts are undecided.",
+      "question": "This is the wiring between the top interface and OS abstraction. Its method bodies are not being approved through this diagram.",
+      "paths": [
+        "start",
+        "stop"
+      ],
+      "rules": [
+        4,
+        9
+      ]
+    },
+    {
+      "id": "setup-implementation",
+      "layer": 2,
+      "label": "AutostartEntryService + setup",
+      "status": "Draft extension",
+      "currentPath": "src/AgentGuard.Engine/Setup/ISetupCondition.cs",
+      "code": "// Reuse ISetupCondition for install and doctor.\n// One AutostartEntryCondition owns checking/repairing setup.\n// AutostartEntryService exposes user configuration.\n// Both call the same platform entry adapter.\n// Existing Detect/Repair are synchronous; proposed platform I/O\n// is asynchronous. Their integration is unresolved, not hidden.",
+      "question": "Inspect the current ISetupCondition below. We must settle its synchronous boundary before introducing async setup work. Doctor must preserve an intentionally disabled entry.",
+      "paths": [
+        "configure"
+      ],
+      "rules": [
+        4,
+        13
+      ]
+    },
+    {
+      "id": "host",
+      "layer": 2,
+      "label": "DaemonHost",
+      "status": "Draft middle layer",
+      "code": "// TryAcquire -> hold lease -> one cancellation-linked await\n// Stop releases the lease when the process exits.\n// Stop signalling and shutdown lifetime still need a mechanism.\n// Duplicate acquisition never becomes a second daemon.",
+      "question": "The approved stop command adds shutdown work absent from the recorded DESIGN. This diagram does not claim the old idle-loop design implements stop. Mutex ownership must survive the wait on the same thread; the earlier cancellation-linked await alone does not establish that.",
+      "paths": [
+        "host"
+      ],
+      "rules": [
+        8,
+        12
+      ]
+    },
+    {
+      "id": "platform",
+      "layer": 3,
+      "label": "IPlatformServices",
+      "status": "Exists; extension proposed",
+      "currentPath": "src/AgentGuard.Abstractions/Contracts/IPlatformServices.cs",
+      "code": "public interface IPlatformServices\n{\n    IPlatformFileSystem FileSystem { get; }\n    IPresenceCheck Presence { get; }\n    IPlatformDaemon Daemon { get; } // Proposed\n}\n\npublic interface IPlatformDaemon\n{\n    ISingleInstanceLock Lock { get; }\n    IDaemonProcessControl Process { get; }\n    IAutostartEntry AutostartEntry { get; }\n}",
+      "question": "One daemon property containing three capabilities, or three direct properties? The grouping selector changes the actual declaration shown here.",
+      "paths": [
+        "start",
+        "stop",
+        "configure",
+        "host"
+      ],
+      "rules": [
+        10
+      ]
+    },
+    {
+      "id": "lock",
+      "layer": 4,
+      "label": "ISingleInstanceLock",
+      "status": "Draft interface",
+      "code": "public interface ISingleInstanceLock\n{\n    bool IsHeld(ISystemServices services);\n    IDisposable? TryAcquire(ISystemServices services);\n}\n\n// Proposed: null means another instance owns the lock.\n// A returned lease is held for the daemon lifetime.\n// All other failures remain distinguishable from contention.",
+      "question": "Review nullable lease versus a dedicated result/lease interface. Lock paths are computed inside each platform implementation, not supplied by a caller. Windows release is thread-affine; the generic IDisposable lease must preserve the acquiring thread, or the host lifetime must do so. No threading mechanism is silently selected.",
+      "paths": [
+        "start",
+        "stop",
+        "host"
+      ],
+      "rules": [
+        1,
+        2,
+        3,
+        4,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "id": "process",
+      "layer": 4,
+      "label": "IDaemonProcessControl",
+      "status": "Draft interface",
+      "code": "public interface IDaemonProcessControl\n{\n    Task StartAsync(ISystemServices services, CancellationToken ct);\n    Task StopAsync(ISystemServices services, CancellationToken ct);\n}\n\n// Only the appd entry belonging to the current user/scope.\n// No command, executable, PID or target-session argument.",
+      "question": "Review one start/stop interface versus separate interfaces. The OS adapter derives the client scope. Windows session-targeted COM is proposed but not approved.",
+      "paths": [
+        "start",
+        "stop"
+      ],
+      "rules": [
+        0,
+        3,
+        4,
+        5,
+        8,
+        9,
+        11
+      ]
+    },
+    {
+      "id": "entry",
+      "layer": 4,
+      "label": "IAutostartEntry",
+      "status": "Draft interface",
+      "code": "public interface IAutostartEntry\n{\n    Task<AutostartEntryState> InspectAsync(\n        ISystemServices services, CancellationToken ct);\n    Task ApplyAsync(AutostartEntryDefinition definition,\n        ISystemServices services, CancellationToken ct);\n    Task RemoveAsync(ISystemServices services, CancellationToken ct);\n}\n\n// AutostartEntryDefinition is unwritten pending policy approval.\n// It must carry the existing MachinePaths-owned launcher path.\n// It must not become an arbitrary-command escape hatch.",
+      "question": "The parameter/return shapes are draft C#, with unresolved DTOs clearly named. Launch conditions, retry settings and logging must be decided before these data contracts can be completed.",
+      "paths": [
+        "configure",
+        "start"
+      ],
+      "rules": [
+        3,
+        4,
+        5,
+        8,
+        9,
+        13
+      ]
+    },
+    {
+      "id": "templates",
+      "layer": 4,
+      "label": "IAssemblyResources",
+      "status": "Draft interface",
+      "currentPath": "src/AgentGuard.Abstractions/Contracts/IBuildInfo.cs",
+      "question": "The proposed resource service returns an owned IReadStream rather than raw Stream. Its Assembly reader and text-reader/bridge interfaces are now shown in the native layer. Review whether preserving the stream-shaped API is worth those extra wrappers, versus an explicitly composed text-resource service. Existing IBuildInfo is unchanged.",
+      "paths": [
+        "configure"
+      ],
+      "rules": [
+        0,
+        10
+      ],
+      "codeFrom": "native-resources"
+    },
+    {
+      "id": "private-directory",
+      "layer": 4,
+      "label": "IPlatformFileSystem",
+      "status": "Exists; member proposed",
+      "currentPath": "src/AgentGuard.Abstractions/Contracts/IPlatformFileSystem.cs",
+      "code": "// Proposed addition to the existing IPlatformFileSystem:\nvoid EnsurePrivateDirectory(string path);\n\n// POSIX: create or verify the lock directory is private.\n// Windows: the lock uses a named mutex, not this directory.\n// Decide whether this method is POSIX-only or provides\n// equivalent private-directory behavior on Windows too.",
+      "question": "The recorded DESIGN proposes a Windows throw, following MakeExecutable. Do we want that platform-limited operation or an OS-uniform contract? Do not silently infer Windows ACL behavior.",
+      "paths": [
+        "host",
+        "start"
+      ],
+      "rules": [
+        1,
+        6
+      ]
+    },
+    {
+      "id": "macos",
+      "layer": 5,
+      "label": "macOS adapters",
+      "status": "Unbuilt",
+      "code": "// Lock: exclusive FileStream in the approved runtime directory.\n// Start: launchctl bootstrap if absent, then kickstart (no -k).\n// Stop candidate: bootout this user's loaded appd job.\n// Entry: LaunchAgent plist read by launchd.\n// Command runner is shared with Linux; no duplicate Process owner.",
+      "question": "Manual-start-only mode and stop must not accidentally re-enable login startup. Restart policy determines how this adapter manages the loaded job.",
+      "paths": [
+        "start",
+        "stop",
+        "configure",
+        "host"
+      ],
+      "rules": [
+        0,
+        1,
+        5,
+        6,
+        7,
+        13,
+        14
+      ]
+    },
+    {
+      "id": "linux",
+      "layer": 5,
+      "label": "Linux adapters",
+      "status": "Unbuilt",
+      "code": "// Lock: exclusive FileStream under XDG_RUNTIME_DIR.\n// Start/stop: systemctl --user start/stop agentguard-appd.service.\n// Entry enable/disable: unit install links, never mask.\n// Shared Process adapter runs systemctl.\n// Desktop connection mechanism is still undecided.",
+      "question": "Starting at default.target can precede the desktop. Graphical-session startup needs integration; a daemon started earlier needs an explicit later UI connection.",
+      "paths": [
+        "start",
+        "stop",
+        "configure",
+        "host"
+      ],
+      "rules": [
+        0,
+        1,
+        5,
+        6,
+        13,
+        14
+      ]
+    },
+    {
+      "id": "windows",
+      "layer": 5,
+      "label": "Windows adapters",
+      "status": "Session targeting proposed",
+      "code": "// Lock: Local\\ named mutex, scoped to the logon session.\n// Task: \\AgentGuard\\appd-<user SID>.\n// Start candidate: IRegisteredTask.RunEx with caller session ID.\n// Stop candidate: IRunningTask.Stop on the matching instance.\n// Task permits Parallel; the mutex refuses same-session duplicates.\n// Exact instance-to-session selection is still unwritten.",
+      "question": "COM replaces schtasks for explicit session targeting in this candidate. This needs approval, a mirrored native wrapper, and Windows multi-session proof.",
+      "paths": [
+        "start",
+        "stop",
+        "configure",
+        "host"
+      ],
+      "rules": [
+        2,
+        5,
+        14
+      ]
+    },
+    {
+      "id": "native-process",
+      "label": "Process + start options",
+      "code": "internal interface IProcessFactory\n{\n    IProcess Create();\n    IProcess GetCurrentProcess();\n    IProcess GetProcessById(int processId);\n}\n\ninternal interface IProcess : IDisposable\n{\n    IProcessStartInfo StartInfo { get; }\n    int Id { get; }\n    int SessionId { get; }\n    bool HasExited { get; }\n    int ExitCode { get; }\n    ITextReader StandardOutput { get; }\n    ITextReader StandardError { get; }\n\n    bool Start();\n    Task WaitForExitAsync(CancellationToken cancellationToken);\n    void Kill(bool entireProcessTree);\n}\n\ninternal interface IProcessStartInfo\n{\n    string FileName { get; set; }\n    Collection<string> ArgumentList { get; }\n    string WorkingDirectory { get; set; }\n    bool UseShellExecute { get; set; }\n    bool RedirectStandardOutput { get; set; }\n    bool RedirectStandardError { get; set; }\n    bool CreateNoWindow { get; set; }\n    Encoding? StandardOutputEncoding { get; set; }\n    Encoding? StandardErrorEncoding { get; set; }\n}",
+      "question": "Proposed owners: ProcessFactory creates AbstractedProcess; its StartInfo property exposes an AbstractedProcessStartInfo. Names and members mirror the BCL, with owned interfaces replacing actionable raw objects. The shared command runner uses these on macOS and Linux; Windows also uses process identity/session reads. Start/stop policy and timeout decisions stay above these wrappers. StandardOutput and StandardError are borrowed readers owned by IProcess; drain both concurrently before awaiting exit. Kill is for the launched service-manager command on cancellation, not a second way to launch or stop appd. SessionId is used by Windows, not as a POSIX daemon scope.",
+      "rules": [
+        0,
+        3,
+        8,
+        10,
+        11
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "configure"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process?view=net-10.0",
+        "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo?view=net-10.0"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-file",
+      "label": "FileStream lifetime",
+      "code": "internal interface IFileStreamFactory\n{\n    IFileStream Create(\n        string path,\n        FileMode mode,\n        FileAccess access,\n        FileShare share);\n}\n\ninternal interface IFileStream : IDisposable\n{\n}",
+      "question": "Proposed owners: FileStreamFactory creates AbstractedFileStream, the sole raw FileStream owner. Dispose is the only operation needed on this lock handle; no read, write, path-discovery or unlink operation is added. Create mirrors the FileStream constructor. The lock adapter supplies OpenOrCreate, ReadWrite and None after computing the approved runtime path. The returned object keeps that open file alive; disposal closes it. Only the lock adapter interprets an expected sharing conflict as contention. Other I/O failures remain errors. This is a lifetime-only interface, not a missing implementation.",
+      "rules": [
+        1,
+        6,
+        7,
+        8,
+        10
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "host"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.io.filestream.-ctor?view=net-10.0"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-mutex",
+      "label": "Mutex lifetime",
+      "code": "internal interface IMutexFactory\n{\n    IMutex Create(bool initiallyOwned, string name, out bool createdNew);\n    bool TryOpenExisting(string name, [NotNullWhen(true)] out IMutex? result);\n}\n\ninternal interface IMutex : IDisposable\n{\n    bool WaitOne(int millisecondsTimeout);\n    void ReleaseMutex();\n}",
+      "question": "Proposed owners: MutexFactory creates AbstractedMutex, the sole raw Mutex owner. Create mirrors the constructor; TryOpenExisting, WaitOne and ReleaseMutex mirror BCL members. Dispose closes the handle; it is not a substitute for ReleaseMutex. Acquisition and release must happen on the same thread. A lease held across arbitrary awaits cannot silently promise that. The host still needs either a dedicated owning thread or a synchronous owning lifetime. An abandoned mutex grants ownership while throwing AbandonedMutexException; that case needs explicit handling, not a false 'not running' answer. The wrapper does not choose the Local\\\\ name or decide what contention means.",
+      "rules": [
+        2,
+        8,
+        9,
+        10
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "host"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.threading.mutex?view=net-10.0",
+        "https://learn.microsoft.com/en-us/dotnet/standard/threading/mutexes"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-tasks",
+      "label": "Task Scheduler objects",
+      "code": "internal interface ITaskServiceFactory\n{\n    ITaskService Create();\n}\n\ninternal interface ITaskService : IDisposable\n{\n    void Connect();\n    ITaskFolder GetFolder(string path);\n}\n\ninternal interface ITaskFolder : IDisposable\n{\n    ITaskFolder CreateFolder(string subFolderName, string? sddl);\n    IRegisteredTask GetTask(string path);\n    IRegisteredTask RegisterTask(\n        string path,\n        string xmlText,\n        int flags,\n        string? userId,\n        string? password,\n        int logonType,\n        string? sddl);\n    void DeleteTask(string name, int flags);\n}\n\ninternal interface IRegisteredTask : IDisposable\n{\n    string Path { get; }\n    string Xml { get; }\n    bool Enabled { get; }\n    IRunningTask RunEx(\n        string[]? parameters,\n        int flags,\n        int sessionId,\n        string? user);\n    IRunningTaskCollection GetInstances(int flags);\n}\n\ninternal interface IRunningTaskCollection : IDisposable\n{\n    int Count { get; }\n    IRunningTask this[int index] { get; }\n}\n\ninternal interface IRunningTask : IDisposable\n{\n    string Path { get; }\n    string InstanceGuid { get; }\n    uint EnginePID { get; }\n    void Refresh();\n    void Stop();\n}",
+      "question": "Proposed owners: TaskServiceFactory and one Abstracted wrapper per returned COM interface, all in the Windows assembly. This is an owned C# review surface, NOT a COM ABI declaration. Connect selects local/current credentials. String/string-array parameters cover the needed BSTR and empty VARIANT cases; no object/dynamic escape hatch is proposed. Native flags retain their integer types; the appd adapter pins the allowed values. Collection indexing follows COM's 1-based index. Each returned wrapper is an owned reference disposed by its caller. Disposing a wrapper releases the COM reference; it does not stop the task. RunEx is the proposed replacement for schtasks, not an approved change. For stop, compare each instance's EnginePID session via IProcessFactory.GetProcessById, then Stop the matching instance. That selection is a candidate requiring Windows multi-session and process-exit-race proof; EnginePID is the task engine PID, not an assertion that it is appd's PID. COM activation, apartment handling and ABI marshalling remain an implementation-design review, not implied by these signatures.",
+      "rules": [
+        4,
+        5,
+        8,
+        10,
+        14
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "configure"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskservice-connect",
+        "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskfolder-registertask",
+        "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex",
+        "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-getinstances",
+        "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-irunningtask-get_enginepid"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-resources",
+      "label": "Assembly resource streams",
+      "code": "internal interface IAssemblyResources\n{\n    IReadStream? GetManifestResourceStream(string name);\n}\n\ninternal interface IReadStream : IDisposable\n{\n    int Read(byte[] buffer, int offset, int count);\n}",
+      "question": "Proposed owner: AssemblyResourcesAdapter reads resources from the assembly selected at composition and returns an owned read-stream wrapper. GetManifestResourceStream mirrors Assembly's name and missing-resource null result; IReadStream replaces the raw Stream. The caller disposes the returned stream. The resource reader does not choose a template identifier, substitute placeholders or decide that a missing embedded template is acceptable. Template code makes missing data an actionable error. This replaces the old draft that leaked Stream. Existing IBuildInfo remains a version-metadata interface and is not extended for resources. StreamReader construction is shown in the separate Text readers node, including the necessary owned-stream bridge.",
+      "rules": [
+        0,
+        8,
+        10,
+        13
+      ],
+      "paths": [
+        "configure"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.reflection.assembly.getmanifestresourcestream?view=net-10.0"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-readers",
+      "label": "Text readers + bridge",
+      "code": "internal interface ITextReader : IDisposable\n{\n    string ReadToEnd();\n    Task<string> ReadToEndAsync(CancellationToken cancellationToken);\n}\n\ninternal interface IStreamReaderFactory\n{\n    ITextReader Create(\n        IReadStream stream,\n        Encoding encoding,\n        bool detectEncodingFromByteOrderMarks,\n        int bufferSize,\n        bool leaveOpen);\n}\n\ninternal interface IReadStreamBridgeFactory\n{\n    IReadStreamBridge Create(IReadStream stream, bool leaveOpen);\n}\n\ninternal interface IReadStreamBridge : IReadStream\n{\n    bool CanRead { get; }\n    bool CanSeek { get; }\n    bool CanWrite { get; }\n    long Length { get; }\n    long Position { get; set; }\n    void Flush();\n    long Seek(long offset, SeekOrigin origin);\n    void SetLength(long value);\n    void Write(byte[] buffer, int offset, int count);\n}",
+      "question": "Proposed owners: AbstractedTextReader is the one TextReader/StreamReader wrapper, shared by process output and resource reading. StreamReaderFactory uses the BCL decoder rather than rebuilding text decoding. Because that constructor accepts a raw Stream, an owned bridge is needed: ReadStreamBridge implements IReadStreamBridge and derives from Stream, forwarding Read to the supplied IReadStream. StreamReaderFactory obtains it through IReadStreamBridgeFactory; an internal composition-only conversion supplies its Stream view to the BCL constructor. That conversion and its analyzer allowance require review; it must never downcast an arbitrary IReadStream or fail for a fake. This added bridge is the visible cost of preserving both the Assembly stream surface and the no-raw-object boundary. Seek/write/length operations on the read-only non-seekable bridge throw NotSupportedException; they are Stream's abstract members, not new template capabilities. leaveOpen defines whether reader disposal closes the supplied stream. Process-owned readers remain borrowed by the command runner; their lifetime ends with IProcess. Alternative requiring approval: expose a composed ReadAllText resource service, eliminating the public stream/reader bridge but no longer presenting a one-for-one Assembly boundary.",
+      "rules": [
+        0,
+        8,
+        10,
+        11
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "configure"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.io.textreader?view=net-10.0",
+        "https://learn.microsoft.com/en-us/dotnet/api/system.io.streamreader.-ctor?view=net-10.0"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    },
+    {
+      "id": "native-identity",
+      "label": "Windows account identity",
+      "code": "internal interface IWindowsIdentityFactory\n{\n    IWindowsIdentity GetCurrent();\n}\n\ninternal interface IWindowsIdentity : IDisposable\n{\n    ISecurityIdentifier? User { get; }\n}\n\ninternal interface ISecurityIdentifier\n{\n    string Value { get; }\n}",
+      "question": "Proposed owners: WindowsIdentityFactory creates AbstractedWindowsIdentity; User returns an AbstractedSecurityIdentifier. These mirror WindowsIdentity.GetCurrent, WindowsIdentity.User and SecurityIdentifier.Value without exposing a raw identity object. The Windows autostart adapter derives the approved per-user task name from that SID. A missing User value is an error, not a fallback to a shared task name. The account SID and the process SessionId are different values and serve different purposes. The identity owner is confined to the Windows assembly.",
+      "rules": [
+        3,
+        10,
+        13,
+        14
+      ],
+      "paths": [
+        "start",
+        "stop",
+        "configure"
+      ],
+      "sources": [
+        "https://learn.microsoft.com/en-us/dotnet/api/system.security.principal.windowsidentity.getcurrent?view=net-10.0"
+      ],
+      "layer": 6,
+      "status": "Proposed C# · unapproved"
+    }
+  ],
+  "edges": [
+    [
+      "client",
+      "runtime"
+    ],
+    [
+      "client",
+      "autostart-service"
+    ],
+    [
+      "daemon-command",
+      "host"
+    ],
+    [
+      "runtime",
+      "service-implementation"
+    ],
+    [
+      "autostart-service",
+      "setup-implementation"
+    ],
+    [
+      "service-implementation",
+      "platform"
+    ],
+    [
+      "setup-implementation",
+      "platform"
+    ],
+    [
+      "host",
+      "platform"
+    ],
+    [
+      "platform",
+      "lock"
+    ],
+    [
+      "platform",
+      "process"
+    ],
+    [
+      "platform",
+      "entry"
+    ],
+    [
+      "setup-implementation",
+      "templates"
+    ],
+    [
+      "lock",
+      "private-directory"
+    ],
+    [
+      "lock",
+      "macos"
+    ],
+    [
+      "lock",
+      "linux"
+    ],
+    [
+      "lock",
+      "windows"
+    ],
+    [
+      "process",
+      "macos"
+    ],
+    [
+      "process",
+      "linux"
+    ],
+    [
+      "process",
+      "windows"
+    ],
+    [
+      "entry",
+      "macos"
+    ],
+    [
+      "entry",
+      "linux"
+    ],
+    [
+      "entry",
+      "windows"
+    ],
+    [
+      "macos",
+      "native-process"
+    ],
+    [
+      "linux",
+      "native-process"
+    ],
+    [
+      "macos",
+      "native-file"
+    ],
+    [
+      "linux",
+      "native-file"
+    ],
+    [
+      "windows",
+      "native-mutex"
+    ],
+    [
+      "windows",
+      "native-tasks"
+    ],
+    [
+      "windows",
+      "native-process"
+    ],
+    [
+      "windows",
+      "native-identity"
+    ],
+    [
+      "templates",
+      "native-resources"
+    ],
+    [
+      "native-process",
+      "native-readers"
+    ],
+    [
+      "native-resources",
+      "native-readers"
+    ]
+  ],
+  "ruleExamples": [
+    {
+      "label": "Own Process launch once",
+      "bad": "new ProcessStartInfo(...) // inside DaemonService",
+      "good": "// One Process adapter in CrossPlatform;\n// macOS and Linux invoke it through an owned interface.",
+      "review": "Windows COM reduces the Windows need for the shared command runner. Its owner still serves macOS and Linux."
+    },
+    {
+      "label": "Own POSIX file locking",
+      "bad": "new FileStream(path, ...) // outside the lock owner",
+      "good": "platform.Daemon.Lock.TryAcquire(services);",
+      "review": "Lease disposal must release the file handle; do not expose the raw FileStream."
+    },
+    {
+      "label": "Own Windows mutex access",
+      "bad": "new Mutex(false, name) // inside Engine",
+      "good": "platform.Daemon.Lock.TryAcquire(services);",
+      "review": "The mutex owner and lease shape remain to be approved."
+    },
+    {
+      "label": "No caller-supplied command or lock path",
+      "bad": "StartAsync(string executable, string arguments)",
+      "good": "StartAsync(ISystemServices services, CancellationToken ct)",
+      "review": "Definition DTOs need inspection too; placing arbitrary commands inside a DTO would evade a parameter-only rule."
+    },
+    {
+      "label": "Pin each operation to its caller",
+      "bad": "// Any unrelated Engine class calls the raw start port.",
+      "good": "// DaemonService owns start/stop; setup owns writes.",
+      "review": "The recorded text gives Detect to the setup condition, but the selected design also calls Detect from DaemonGate. Resolve that caller-table contradiction and add stop/configuration callers."
+    },
+    {
+      "label": "Confine service-manager tool names",
+      "bad": "// Another Engine type embeds \"systemctl\".",
+      "good": "// The per-OS adapter owns the fixed tool invocation.",
+      "review": "Entry writing also needs service-manager operations. The recorded start-owner-only allowance must account for that owner and the Windows COM proposal."
+    },
+    {
+      "label": "Confine runtime-directory discovery",
+      "bad": "// A second component computes XDG_RUNTIME_DIR/appd.lock.",
+      "good": "// Both probe and acquire use the lock owner's path.",
+      "review": "Review each banned variable against existing legitimate consumers. A global HOME ban can exceed the lock-path concern."
+    },
+    {
+      "label": "Constrain the macOS temp exemption",
+      "bad": "[assembly: SuppressMessage(..., \"AGS5443\")]",
+      "good": "// Suppression only on the approved macOS lock-path member.",
+      "review": "The full approved exemption must enter the contract. Attribute scanning alone does not cover every suppression mechanism."
+    },
+    {
+      "label": "No broad exception catch",
+      "bad": "catch (Exception) { return false; }",
+      "good": "// Catch a specific expected lock-contention exception.\n// Preserve other errors for diagnosis.",
+      "review": "This is a scoped proposal, not a general ban on every exception boundary."
+    },
+    {
+      "label": "No mutable state in adapters",
+      "bad": "private bool isRunning; // cached OS state",
+      "good": "private readonly IProcessLauncher launcher;",
+      "review": "A lifetime lease legitimately owns a handle. Distinguish the lease from stateless adapters; do not ban the state the mechanism needs."
+    },
+    {
+      "label": "Cover every interface owner",
+      "bad": "// A production service interface is unreachable and unregistered.",
+      "good": "// Container-reachable interface or explicitly governed native owner.",
+      "review": "The shared launcher and resource/COM wrappers require coverage. Internal interfaces outside Contracts must not fall through this rule."
+    },
+    {
+      "label": "Use the injected clock for waits",
+      "bad": "process.WaitForExit(30000);",
+      "good": "await process.WaitForExitAsync(clockBoundCancellation);",
+      "review": "Example is schematic. Verify the actual timeout source and cancellation; async alone does not prove clock ownership."
+    },
+    {
+      "label": "No idle polling loop",
+      "bad": "while (true) { await Delay(...); ProbeLock(); }",
+      "good": "await shutdown.WaitAsync(ct); // one lifetime await",
+      "review": "The new stop operation needs shutdown signalling. This example illustrates the rule and does not select a shutdown interface."
+    },
+    {
+      "label": "Pin templates to their identifiers",
+      "bad": "// Template and C# disagree about the task name or launcher.",
+      "good": "Assert.Equal(expectedLauncher, writtenDefinition.Command);",
+      "review": "Use the approved Windows appd-<user SID> name, not the old constant task name in the recorded rule. Pin rendered definitions, including escaping."
+    },
+    {
+      "label": "Require real per-OS adapter coverage",
+      "bad": "// Windows task adapter has only fake-based unit tests.",
+      "good": "// NativeSpec exercises the real adapter on its OS.",
+      "review": "Marker discovery must cover interfaces declared in Contracts. Include multi-session start/stop and disabled-autostart behavior."
+    },
+    {
+      "label": "Pin presence-gated commands",
+      "bad": "// daemon prompts for presence on every login.",
+      "good": "// daemon stays ungated; existing install/init/remove stay gated.",
+      "review": "The new stop and autostart configuration operations need an explicit presence policy before this fixed verb-set rule can be approved."
+    }
+  ],
+  "policies": [
+    {
+      "id": "demand",
+      "label": "Recover on the next client request",
+      "recommendation": "Recommended for the first common policy",
+      "reason": "Same recovery semantics on all three OSes, with no background restart loop to fight stop or disabled autostart.",
+      "decision": "A crash leaves appd stopped until the next command needing it starts it through the OS service manager. Login startup remains enabled by default. This trades immediate unattended recovery for consistent behavior.",
+      "rows": [
+        [
+          "Login enabled",
+          "RunAtLoad=true; no KeepAlive",
+          "Enable the user unit's login target link",
+          "Enabled LogonTrigger for the user's SID"
+        ],
+        [
+          "Login disabled",
+          "RunAtLoad=false; no KeepAlive; retain the definition",
+          "Disable the login target link; do not mask",
+          "Disable LogonTrigger; leave the task enabled"
+        ],
+        [
+          "Crash",
+          "No automatic respawn",
+          "Restart=no",
+          "Omit RestartOnFailure"
+        ],
+        [
+          "Explicit start",
+          "Bootstrap if unloaded, then kickstart",
+          "systemctl --user start",
+          "RunEx with caller's session ID (proposal)"
+        ],
+        [
+          "Explicit stop",
+          "bootout the loaded job; retain plist",
+          "systemctl --user stop",
+          "Stop the matching task instance (selection unresolved)"
+        ],
+        [
+          "After explicit stop",
+          "A later client request or next enabled login may start appd",
+          "Same",
+          "Same"
+        ],
+        [
+          "Re-enable login",
+          "Write RunAtLoad=true for the next load/login",
+          "Restore the user-unit install link",
+          "Re-enable the SID LogonTrigger"
+        ],
+        [
+          "Change while running",
+          "Login-setting change does not stop appd; no forced reload",
+          "enable/disable does not stop the active service",
+          "Change the trigger; do not stop the running instance"
+        ],
+        [
+          "Battery / idle / network",
+          "No extra conditions proposed",
+          "No extra conditions proposed",
+          "DisallowStartIfOnBatteries=false; StopIfGoingOnBatteries=false; no idle/network conditions"
+        ],
+        [
+          "Runtime limit",
+          "No forced lifetime limit",
+          "No RuntimeMaxSec limit",
+          "ExecutionTimeLimit=PT0S"
+        ],
+        [
+          "Log out",
+          "LaunchAgent follows the user GUI domain",
+          "User-manager lifetime depends on lingering and session configuration; policy unresolved",
+          "InteractiveToken requires an interactive login; logoff/disconnect behavior requires a multi-session test"
+        ],
+        [
+          "Readiness",
+          "Start succeeds after observing the appd lock, not merely launchctl exit",
+          "Same distinction for systemctl",
+          "Same distinction for RunEx"
+        ]
+      ]
+    },
+    {
+      "id": "native",
+      "label": "Let each OS retry after a crash",
+      "recommendation": "Alternative; behavior differs by OS",
+      "reason": "Restores an unused daemon without waiting for a client, but the managers do not offer the same retry controls.",
+      "decision": "Proposed comparison values: 60 seconds, with three retries where meaningful. These settings are not an approved common contract.",
+      "rows": [
+        [
+          "Restart setting",
+          "KeepAlive.SuccessfulExit=false",
+          "Restart=on-failure; RestartSec=60s",
+          "RestartOnFailure: Interval=PT1M; Count=3"
+        ],
+        [
+          "Retry limit",
+          "No documented count cap",
+          "StartLimitBurst counts starts in a time window, not consecutive retries",
+          "Finite restart count"
+        ],
+        [
+          "Timing",
+          "ThrottleInterval=60 limits launch frequency",
+          "Wait 60 seconds after failure",
+          "Restart interval of one minute"
+        ],
+        [
+          "Disable login only",
+          "Unresolved with KeepAlive: it implies RunAtLoad",
+          "Disable target link; recovery policy can remain",
+          "Disable LogonTrigger; recovery policy can remain"
+        ],
+        [
+          "Explicit stop",
+          "Unload the job to stop KeepAlive respawning it",
+          "OS stop suppresses automatic restart",
+          "Stop a specific running instance; retry behavior needs a Windows test"
+        ],
+        [
+          "Uniformity cost",
+          "Different cap and login-toggle semantics",
+          "Rate window differs from a retry counter",
+          "Finite count and per-session behavior need proof"
+        ]
+      ]
+    }
+  ],
+  "logging": {
+    "proposal": "appd writes its own bounded log on every OS",
+    "reason": "Task Scheduler cannot redirect stdout/stderr in its executable action, so service-manager redirection cannot provide the same log on all three.",
+    "draft": "Proposed location: ~/.agentguard/logs/appd-<scope>.jsonl\nProposed fields: time, level, event, message\nProposed limit: 5 MiB per file, one previous file per scope\nWindows scope includes session ID; POSIX uses account scope.\nNo secrets, environment dumps or user-request payloads.\nLocation, schema, limit and reading command all await approval.\nNo total retention bound across expired Windows sessions is selected.",
+    "question": "Keep this common file log, or use each OS's native logging system and accept different viewing tools? No logger has been selected or built. Session-log cleanup and startup failures before the logger opens also need a mechanism."
+  },
+  "blockers": [
+    "Windows session-targeted start and stop are proposals, not approved replacements for schtasks.",
+    "Linux must connect appd's UI to the requesting client's desktop; startup timing alone does not settle that.",
+    "systemd documents support for only one graphical session per user. Reaching multiple simultaneous Linux desktops needs an additional UI connection/lifecycle design; the user unit alone does not provide it.",
+    "Autostart settings, retry policy and logging contents need approval before templates can be finalized.",
+    "Stop/configuration expand the recorded design; the original sixteen rules do not yet cover all of that work.",
+    "Current setup Detect/Repair methods are synchronous. The draft asynchronous entry interface needs an explicit integration decision.",
+    "The Windows mutex must be released on its acquiring thread; the current async lifetime sketch does not choose how to preserve that ownership."
+  ],
+  "references": [
+    {
+      "title": "Apple launchd configuration",
+      "url": "https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html"
+    },
+    {
+      "title": "Apple launchd.plist manual source",
+      "url": "https://github.com/apple-oss-distributions/launchd/blob/main/man/launchd.plist.5"
+    },
+    {
+      "title": "systemd service semantics",
+      "url": "https://github.com/systemd/systemd/blob/main/man/systemd.service.xml"
+    },
+    {
+      "title": "systemd enable, disable and environment",
+      "url": "https://github.com/systemd/systemd/blob/main/man/systemctl.xml"
+    },
+    {
+      "title": "Windows task schema",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/taskschd/task-scheduler-schema"
+    },
+    {
+      "title": "Windows session-targeted start",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-runex"
+    },
+    {
+      "title": "Windows stop one instance",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-irunningtask-stop"
+    },
+    {
+      "title": "Windows restart limits",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-restarttype-complextype"
+    },
+    {
+      "title": "Windows executable action fields",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-exectype-complextype"
+    },
+    {
+      "title": "Linux desktop integration",
+      "url": "https://systemd.io/DESKTOP_ENVIRONMENTS/"
+    },
+    {
+      "title": "Windows task battery and runtime settings",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-settingstype-complextype"
+    },
+    {
+      "title": "Windows concurrent task instances",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/taskschd/taskschedulerschema-multipleinstancespolicy-settingstype-element"
+    },
+    {
+      "title": "Process + start options — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.process?view=net-10.0"
+    },
+    {
+      "title": "Process + start options — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processstartinfo?view=net-10.0"
+    },
+    {
+      "title": "FileStream lifetime — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.io.filestream.-ctor?view=net-10.0"
+    },
+    {
+      "title": "Mutex lifetime — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.threading.mutex?view=net-10.0"
+    },
+    {
+      "title": "Mutex lifetime — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/standard/threading/mutexes"
+    },
+    {
+      "title": "Task Scheduler objects — API reference",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskservice-connect"
+    },
+    {
+      "title": "Task Scheduler objects — API reference",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-itaskfolder-registertask"
+    },
+    {
+      "title": "Task Scheduler objects — API reference",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-iregisteredtask-getinstances"
+    },
+    {
+      "title": "Task Scheduler objects — API reference",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/taskschd/nf-taskschd-irunningtask-get_enginepid"
+    },
+    {
+      "title": "Assembly resource streams — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.reflection.assembly.getmanifestresourcestream?view=net-10.0"
+    },
+    {
+      "title": "Text readers + stream bridge — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.io.textreader?view=net-10.0"
+    },
+    {
+      "title": "Text readers + stream bridge — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.io.streamreader.-ctor?view=net-10.0"
+    },
+    {
+      "title": "Windows account identity — API reference",
+      "url": "https://learn.microsoft.com/en-us/dotnet/api/system.security.principal.windowsidentity.getcurrent?view=net-10.0"
+    }
+  ]
+}

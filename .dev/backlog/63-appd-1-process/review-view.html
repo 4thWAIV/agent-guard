@@ -1,0 +1,231 @@
+<div id="appd-review">
+  <style>
+    #appd-review { color:var(--foreground); }
+    #appd-review .review-heading { display:flex; justify-content:space-between; gap:16px; align-items:baseline; flex-wrap:wrap; }
+    #appd-review .review-heading h2 { margin:0; }
+    #appd-review .review-meta { margin:8px 0 16px; overflow-wrap:anywhere; }
+    #appd-review .review-section { margin:20px 0; }
+    #appd-review .review-graph { position:relative; margin:18px 0; }
+    #appd-review .review-edges { position:absolute; inset:0; pointer-events:none; width:100%; height:100%; overflow:visible; }
+    #appd-review .review-layers { position:relative; display:grid; gap:26px; }
+    #appd-review .review-layer { display:grid; grid-template-columns:110px minmax(0,1fr); gap:14px; align-items:start; }
+    #appd-review .review-layer-name { padding-top:8px; }
+    #appd-review .review-nodes { display:flex; gap:12px; flex-wrap:wrap; align-items:start; }
+    #appd-review .review-node { flex:1 1 160px; min-width:0; max-width:100%; background:var(--background); }
+    #appd-review [data-node-position="setup-implementation"] { flex-basis:210px; }
+    #appd-review .review-node-status { display:block; margin-top:4px; }
+    #appd-review .review-detail { border-top:1px solid var(--border); padding-top:18px; margin-top:22px; }
+    #appd-review .review-label { margin:14px 0 5px; font-weight:500; }
+    #appd-review pre { white-space:pre-wrap; overflow-wrap:anywhere; word-break:normal; max-width:100%; margin:8px 0 16px; }
+    #appd-review .review-sources { overflow-wrap:anywhere; }
+    #appd-review .review-rule-select { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:16px 0; }
+    #appd-review .review-rule-item { min-width:0; }
+    #appd-review .review-options { display:grid; gap:16px; }
+    #appd-review .review-policy-row { display:grid; grid-template-columns:120px repeat(3,minmax(0,1fr)); gap:14px; padding:12px 0; border-bottom:1px solid var(--border); overflow-wrap:anywhere; }
+    #appd-review .review-platform-label { display:none; }
+    #appd-review .review-problem { margin:10px 0; }
+    #appd-review .review-feedback { display:grid; gap:10px; margin-top:20px; }
+    #appd-review .review-code-pair { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+    #appd-review [hidden] { display:none !important; }
+    @media(max-width:540px) {
+      #appd-review .review-layer { grid-template-columns:1fr; gap:6px; }
+      #appd-review .review-layer-name { padding:0; }
+      #appd-review .review-nodes { gap:8px; }
+      #appd-review .review-node { flex-basis:100%; }
+      #appd-review .review-edges { display:none; }
+      #appd-review .review-rule-select, #appd-review .review-code-pair { grid-template-columns:1fr; }
+      #appd-review .review-policy-row { grid-template-columns:1fr; gap:8px; }
+      #appd-review .review-policy-head { display:none; }
+      #appd-review .review-platform-label { display:inline; font-weight:500; }
+    }
+  </style>
+  <div class="review-heading"><h2>appd design review</h2><span class="viz-badge">Draft · no approvals implied</span></div>
+  <div class="review-meta text-small" data-meta></div>
+  <div class="viz-controls" aria-label="Review area">
+    <button type="button" class="btn" data-tab="interfaces" aria-pressed="true">Interfaces &amp; calls</button>
+    <button type="button" class="btn" data-tab="autostart" aria-pressed="false">Autostart behavior</button>
+    <button type="button" class="btn" data-tab="rules" aria-pressed="false">16 proposed rules</button>
+  </div>
+
+  <section data-panel="interfaces" aria-label="Interface layers">
+    <div class="viz-controls review-section">
+      <label class="form-label">Top service shape
+        <select class="form-select" data-top-shape>
+          <option value="separate">Runtime + autostart interfaces</option>
+          <option value="combined">One interface for both</option>
+          <option value="setup">Runtime interface; configuration through setup</option>
+        </select>
+      </label>
+      <label class="form-label">Platform grouping
+        <select class="form-select" data-grouping>
+          <option value="grouped">Daemon property with three capabilities</option>
+          <option value="flat">Three direct platform properties</option>
+        </select>
+      </label>
+    </div>
+    <div class="viz-controls" aria-label="Highlight a call path">
+      <button type="button" class="btn" data-path="start" aria-pressed="true">Start</button>
+      <button type="button" class="btn" data-path="stop" aria-pressed="false">Stop</button>
+      <button type="button" class="btn" data-path="configure" aria-pressed="false">Configure</button>
+      <button type="button" class="btn" data-path="host" aria-pressed="false">Daemon lifetime</button>
+    </div>
+    <div class="review-graph" aria-label="Selectable interface dependency diagram">
+      <svg class="review-edges" aria-hidden="true"></svg>
+      <div class="review-layers" data-layers></div>
+    </div>
+    <div class="review-detail" data-interface-detail aria-live="polite"></div>
+  </section>
+
+  <section data-panel="autostart" aria-label="Autostart comparison" hidden>
+    <div class="review-section">
+      <label class="form-label">Recovery behavior
+        <select class="form-select" data-policy>
+          <option value="demand">Recover on the next client request</option>
+          <option value="native">OS retries after a crash</option>
+        </select>
+      </label>
+    </div>
+    <div data-policy-detail aria-live="polite"></div>
+    <div class="review-section">
+      <h3>Common logging proposal</h3>
+      <div data-logging></div>
+    </div>
+    <div class="review-section">
+      <h3>Not settled by a template</h3>
+      <div data-blockers></div>
+    </div>
+    <details class="review-section"><summary>Documentation sources</summary><div class="review-sources" data-references></div></details>
+  </section>
+
+  <section data-panel="rules" aria-label="Proposed guardrail review" hidden>
+    <div class="review-section">Recorded DESIGN proposals · unapproved · examples have not been compiled</div>
+    <div class="review-rule-select" data-rule-list></div>
+    <div class="review-detail" data-rule-detail aria-live="polite"></div>
+  </section>
+
+  <div class="review-feedback">
+    <label class="form-label">Discuss the selected interface, behavior or rule
+      <textarea class="form-control" data-feedback rows="2" placeholder="What would you change or like explained?"></textarea>
+    </label>
+    <div class="viz-row"><button type="button" class="btn btn-primary" data-discuss>Discuss this selection</button><span class="text-small">Selection is not approval.</span></div>
+    <div data-feedback-status role="status" aria-live="polite"></div>
+    <textarea class="form-control" data-fallback rows="5" aria-label="Discussion text to copy" readonly hidden></textarea>
+  </div>
+  <details class="review-section"><summary>Source revision &amp; current declarations</summary><div data-provenance class="review-sources text-small"></div></details>
+
+  <script type="application/json" data-review-model>__APPD_REVIEW_MODEL__</script>
+  <script>
+  (() => {
+    const root = document.getElementById('appd-review');
+    const model = JSON.parse(root.querySelector('[data-review-model]').textContent);
+    const state = { tab:'interfaces', node:'runtime', path:'start', shape:'separate', grouping:'grouped', policy:'demand', rule:0 };
+    const $ = selector => root.querySelector(selector);
+    const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const pre = value => '<pre><code>' + esc(value) + '</code></pre>';
+    const label = (name, value) => '<div class="review-label">' + esc(name) + '</div><div>' + esc(value) + '</div>';
+    const names = ['Consumers','Top service interfaces','Middle-layer implementations','Platform container','OS abstraction & supporting interfaces','Per-OS implementations','OS / BCL owners'];
+    const runtimeCode = () => {
+      const node = model.nodes.find(n => n.id === 'runtime');
+      if (state.shape !== 'combined') return node.code;
+      return 'public interface IDaemonService\n{\n    bool IsRunning();\n    Task StartAsync(CancellationToken ct);\n    Task StopAsync(CancellationToken ct);\n    Task<AutostartEntryState> InspectAutostartAsync(CancellationToken ct);\n    Task SetAutostartEnabledAsync(bool enabled, CancellationToken ct);\n}\n\n// AutostartEntryState and further settings remain unwritten.';
+    };
+    const platformCode = () => state.grouping === 'grouped'
+      ? model.nodes.find(n => n.id === 'platform').code
+      : 'public interface IPlatformServices\n{\n    IPlatformFileSystem FileSystem { get; }\n    IPresenceCheck Presence { get; }\n    ISingleInstanceLock DaemonLock { get; }\n    IDaemonProcessControl DaemonProcess { get; }\n    IAutostartEntry AutostartEntry { get; }\n}\n\n// The same three leaf interfaces; no IPlatformDaemon container.';
+    const nodeLabel = node => node.id === 'setup-implementation' && state.shape === 'setup' ? 'AutostartEntryCondition + setup' : node.label;
+    const selectedCode = node => node.id === 'runtime' ? runtimeCode() : node.id === 'platform' ? platformCode() : node.id === 'setup-implementation' && state.shape === 'setup' ? '// Reuse ISetupCondition for install and doctor.\n// AutostartEntryCondition owns checking/repairing setup.\n// Configuration reaches the setup path, with no separate\n// IAutostartEntryService. Its user-facing entry is unwritten.\n// Existing Detect/Repair are synchronous; integration with\n// the draft async platform entry remains unresolved.' : node.code;
+    const visibleNodes = () => model.nodes.filter(n => state.shape === 'separate' || n.id !== 'autostart-service');
+    const active = node => node.paths.includes(state.path) || (state.shape === 'combined' && node.id === 'runtime' && state.path === 'configure');
+    function updateMeta() {
+      const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(model.generatedAt)) / 60000));
+      $('[data-meta]').textContent = model.stage + ' · source ' + model.revision.slice(0,8) + ' · generated ' + elapsed + ' min ago · snapshot; not live';
+    }
+    function renderGraph() {
+      const nodes = visibleNodes();
+      if (!nodes.some(n => n.id === state.node)) state.node = 'runtime';
+      $('[data-layers]').innerHTML = names.map((name, layer) => '<div class="review-layer"><div class="review-layer-name text-small">'+esc(name)+'</div><div class="review-nodes">'+nodes.filter(n => n.layer === layer).map(n => '<div class="review-node" data-node-position="'+n.id+'"><button type="button" class="btn btn-block" data-node="'+n.id+'" aria-pressed="'+(state.node === n.id)+'">'+esc(nodeLabel(n))+'</button><span class="review-node-status text-small">'+esc(n.status)+(active(n) ? ' · '+esc(state.path)+' path' : '')+'</span></div>').join('')+'</div></div>').join('');
+      root.querySelectorAll('[data-node]').forEach(button => button.addEventListener('click', () => { state.node=button.dataset.node; renderGraph(); renderInterface(); }));
+      requestAnimationFrame(drawEdges);
+    }
+    function drawEdges() {
+      if (state.tab !== 'interfaces') return;
+      const graph = $('.review-graph'), svg = $('.review-edges'), rect=graph.getBoundingClientRect();
+      svg.setAttribute('viewBox', '0 0 '+rect.width+' '+rect.height);
+      let edges = model.edges.filter(([a,b]) => visibleNodes().some(n=>n.id===a) && visibleNodes().some(n=>n.id===b));
+      if (state.shape === 'combined') edges.push(['runtime','setup-implementation']);
+      if (state.shape === 'setup') edges.push(['client','setup-implementation']);
+      svg.innerHTML=edges.map(([a,b]) => {
+        const from=$('[data-node-position="'+a+'"]'), to=$('[data-node-position="'+b+'"]');
+        if (!from || !to) return '';
+        const ar=from.getBoundingClientRect(), br=to.getBoundingClientRect();
+        const x1=ar.left+ar.width/2-rect.left, y1=ar.bottom-rect.top, x2=br.left+br.width/2-rect.left, y2=br.top-rect.top;
+        const selected=active(model.nodes.find(n=>n.id===a))&&active(model.nodes.find(n=>n.id===b));
+        const bend=Math.max(10,Math.abs(y2-y1)/2);
+        return '<path d="M '+x1+' '+y1+' C '+x1+' '+(y1+bend)+', '+x2+' '+(y2-bend)+', '+x2+' '+y2+'" fill="none" stroke="'+(selected?'var(--viz-series-1)':'var(--border)')+'" stroke-width="'+(selected?'2':'1')+'" opacity="'+(selected?'0.85':'0.55')+'"/>';
+      }).join('');
+    }
+    function renderInterface() {
+      const n=model.nodes.find(n=>n.id===state.node);
+      const existing=n.currentPath ? model.currentSources[n.currentPath] : null;
+      const links=n.rules.map(index=>'<button type="button" class="btn btn-ghost" data-open-rule="'+index+'">'+esc(model.ruleExamples[index].label)+'</button>').join('');
+      const shapeNote=state.node==='runtime' ? (state.shape==='separate' ? 'Runtime operations in one interface; persistent autostart settings in another.' : state.shape==='combined' ? 'One interface exposes runtime operations and persistent autostart settings.' : 'Only runtime operations have a top service interface. The dashboard must reach setup for configuration.') : '';
+      const visible = visibleNodes();
+      const relations = model.edges.filter(([a,b]) => visible.some(item=>item.id===a) && visible.some(item=>item.id===b));
+      if(state.shape==='combined') relations.push(['runtime','setup-implementation']);
+      if(state.shape==='setup') relations.push(['client','setup-implementation']);
+      const relationNames = ids => [...new Set(ids)].map(id=>nodeLabel(model.nodes.find(item=>item.id===id))).join(', ') || 'None shown';
+      $('[data-interface-detail]').innerHTML='<h3>'+esc(nodeLabel(n))+'</h3>'+label('Review question',n.question)+(shapeNote?label('Selected grouping',shapeNote):'')+label('Status',n.status)+pre(selectedCode(n))+(existing?'<details><summary>Current declaration · '+esc(n.currentPath)+'</summary>'+pre(existing)+'</details>':label('Current declaration','Not present in the inspected source; shown above as a draft or mechanism outline.'))+'<div class="review-label">Related guardrails</div><div class="viz-row">'+links+'</div>';
+      $('[data-interface-detail]').insertAdjacentHTML('beforeend',label('Called by / reached through',relationNames(relations.filter(([,b])=>b===n.id).map(([a])=>a)))+label('Calls / depends on',relationNames(relations.filter(([a])=>a===n.id).map(([,b])=>b))));
+      if(n.sources) $('[data-interface-detail]').insertAdjacentHTML('beforeend','<div class="review-label">Native API references</div>'+n.sources.map((url,i)=>'<div><a href="'+esc(url)+'" target="_blank" rel="noreferrer">'+esc(n.label)+' · API '+(i+1)+'</a></div>').join(''));
+      root.querySelectorAll('[data-open-rule]').forEach(b=>b.addEventListener('click',()=>{state.rule=Number(b.dataset.openRule);setTab('rules');}));
+    }
+    function renderPolicy() {
+      const policy=model.policies.find(p=>p.id===state.policy);
+      const headings=['Behavior','macOS','Linux','Windows'];
+      $('[data-policy-detail]').innerHTML='<h3>'+esc(policy.label)+'</h3>'+label(policy.recommendation,policy.reason)+label('Tradeoff',policy.decision)+'<div class="review-policy-row review-policy-head">'+headings.map(h=>'<div>'+esc(h)+'</div>').join('')+'</div>'+policy.rows.map(row=>'<div class="review-policy-row">'+row.map((value,i)=>'<div>'+(i?'<span class="review-platform-label">'+headings[i]+': </span>':'')+esc(value)+'</div>').join('')+'</div>').join('');
+      $('[data-logging]').innerHTML=label('Proposal',model.logging.proposal)+label('Reason',model.logging.reason)+pre(model.logging.draft)+label('Decision',model.logging.question);
+      $('[data-blockers]').innerHTML=model.blockers.map(b=>'<div class="review-problem">'+esc(b)+'</div>').join('');
+      $('[data-references]').innerHTML=model.references.map(r=>'<div><a href="'+esc(r.url)+'" target="_blank" rel="noreferrer">'+esc(r.title)+'</a></div>').join('');
+    }
+    function renderRules() {
+      $('[data-rule-list]').innerHTML=model.rules.map((rule,i)=>'<div class="review-rule-item"><button type="button" class="btn btn-block" data-rule="'+i+'" aria-pressed="'+(i===state.rule)+'">'+(i+1)+'. '+esc(model.ruleExamples[i].label)+'</button></div>').join('');
+      root.querySelectorAll('[data-rule]').forEach(b=>b.addEventListener('click',()=>{state.rule=Number(b.dataset.rule);renderRules();}));
+      const rule=model.rules[state.rule], example=model.ruleExamples[state.rule];
+      $('[data-rule-detail]').innerHTML='<h3>'+esc(example.label)+'</h3>'+label('Before approval',example.review)+label('Recorded wording — verbatim',rule.rule)+label('Enforcement — verbatim',rule.analyzer)+'<div class="review-code-pair"><div><div class="review-label">Violating example · illustrative</div>'+pre(example.bad)+'</div><div><div class="review-label">Compliant direction · illustrative</div>'+pre(example.good)+'</div></div><details><summary>Failure this rule was proposed to stop — verbatim</summary><div>'+esc(rule.failureModeStopped)+'</div></details>';
+    }
+    function setTab(tab) {
+      state.tab=tab;
+      root.querySelectorAll('[data-panel]').forEach(p=>{p.hidden=p.dataset.panel!==tab;});
+      root.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tab===tab)));
+      if(tab==='interfaces'){renderGraph();renderInterface();}
+      if(tab==='autostart')renderPolicy();
+      if(tab==='rules')renderRules();
+    }
+    root.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+    root.querySelectorAll('[data-path]').forEach(b=>b.addEventListener('click',()=>{state.path=b.dataset.path;root.querySelectorAll('[data-path]').forEach(other=>other.setAttribute('aria-pressed',String(other===b)));renderGraph();}));
+    $('[data-top-shape]').addEventListener('change',event=>{state.shape=event.target.value;state.node='runtime';renderGraph();renderInterface();});
+    $('[data-grouping]').addEventListener('change',event=>{state.grouping=event.target.value;state.node='platform';renderGraph();renderInterface();});
+    $('[data-policy]').addEventListener('change',event=>{state.policy=event.target.value;renderPolicy();});
+    $('[data-discuss]').addEventListener('click',async()=>{
+      const note=$('[data-feedback]').value.trim();
+      let selected;
+      if(state.tab==='interfaces'){const n=model.nodes.find(n=>n.id===state.node);selected=nodeLabel(n)+'\n'+selectedCode(n)+'\nReview question: '+n.question+'\nTop grouping: '+state.shape+'; platform grouping: '+state.grouping;}
+      else if(state.tab==='rules'){const r=model.rules[state.rule];selected='Rule: '+model.ruleExamples[state.rule].label+'\n'+r.rule+'\nEnforcement: '+r.analyzer+'\nReview issue: '+model.ruleExamples[state.rule].review;}
+      else{const p=model.policies.find(p=>p.id===state.policy);selected=p.label+'\n'+p.decision+'\n'+JSON.stringify(p.rows)+'\nLogging proposal: '+model.logging.draft;}
+      const prompt='Discuss this appd design-review selection. This is not approval.\nSnapshot: '+model.generatedAt+'; source revision '+model.revision+'\n'+selected+'\nMy question/change: '+(note||'Explain the mechanism and the tradeoff so we can decide it.');
+      const status=$('[data-feedback-status]');
+      try {
+        if(window.openai && typeof window.openai.sendFollowUpMessage==='function'){
+          await window.openai.sendFollowUpMessage({prompt,title:'Discuss appd design selection'});
+          status.textContent='Discussion requested. No approval recorded.';
+        } else {
+          $('[data-fallback]').hidden=false;$('[data-fallback]').value=prompt;status.textContent='Copy the selected discussion text into the conversation.';
+        }
+      } catch(error){$('[data-fallback]').hidden=false;$('[data-fallback]').value=prompt;status.textContent='Could not open the discussion. Copy the text below.';}
+    });
+    $('[data-provenance]').innerHTML=label('Generated at',model.generatedAt)+label('Revision',model.revision)+label('Working tree at generation',model.workingTree)+model.sourceHashes.map(s=>'<div>'+esc(s.path)+'<br>'+esc(s.sha256)+'</div>').join('');
+    new ResizeObserver(()=>requestAnimationFrame(drawEdges)).observe($('.review-graph'));
+    updateMeta();setInterval(updateMeta,60000);renderGraph();renderInterface();renderPolicy();renderRules();
+  })();
+  </script>
+</div>

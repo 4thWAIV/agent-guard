@@ -744,12 +744,11 @@ async function __stageResultContracts(args) {
     type: 'object',
     additionalProperties: false,
     properties: {
-      goal: STRING,
       proposals: { type: 'array', minItems: 1, items: COMPLETE_DESIGN_APPROACH_SCHEMA },
       verdict: COMPLETE_DESIGN_VERDICT_SCHEMA,
       ...EMPTY_SUCCESS_METADATA,
     },
-    required: ['goal', 'proposals', 'verdict', 'panelComplete', 'failedRoles'],
+    required: ['proposals', 'verdict', 'panelComplete', 'failedRoles'],
   }
 
   const HIDDEN_CANDIDATE_SCHEMA = {
@@ -1129,7 +1128,6 @@ async function __stageResultContracts(args) {
             expectedFields: { panelComplete: true },
             emptyArrayFields: ['failedRoles'],
             nonEmptyArrayFields: ['proposals'],
-            nonEmptyStringFields: ['goal'],
           },
         }
       case 'hidden-decision-stage':
@@ -1248,6 +1246,18 @@ async function __stageResultContracts(args) {
 }
 // ##COPIED-MODULE-END## stage-result-contracts
 
+// ##COPIED-MODULE-BEGIN## scope-boundary
+// This block is shared code, pasted into every workflow script that needs it. The Workflow
+// runtime gives scripts no module import and allows only one level of workflow() nesting,
+// so there is no way to call shared code from another file. Do not edit this copy alone:
+// every copy of a block name must stay byte-identical, and eng/check-copied-modules.mjs
+// fails the moment two copies differ.
+//
+// The one owner of the scope-boundary sentence every fix-round agent is handed. Scope changes
+// only when the human edits the contract, so every stage states that boundary in the same words.
+const __SCOPE_BOUNDARY = 'A fix that changes the contract or an approved design is allowed only after the human edits the contract. There is no second path.'
+// ##COPIED-MODULE-END## scope-boundary
+
 
 // The worker's proof-carrying result.
 const RESULT_SCHEMA = {
@@ -1300,20 +1310,20 @@ if (!omittedStageAuthorizations || typeof omittedStageAuthorizations !== 'object
 const unknownOmissions = Object.keys(omittedStageAuthorizations).filter((stage) => stage !== 'rulePhase')
 if (unknownOmissions.length) throw new Error(`implement: unknown omitted-stage authorization ${unknownOmissions[0]}`)
 for (const [stage, authorization] of Object.entries(omittedStageAuthorizations)) {
-  if (typeof authorization !== 'string' || !authorization.trim()) throw new Error(`implement: omittedStageAuthorizations.${stage} must contain Tim's nonempty verbatim authorization`)
+  if (typeof authorization !== 'string' || !authorization.trim()) throw new Error(`implement: omittedStageAuthorizations.${stage} must contain Tim's nonempty recorded authorization`)
 }
 
 const hasRulePhaseResult = rulePhaseResultPath !== undefined
 const hasTddResult = tddResultPath !== undefined
 if (level === 'L2' && hasRulePhaseResult) throw new Error('implement: RULE-PHASE is not present at L2')
 if (level === 'L1' && !hasRulePhaseResult && (typeof omittedStageAuthorizations.rulePhase !== 'string' || !omittedStageAuthorizations.rulePhase.trim())) {
-  throw new Error('implement: L1 requires rulePhaseResultPath or Tim\'s verbatim RULE-PHASE omission authorization')
+  throw new Error('implement: L1 requires rulePhaseResultPath or Tim\'s recorded RULE-PHASE omission authorization')
 }
 if (level === 'L1' && !hasTddResult) {
   throw new Error('implement: L1 requires tddResultPath, including the approved no-test TDD result when the contract authorizes no test files')
 }
 
-const omittedStagePrompt = (stage, authorization) => `${stage} OMITTED UNDER TIM'S VERBATIM AUTHORIZATION: ${authorization}\nBefore proceeding, verify that this exact authorization appears verbatim in the contract. Do not invent a stage result or RED.`
+const omittedStagePrompt = (stage, authorization) => `${stage} OMITTED UNDER TIM'S RECORDED AUTHORIZATION: ${authorization}\nBefore proceeding, verify that this exact authorization appears word for word in the contract. Do not invent a stage result or RED.`
 const rulePhaseContext = hasRulePhaseResult
   ? `RULE-PHASE RESULT — a file path; open and read it yourself: ${rulePhaseResultPath}\nIt must prove every rule the contract approved, with no rule missing and none added, and its buildProof must be real. The exact no-rule marker is valid only on an empty result. STOP and escalate if it does not hold; do not start work on a prior stage's false result.`
   : level === 'L1'
@@ -1324,7 +1334,7 @@ const tddContext = hasTddResult
   : 'TDD: This L2 run did not need TDD. Do not invent a TDD result or test RED.'
 
 const instructionBlock = instruction
-  ? `ADDITIONAL DIRECTION FROM THE ORCHESTRATOR:\n${typeof instruction === 'string' ? instruction : JSON.stringify(instruction, null, 2)}\nThe direction may clarify work already inside the contract; it relaxes no rule or acceptance check. A scope extension is valid only after the human edits the contract, or when the human gave explicit prior authorization for exactly that extension and the authorization is included verbatim as ruling provenance. STOP if the direction expands scope without one of those two records.\n\n`
+  ? `ADDITIONAL DIRECTION FROM THE ORCHESTRATOR:\n${typeof instruction === 'string' ? instruction : JSON.stringify(instruction, null, 2)}\nThe direction may clarify work already inside the contract; it relaxes no rule or acceptance check. ${__SCOPE_BOUNDARY} STOP if the direction expands scope without that edit.\n\n`
   : ''
 
 const workerPrompt = `${instructionBlock}You are the IMPLEMENT worker. You are a FRESH agent, different from whoever wrote the rules, the skeleton (ARCHITECTURE), and the tests (TDD) — separation of powers. You implement the behavior, and only the behavior. Do NOT commit, do NOT push, do NOT migrate or prepare any target.

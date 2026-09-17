@@ -3,11 +3,14 @@
 namespace AgentGuard.Analyzers.Tests;
 
 /// <summary>
-/// C# source snippets shared verbatim by more than one analyzer test class, held in one place so a byte-identical
-/// fixture is not spelled twice. <see cref="LinkTargetSource"/> is read by both the AG0011 owner test (which proves
-/// the rule DOES claim the <c>*Info</c> member read now that the wrappers own <c>*Info</c> wholesale) and the AG0101
-/// OS-divergent test (which proves it does NOT — that member moved to AG0011) — the same source, exercised by the two
-/// rules on the two sides of the partition it moved across.
+/// C# source snippets held in one place so a byte-identical fixture is not spelled twice: most are shared verbatim by
+/// more than one analyzer test class, and the three container-implementer member blocks
+/// (<see cref="SystemServicesContainerMembers"/>, <see cref="FileSystemContainerMembers"/>,
+/// <see cref="PlatformServicesContainerMembers"/>) hold the accessors an AG0022 container implementer must supply,
+/// so each set is spelled once rather than once per implementer. <see cref="LinkTargetSource"/> is read by both the AG0011 owner
+/// test (which proves the rule DOES claim the <c>*Info</c> member read now that the wrappers own <c>*Info</c>
+/// wholesale) and the AG0101 OS-divergent test (which proves it does NOT — that member moved to AG0011) — the same
+/// source, exercised by the two rules on the two sides of the partition it moved across.
 /// </summary>
 internal static class SharedAnalyzerSources
 {
@@ -138,9 +141,10 @@ internal static class SharedAnalyzerSources
     /// test classes that each prepended their own hand-rolled copy (<c>NoTimeoutInPresenceImplAnalyzerTests</c> for
     /// AG0107, <c>PresenceCheckOnlyFromApprovalGateAnalyzerTests</c> for AG0108, and
     /// <c>NoInlinePromptLiteralAtPresenceCallAnalyzerTests</c> for AG0109), so this fixture is spelled exactly once
-    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> without supplying
-    /// <c>Check</c> (the analyzer runner returns only the analyzer's own diagnostics, so the incomplete-implementation
-    /// compile error is irrelevant), AG0108 invokes <c>Check</c>, and AG0109 constructs <c>PresenceRequest</c>.
+    /// (LESSON 1, DRY). It is the fullest shape: AG0107's fixtures implement <c>IPresenceCheck</c> and supply
+    /// <c>Check</c> (the analyzer runner requires each fixture to produce exactly the compiler errors its call site
+    /// declares, and these declare none, so an unimplemented member would fail the run), AG0108 invokes <c>Check</c>,
+    /// and AG0109 constructs <c>PresenceRequest</c>.
     /// </summary>
     internal const string PresenceContract = """
         namespace AgentGuard.Abstractions.Contracts
@@ -227,5 +231,38 @@ internal static class SharedAnalyzerSources
         {
             public interface IObjCRuntime { }
         }
+        """;
+
+    /// <summary>
+    /// The service accessors an <c>ISystemServices</c> implementer supplies for the AG0022 container tree declared by
+    /// <c>ContainerInterfaceSingleOwnerAnalyzerTests.ContainersSource</c>, whose root container exposes the
+    /// <c>IFileSystem</c> and <c>IPlatformServices</c> sub-containers. An AG0022 fixture that declares an
+    /// <c>ISystemServices</c> implementer interpolates this block into the class body, so the pair is spelled exactly
+    /// once instead of once per implementer (LESSON 1, DRY).
+    /// </summary>
+    internal const string SystemServicesContainerMembers = """
+                public AgentGuard.Abstractions.Contracts.IFileSystem FileSystem => throw new System.NotImplementedException();
+
+                public AgentGuard.Abstractions.Contracts.IPlatformServices Platform => throw new System.NotImplementedException();
+        """;
+
+    /// <summary>
+    /// The service accessor an <c>IFileSystem</c> implementer supplies for the same AG0022 container tree, whose
+    /// <c>IFileSystem</c> sub-container exposes the single <c>IFileReader</c> accessor. Interpolated into the class
+    /// body of an AG0022 fixture that declares an <c>IFileSystem</c> implementer, so the accessor is spelled exactly
+    /// once however many implementers a fixture declares (LESSON 1, DRY).
+    /// </summary>
+    internal const string FileSystemContainerMembers = """
+                public AgentGuard.Abstractions.Contracts.IFileReader GetFileReader() => throw new System.NotImplementedException();
+        """;
+
+    /// <summary>
+    /// The service accessor an <c>IPlatformServices</c> implementer supplies for the same AG0022 container tree, whose
+    /// <c>IPlatformServices</c> sub-container exposes the single <c>IPlatformFileSystem</c> accessor. Interpolated
+    /// into the class body of an AG0022 fixture that declares an <c>IPlatformServices</c> implementer, so the
+    /// accessor is spelled exactly once however many implementers a fixture declares (LESSON 1, DRY).
+    /// </summary>
+    internal const string PlatformServicesContainerMembers = """
+                public AgentGuard.Abstractions.Contracts.IPlatformFileSystem FileSystem => throw new System.NotImplementedException();
         """;
 }

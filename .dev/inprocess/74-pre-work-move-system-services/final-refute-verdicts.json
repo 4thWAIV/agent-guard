@@ -1,0 +1,214 @@
+{
+  "summary": "REFUTE stage fan-out: the Level selects the required independent adversaries. DRY runs at every Level; L1 runs all five, L2 runs Prove-It, DRY, and Lie-catcher with optional Laziness-auditor, and L3 runs DRY with an optional human-requested Lie-catcher. Produces one verdict per required lens; any FAIL blocks the gate.",
+  "agentCount": 3,
+  "logs": [
+    "3 adversaries ran; 2 FAIL (prove-it, lie-catcher)"
+  ],
+  "result": {
+    "contractPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.dev/inprocess/74-pre-work-move-system-services/contract-analyzer-runner-repair.md",
+    "verdicts": [
+      {
+        "lens": "prove-it",
+        "verdict": "FAIL",
+        "findings": [
+          {
+            "summary": "The contract's explicit, repeated requirement to retain command output in the work folder was not fulfilled for the dotnet-restore/NuGetAudit verification and the PDB SourceLink check (Acceptance 8 and 11), and for the make build/make test run (Acceptance 3) — the folder retains only status/diff/snapshot bookkeeping, never the command output itself, so nothing in the delivered change lets a reviewer confirm these criteria without redoing the work.",
+            "evidence": "Contract text, quoted verbatim: Acceptance 3 — \"`make build` and `make test` pass. Retain exact commands and output.\" Acceptance 11 — \"The debugging symbols for a built assembly still carry the SourceLink source mapping. Establish it from the built PDB rather than from the build log.\" Step 7 — \"REMAINING — run the analyzer suite, then `make build` and `make test`, retaining exact commands and output.\" Step 9 — \"REMAINING — verify `dotnet restore`, `make build`, and `make test` all pass with NuGet auditing enabled and no command-line override, and that the built debugging symbols still carry the SourceLink source mapping.\" Decisions (final round) — \"Save command output, reviewer results, snapshot identities, and the final changed-file list in the current work folder.\" Absence, confirmed two ways: `ls -la .dev/inprocess/74-pre-work-move-system-services/` lists only adjudication.md, contract-analyzer-runner-repair.md, contract.md, final-snapshot-id.txt, final-status.txt, final-tracked.patch, final-untracked-AnalyzerRunnerTests.cs.snapshot, hidden-decision-scan.json, issue.md, repair-baseline-analyzer-tests.txt, repair-baseline-diff.patch, repair-baseline-status.txt — every one of these is git-status/diff/snapshot-identity text, none is build, test, restore, or PDB output. A repo-wide `find . -type f -newermt \"2026-09-12 12:00:00\" -not -path \"*/.git/*\" -not -path \"*/bin/*\" -not -path \"*/obj/*\" -not -path \"*/TestResults/*\"` (run from the repo root) returns the same file list plus only the 12 changed source/props files — no log/output/txt artifact for a build, test, restore, or PDB inspection exists anywhere in the tree. This is despite the SAME round diligently retaining sibling artifacts (final-status.txt, final-snapshot-id.txt, final-tracked.patch) per the identical Decision sentence, which makes the absence of the command-output half conspicuous rather than an intentional design choice. I independently reran every one of these checks myself, in an isolated git worktree at the exact reviewed snapshot (HEAD e30c257eb45962721b5320ab59110d148c533503, matching final-snapshot-id.txt; tree verified byte-identical to final-tracked.patch and final-untracked-AnalyzerRunnerTests.cs.snapshot before running anything), and every one passes: `make build` -> \"Build succeeded. 0 Warning(s) 0 Error(s)\", exit 0; `make test` -> AgentGuard.Analyzers.Tests.dll 438/438, AgentGuard.CrossPlatform.Tests.dll 56/56, AgentGuard.Cli.Tests.dll 11/11, AgentGuard.Tests.dll 148/148, exit 0; `dotnet restore` at both project and solution scope exits 0 with no NU-prefixed diagnostic in the output; `dotnet msbuild analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj -getProperty:NuGetAudit -getProperty:NuGetAuditMode -getProperty:NuGetAuditLevel` returns `{\"Properties\":{\"NuGetAudit\":\"true\",\"NuGetAuditMode\":\"all\",\"NuGetAuditLevel\":\"low\"}}`, confirming auditing is genuinely on rather than silently disabled; `strings -a analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.pdb | grep -i sourcelink` returns the literal embedded SourceLink document `{\"documents\":{\".../*\":\"https://raw.githubusercontent.com/4thWAIV/agent-guard/e30c257eb45962721b5320ab59110d148c533503/*\"}}`, read directly from the PDB bytes and naming the exact reviewed commit. So every underlying claim is factually true right now, but the delivered artifact itself retains none of this proof — of the three, Acceptance 11's PDB byte-inspection and Acceptance 8's specific NuGetAudit-property/no-NU1902 verification are the sharpest gap, since neither is a byproduct any later standard step (e.g. GATE's generic closing `make build`+`make test` bracket) would automatically regenerate; only a deliberate save closes them.",
+            "fix": "Persist this proof into the work folder now, e.g. `final-build-test-output.txt` (the make build + make test transcript with exit codes), `final-restore-output.txt` (the dotnet restore transcript plus the `-getProperty` NuGetAudit/NuGetAuditMode values), and `final-pdb-sourcelink.txt` (the `strings`/PDB extract showing the embedded SourceLink document). No code change is required — every check already passes on the exact reviewed snapshot, verbatim above — so this is a pure retention fix, not another implementation round."
+          }
+        ],
+        "refutationAttempts": [
+          "Attempted to prove the compiler-error validation is bypassable: in an isolated git worktree at the exact reviewed snapshot, deleted the `ThrowOnUnexpectedCompilerErrors(referenceCompilation, ...)` call from `RunWithReferenceAsync` and reran `dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj`. Refuted: exactly one test failed (`RunWithReferenceAsync_WhenTheReferenceDoesNotCompile_Throws`), with the message naming 'Caller' (the subject assembly) instead of 'Fake' (the reference assembly) -- precisely the failure mode Acceptance 4a and the test's own inline comment predict, proving the assertion is uniquely dependent on the reference check and cannot be satisfied by the subject check alone.",
+          "Attempted to find a second, duplicate compiler-error-comparison mechanism that would falsify the reuse ledger's 'new capability, no duplicate' claim: `grep -rn \"expectedCompilerErrors|ExpectedDiagnostics|GetDiagnostics()\" analyzers/AgentGuard.Analyzers.Tests/*.cs`. Refuted: every match is inside AnalyzerRunner.cs itself; no second inspection point exists.",
+          "Attempted to find a weakened, removed, or reworded Assert line among the fourteen repaired fixtures (Acceptance 6): read the complete diff of all six files touching those fixtures. Refuted for the fourteen: the only three Assert-adjacent diff lines in the whole change set all trace to the three DELIBERATELY-invalid fixtures (UnresolvedInteropAttribute_IsReportedViaSyntacticFallback, MalformedSameNamedDllImportAttribute_WithRequiredArgOmitted_IsNotReported, MalformedUserDefinedUnmanagedCallersOnly_WithRequiredArgOmitted_IsNotReported), and in each case only a trailing expected-compiler-error argument was appended -- the assertion kind and any Assert.Equal on diagnostic id/content is byte-identical before and after. No test method was removed anywhere in the change.",
+          "Attempted to falsify the 'exactly three fixtures declare compiler errors' claim (Acceptance 5): ran the exact specified `grep -rnE '\"CS[0-9]{4}\"' analyzers/AgentGuard.Analyzers.Tests/*.cs` and traced every hit outside AnalyzerRunner.cs/AnalyzerRunnerTests.cs back to its containing test method. Refuted: all hits resolve to exactly the three named test methods (two in InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs, one in NativeCallbackBodyMustBeGuardedAnalyzerTests.cs); the CS0246 pair on one line matches the fixture's own comment that the compiler reports CS0246 twice.",
+          "Attempted to confirm the SourceLink-still-works claim from the built artifact rather than trusting prose: built the isolated worktree and extracted the embedded SourceLink JSON directly from the compiled PDB's bytes. Refuted the possibility that removing the explicit Microsoft.SourceLink.GitHub package silently broke source mapping: the PDB carries a correct raw.githubusercontent.com URL template keyed to the exact reviewed commit SHA.",
+          "Attempted to find scope creep or a boundary violation (production source, analyzer implementation project, workflow scripts, memory files, staged or committed changes, a new commit, a different branch): ran `git status --short`, `git diff --cached --stat`, `git log --oneline`, and `git branch --show-current` against the live repo, and grepped the status output for src/, analyzers/AgentGuard.Analyzers/, .agents/workflows/, and .claude/projects/ paths. Refuted: nothing is staged or committed, HEAD and branch are unchanged, and no path outside the contract's Surfaces was touched.",
+          "Searched for the contractually-required retained command-output artifacts (make build/test transcript, dotnet restore/audit transcript, PDB SourceLink extract) anywhere in the work folder and across the whole repository by modification time. This attempt did NOT refute a gap -- it confirmed one; see the reported finding."
+        ],
+        "proofChecked": [
+          "Snapshot identity: current working tree vs .dev/inprocess/74-pre-work-move-system-services/final-tracked.patch and final-untracked-AnalyzerRunnerTests.cs.snapshot (byte-identical diff, exit 0); HEAD e30c257eb45962721b5320ab59110d148c533503 matches final-snapshot-id.txt.",
+          "Baseline read: repair-baseline-analyzer-tests.txt tail shows 'Failed: 17, Passed: 417, Total: 434' -- matches Acceptance 1's seventeen failures and the 434 baseline.",
+          "Acceptance 2: `dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj` in the isolated snapshot -- Failed 0, Passed 438, Total 438, exit 0.",
+          "Acceptance 3: `make build` (0 Warnings, 0 Errors, exit 0) and `make test` (438+56+11+148 all passed across four projects, exit 0) run in full on the isolated snapshot.",
+          "Acceptance 4a: mutation test -- deleted the reference-compilation compiler-error check from RunWithReferenceAsync in the isolated worktree; exactly one test failed, with the predicted 'Caller' vs 'Fake' signature; original file restored from backup afterward and diff-confirmed identical.",
+          "Acceptance 4: confirmed all five regression-test cases exist and pass by name in AnalyzerRunnerTests.cs (match, missing, unexpected, duplicate-count, non-compiling reference).",
+          "Acceptance 4b: `grep -rn \"compile error is irrelevant|without supplying\" analyzers/AgentGuard.Analyzers.Tests/*.cs` -- no matches.",
+          "Acceptance 5: `grep -rnE '\"CS[0-9]{4}\"' analyzers/AgentGuard.Analyzers.Tests/*.cs` outside AnalyzerRunner.cs, cross-checked each hit's containing test method by name.",
+          "Acceptance 6: full `git diff` of the six files touching the fourteen repaired fixtures plus the two files touching the three deliberately-invalid fixtures, checked line-by-line for any Assert change or removed test.",
+          "Acceptance 7: `git status --short` diffed against repair-baseline-status.txt; every new line traced to a Surfaces-listed file.",
+          "Acceptance 8a: read AnalyzerRunner.Describe, manually recomputed all three message shapes against the local `declared` variable, cross-checked against the exact literals AnalyzerRunnerTests.cs asserts, confirmed via the full passing test run.",
+          "Acceptance 8: `dotnet restore` at project and solution scope (exit 0, no NU-prefixed diagnostic); `dotnet msbuild -getProperty:NuGetAudit -getProperty:NuGetAuditMode -getProperty:NuGetAuditLevel` confirms auditing genuinely enabled (true/all/low), not silently off.",
+          "Acceptance 9: `grep -rn \"Microsoft.SourceLink\" Directory.Build.props Directory.Packages.props` (no matches) and `git diff` on those two files (only the two Source-link ItemGroup removals).",
+          "Acceptance 10: `git diff --stat -- global.json` (empty) and a repo-wide diff grep for NuGetAudit/NuGetAuditMode/NuGetAuditSuppress/TreatWarningsAsErrors (no matches).",
+          "Acceptance 11: `strings -a` on the built AgentGuard.Analyzers.Tests.pdb, located the embedded SourceLink JSON document naming the real GitHub repo and the exact reviewed commit SHA.",
+          "Reuse ledger claim: `grep -rn \"expectedCompilerErrors|ExpectedDiagnostics|GetDiagnostics()\" analyzers/AgentGuard.Analyzers.Tests/*.cs` -- all hits confined to AnalyzerRunner.cs.",
+          "Boundary scan (What the agent MUST NOT do): git status/diff across the whole repo for any src/, analyzer-implementation, workflow, or memory file touched, and for staged/committed/pushed changes or a new commit -- none found.",
+          "CHANGED_FILES cross-check: the 12 files named in the task match, one-to-one, every M/?? line in `git status --short` beyond the pre-existing baseline items.",
+          "Provenance search: repo-wide `find` by modification time for any retained build/test/restore/PDB output artifact -- none found anywhere, which is the basis of the one reported finding."
+        ]
+      },
+      {
+        "lens": "dry",
+        "verdict": "PASS",
+        "findings": [],
+        "refutationAttempts": [
+          "Tried to find a pre-existing diagnostic-set-vs-expected-set comparison utility anywhere in src/tests/analyzers/eng that would falsify the contract's 'new' ruling for the expected-compiler-error capability — grep for expectedCompilerErrors|ExpectedDiagnostics|GetDiagnostics() and a codegraph_explore semantic search both returned nothing but AnalyzerRunner.cs's own code; ruling holds.",
+          "Tried to find a second, parallel implementation of compiler-error-identifier matching (e.g. ad hoc CS-code string checks outside the runner) — grep -rnE '\"CS[0-9]{4}\"' across the whole test project returns only the three contract-named fixture call sites (UnresolvedInteropAttribute_IsReportedViaSyntacticFallback, MalformedSameNamedDllImportAttribute_..., MalformedUserDefinedUnmanagedCallersOnly_...) plus AnalyzerRunnerTests.cs; one mechanism, no duplicate.",
+          "Tried to show the three new SharedAnalyzerSources constants (SystemServicesContainerMembers/FileSystemContainerMembers/PlatformServicesContainerMembers) were declared 'reuse' in spirit but actually re-copied at their call sites — read every one of the 8 interpolation sites in ContainerInterfaceSingleOwnerAnalyzerTests.cs; each calls the one constant, none re-spells the body.",
+          "Tried to show the new local PresenceCheckMember constant in NoTimeoutInPresenceImplAnalyzerTests.cs duplicates an existing Check() stub in the sibling presence-rule files it shares PresenceContract with — PresenceCheckOnlyFromApprovalGateAnalyzerTests.cs's Check() body is '=> 0' (a different, scenario-required body), so no duplicate exists to collapse.",
+          "Tried to charge the one-line GetFileReader stub that appears both in FileSystemContainerMembers and inline in LeafPlatformSingleImplementerAnalyzerTests.cs's FakeFileSystem as a rail-5 duplicated value — the two local IFileSystem interfaces have different shapes (1 member vs 4 members), the shared constant does not even cover the other 3 required members there, and the single-line throw-stub idiom recurs by codebase convention wherever a member is completed; not the kind of duplication the rail targets.",
+          "Tried to charge BuilderCompletenessAnalyzerTests.cs's two added marker-interface lines in the 'noContainer' fixture as new duplication against the file's own ContainerSource constant — ContainerSource also declares ISystemServices/IFileSystem, which this exact accept-case must NOT have, so it cannot be the one owner here; the file's pre-existing (untouched) IConsole line in the same fixture already used this same per-interface inline convention before this diff.",
+          "Tried to find the SourceLink PackageReference/PackageVersion removal leaving a live second declaration anywhere — the only remaining hits for Microsoft.SourceLink are inside an unrelated separate git worktree under .claude/worktrees/, not the tree under review.",
+          "Tried to find AnalyzerRunner.Describe/Tally reimplementing a BCL primitive (LINQ GroupBy/ToDictionary) that rail 8 would require reusing instead — judged a normal, small implementation choice (needs StringComparer.Ordinal semantics) rather than the OS/crypto/build-primitive reimplementation rail 8 targets."
+        ],
+        "proofChecked": [
+          "git status --short and git diff over all 11 changed files vs HEAD, matched against the contract's CHANGED FILES/Surfaces list",
+          "grep -rn \"expectedCompilerErrors|ExpectedDiagnostics|GetDiagnostics()\" src tests analyzers eng (non-binary hits confined to AnalyzerRunner.cs)",
+          "grep -rn \"Tally\\b\" src tests analyzers eng (single definition + 2 call sites, all in AnalyzerRunner.cs)",
+          "mcp__codegraph__codegraph_explore over 'compare compiler diagnostics to expected error identifiers with occurrence counts' (39 symbols/5 files surfaced; no duplicate owner)",
+          "grep -rnE '\"CS[0-9]{4}\"' analyzers/AgentGuard.Analyzers.Tests/*.cs (reproduced contract Acceptance 5's exact check)",
+          "grep -n \"MalformedUserDefinedUnmanagedCallersOnly_WithRequiredArgOmitted_IsNotReported|MalformedSameNamedDllImportAttribute_WithRequiredArgOmitted_IsNotReported|UnresolvedInteropAttribute_IsReportedViaSyntacticFallback\" analyzers/AgentGuard.Analyzers.Tests/*.cs",
+          "Full git diff read for AnalyzerRunner.cs, SharedAnalyzerSources.cs, ContainerInterfaceSingleOwnerAnalyzerTests.cs, BuilderCompletenessAnalyzerTests.cs, InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs, LeafPlatformSingleImplementerAnalyzerTests.cs, NativeCallbackBodyMustBeGuardedAnalyzerTests.cs, NoControlFlowInNativeOpsAnalyzerTests.cs, NoTimeoutInPresenceImplAnalyzerTests.cs, Directory.Build.props, Directory.Packages.props",
+          "Full read of the new analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs (235 lines)",
+          "grep -n \"GetFileReader|GetDirectoryReader|GetFileWriter|GetDirectoryWriter|class Fake|IFileSystem\\b\" analyzers/AgentGuard.Analyzers.Tests/LeafPlatformSingleImplementerAnalyzerTests.cs to confirm no internal duplicate of the repaired fixture",
+          "grep -n \"private const string|IFileReader { }|IFileWriter { }|IConsole { }\" analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs plus reading ContainerSource's full body (lines 24-43)",
+          "grep -rn \"SourceLink\" --include=*.props --include=*.csproj --include=*.targets . excluding obj/bin",
+          "diff between .dev/inprocess/74-pre-work-move-system-services/final-untracked-AnalyzerRunnerTests.cs.snapshot and the live file (identical)",
+          "Read .dev/inprocess/74-pre-work-move-system-services/repair-baseline-diff.patch to confirm ThrowOnUnexpectedCompilerErrors is a genuine in-place lineage extension of the pre-task ThrowOnCompilerErrors, not a second parallel function",
+          "Read the full contract-analyzer-runner-repair.md (all sections: Decisions, Rules to add, standard, Success definition, Surfaces, Reuse ledger, What to do, MAY/MUST NOT, Acceptance, Level, Scope)"
+        ]
+      },
+      {
+        "lens": "lie-catcher",
+        "verdict": "FAIL",
+        "findings": [
+          {
+            "summary": "The comment correction the contract mandates in NoTimeoutInPresenceImplAnalyzerTests.cs replaced a false statement with a different false statement: the new class comment asserts that EVERY fixture in the class implements IPresenceCheck and must supply Check, which is untrue for four of the nine fixtures and is directly contradicted by another comment in the same file. This re-creates the exact failure mode the contract exists to repair — a comment that tells the next reader something about the fixtures that is not true.",
+            "evidence": "Live file /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs:16-18 reads \"Every fixture here implements IPresenceCheck in full: each presence class supplies the interface's Check method, because the analyzer runner requires each fixture to produce exactly the compiler errors its call site declares and these call sites declare none.\" and lines 21-23 read \"The one IPresenceCheck member every fixture in this class must supply, spelled once and interpolated into each fixture below.\"\n\nThe class has nine [Fact] fixtures (lines 29, 53, 76, 101, 130, 155, 178, 198, 218). Only five interpolate {{PresenceCheckMember}} (lines 40, 64, 88, 114, 207). The other four declare no IPresenceCheck implementer at all: line 142 `internal sealed class MacLocalAuthentication : ILocalAuthentication`, line 166 `internal sealed class TmdsPolkitAuthority : IPolkitAuthority`, line 187 `internal sealed class Ordinary`, line 230 `internal sealed class ObjCRuntime : IObjCRuntime`.\n\nThe same file contradicts itself at line 180, inside TimeoutOutsidePresenceImpl_IsNotReported: \"A class that does NOT implement IPresenceCheck is not this rule's concern (AG0038 governs its waits).\" That fixture's entire purpose is a class that does not implement IPresenceCheck, so \"every fixture in this class must supply\" Check is disproven by the fixture three lines below the claim.\n\nCommands run against the live tree: `grep -n \"public async Task|IPresenceCheck|PresenceCheckMember|internal sealed class\" analyzers/AgentGuard.Analyzers.Tests/NoTimeoutInPresenceImplAnalyzerTests.cs`; `sed -n '13,30p'` and `sed -n '176,196p'` on the same file.\n\nContract basis: Decisions — \"Correct the runner comments and failure wording\"; Surfaces — \"`NoTimeoutInPresenceImplAnalyzerTests.cs` — five fixtures, CS0535, and the class comment that states those fixtures omit `Check`.\" The correction was scoped to the five repaired fixtures; the text written generalizes it to all nine and is false. Acceptance 4b's literal grep (`grep -rn \"compile error is irrelevant\\|without supplying\"`) returns nothing (verified, exit 1), so the pinned check passes while the replacement text is still untrue.",
+            "fix": ""
+          },
+          {
+            "summary": "SharedAnalyzerSources.cs's stated rule for what belongs in the file was rewritten to accommodate three new members that do not meet it, and the replacement claim is itself false for two of the three: FileSystemContainerMembers and PlatformServicesContainerMembers are each used inside exactly one test, not \"more than one test\".",
+            "evidence": "The pre-change class comment stated the file's rule (git diff of analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs, removed lines): \"C# source snippets shared verbatim by more than one analyzer test class, held in one place so a byte-identical fixture is not spelled twice.\"\n\nThe live text at /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:6-10 now reads: \"C# source snippets held in one place so a byte-identical fixture is not spelled twice: most are shared verbatim by more than one analyzer test class, and the three container-implementer member blocks (SystemServicesContainerMembers, FileSystemContainerMembers, PlatformServicesContainerMembers) are shared verbatim by more than one test inside ContainerInterfaceSingleOwnerAnalyzerTests.\"\n\n`grep -rn \"SystemServicesContainerMembers\\|FileSystemContainerMembers\\|PlatformServicesContainerMembers\" analyzers/AgentGuard.Analyzers.Tests/*.cs` plus the enclosing test methods gives the actual usage:\n- SystemServicesContainerMembers — ContainerInterfaceSingleOwnerAnalyzerTests.cs:57,61 (SecondImplementerOfContainer_IsReported, line 47), :82 (SingleImplementerOfContainer_IsNotReported, line 74), :102,106 (SecondImplementerOfContainer_InTestAssembly_IsStillReported_NoExemption, line 91) — three tests, claim holds.\n- FileSystemContainerMembers — :127 and :131, both inside SecondImplementerOfSubContainer_IsReported (line 118) — ONE test.\n- PlatformServicesContainerMembers — :135 and :139, both inside that same SecondImplementerOfSubContainer_IsReported — ONE test.\n\nNo other test class references any of the three (grep returns only ContainerInterfaceSingleOwnerAnalyzerTests.cs and SharedAnalyzerSources.cs itself), so none of the three meets the file's original \"more than one analyzer test class\" rule, and two do not meet the softened \"more than one test\" replacement either. The parallel case in the same change was handled the opposite way: PresenceCheckMember (NoTimeoutInPresenceImplAnalyzerTests.cs:24) is a private const kept local to its one consuming class, so the same kind of single-class member was placed under two different owners in one change.",
+            "fix": ""
+          }
+        ],
+        "refutationAttempts": [
+          "Tried to refute that the reviewed tree is the tree the run produced: computed `git diff` and diffed it byte-for-byte against .dev/inprocess/74-pre-work-move-system-services/final-tracked.patch, and diffed analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs against final-untracked-AnalyzerRunnerTests.cs.snapshot. Both identical; HEAD e30c257eb45962721b5320ab59110d148c533503 matches final-snapshot-id.txt. Refutation failed — the snapshot is genuine. Re-diffed at the end of the review: shared checkout unchanged throughout.",
+          "Tried to refute acceptance 4a by deleting `ThrowOnUnexpectedCompilerErrors(referenceCompilation, referenceAssemblyName, Array.Empty<string>());` from RunWithReferenceAsync in an isolated copy of the snapshot. Result: exit 1, exactly RunWithReferenceAsync_WhenTheReferenceDoesNotCompile_Throws failed, and it failed on `Assert.Contains(\"compiled into 'Fake'\")` — text only the reference check can emit (the subject check names 'Caller'). Refutation failed.",
+          "Tried to refute acceptance 4's five cases as theatre by mutating the comparison logic five ways in the isolated copy. M1 (fail only when actual < expected) killed 7 tests incl. RunAsync_WhenAnUndeclaredErrorIsProduced_Throws. M2 (compare presence, ignore counts) killed exactly RunAsync_WhenADeclaredErrorIsProducedMoreTimesThanDeclared_Throws. M3 (fail only when actual > expected) killed exactly RunAsync_WhenADeclaredErrorIsNotProduced_Throws. M4 (early-return whenever expectations are declared — the forbidden skip path) killed 3 tests. M5 (return empty diagnostics when expectations are declared) killed RunAsync_WhenTheDeclaredErrorsMatchTheActualErrors_ReturnsTheAnalyzerResult and UnresolvedInteropAttribute_IsReportedViaSyntacticFallback. Every case is genuinely pinned; refutation failed.",
+          "Tried to refute the SourceLink advisory justification recorded in the contract as an unproven claim. Read /usr/local/share/dotnet/sdk/10.0.400/Sdks/Microsoft.Build.Tasks.Git/tools/net/Microsoft.Build.Tasks.Git.deps.json — its `libraries` map holds exactly ['Microsoft.Build.Tasks.Git/10.0.400', 'System.IO.Hashing/10.0.11'], word for word what the contract records. Refutation failed.",
+          "Tried to refute acceptance 11 (SourceLink mapping survives removing the PackageReference) as read off a stale artifact. Did a clean build (rm -rf bin obj) of AgentGuard.Engine in the isolated copy. First attempt produced no mapping — traced to my own isolation (the clone's origin was a local path, so the GitHub provider has no URL), not the change. Set origin to git@github.com:4thWAIV/agent-guard.git, cleaned and rebuilt: the fresh PDB carries {\"documents\":{\"<repo>/*\":\"https://raw.githubusercontent.com/4thWAIV/agent-guard/e30c257.../*\"}}. Refutation failed.",
+          "Tried to find a test weakened, skipped, deleted, or loosened to reach green. `git diff -- analyzers/ | grep -E '^-.*(Assert\\.|\\[Fact\\]|\\[Theory\\]|public async Task|Skip *=)'` returns three removed lines, all three in the deliberately-invalid fixtures where the same assertion is retained verbatim and only the runner call gained declared error IDs (Assert.Empty stays Assert.Empty; Assert.Single + Assert.Equal(\"AG0008\") stays). No added `Skip =`. Test count rose 434 → 438. Refutation failed.",
+          "Tried to find a suppression used to reach green. `git diff | grep -E '^\\+.*(#pragma warning|SuppressMessage|NoWarn|severity *= *none|WarningsNotAsErrors|ExcludeAnalyzers)'` returns nothing (exit 1); the same grep over the untracked AnalyzerRunnerTests.cs returns nothing. Directory.Build.props still carries every analyzer PackageReference and the custom-analyzer ProjectReference; the only removal is the `Source link` ItemGroup. `make build` reports 0 Warning(s), 0 Error(s). Refutation failed.",
+          "Tried to refute that the 14 repairs preserve each fixture's analyzer scenario. Read each repaired test body: NoControlFlow's `code is 1 and 2` → `code is > 1 and < 5` keeps the BinaryPattern And the test names and still yields AG0106; BuilderCompleteness adds two non-container interfaces to a fixture whose scenario is \"no ISystemServices container\"; InteropOnly's LibraryImportSource gains only the implementing partial half and both its consuming tests still assert Assert.Single/AG0008; the Container and NoTimeout fixtures gain only interface members. All 438 tests pass. Refutation failed.",
+          "Tried to refute acceptance 5 (exactly three fixture call sites declare errors). `grep -rnE '\"CS[0-9]{4}\"' analyzers/AgentGuard.Analyzers.Tests/*.cs` returns only AnalyzerRunnerTests.cs plus InteropOnlyInCrossPlatformLibrariesAnalyzerTests.cs:198 (CS7036, MalformedSameNamedDllImportAttribute_...), :222 (CS0246 ×2, UnresolvedInteropAttribute_IsReportedViaSyntacticFallback) and NativeCallbackBodyMustBeGuardedAnalyzerTests.cs:429 (CS7036, MalformedUserDefinedUnmanagedCallersOnly_...) — exactly the three named tests. Refutation failed.",
+          "Tried to refute acceptance 1 (the baseline records exactly the seventeen authorized failures). Extracted the failing test names from repair-baseline-analyzer-tests.txt: 17 unique, splitting 14 incomplete-fixture failures across the six named files plus the 3 deliberately-invalid ones, and the tail line reads Failed: 17, Passed: 417, Total: 434. Refutation failed.",
+          "Tried to refute the Decisions as invented approval: checked each decision-level item in the work against a recorded Decision. The SourceLink removal, the expected-compiler-error interface, the failing-baseline exception, the Describe local-variable cleanup, the no-workflow-change rule and the isolated-mutation instruction each trace to a recorded bullet presented as written. The Surfaces entry for SharedAnalyzerSources.cs is reasoned (\"the earlier Surfaces list missed it\") rather than quoted, but Acceptance 4b independently forces that file's comment to change, so the contract itself carries the scope. Refutation failed on the decisions.",
+          "Tried to refute the process as having smuggled a commit, stage, push, or workflow edit. `git status --short .agents/ eng/` empty, `git diff --cached --stat` empty, HEAD still e30c257 (unchanged from the baseline snapshot). Refutation failed.",
+          "Tried to refute acceptance 8a (Describe's three messages byte-identical after the local-variable extraction). The three-branch predecessor exists in no recorded artifact — Describe is entirely new in this change and the baseline patch predates it — but all three message shapes are pinned by passing assertions on exact strings: \"CS0103: not declared, but reported 1 time(s)\", \"CS0103: declared 1 time(s), but not reported\", \"CS0103: declared 1 time(s), but reported 2 time(s)\". Not raised as a finding.",
+          "Tried to refute the hidden-decision / autoResolved audit as skipped. No GROUND, DESIGN, or hidden-decision output was supplied for this contract (stageOutputPaths was {}), which is correct for L2 — rails-run-a-workflow marks GROUND \"not present\" at L2 and DESIGN \"only when needed\". The hidden-decision-scan.json and adjudication.md in the folder belong to the separate SystemServices-relocation contract.md and carry no autoResolved records for this repair. No autoResolved violation available to confirm."
+        ],
+        "proofChecked": [
+          "Snapshot reviewed: HEAD e30c257eb45962721b5320ab59110d148c533503 + uncommitted tracked patch sha256 2e44a6aabc9b54c9b9377eea51718587b85229379b03d223a4ab60aa90cf97f1 + untracked analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs sha256 e33d9ea37c4775b2a289ff31cbf634b0c891983c4f853ee6a8af7112cc24c144; byte-identical to final-tracked.patch, final-untracked-AnalyzerRunnerTests.cs.snapshot, and final-snapshot-id.txt (snapshot-id cf018569901823dc). Re-verified identical at the end of the review — the shared checkout was never mutated.",
+          "Acceptance 2 — `dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj` in the shared checkout: exit 0, \"Passed! - Failed: 0, Passed: 438, Skipped: 0, Total: 438\". 438 >= the baseline's 434.",
+          "Acceptance 3 — `make build`: exit 0, \"Build succeeded. 0 Warning(s) 0 Error(s)\". `make test`: exit 0, four suites green — Analyzers 438/438, CrossPlatform 56/56, Cli 11/11, Tests 148/148, zero failures.",
+          "Acceptance 4a — mutation in isolated copy /private/tmp/.../scratchpad/iso1 (snapshot reconstructed from HEAD + final-tracked.patch + the untracked file; analyzers tree and both props files diffed identical to the shared checkout). Removing `ThrowOnUnexpectedCompilerErrors(referenceCompilation, referenceAssemblyName, Array.Empty<string>());` from RunWithReferenceAsync: exit 1, Failed: 1 — RunWithReferenceAsync_WhenTheReferenceDoesNotCompile_Throws, on `Assert.Contains(\"compiled into 'Fake'\")`, text the subject check cannot emit.",
+          "Acceptance 4 (five cases) — five further mutations in iso1, each restored from the shared file before the next: M1 fail-only-on-missing → 7 failures incl. WhenAnUndeclaredErrorIsProduced; M2 ignore counts → 1 failure, WhenADeclaredErrorIsProducedMoreTimesThanDeclared; M3 ignore missing → 1 failure, WhenADeclaredErrorIsNotProduced; M4 skip validation when errors are declared → 3 failures; M5 withhold analyzer diagnostics when errors are declared → 2 failures incl. WhenTheDeclaredErrorsMatchTheActualErrors_ReturnsTheAnalyzerResult. All five contract cases are mutation-sensitive; iso1 baseline before mutation was 438/438 green.",
+          "Acceptance 4b — `grep -rn \"compile error is irrelevant\\|without supplying\" analyzers/AgentGuard.Analyzers.Tests/*.cs` returns nothing, exit 1.",
+          "Acceptance 5 — `grep -rnE '\"CS[0-9]{4}\"' analyzers/AgentGuard.Analyzers.Tests/*.cs` returns AnalyzerRunnerTests.cs plus exactly the three named fixture call sites (InteropOnly...:198 CS7036, :222 CS0246 CS0246, NativeCallback...:429 CS7036).",
+          "Acceptance 6 — `git diff -- analyzers/ | grep -E '^-.*(Assert\\.|\\[Fact\\]|\\[Theory\\]|public async Task|Skip *=)'` returns three lines, all in the three deliberately-invalid fixtures, with the assertion preserved verbatim; none of the fourteen repaired fixtures has a changed Assert line or a removed test. No `Skip =` added anywhere.",
+          "Acceptance 7 — `git status --short` differs from repair-baseline-status.txt only by Directory.Build.props, Directory.Packages.props, and the eight analyzer test files, every one of them listed in Surfaces.",
+          "Acceptance 8 — `dotnet restore --force` (no NuGetAudit override on the command line): exit 0, zero occurrences of NU1901/NU1902/NU1903/NU1904 in the output.",
+          "Acceptance 9 — `grep -rn \"Microsoft.SourceLink\" Directory.Build.props Directory.Packages.props` returns nothing (exit 1); `git diff` over both files shows only the two removals (the `Source link` ItemGroup and the PackageVersion), 4 deleted lines each, nothing added.",
+          "Acceptance 10 — `git diff global.json` empty; `git diff | grep -E 'NuGetAudit|NuGetAuditMode|NuGetAuditSuppress|TreatWarningsAsErrors'` returns nothing (exit 1). global.json still pins sdk 10.0.400 with rollForward disable; `dotnet --version` reports 10.0.400.",
+          "Acceptance 11 — clean build of AgentGuard.Engine in iso1 after `rm -rf bin obj`, with origin set to the real GitHub URL: exit 0, and the freshly built PDB carries the SourceLink record {\"documents\":{\"<iso1>/*\":\"https://raw.githubusercontent.com/4thWAIV/agent-guard/e30c257eb45962721b5320ab59110d148c533503/*\"}}, read out of the PDB with `strings`, not from the build log. The shared checkout's AgentGuard.Engine.pdb carries the same record.",
+          "SDK advisory evidence — /usr/local/share/dotnet/sdk/10.0.400/Sdks/Microsoft.Build.Tasks.Git/tools/net/Microsoft.Build.Tasks.Git.deps.json `libraries` = ['Microsoft.Build.Tasks.Git/10.0.400', 'System.IO.Hashing/10.0.11'], matching the contract's recorded confirmation exactly; 10.0.400 falls in none of GHSA-23fw-v26w-5fgq's affected ranges.",
+          "Suppression sweep — no added `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, `WarningsNotAsErrors`, or dropped analyzer reference anywhere in the diff or in the untracked test file; Directory.Build.props retains all seven analyzer PackageReferences and the AgentGuard.Analyzers ProjectReference.",
+          "Process sweep — nothing staged (`git diff --cached --stat` empty), no commit (HEAD unchanged), no workflow or eng file touched (`git status --short .agents/ eng/` empty).",
+          "Success definition — all four clauses verified by me directly: analyzer suite green (438/438), make build and make test green, no analyzer assertion weakened or removed, no fixture exempted from compiler-error validation (M4 proves the skip path does not exist and is caught)."
+        ]
+      }
+    ],
+    "anyFail": true,
+    "failedLenses": [
+      "prove-it",
+      "lie-catcher"
+    ],
+    "panelComplete": true,
+    "failedRoles": []
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Refute"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "refute:prove-it",
+      "phaseIndex": 1,
+      "phaseTitle": "Refute",
+      "agentId": "a7978722c1985e6c2",
+      "model": "claude-sonnet-5",
+      "state": "done",
+      "startedAt": 1789331097381,
+      "queuedAt": 1789331097359,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "prove-it",
+      "promptPreview": "You are an adversary for a FINISHED change. Do NOT make code changes. Your job is to REFUTE that this change meets its governing requirement and the rails — assume it does NOT until proven. Ground every judgment in the live code and re-run the applicable spot checks yourself; cropped, stale, or exit-code-missing output is an automatic FAIL.\n\nYou are the Prove-It / anti-review-failure adversary. Re…",
+      "lastProgressAt": 1789332057010,
+      "tokens": 180154,
+      "toolCalls": 54,
+      "durationMs": 959626,
+      "resultPreview": "{\"lens\":\"prove-it\",\"verdict\":\"FAIL\",\"findings\":[{\"summary\":\"The contract's explicit, repeated requirement to retain command output in the work folder was not fulfilled for the dotnet-restore/NuGetAudit verification and the PDB SourceLink check (Acceptance 8 and 11), and for the make build/make test run (Acceptance 3) — the folder retains only status/diff/snapshot bookkeeping, never the command out…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "refute:dry",
+      "phaseIndex": 1,
+      "phaseTitle": "Refute",
+      "agentId": "af451b92597c8adb3",
+      "model": "claude-sonnet-5",
+      "state": "done",
+      "startedAt": 1789331097382,
+      "queuedAt": 1789331097360,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "dry",
+      "promptPreview": "You are an adversary for a FINISHED change. Do NOT make code changes. Your job is to REFUTE that this change meets its governing requirement and the rails — assume it does NOT until proven. Ground every judgment in the live code and re-run the applicable spot checks yourself; cropped, stale, or exit-code-missing output is an automatic FAIL.\n\nYou are the DRY adversary — duplication ONLY. Read .agen…",
+      "lastProgressAt": 1789331791209,
+      "tokens": 157148,
+      "toolCalls": 41,
+      "durationMs": 690877,
+      "resultPreview": "{\"lens\":\"dry\",\"verdict\":\"PASS\",\"findings\":[],\"refutationAttempts\":[\"Tried to find a pre-existing diagnostic-set-vs-expected-set comparison utility anywhere in src/tests/analyzers/eng that would falsify the contract's 'new' ruling for the expected-compiler-error capability — grep for expectedCompilerErrors|ExpectedDiagnostics|GetDiagnostics() and a codegraph_explore semantic search both returned no…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "refute:lie-catcher",
+      "phaseIndex": 1,
+      "phaseTitle": "Refute",
+      "agentId": "ad162f6e357f0d7ff",
+      "model": "claude-opus-5[1m]",
+      "state": "done",
+      "startedAt": 1789331097383,
+      "queuedAt": 1789331097360,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "lie-catcher",
+      "promptPreview": "You are an adversary for a FINISHED change. Do NOT make code changes. Your job is to REFUTE that this change meets its governing requirement and the rails — assume it does NOT until proven. Ground every judgment in the live code and re-run the applicable spot checks yourself; cropped, stale, or exit-code-missing output is an automatic FAIL.\n\nYou are the Lie-catcher. Give NO fix advice; leave every…",
+      "lastProgressAt": 1789331887895,
+      "tokens": 170984,
+      "toolCalls": 51,
+      "durationMs": 790511,
+      "resultPreview": "{\"lens\":\"lie-catcher\",\"verdict\":\"FAIL\",\"findings\":[{\"summary\":\"The comment correction the contract mandates in NoTimeoutInPresenceImplAnalyzerTests.cs replaced a false statement with a different false statement: the new class comment asserts that EVERY fixture in the class implements IPresenceCheck and must supply Check, which is untrue for four of the nine fixtures and is directly contradicted by…"
+    }
+  ],
+  "totalTokens": 508286,
+  "totalToolCalls": 146
+}
