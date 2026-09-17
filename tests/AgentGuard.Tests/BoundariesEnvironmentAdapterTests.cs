@@ -8,8 +8,9 @@ using Xunit;
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// Exercises the real <c>EnvironmentAdapter</c> in <c>AgentGuard.Boundaries</c> through the owned
-/// <see cref="IEnvironment"/> off a real container (<see cref="SystemServicesBuilder.Real"/>) — the only sanctioned
+/// Exercises the real <c>EnvironmentAdapter</c> in <c>AgentGuard.Boundaries</c> — where the four adapters stay —
+/// through the owned <see cref="IEnvironment"/> off a real container, now built by <c>SystemServices.Create()</c> in
+/// <c>AgentGuard.Engine</c> (<see cref="SystemServicesBuilder.Real"/>) — the only sanctioned
 /// door to the internal adapter — asserting each owned environment read returns the real host value.
 /// </summary>
 public sealed class BoundariesEnvironmentAdapterTests

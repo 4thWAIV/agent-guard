@@ -1,0 +1,15 @@
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+CWD: /Users/timothystockstill/code/macos/4thWAIV/agent-guard
+STARTED: 2026-09-16T04:33:51Z
+----------------------------------------
+  Determining projects to restore...
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 1.25 sec).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 1.25 sec).
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   600, Skipped:     0, Total:   600, Duration: 8 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+FINISHED: 2026-09-16T04:34:14Z

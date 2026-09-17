@@ -1,0 +1,64 @@
+# Orchestrator verification of the IMPLEMENT result — run against the live working tree
+
+Every command below was run by the orchestrator after the IMPLEMENT worker returned, in the shared checkout, with each exit code captured immediately.
+
+## make build
+```
+  AgentGuard.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/bin/Debug/net10.0/AgentGuard.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:05.20
+BUILD_EXIT=0
+```
+
+## make test
+```
+Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 4 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 312 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 362 ms - AgentGuard.Cli.Tests.dll (net10.0)
+Passed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 431 ms - AgentGuard.Tests.dll (net10.0)
+TEST_EXIT=0
+```
+
+## Acceptance 16 — per-OS project selection, run here on macOS
+
+```
+dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=osx-arm64   -> AgentGuard.CrossPlatform.MacOS
+dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=linux-x64   -> AgentGuard.CrossPlatform.Linux
+dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=win-x64     -> AgentGuard.CrossPlatform.Windows
+```
+
+Each RID selects exactly one per-OS project and no other. No test was executed on Linux or Windows; this is MSBuild project selection, which is what Acceptance 16 asks for.
+
+## Acceptance 17 — the literal output is two entries, not one
+
+`dotnet msbuild src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj -getItem:ProjectReference`, EXIT=0, returns:
+
+1. `analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj` — `OutputItemType: Analyzer`, `ReferenceOutputAssembly: false`, `DefiningProjectFullPath: Directory.Build.props`. The repo-wide analyzer injection every project carries, present before this work and unchanged by it.
+2. `../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj` — declared in the Boundaries project file itself.
+
+Acceptance 17 reads "returns `AgentGuard.Abstractions` and nothing else". The only assembly reference Boundaries now carries is `AgentGuard.Abstractions`; `AgentGuard.CrossPlatform` and the selected per-OS project are both gone. Whether the criterion's wording is met as written is Tim's ruling.
+
+## Container body unchanged by the move
+
+Stripping comment and blank lines from `HEAD:src/AgentGuard.Boundaries/SystemServices.cs` and `src/AgentGuard.Engine/SystemServices.cs` and diffing the rest, ignoring the namespace line and the added `using AgentGuard.Boundaries;`, returns no difference. The internal sealed declaration, private constructor, eight services, their construction order, and the whole body of `Create()` are identical.
+
+## Wiring test rename carries no assertion change
+
+`diff HEAD:tests/AgentGuard.Tests/BoundariesSystemServicesWiringTests.cs tests/AgentGuard.Tests/EngineSystemServicesWiringTests.cs` returns two lines: the class name and the assembly named in its doc comment.
+
+## Nothing was suppressed and no rule was touched
+
+```
+git diff HEAD --stat -- analyzers/AgentGuard.Analyzers/                                    (no output)
+git diff HEAD --stat -- analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs AnalyzerRunnerTests.cs   (no output)
+git diff HEAD -- src tests | grep -E 'SuppressMessage|pragma warning|NoWarn|dotnet_diagnostic|WarningsNotAsErrors'   (no output)
+git diff --check                                                                           EXIT=0
+```
+
+## The staged baseline survived
+
+`git diff --cached --name-only | wc -l` returns 22. The six analyzer test files and sixteen run records Tim staged all still carry their status in the first column. The IMPLEMENT changes are unstaged or untracked.

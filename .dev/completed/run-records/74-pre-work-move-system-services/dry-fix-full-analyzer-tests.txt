@@ -1,0 +1,40 @@
+# DRY-fix round — full analyzer suite AFTER the three extractions
+captured: 2026-09-16T19:44:14Z
+HEAD: a12e58b305c5315bc175332066e90a2d693b1769 (working tree carries the Acceptance 25 test round on top)
+Run in an isolated rsync copy under the session scratchpad; analyzers/*/bin and analyzers/*/obj were deleted
+before the build so no stale analyzer DLL could be read. The copy was verified byte-identical to the shared
+checkout before the run (diff -rq over analyzers/, excluding bin and obj: no differences).
+The BEFORE run of the same suite over the same tree, before these three edits: Passed 619, Total 619, EXIT=0.
+
+$ dotnet build analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+  AgentGuard.Analyzers -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/after/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/after/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:05.60
+EXIT=0
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter <the six classes that read the changed owners>
+Test run for /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/after/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Passed!  - Failed:     0, Passed:   180, Skipped:     0, Total:   180, Duration: 4 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --logger 'console;verbosity=detailed'
+Test run for /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/after/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Total tests: 619
+     Passed: 619
+ Total time: 5.9873 Seconds
+EXIT=0
+
+## Case-for-case comparison, before vs after
+Each run's per-case lines were normalised (leading space and the trailing [duration] stripped) and sorted.
+$ diff before-cases.txt after-cases.txt
+EXIT=0  (no output: the 619 case names and their 619 Passed verdicts are identical)
+sha256 of both normalised case lists:
+5ab7e68feb41c3110a7d25466c02ac150017502f6095180b8625bd3263f85747  before-cases.txt
+5ab7e68feb41c3110a7d25466c02ac150017502f6095180b8625bd3263f85747  after-cases.txt

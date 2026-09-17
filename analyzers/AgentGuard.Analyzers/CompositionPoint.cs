@@ -6,26 +6,49 @@ namespace AgentGuard.Analyzers;
 
 /// <summary>
 /// The designated construction sites the rules carve out, held here once so a "is this the right site" test is not
-/// re-spelled per rule. Three distinct concepts live here, each anchored on full type identity (namespace + name via
+/// re-spelled per rule. Four distinct concepts live here, each anchored on full type identity (namespace + name via
 /// <see cref="WellKnownType"/>) AND the assembly — a conjunction, so a type merely NAMED the same in another namespace
 /// or assembly cannot self-grant the exemption:
 /// <list type="bullet">
 /// <item>the <b>callers</b> — the single <c>Program</c> composition method in <c>AgentGuard.Cli</c> and the test
 /// <c>SystemServicesBuilder</c> in <c>AgentGuard.TestHelpers</c>: the only places <c>SystemServices.Create()</c> may be
 /// <em>called</em> (AG0017), a service type may be held (AG0024), or a service may be a parameter (AG0031);</item>
-/// <item>the <b>construction site</b> — <c>SystemServices</c> in <c>AgentGuard.Boundaries</c> (whose <c>Create()</c>
+/// <item>the <b>construction site</b> — <c>SystemServices</c> in <c>AgentGuard.Engine</c> (whose <c>Create()</c>
 /// wires the container) and the test <c>SystemServicesBuilder</c>: the only places a direct <c>TimeProvider.System</c>
-/// acquisition is legal (AG0015, clock-legal-in-create-and-builder);</item>
+/// acquisition is legal (AG0015, clock-legal-in-create-and-builder). This is a TYPE-level test: anywhere inside the
+/// container class qualifies;</item>
+/// <item>the <b>container factory method</b> — the static <c>Create()</c> on <c>SystemServices</c> in
+/// <c>AgentGuard.Engine</c> and nothing else: the one method from which Engine may reach into
+/// <c>AgentGuard.Boundaries</c> (AG0040), the core <c>AgentGuard.CrossPlatform</c> assembly (AG0023), or a per-OS
+/// implementation assembly (AG0029), and the one Engine internal the CLI and the test helpers may reach (AG0041).
+/// This is a METHOD-level test and is deliberately narrower than the type-level construction site above: another
+/// method on the same class does NOT qualify;</item>
 /// <item>the <b>wrapper factory</b> — <c>FileInfoFactory</c> in <c>AgentGuard.CrossPlatform</c>: the only place an
 /// <c>AbstractedFileInfo</c>/<c>AbstractedDirectoryInfo</c> wrapper may be constructed (AG0033).</item>
 /// </list>
 /// </summary>
 internal static class CompositionPoint
 {
+    /// <summary>
+    /// The human-readable name of the one container factory method — <c>AgentGuard.Engine.SystemServices.Create()</c>
+    /// — as it is spelled in a diagnostic message. Held next to <see cref="IsContainerFactoryMethod"/>, the predicate
+    /// that decides it, so the required site is described in exactly the terms the rules test for and the text is
+    /// spelled once for AG0040, AG0023, AG0029, and AG0041.
+    /// </summary>
+    internal const string ContainerFactoryDescription =
+        EngineAssembly.Name + "." + ContainerFactoryTypeName + "." + ContainerFactoryMethodName + "()";
+
     private const string CompositionTypeName = "Program";
     private const string BuilderTypeName = "SystemServicesBuilder";
     private const string ContainerFactoryTypeName = "SystemServices";
     private const string WrapperFactoryTypeName = "FileInfoFactory";
+
+    // The name of the container's own build point. Each door-identity owner spells the factory method name it pins
+    // (PlatformFactory spells it for PlatformServices.Create, BoundaryAdapterFactories for the four adapter
+    // factories): the mandated container-is-one-class-with-its-own-create shape happens to name them all Create, but
+    // they are independent facts about independent types, and collapsing them would let a change to one silently
+    // retarget the others.
+    private const string ContainerFactoryMethodName = "Create";
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="type"/> is one of the two composition callers — the
@@ -66,7 +89,7 @@ internal static class CompositionPoint
 
     /// <summary>
     /// Gets a value indicating whether the clock construction site — <c>SystemServices</c> in
-    /// <c>AgentGuard.Boundaries</c> (whose <c>Create()</c> wires the container) or the test
+    /// <c>AgentGuard.Engine</c> (whose <c>Create()</c> wires the container) or the test
     /// <c>SystemServicesBuilder</c> — encloses <paramref name="containingSymbol"/>. This is where a direct
     /// <c>TimeProvider.System</c> acquisition is legal (AG0015): the clock is wired into the container there, unlike
     /// the composition CALLERS above, which only call the already-built factory.
@@ -91,6 +114,41 @@ internal static class CompositionPoint
         return EnclosedBy(containingSymbol, IsWrapperFactoryType);
     }
 
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="symbol"/> IS the one container factory method — the static
+    /// <c>Create()</c> declared on the <c>SystemServices</c> type in namespace AND assembly
+    /// <c>AgentGuard.Engine</c> — matched on assembly, namespace, type name, method name, and staticness together, so
+    /// a same-named method on a decoy type in another namespace or assembly cannot self-grant the exemption. This is
+    /// the narrowest reading of "directly inside <c>SystemServices.Create()</c>": the symbol handed in is the call
+    /// site's OWN containing symbol, and a lambda or a local function nested in <c>Create()</c>'s body is a distinct
+    /// method symbol (<see cref="MethodKind.LambdaMethod"/>/<see cref="MethodKind.LocalFunction"/>), so a call written
+    /// inside one is NOT permitted. Widening that takes an explicit rule change.
+    /// </summary>
+    /// <param name="symbol">The symbol to test — a call site's containing symbol, or a resolved invocation target.</param>
+    /// <returns><see langword="true"/> when the symbol is the container factory method itself.</returns>
+    internal static bool IsContainerFactoryMethod(ISymbol? symbol)
+    {
+        return symbol is IMethodSymbol { IsStatic: true, MethodKind: MethodKind.Ordinary } method
+            && string.Equals(method.Name, ContainerFactoryMethodName, StringComparison.Ordinal)
+            && IsContainerFactoryType(method.ContainingType);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> is the container type <c>SystemServices</c> in
+    /// namespace AND assembly <c>AgentGuard.Engine</c>. Exposed so a rule can test a WRITTEN reference to the
+    /// container type (AG0041's written-name lens) against the same identity the method-level caller test uses.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is the relocated container.</returns>
+    internal static bool IsContainerFactoryType(INamedTypeSymbol? type)
+    {
+        // SystemServices in AgentGuard.Engine — the type whose Create() acquires the clock and wires the container.
+        // Anchored on namespace + name AND the compiled assembly name (both are AgentGuard.Engine) through the shared
+        // WellKnownType.IsInAssembly conjunction.
+        return WellKnownType.IsInAssembly(
+            type, EngineAssembly.Name, ContainerFactoryTypeName, EngineAssembly.Name);
+    }
+
     private static bool EnclosedBy(ISymbol containingSymbol, Func<INamedTypeSymbol?, bool> isSite)
     {
         for (INamedTypeSymbol? enclosing = OwnerClass.EnclosingType(containingSymbol);
@@ -108,7 +166,7 @@ internal static class CompositionPoint
 
     private static bool IsConstructionSiteType(INamedTypeSymbol? type)
     {
-        return IsSystemServicesInBoundaries(type) || IsBuilderInTestHelpers(type);
+        return IsContainerFactoryType(type) || IsBuilderInTestHelpers(type);
     }
 
     private static bool IsWrapperFactoryType(INamedTypeSymbol? type)
@@ -118,15 +176,6 @@ internal static class CompositionPoint
         // wrapper-construction exemption.
         return WellKnownType.IsInAssembly(
             type, CrossPlatformBoundary.RootName, WrapperFactoryTypeName, CrossPlatformBoundary.RootName);
-    }
-
-    private static bool IsSystemServicesInBoundaries(INamedTypeSymbol? type)
-    {
-        // SystemServices in AgentGuard.Boundaries — the type whose Create() acquires and wires the clock. Anchored on
-        // namespace + name AND the compiled assembly name (both are AgentGuard.Boundaries) through the shared
-        // WellKnownType.IsInAssembly conjunction.
-        return WellKnownType.IsInAssembly(
-            type, BoundaryAssembly.Name, ContainerFactoryTypeName, BoundaryAssembly.Name);
     }
 
     private static bool IsProgramInCli(INamedTypeSymbol? enclosing)

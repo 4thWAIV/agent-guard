@@ -1,0 +1,39 @@
+# ARCHITECTURE build — WITHOUT the override, proving it is required and masks nothing else
+captured: 2026-09-16T03:22:21Z
+HEAD: c1c2a1875c14b1a2fb76bf1affc04b386769dccb
+
+$ dotnet build -c Release
+  Determining projects to restore...
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 511 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/AgentGuard.Engine.csproj (in 511 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj (in 511 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Tests/AgentGuard.Tests.csproj (in 511 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Cli/AgentGuard.Cli.csproj (in 512 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj (in 512 ms).
+  AgentGuard build id computed: 0.1.105846071+c1c2a18 (Day=2450 Time=6071)
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Release/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Abstractions -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Abstractions/bin/Release/net10.0/AgentGuard.Abstractions.dll
+  AgentGuard.CrossPlatform -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform/bin/Release/net10.0/AgentGuard.CrossPlatform.dll
+  AgentGuard.CrossPlatform.MacOS -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.MacOS/bin/Release/net10.0/AgentGuard.CrossPlatform.MacOS.dll
+  AgentGuard.CrossPlatform.Linux -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Linux/bin/Release/net10.0/AgentGuard.CrossPlatform.Linux.dll
+  AgentGuard.CrossPlatform.Windows -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.CrossPlatform.Windows/bin/Release/net10.0/AgentGuard.CrossPlatform.Windows.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Release/net10.0/AgentGuard.Analyzers.Tests.dll
+/Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/SystemServices.cs(88,30): error AG0015: Clock access 'TimeProvider.System' bypasses the injected clock; read time off ISystemServices.Clock — a raw wall-clock read is banned everywhere and a direct TimeProvider acquisition only at the composition point [/Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj]
+  AgentGuard.Engine -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Engine/bin/Release/net10.0/AgentGuard.Engine.dll
+
+Build FAILED.
+
+/Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/SystemServices.cs(88,30): error AG0015: Clock access 'TimeProvider.System' bypasses the injected clock; read time off ISystemServices.Clock — a raw wall-clock read is banned everywhere and a direct TimeProvider acquisition only at the composition point [/Users/timothystockstill/code/macos/4thWAIV/agent-guard/src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj]
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:15.71
+EXIT=1
