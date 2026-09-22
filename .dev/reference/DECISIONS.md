@@ -1,5 +1,11 @@
 # Agent-governance port — decisions & verified facts (working record)
 
+> Historical port decision record. The decisions and source-project observations below are preserved as
+> recorded; they are not an inventory of implemented commands or supported hosts. For current usage and
+> contributor instructions, start at the [README](../../README.md). Differences from current implementation
+> do not by themselves revoke an approved decision. The source specifications now live in
+> [the original-spec archive](../archive/original-specs/4thWAIV-agent-governance/INDEX.md).
+
 ## Goal & threat model
 - Port the 4thWAIV agent-governance system into this repo (branch `dev`) to stop a LAZY AI from cheating the golden build by disabling analysis.
 - Threat = lazy cheater, NOT a malicious attacker. Make the easy cheats harder; iterate on where the AI actually goes; do not over-engineer for extreme measures.

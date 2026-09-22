@@ -1,5 +1,10 @@
 # Source Spec — the full C# static-analysis system (from proteus), for replication in agent-guard
 
+> Historical source specification from Proteus, preserved for provenance. Its SDK, package versions, and
+> CI observations describe that source revision, not the current AgentGuard build. Use the
+> [README](../../../README.md) to build this repository, with the SDK pinned in
+> [global.json](../../../global.json).
+
 ## Provenance and verification
 Every value in this spec was read first-hand from the live proteus bytes on branch `dev` at HEAD
 `e47ebeab2c0dcd61df4b0de1ea72d93ea341bfe0` (clean working tree, so committed bytes equal the working tree).

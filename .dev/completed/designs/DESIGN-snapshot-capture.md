@@ -1,5 +1,10 @@
 # Design note — whole-tree snapshot (per-call, hardened)
 
+> Historical design draft. Its original review status and decisions are retained below; they do not state
+> today's implementation status. See [FileGuard](../../../src/AgentGuard.Engine/FileGuard.cs) and
+> [Pipeline](../../../src/AgentGuard.Engine/Pipeline.cs) for the current behavior, and the
+> [README](../../../README.md) for contributor and usage instructions.
+
 Status: DRAFT under design-adversary review, final confirming round. The content-addressed version failed
 review; the per-call version was confirmed structurally clean (only new seam is `IProtectedFileScanner`,
 `IGuard` and every committed interface untouched); this revision folds the correctness hardening from rounds 2

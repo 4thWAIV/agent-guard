@@ -1,5 +1,11 @@
 # Agent-Guard — Design & Planning: the Guard Engine and the File Guard
 
+> Historical design record, retained with its original decisions and status wording. It predates later
+> changes, including [per-region config protection](../run-records/2026-07-31-config-protection/contract.md).
+> Start at the [README](../../../README.md) for current usage. The provenance paths recorded below now resolve
+> to the [original-spec archive](../../archive/original-specs/4thWAIV-agent-governance/INDEX.md) and
+> [port decision record](../../reference/DECISIONS.md).
+
 ## Status and scope
 This is a living design record, not a contract: it carries rationale, which a contract must not.
 Every item below is marked **AGREED** or **OPEN**. Open items are decisions we have not made yet, and
