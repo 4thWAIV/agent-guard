@@ -1,23 +1,25 @@
 # The best-practices guide (category spine)
 
-**All six areas are ruled; every area's Layer-2 principles are locked as of 2026-08-10.** `rails-solid-code` and `rails-decisions` both name principle 2d (Boundary abstraction) as owning the dependency-direction rule. GROUND and DESIGN consult this guide, the hidden-decision scan filters against it before surfacing a decision to Tim, and the Lie-catcher verifies every applied-principle record and every resulting decision classification.
+**All six areas are ruled; every area's Layer-2 principles are locked as of 2026-08-10.** `rails-solid-code` and `rails-decisions` both name principle 2d (Boundary abstraction) as owning the dependency-direction rule. GROUND and DESIGN consult this guide, the hidden-decision scan filters against it before surfacing a decision to the Maintainer, and the Lie-catcher verifies every applied-principle record and every resulting decision classification.
+
+Approval roles and context are defined in [rails-decisions](../../.agents/skills/rails-decisions/SKILL.md).
 
 ## What it is and how it works
 A layered reference the DESIGN stage and the GROUND hidden-decision scan both consult, so any forced choice with one correct engineering answer is taken and recorded automatically, and only genuine tradeoffs reach the human.
 
-- **Layer 1 — Categories (Tim owns).** The domains where forced choices recur.
-- **Layer 2 — Principles / the constitution (Tim owns).** A few governing rules per category. A Layer-2 principle must (a) decide situations we haven't hit yet, (b) tell the AI when to STOP and raise to Tim, and (c) have several Layer-3 resolutions fall under it. A rule that only restates one settled decision is Layer 3, not Layer 2.
+- **Layer 1 — Categories (Maintainers own).** The domains where forced choices recur.
+- **Layer 2 — Principles / the constitution (Maintainers own).** A few governing rules per category. A Layer-2 principle must (a) decide situations we haven't hit yet, (b) tell the AI when to STOP and raise to the Maintainer, and (c) have several Layer-3 resolutions fall under it. A rule that only restates one settled decision is Layer 3, not Layer 2.
 - **Layer 3 — Resolutions (auto).** The concrete choice→answer, recorded as `autoResolved: [{ choice, resolution, principle, evidence }]`. The array is required and empty when no approved principle resolves a choice. Auto-resolved choices cite the governing principle and evidence; they are never approved one-by-one.
 
-Tim sets the "in the weeds" depth per category — for some he wants to see resolutions, for others just principles. Security (area 3) auto-resolves the standard practices in its "do these without asking" list, but its design and trust decisions are reserved for Tim and never auto-resolve.
+The Maintainer sets the "in the weeds" depth per category — for some they want to see resolutions, for others just principles. Security (area 3) auto-resolves the standard practices in its "do these without asking" list, but its design and trust decisions are reserved for the Maintainer and never auto-resolve.
 
-The rule that keeps it honest: a choice auto-resolves ONLY if an approved principle covers it. If none does, it is a real decision — it surfaces (via the Design Review), and Tim's answer either stays a one-off or he promotes it to a new principle. The constitution grows only when a genuinely new KIND of choice appears.
+The rule that keeps it honest: a choice auto-resolves ONLY if an approved principle covers it. If none does, it is a real decision — it surfaces (via the Design Review), and the Maintainer’s answer either stays a one-off or they promote it to a new principle. The constitution grows only when a genuinely new KIND of choice appears.
 
 ## How it is wired into the process (Tim's requirements, 2026-08-10)
 
 This guide is the "if you have a question, look here first" reference. It is wired in three ways:
 - **GROUND and DESIGN reference and use the guide.** Both stages consult the guide as they run. A forced choice covered by an approved principle is recorded in `autoResolved` with its resolution, principle, and evidence; the covered choice is never carried forward as an open decision.
-- **The hidden-decision filter checks the guide before anything asks Tim to rule.** A choice covered by an approved principle enters `autoResolved` and never reaches Tim. A choice with no governing principle remains open instead of being silently defaulted.
+- **The hidden-decision filter checks the guide before anything asks the Maintainer to rule.** A choice covered by an approved principle enters `autoResolved` and never reaches the Maintainer. A choice with no governing principle remains open instead of being silently defaulted.
 - **The Lie-catcher polices the applied principles.** The Lie-catcher checks every `autoResolved` entry against the cited approved principle, checks that guide-covered choices were auto-resolved rather than escalated, and checks that uncovered choices were not silently defaulted.
 
 Tim: *"IT SHOULD be part of GROUND and DESIGN skills (they should reference it and use it) and it should be policed by either Lie or Prove unless it earns it own. IT SHOULD also be consulted by anythign that is ABOUT TO FUCKING ASK me to rule on something that is covered in the guide."*
@@ -27,7 +29,7 @@ Tim: *"IT SHOULD be part of GROUND and DESIGN skills (they should reference it a
 **1. Cross-OS uniformity.** *Purpose:* the guard behaves identically on macOS, Linux, and Windows, and anything that genuinely differs by OS is sealed behind one interface — so no OS is second-class and a build for one OS can't silently ship another's code.
 Layer 2 — LOCKED:
 - **1a.** Same behavior on all three, or on none — if it can't be identical, it's removed or raised, never left to differ.
-- **1b.** OS-agnostic by default; OS-difference is the rare exception, isolated behind the platform interface and declared (the interface change comes to Tim).
+- **1b.** OS-agnostic by default; OS-difference is the rare exception, isolated behind the platform interface and declared (the interface change comes to the Maintainer).
 - **1c.** Act for the target, never assume you're on the machine that matters — decide by the thing you're acting on (build target, the file's own contents, the user's environment), not the current host/OS/dev box. (RID selection, CRLF source, path separators all fall here.)
 
 **2. Boundary abstraction.** *Purpose:* the code never calls the outside world — filesystem, clock, environment, console, randomness — directly; it goes through an interface we own, so every path is testable with a fake and nothing touches the machine unwatched.
@@ -36,8 +38,8 @@ Layer 2 — LOCKED:
 - **2b.** Built in one place, injected everywhere — nothing reaches for its own dependency deep in the chain.
 - **2c.** (added 2026-08-10) Mirror the surface of the type you wrap — when a boundary interface wraps a known type (`IConsole` over `System.Console`), give it that type's method shapes and names, so callers meet a familiar surface and no vocabulary is invented. Stop and raise only if mirroring would expose a member that breaks another principle.
   - Layer 3: `IConsole` mirrors `System.Console` — `Write`, `WriteLine`, `ErrorWrite`, `ErrorWriteLine`, `ReadToEndAsync(CancellationToken)`.
-- **2d.** Dependencies point one way — a service lives in the assembly that uses it, so a lower, depended-upon assembly never has a service injected into it from a higher assembly that depends on it. When a lower assembly needs a service, the default fix is to move that service down into it; injecting the service up, or bypassing a rule to allow the backwards call, is forbidden. A backwards dependency STOPS and needs Tim's personal sign-off — anywhere, in any repo — because only Tim rules whether the reorder cost is too high, and it flags the SOLID and Lie-catcher reviews. (Example: the GUID service lives in `AgentGuard.CrossPlatform`, not injected up from `AgentGuard.Boundaries`, which depends on it.)
-- **2e.** (added 2026-08-13) Escalate a boundary abstraction the moment the lightweight version gets complex. When a wrapper you thought was over plain data turns out to be over a stateful object you can act on the world through — you can delete, open, or move through it — stop treating it as data and give it a full owned interface with a factory, the same as any other service. Put the interface in front, make one pass-through class the sole owner of the raw type, and hand out every instance through a factory — never return the raw type, and never try to police its members one at a time. Map the interface one-for-one to only the members needed today, and grow it later through the contract. Stop and raise to Tim when the escalation adds an interface or a factory, since that is a design element that outlives its function. The general rule: the more complex a boundary type is, the sooner you put an owned interface in front of it and map through only what you need today.
+- **2d.** Dependencies point one way — a service lives in the assembly that uses it, so a lower, depended-upon assembly never has a service injected into it from a higher assembly that depends on it. When a lower assembly needs a service, the default fix is to move that service down into it; injecting the service up, or bypassing a rule to allow the backwards call, is forbidden. A backwards dependency STOPS and needs an Agent Guard Maintainer’s explicit sign-off — anywhere, in any repo — because an Agent Guard Maintainer rules whether the reorder cost is too high, and it flags the SOLID and Lie-catcher reviews. (Example: the GUID service lives in `AgentGuard.CrossPlatform`, not injected up from `AgentGuard.Boundaries`, which depends on it.)
+- **2e.** (added 2026-08-13) Escalate a boundary abstraction the moment the lightweight version gets complex. When a wrapper you thought was over plain data turns out to be over a stateful object you can act on the world through — you can delete, open, or move through it — stop treating it as data and give it a full owned interface with a factory, the same as any other service. Put the interface in front, make one pass-through class the sole owner of the raw type, and hand out every instance through a factory — never return the raw type, and never try to police its members one at a time. Map the interface one-for-one to only the members needed today, and grow it later through the contract. Stop and raise to the Maintainer when the escalation adds an interface or a factory, since that is a design element that outlives its function. The general rule: the more complex a boundary type is, the sooner you put an owned interface in front of it and map through only what you need today.
   - Layer 3: `FileInfo`/`DirectoryInfo` are stateful (you can delete, open, or move a file off them), so they go behind `IFileInfo`/`IDirectoryInfo` with the `AbstractedFileInfo`/`AbstractedDirectoryInfo` wrappers as the sole owner of the raw type, reached through a factory — not returned raw, and not member-banned one property at a time.
 
 **3. Security & trust honesty.** *Purpose:* apply the standard security and trust practices by default so nothing is left insecure, while the design and trust decisions — the ones with no single right answer — are the human's, so protection is real and never quietly weakened.
@@ -55,7 +57,7 @@ Layer 2 — LOCKED:
 - Fail closed on any security check: if it cannot complete, deny (the global fail-closed default from area 5, applied here).
 - Verify a download or dependency against a published checksum or signature, and apply routine security patches.
 
-**3b — these come to Tim; this is his area, and none of it auto-resolves:**
+**3b — these come to the Maintainer; these are Maintainer decisions, and none of it auto-resolves:**
 - The authentication and authorization model, and the threat model — who we defend against and what we treat as trusted.
 - Adding a trust boundary, or deciding what is trusted versus untrusted at one.
 - Weakening, removing, or narrowing any protection, guard, or check that already exists.
@@ -72,7 +74,7 @@ Layer 2 — LOCKED:
 - Version numbers follow semantic versioning.
 - Internal identifiers follow the language's own naming conventions.
 
-**4b — these come to Tim; anything that locks other people in:**
+**4b — these come to the Maintainer; anything that locks other people in:**
 - Any public name people build against: a command, a flag, an environment variable, a config key, a package name, a public API, a file or directory name in the user's tree, a URL or endpoint.
 - The on-disk layout of anything we write into the user's project or machine.
 - The serialization shape of anything committed or shipped — the schema, the field names, the format itself.
@@ -81,8 +83,8 @@ Layer 2 — LOCKED:
 
 **5. Fail safe, speak clearly.** *Purpose:* when something cannot be done, fail closed — deny or stop, never silently continue, destroy, or widen access — and give the user an actionable message, not a cryptic error.
 Layer 2:
-- **5a — GLOBAL default, applies in every area.** Fail closed is the default. Assert every expectation, and when one does not hold, fail closed by throwing an exception — never a silent ignore. A throw is loud and Tim can dial back one he disagrees with; a silent failure hides.
-- **5b — speak clearly, do these without asking (none of it comes to Tim):**
+- **5a — GLOBAL default, applies in every area.** Fail closed is the default. Assert every expectation, and when one does not hold, fail closed by throwing an exception — never a silent ignore. A throw is loud and the Maintainer can dial back one they disagree with; a silent failure hides.
+- **5b — speak clearly, do these without asking (none of it comes to the Maintainer):**
   - When something fails, the message names what failed, why, and what the user can do about it — never a bare stack trace or an opaque code as the whole message.
   - Name the specific thing in the message — the file, the setting, the value — not a generic "an error occurred."
   - Never leak a secret, a token, an internal path, or a stack internal into a user-facing message.
@@ -101,11 +103,11 @@ Layer 2 — LOCKED:
 - Never scaffold or wire a check to pass, and never hard-code an expected value just to match what the code currently does.
 - Never weaken, skip, or delete a test to get a green build; fix the code instead.
 
-**6b — these come to Tim:**
+**6b — these come to the Maintainer:**
 - How much rigor a piece of work needs — the level.
 - Repinning a deliberately-fixed baseline, such as a golden output or a recorded expected value, when the correct value genuinely changed.
 - Waiving or accepting a known-failing or deferred check.
 
 ## Next
 
-- Open for Tim: the 2c wording under area 2 to correct if needed.
+- Open for the Maintainer: the 2c wording under area 2 to correct if needed.

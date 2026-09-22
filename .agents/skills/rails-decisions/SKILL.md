@@ -1,53 +1,71 @@
 ---
 name: rails-decisions
-description: The decision-and-approval guardrail (rail) — what needs Tim's explicit yes and what the agent decides alone — and the Lie-catcher adversary's PRIMARY PASS/FAIL checklist for any decision made without Tim's words. Load it when designing, when implementing, and when reviewing; it is what the Lie-catcher rules against.
+description: The decision-and-approval guardrail (rail) — what needs the human approver's explicit yes and what the agent decides alone — and the Lie-catcher adversary's PRIMARY PASS/FAIL checklist for any decision made without the human approver's words. Load it when designing, when implementing, and when reviewing; it is what the Lie-catcher rules against.
 ---
 
 # Rails: decisions
 
-A rail against deciding what is Tim's to decide, and against inventing his approval. One source, two readers:
+A rail against deciding what is the human approver's to decide, and against inventing their approval. One source, two readers:
 
-- **Actor** (orchestrator and worker) — follow the **boundary** and the **approval procedure** below. Surface every decision-level choice and wait for Tim's explicit yes **before** you build it. Decide the local, cheaply-reversible stuff yourself and keep moving.
+- **Actor** (orchestrator and worker) — follow the **boundary** and the **approval procedure** below. Surface every decision-level choice and wait for the human approver's explicit yes **before** you build it. Decide the local, cheaply-reversible stuff yourself and keep moving.
 - **Lie-catcher** — use every **Violation** as the PRIMARY checklist for every decision-level item in the contract and the work.
 
-## The boundary: what is Tim's, what is the agent's
+## Human roles and approval context
 
-**Tim's decisions — surface it and wait for an explicit yes.** Anything that:
+Use the role that applies to the work, rather than a person's name:
+
+| Role | Context |
+|---|---|
+| Human developer using AgentGuard | The human directing AgentGuard's use in their own project. |
+| Agent Guard Contributor | A developer directing their contribution to AgentGuard within its approved scope. |
+| Agent Guard Maintainer | A human maintaining AgentGuard and approving project design, governing rules, and exceptions. Matt is a Maintainer. |
+| Agent Guard Admin | The human administering AgentGuard; currently Timothy Stockstill. This role is not the default approver for development work. |
+
+In this rail, **the human approver** means the human developer for consuming-project work, the Contributor
+for the work they direct within its approved scope, or a Maintainer for AgentGuard project design, governing
+rules, and exceptions. A person may hold more than one role. No Admin-only approval requirement is introduced
+here. Role terminology does not waive an approval requirement or expand an approved scope.
+
+Historical decisions and quotations retain the names of the people who made them.
+
+## The boundary: what is the human approver's, what is the agent's
+
+**The human approver's decisions — surface it and wait for an explicit yes.** Anything that:
 - sets an **architecture, mechanism, or approach** that other code depends on;
 - adds or changes a **dependency, a trust boundary, a data or wire format, a public interface, or a user- or developer-visible name or command**;
 - is **costly to reverse** once built or shipped;
 - **picks between real alternatives** where the choice has lasting consequences;
-- **inverts an assembly dependency** — a lower, depended-upon assembly receiving a service injected from a higher one that depends on it. The default is to reorder (move the service down into the assembly that uses it); keeping the backwards flow on cost grounds is Tim's call alone, and any such violation, anywhere in any repo, needs his personal explicit sign-off.
+- **inverts an assembly dependency** — a lower, depended-upon assembly receiving a service injected from a higher one that depends on it. The default is to reorder (move the service down into the assembly that uses it); keeping the backwards flow on cost grounds requires an Agent Guard Maintainer’s explicit sign-off.
 
 **The agent's decisions — just do it, don't ask.** Local work with **no blast radius**: a loop, a helper's internals, a private name, how one function is coded — cheaply changed later with no ripple. Recordkeeping is the agent's as well: filing a GitHub issue and moving its work folder are recordkeeping and never need the human's approval.
 
-The dividing test: does the choice **outlive its function** and make **other code depend on it**? If yes, it is Tim's. If it is local and cheaply reversible, it is yours.
+The dividing test: does the choice **outlive its function** and make **other code depend on it**? If yes, it is the human approver's. If it is local and cheaply reversible, it is yours.
 
 ## Approval procedure
 
-- A decision exists only when Tim gives an **explicit yes to that exact item**. No yes → it is not decided; it stays an open item. A record never carries his raw conversational words. Write the decision in plain prose, show him that wording, and record it unchanged once he approves it as written — **the recorded text is word for word the wording he approved, never a paraphrase of it and never a transcript of him.** A record that paraphrases the approved wording falsifies what was approved. Record it the moment it's decided — the longer you wait the more you paraphrase, and "noted for later" is not a record.
+- A decision exists only when the human approver gives an **explicit yes to that exact item**. No yes → it is not decided; it stays an open item. A record never carries their raw conversational words. Write the decision in plain prose, show them that wording, and record it unchanged once they approve it as written — **the recorded text is word for word the wording they approved, never a paraphrase of it and never a transcript of them.** A record that paraphrases the approved wording falsifies what was approved. Record it the moment it's decided — the longer you wait the more you paraphrase, and "noted for later" is not a record.
 - **Silence, a topic change, or a request to reword / clarify / define is never approval.** A blanket "do it" / "put them back" approves only items already individually approved — never a new one. Reversing a previously-approved design needs a **fresh explicit yes**.
-- Anchor approval to Tim's actual words, **never to "it's already in the code"** — existing-in-the-tree is how an unapproved change launders itself into looking approved.
+- Anchor approval to the human approver's actual words, **never to "it's already in the code"** — existing-in-the-tree is how an unapproved change launders itself into looking approved.
 - When a decision is finalized-but-not-yet-implemented, answer from the recorded decision, not the pre-change code the decision exists to change.
 - Approval is owed for anything that **adds or reverses a design element that outlives its function** — a mechanism, data/wire format, invariant, file, dependency, or interface. How a named thing is internally coded (a loop, a helper, a name) is implementation, not a decision, and needs no sign-off.
 - Settle decisions **in conversation first** (a short numbered list of open choices, recommended pick marked), then write the record — which holds only what was decided, never open questions.
 - Approval of a unit of work approves **all** of it: never split it into unrequested stages, do only part, stop at an unrequested checkpoint, or add / ship / decide anything unapproved. To cut or defer any part, ask a direct question naming exactly what would be cut and get a specific yes.
 - Describe what you're about to do and **why** before submitting the actions that do substantial work. When an unexpected problem the plan doesn't cover appears, **stop and present it** for a decision — don't improvise around it.
 
-An unapproved design decision is a **lie, ranked with a weakened test.** It is enforced at CONTRACT time — every decision in the contract is recorded in the exact wording Tim approved, and a decision he has not approved is an open item that must be surfaced, never written as decided — and it is hunted by the Lie-catcher below.
+An unapproved design decision is a **lie, ranked with a weakened test.** It is enforced at CONTRACT time — every decision in the contract is recorded in the exact wording the human approver approved, and a decision they have not approved is an open item that must be surfaced, never written as decided — and it is hunted by the Lie-catcher below.
 
 ## Violations
 
 Rule the work against this list. Report each confirmed item with exact file / line / command evidence. **Any one confirmed Violation is a FAIL.**
 
-- **Violation — unapproved decision.** A decision-level item — in the contract or in the work — that Tim has not **approved as written**. A design element added or reversed without his approval of that exact wording is a lie, ranked with a weakened test.
-- **Violation — invented approval.** An "approval" that is really a **non-answer, a topic change, or a reword / clarify request treated as a yes**. A blanket "do it" stretched to cover an item Tim never individually approved is the same lie. Reversing an approved design on anything less than a fresh explicit yes is the same lie.
-- **Violation — anchored to the code.** Approval anchored to **"it's already in the code"** instead of Tim's words.
-- **Violation — paraphrased decision.** A recorded decision whose text does not match, **word for word**, the wording Tim approved.
-- **Violation — under-asked direction.** An architecture, mechanism, dependency, trust boundary, format, interface, or user-/developer-visible name that other code now depends on, chosen without being surfaced for Tim's yes (the Native Interop / `rename` P/Invoke class).
+- **Violation — unapproved decision.** A decision-level item — in the contract or in the work — that the human approver has not **approved as written**. A design element added or reversed without their approval of that exact wording is a lie, ranked with a weakened test.
+- **Violation — invented approval.** An "approval" that is really a **non-answer, a topic change, or a reword / clarify request treated as a yes**. A blanket "do it" stretched to cover an item the human approver never individually approved is the same lie. Reversing an approved design on anything less than a fresh explicit yes is the same lie.
+- **Violation — anchored to the code.** Approval anchored to **"it's already in the code"** instead of the human approver's words.
+- **Violation — paraphrased decision.** A recorded decision whose text does not match, **word for word**, the wording the human approver approved.
+- **Violation — under-asked direction.** An architecture, mechanism, dependency, trust boundary, format, interface, or user-/developer-visible name that other code now depends on, chosen without being surfaced for the human approver's yes (the Native Interop / `rename` P/Invoke class).
 - **Violation — undecided forced choice.** A choice the work FORCES — a tool default, a user-visible name or format, a trust boundary, an encoding or limit, or a versioning or release scheme — is left unresolved for a tool or implementer to default. No contract advances to IMPLEMENT with an unresolved forced choice.
 - **Violation — invalid applied-principle evidence.** An `autoResolved` entry is missing `choice`, `resolution`, `principle`, or `evidence`; the cited approved principle does not support the resolution; a guide-covered choice was escalated instead of auto-resolved; or an uncovered choice was silently defaulted.
-- **Violation — backwards dependency.** A lower, depended-upon assembly receiving a service injected from a higher assembly that depends on it (an inverted dependency), or a rule bypassed to permit the backwards call, **without Tim's personal explicit sign-off**. The default is to reorder — move the service down into the assembly that uses it; only Tim rules whether the reorder cost is too high. Applies anywhere, in any repo, not just where it first surfaced. This is the decision-side of best-practices guide principle 2d (Boundary abstraction), which owns the rule; the SOLID rail enforces its structural form.
+- **Violation — backwards dependency.** A lower, depended-upon assembly receiving a service injected from a higher assembly that depends on it (an inverted dependency), or a rule bypassed to permit the backwards call, **without an Agent Guard Maintainer’s explicit sign-off**. The default is to reorder — move the service down into the assembly that uses it; an Agent Guard Maintainer rules whether the reorder cost is too high. Applies anywhere, in any repo, not just where it first surfaced. This is the decision-side of best-practices guide principle 2d (Boundary abstraction), which owns the rule; the SOLID rail enforces its structural form.
 
 ### Exception to a settled rule
 
@@ -65,8 +83,8 @@ No one is exempt — audit the **orchestrator's** steps too, not just the worker
 
 ## Examples
 
-- **Over-asking** — bringing Tim a trivial local choice. If it is local and cheaply reversible, **decide it yourself** and report it; don't burn his attention on a loop or a private name.
-- **Under-asking** — choosing an architecture or mechanism without surfacing it. **The real example that burned this project:** choosing the **Native Interop / libc `rename` P/Invoke** path without discussing it. If a choice sets a direction others depend on, it is Tim's, and you **surface it before choosing** — not after it is built.
+- **Over-asking** — bringing the human approver a trivial local choice. If it is local and cheaply reversible, **decide it yourself** and report it; don't burn their attention on a loop or a private name.
+- **Under-asking** — choosing an architecture or mechanism without surfacing it. **The real example that burned this project:** choosing the **Native Interop / libc `rename` P/Invoke** path without discussing it. If a choice sets a direction others depend on, it is the human approver's, and you **surface it before choosing** — not after it is built.
 
 Under-asking is the worse of the two: it launders an unmade decision into the tree, where it looks approved.
 

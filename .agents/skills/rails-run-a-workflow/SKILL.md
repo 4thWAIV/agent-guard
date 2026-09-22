@@ -5,7 +5,7 @@ description: The standard way substantive work runs — a worker executes agains
 
 # Rails: run a workflow
 
-The contract replaces the subjective question “would the human approve?” with checks an adversary can refute. `rails-write-a-contract` is the only definition of the contract contents and section order. `rails-decisions` owns the decision boundary and approval procedure.
+The contract replaces the subjective question “would the human approve?” with checks an adversary can refute. `rails-write-a-contract` is the only definition of the contract contents and section order. `rails-decisions` owns the human roles, approval context, decision boundary, and approval procedure.
 
 Substantive work is any mutation other than a trivial documentation edit, including any claimed fix, migration, validator, gate, reusable process, state, behavior, or shipped-code change. “Already approved” covers only the exact item that got a yes, not an inflated reading of it.
 
@@ -40,13 +40,13 @@ Work runs at one of three Levels. L1 is the full process. L3 is the lightest.
 | Laziness-auditor | required | only when needed | not present |
 | Lie-catcher | required | required | only when the human requests it |
 
-`ANY run IS DEFAULT to L1 UNless I approve L2 or L3`. L1 does not require explicit approval. L2 and L3 require Tim's explicit approval for that run.
+`ANY run IS DEFAULT to L1 UNless I approve L2 or L3`. L1 does not require explicit approval. L2 and L3 require the human approver's explicit approval for that run.
 
 **L1 — full process.** Use L1 for any mutation with structural or design consequences and for any claimed fix. Every applicable stage and all five REFUTE adversaries run. RULE-PHASE is omitted only when the human explicitly grants that exception. ARCHITECTURE records that it has nothing to write when no signature changes.
 
 **L2 — delegated process.** Use L2 only when a SOLID violation is not possible. A contract, opening and closing build-and-test bracket, one fresh worker, Prove-It, DRY, and the Lie-catcher are required. DESIGN, ARCHITECTURE, TDD, and the Laziness-auditor run when the work needs them. If the work can touch structure or design, it is L1 rather than L2.
 
-**L3 — direct work.** L3 covers reads, probes, and trivial documentation edits without a contract. The orchestrator acts directly, and DRY runs through REFUTE. The Lie-catcher also runs when Tim requests it. Every other mutation requires an L1 or L2 contract.
+**L3 — direct work.** L3 covers reads, probes, and trivial documentation edits without a contract. The orchestrator acts directly, and DRY runs through REFUTE. The Lie-catcher also runs when the human approver requests it. Every other mutation requires an L1 or L2 contract.
 
 The human approves how much rigor the work needs. A Level never grants permission to expand the approved work.
 
@@ -144,13 +144,13 @@ Scope changes ONLY by the human editing the contract. There is no second path. T
 
 Each approved rule is proven by one violating fixture that produces the diagnostic and one compliant fixture that does not. Production RED is recorded as the rule's impact on existing code; it is not proof and does not fail RULE-PHASE. When production is RED, the result records every responsible diagnostic ID and production location. The independent panel runs even when the approved rule list is empty.
 
-Before ARCHITECTURE begins, Tim approves the exact diagnostic IDs and exact intermediate builds where those diagnostics may remain warnings. The orchestrator passes that same approved `ruleWarningIds` list to `architecture.js` and `tdd.js`. Both scripts hold the `selected-rule-warnings` copied block, which translates only those IDs into `WarningsNotAsErrors`; the selected diagnostics remain enabled and visible. GATE never receives this override.
+Before ARCHITECTURE begins, the human approver approves the exact diagnostic IDs and exact intermediate builds where those diagnostics may remain warnings. The orchestrator passes that same approved `ruleWarningIds` list to `architecture.js` and `tdd.js`. Both scripts hold the `selected-rule-warnings` copied block, which translates only those IDs into `WarningsNotAsErrors`; the selected diagnostics remain enabled and visible. GATE never receives this override.
 
 ### ARCHITECTURE
 
 - **Role:** One fresh architecture author writes the decided surface; independent SOLID, DRY, and Lie-catcher adversaries refute it.
 - **Script:** `architecture.js`.
-- **Inputs:** The contract’s decided interface structure, the live analyzer fence, and the exact `ruleWarningIds` Tim approved for the ARCHITECTURE build.
+- **Inputs:** The contract’s decided interface structure, the live analyzer fence, and the exact `ruleWarningIds` the human approver approved for the ARCHITECTURE build.
 - **Outputs:** Compiling interfaces, DTOs, enums, concrete signatures, a signature-only diff, build proof, and PASS or FAIL verdicts. When the contract changes no signature, the result records empty `skeletonFiles` and `perType`, the no-signature explanation and exact contract evidence, then runs the same adversary panel.
 - **Revoked authority:** The author writes no tests or behavior and cannot edit or suppress an analyzer. The adversaries make no code changes.
 
@@ -162,7 +162,7 @@ The human approves the signature diff before TDD begins. `rails-decisions` owns 
 
 - **Role:** One fresh test author writes the acceptance tests; independent test-quality, DRY, and Lie-catcher adversaries refute them.
 - **Script:** `tdd.js`.
-- **Inputs:** The contract’s `Acceptance` section, the ARCHITECTURE surface, and the same exact `ruleWarningIds` Tim approved for the TDD build.
+- **Inputs:** The contract’s `Acceptance` section, the ARCHITECTURE surface, and the same exact `ruleWarningIds` the human approver approved for the TDD build.
 - **Outputs:** Compiling RED tests, per-criterion coverage, RED proof, and one PASS or FAIL verdict from each adversary. When the contract names no test surface and forbids test changes, the result records `testFiles: []`, `redProof: 'Not applicable — the approved contract authorizes no test files.'`, `coverage: []`, and exact contract evidence in `notes`, then runs the same adversary panel.
 - **Revoked authority:** The test author does not change an interface, fill a production body, or judge the tests. The adversaries make no code changes.
 
@@ -172,11 +172,11 @@ The no-test result is valid only when the approved contract names no test surfac
 
 #### Selected RULE warnings during ARCHITECTURE and TDD
 
-The orchestrator may pass an optional `ruleWarningIds` list to `architecture.js` and `tdd.js` only for diagnostic IDs that Tim approved in the contract to remain warnings in that exact intermediate build. Both stages receive the same approved list. The list contains whatever diagnostic IDs the human approved for that exact case and is not limited by a predefined prefix or set. A missing or empty list uses the existing plain build or test command.
+The orchestrator may pass an optional `ruleWarningIds` list to `architecture.js` and `tdd.js` only for diagnostic IDs that the human approver approved in the contract to remain warnings in that exact intermediate build. Both stages receive the same approved list. The list contains whatever diagnostic IDs the human approved for that exact case and is not limited by a predefined prefix or set. A missing or empty list uses the existing plain build or test command.
 
 The selected diagnostics stay enabled and visible as warnings. They are never suppressed through `NoWarn`, a suppression, an `.editorconfig` severity change, or either warnings-as-errors property set to `false`. The `selected-rule-warnings` copied block is the one owner that translates the approved list into the stage command's `WarningsNotAsErrors` argument.
 
-The override applies only to the exact ARCHITECTURE and TDD builds Tim approved. GATE uses the normal closing `make build` and `make test` commands without `WarningsNotAsErrors`.
+The override applies only to the exact ARCHITECTURE and TDD builds the human approver approved. GATE uses the normal closing `make build` and `make test` commands without `WarningsNotAsErrors`.
 
 ### IMPLEMENT
 
@@ -204,9 +204,9 @@ READINESS runs ONCE per fix round. It reports every mismatch it finds, the orche
 
 ### REFUTE
 
-- **Role:** Independent adversaries selected by Level. L1 runs Prove-It, SOLID, DRY, Laziness-auditor, and Lie-catcher. L2 runs Prove-It, DRY, and Lie-catcher, with Laziness-auditor when requested. L3 runs DRY, with Lie-catcher when Tim requests it.
+- **Role:** Independent adversaries selected by Level. L1 runs Prove-It, SOLID, DRY, Laziness-auditor, and Lie-catcher. L2 runs Prove-It, DRY, and Lie-catcher, with Laziness-auditor when requested. L3 runs DRY, with Lie-catcher when the human approver requests it.
 - **Script:** `refute.js`.
-- **Inputs:** `level` defaults to L1. L1 and L2 receive the complete contract; L3 instead receives `humanRequest` containing Tim's exact request and L3 approval. Every Level receives changed files and the live working tree. `stageOutputPaths` carries file paths to the recorded GROUND, DESIGN, and hidden-decision results, never their content, and each adversary opens and reads the named file itself: all three are required at L1, L2 supplies only the stages that ran, and L3 supplies none. `additionalAdversaries` may add Laziness-auditor at L2 or a human-requested Lie-catcher at L3.
+- **Inputs:** `level` defaults to L1. L1 and L2 receive the complete contract; L3 instead receives `humanRequest` containing the human approver's exact request and L3 approval. Every Level receives changed files and the live working tree. `stageOutputPaths` carries file paths to the recorded GROUND, DESIGN, and hidden-decision results, never their content, and each adversary opens and reads the named file itself: all three are required at L1, L2 supplies only the stages that ran, and L3 supplies none. `additionalAdversaries` may add Laziness-auditor at L2 or a human-requested Lie-catcher at L3.
 - **Outputs:** One `PASS` or `FAIL` verdict per lens, findings, refutation attempts, proof checked, and a fix path from every adversary except the Lie-catcher.
 - **Revoked authority:** Adversaries do not change code. The Lie-catcher gives no fix advice. No adversary approves its own work.
 
