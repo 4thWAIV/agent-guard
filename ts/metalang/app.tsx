@@ -20,6 +20,7 @@
 import { createContext, Fragment, useContext, type CSSProperties, type ReactNode } from 'react'
 
 import { CONSTRAINTS } from './constraints.ts'
+import { NO_MARKS, type Marks } from './highlight.ts'
 import {
   BOOTSTRAP,
   derivesFrom,
@@ -67,6 +68,14 @@ interface Drawing {
    * the way the document writes it. Nothing when the document imports no scope this page has.
    */
   readonly imported: string | null
+  /**
+   * What a highlight file says to mark, by the path of the node it points at, with what it says
+   * of that node. Empty where no highlight was given, which is how every document draws without
+   * one.
+   */
+  readonly marked: ReadonlyMap<string, string>
+  /** Every path a highlight gave that names no node here, so the page can say so. */
+  readonly missing: readonly string[]
 }
 
 const DrawingContext = createContext<Drawing | null>(null)
@@ -86,6 +95,39 @@ const useBodyOf = (): BodyOf => {
   const { words, declared, imported } = useDrawing()
   return (id: string) =>
     declared.get(id) ?? (imported === null ? undefined : words.declared[id]?.body)
+}
+
+/**
+ * What a highlight says of the node drawn at this path, or nothing when it says nothing of it. A
+ * node is marked by where it sits, so nothing on the node itself says it is marked and no kind
+ * holds a list of what may be.
+ */
+const useMarked = (at: string): string | null => {
+  const { marked } = useDrawing()
+  return marked.get(at) ?? null
+}
+
+/** Whether a highlight points at one member of a table, which is marked on the row itself. */
+const markedRow = (
+  marked: ReadonlyMap<string, string>,
+  where: string | undefined,
+  i: number,
+): string | undefined =>
+  where !== undefined && marked.has(`${where}[${i}]`) ? 'r-marked' : undefined
+
+/**
+ * A node drawn where a highlight points. The mark goes around whatever the node draws as, so
+ * every kind is markable and none of them knows it.
+ */
+const Marked = ({ at, children }: { at: string; children: ReactNode }) => {
+  const note = useMarked(at)
+  if (note === null) return <>{children}</>
+  return (
+    <div className="d-marked">
+      {children}
+      {note === '' ? null : <p className="d-note">{note}</p>}
+    </div>
+  )
 }
 
 /** Every declaration a document writes, by id, taking the external wrapper off where one is
@@ -327,8 +369,16 @@ const rowsOf = (
 }
 
 /** Several of one shape: a column for every part the shape has, in the order it declares them. */
-const Table = ({ of, members }: { of: string; members: readonly Mapping[] }) => {
-  const { words } = useDrawing()
+const Table = ({
+  of,
+  members,
+  where,
+}: {
+  of: string
+  members: readonly Mapping[]
+  where?: string | undefined
+}) => {
+  const { words, marked } = useDrawing()
   const bodyOf = useBodyOf()
   const columns = [...propertiesOf(bodyOf, of).keys()]
   return (
@@ -342,7 +392,7 @@ const Table = ({ of, members }: { of: string; members: readonly Mapping[] }) => 
       </thead>
       <tbody>
         {members.map((member, i) => (
-          <tr key={i}>
+          <tr key={i} className={markedRow(marked, where, i)}>
             {columns.map((name) => (
               <td key={name}>
                 {member[name] === undefined ? (
@@ -350,7 +400,11 @@ const Table = ({ of, members }: { of: string; members: readonly Mapping[] }) => 
                     —
                   </i>
                 ) : (
-                  <Val value={member[name]} type={typeOfPart(bodyOf, words.onProperty, of, name)} />
+                  <Val
+                    value={member[name]}
+                    type={typeOfPart(bodyOf, words.onProperty, of, name)}
+                    where={where === undefined ? undefined : `${where}[${i}].${name}`}
+                  />
                 )}
               </td>
             ))}
@@ -365,11 +419,14 @@ const Val = ({
   value,
   type,
   className = '',
+  where,
 }: {
   value: unknown
   /** The type the value is written against, so what it is drawn as is known. */
   type?: unknown
   className?: string
+  /** Where this value sits, so a highlight can point at a part of it. Nothing where unknown. */
+  where?: string | undefined
 }) => {
   const bodyOf = useBodyOf()
   const named = typeof type === 'string' && type.length > 0 ? type : null
@@ -394,7 +451,7 @@ const Val = ({
   if (rows !== null) {
     return (
       <span className={`d-val v-table${className === '' ? '' : ` ${className}`}`}>
-        <Table of={rows.of} members={rows.members} />
+        <Table of={rows.of} members={rows.members} where={where} />
       </span>
     )
   }
@@ -404,7 +461,7 @@ const Val = ({
   if (parts) {
     return (
       <span className={at}>
-        <Parts type={named} value={value} />
+        <Parts type={named} value={value} where={where} />
       </span>
     )
   }
@@ -427,16 +484,30 @@ const Val = ({
   )
 }
 
-const Parts = ({ type, value }: { type: string; value: Mapping }) => {
+const Parts = ({
+  type,
+  value,
+  where,
+}: {
+  type: string
+  value: Mapping
+  where?: string | undefined
+}) => {
   const { words } = useDrawing()
   const bodyOf = useBodyOf()
   return (
     <span className="d-parts">
       {Object.entries(value).map(([name, held]) => (
-        <span className="d-part" key={name}>
-          <i>{name}</i>
-          <Val value={held} type={typeOfPart(bodyOf, words.onProperty, type, name)} />
-        </span>
+        <Marked key={name} at={where === undefined ? '' : `${where}.${name}`}>
+          <span className="d-part">
+            <i>{name}</i>
+            <Val
+              value={held}
+              type={typeOfPart(bodyOf, words.onProperty, type, name)}
+              where={where === undefined ? undefined : `${where}.${name}`}
+            />
+          </span>
+        </Marked>
       ))}
     </span>
   )
@@ -548,7 +619,9 @@ const Properties = ({ at, owner, node }: { at: string; owner: string; node: unkn
   return (
     <>
       {names.map((n) => (
-        <Property key={n} at={`${at}.properties.${n}`} owner={owner} name={n} node={node[n]} />
+        <Marked key={n} at={`${at}.properties.${n}`}>
+          <Property at={`${at}.properties.${n}`} owner={owner} name={n} node={node[n]} />
+        </Marked>
       ))}
     </>
   )
@@ -613,7 +686,7 @@ const Value = ({ at, is, node }: { at: string; is: unknown; node: unknown }) => 
           {node.value === undefined ? (
             <em className="d-pfrom">no value</em>
           ) : (
-            <Val value={node.value} type={is} />
+            <Val value={node.value} type={is} where={`${at}.value`} />
           )}
         </span>
       </div>
@@ -637,7 +710,9 @@ const Values = ({ at, is, value }: { at: string; is: unknown; value: unknown }) 
         <i>values</i>
       </div>
       {many.map((v, i) => (
-        <Value key={i} at={`${at}.values[${i}]`} is={is} node={v} />
+        <Marked key={i} at={`${at}.values[${i}]`}>
+          <Value at={`${at}.values[${i}]`} is={is} node={v} />
+        </Marked>
       ))}
     </>
   )
@@ -673,7 +748,9 @@ const Constraints = ({ at, value }: { at: string; value: unknown }) => {
         <i>{CONSTRAINTS}</i>
       </div>
       {many.map((one, i) => (
-        <Constraint key={i} at={`${at}.${CONSTRAINTS}[${i}]`} node={one} />
+        <Marked key={i} at={`${at}.${CONSTRAINTS}[${i}]`}>
+          <Constraint at={`${at}.${CONSTRAINTS}[${i}]`} node={one} />
+        </Marked>
       ))}
     </>
   )
@@ -830,7 +907,9 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
           </span>
         ))}
         {claimed.includes('is') && body.is !== undefined ? (
-          <Types at={here} keyword="is" value={body.is} inline />
+          <Marked at={`${here}.is`}>
+            <Types at={here} keyword="is" value={body.is} inline />
+          </Marked>
         ) : null}
         {count !== null ? <span className="d-count">{count}</span> : null}
       </div>
@@ -845,7 +924,9 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
         <Constraints at={here} value={body[CONSTRAINTS]} />
       ) : null}
       {claimed.includes('options') && body.options !== undefined ? (
-        <Types at={here} keyword="options" value={body.options} />
+        <Marked at={`${here}.options`}>
+          <Types at={here} keyword="options" value={body.options} />
+        </Marked>
       ) : null}
       {claimed.includes('values') && body.values !== undefined ? (
         <Values at={here} is={body.is} value={body.values} />
@@ -860,7 +941,9 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
       {claimed
         .filter((k) => !DRAWN_ON_KIND.includes(k) && body[k] !== undefined)
         .map((k) => (
-          <Keyword key={k} at={here} kind={kind} keyword={k} value={body[k]} />
+          <Marked key={k} at={`${here}.${k}`}>
+            <Keyword at={here} kind={kind} keyword={k} value={body[k]} />
+          </Marked>
         ))}
       <Unclaimed at={here} node={body} drawn={claimed} />
     </section>
@@ -895,11 +978,23 @@ const Path = ({ segments }: { segments: readonly unknown[] }) => (
   </span>
 )
 
-export const Page = ({ words, doc }: { words: Vocabulary; doc: unknown }) => {
+export const Page = ({
+  words,
+  doc,
+  marks = NO_MARKS,
+}: {
+  words: Vocabulary
+  doc: unknown
+  /** What a highlight file says to mark here. A document with no highlight draws the same way. */
+  marks?: Marks
+}) => {
+  const { marked, missing } = marks
   if (!isMapping(doc)) {
     return (
       <main>
-        <DrawingContext.Provider value={{ words, declared: new Map(), imported: null }}>
+        <DrawingContext.Provider
+          value={{ words, declared: new Map(), imported: null, marked, missing }}
+        >
           <Err loose at="the file">
             is not a mapping, so there is nothing to draw.
           </Err>
@@ -921,7 +1016,9 @@ export const Page = ({ words, doc }: { words: Vocabulary; doc: unknown }) => {
   const imported = importsScope(doc, words.scope) ? words.scope.join('.') : null
 
   return (
-    <DrawingContext.Provider value={{ words, declared: declaredBodiesOf(doc), imported }}>
+    <DrawingContext.Provider
+      value={{ words, declared: declaredBodiesOf(doc), imported, marked, missing }}
+    >
       <main>
         <div className="d-top">
           {/* The scope names the file. Every declaration below belongs to it, so it is drawn as
@@ -980,9 +1077,24 @@ export const Page = ({ words, doc }: { words: Vocabulary; doc: unknown }) => {
               </Err>
             ) : (
               (declared as unknown[]).map((d, i) => (
-                <Declaration key={i} at={`${BOOTSTRAP.declare}[${i}]`} node={d} />
+                <Marked key={i} at={`${BOOTSTRAP.declare}[${i}]`}>
+                  <Declaration at={`${BOOTSTRAP.declare}[${i}]`} node={d} />
+                </Marked>
               ))
             )}
+          </section>
+        )}
+
+        {/* A highlight that points at nothing is said here rather than left out, because a path
+            that stopped resolving is the one thing a highlight cannot show by drawing. */}
+        {missing.length === 0 ? null : (
+          <section className="d-section">
+            <h2 className="d-section-name">highlight names nothing</h2>
+            {missing.map((path) => (
+              <Err key={path} loose at={path}>
+                names no node in this document.
+              </Err>
+            ))}
           </section>
         )}
 

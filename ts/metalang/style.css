@@ -195,3 +195,14 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 .d-table .t-none{color:var(--dim);opacity:.6;font-style:normal}
 /* A column says what the cell is, so the equals sign inside it would say it a second time. */
 .d-table .v-eq{display:none}
+
+/* Where a highlight points. The mark is around the node, so the node draws as it always does and
+   nothing it holds knows it was marked. */
+.d-marked{position:relative;border-left:3px solid var(--mark,oklch(72% 0.16 85));
+ background:color-mix(in oklch, var(--mark,oklch(72% 0.16 85)) 7%, transparent);
+ border-radius:3px;padding:2px 6px 2px 9px;margin:2px 0}
+.d-marked>.d-note{font:400 12px/1.5 var(--sans);color:var(--ink);margin:3px 0 1px;
+ padding-left:1px;opacity:.9}
+/* One member of a table, where a highlight points at the member rather than at the whole list. */
+.d-table tr.r-marked>td{background:color-mix(in oklch, var(--mark,oklch(72% 0.16 85)) 10%,
+ transparent)}

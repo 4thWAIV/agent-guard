@@ -10,7 +10,7 @@ import { join } from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
-import { inlineScript, outputPathFor, pageHtml, render, titleOf } from './render.ts'
+import { inlineScript, outputFor, outputPathFor, pageHtml, render, titleOf } from './render.ts'
 import { LANGUAGE_FILE } from './check.ts'
 
 let dir: string
@@ -155,5 +155,63 @@ describe('rendering a file', () => {
 
   test('a file that is not there stops it', async () => {
     expect(await render(join(dir, 'missing.yaml'), join(dir, 'missing.html'))).toBe(1)
+  })
+})
+
+describe('a highlight drawn over the file it names', () => {
+  const doc = `
+scope: [arch]
+title: The architecture language
+declare:
+  - choice: { id: mark, options: [glyph, uri] }
+`
+
+  const highlight = (body: string): string => `of: doc.yaml\n${body}`
+
+  test('the file it names is the one drawn, and the page is written beside that file', async () => {
+    await writeFile(join(dir, 'doc.yaml'), doc)
+    await writeFile(
+      join(dir, 'doc.highlight.yaml'),
+      highlight('highlight:\n  - path: declare[mark].options\n    note: Look here.\n'),
+    )
+    const out = outputPathFor(outputFor(join(dir, 'doc.highlight.yaml')))
+    expect(out).toBe(join(dir, 'doc.html'))
+    expect(await render(join(dir, 'doc.highlight.yaml'), out)).toBe(0)
+    const html = await readFile(out, 'utf8')
+    expect(html).toContain('<title>The architecture language</title>')
+    expect(html).toContain('declare[0].choice.options')
+    expect(html).toContain('Look here.')
+  })
+
+  test('a path naming nothing still draws the page, and the page carries the path', async () => {
+    await writeFile(join(dir, 'doc.yaml'), doc)
+    await writeFile(
+      join(dir, 'stale.highlight.yaml'),
+      highlight('highlight:\n  - path: declare[gone].options\n    note: stale\n'),
+    )
+    const out = join(dir, 'stale.html')
+    expect(await render(join(dir, 'stale.highlight.yaml'), out)).toBe(0)
+    expect(await readFile(out, 'utf8')).toContain('declare[gone].options')
+  })
+
+  test('a highlight whose own shape is wrong still draws the file it names', async () => {
+    await writeFile(join(dir, 'doc.yaml'), doc)
+    await writeFile(join(dir, 'bad.highlight.yaml'), 'of: doc.yaml\nhighlight: one\n')
+    const out = join(dir, 'bad.html')
+    expect(await render(join(dir, 'bad.highlight.yaml'), out)).toBe(0)
+    expect(await readFile(out, 'utf8')).toContain('<title>The architecture language</title>')
+  })
+
+  test('a highlight naming a file that is not there is not drawn', async () => {
+    await writeFile(join(dir, 'lost.highlight.yaml'), 'of: nowhere.yaml\nhighlight: []\n')
+    expect(await render(join(dir, 'lost.highlight.yaml'), join(dir, 'lost.html'))).toBe(1)
+  })
+
+  test('a document is named after itself', () => {
+    expect(outputFor(join(dir, 'doc.yaml'))).toBe(join(dir, 'doc.yaml'))
+  })
+
+  test('a file that cannot be read is named after itself', () => {
+    expect(outputFor(join(dir, 'nothing-here.yaml'))).toBe(join(dir, 'nothing-here.yaml'))
   })
 })

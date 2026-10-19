@@ -1,0 +1,17 @@
+# What to look at in the architecture language, and why. Nothing here changes that document: it
+# draws the same way with this file gone, and this file can be rewritten without touching it.
+#
+# A path names any node at any depth. Each segment is a property name, or a position in a list
+# written as either its index or the node's own name, and the two may be mixed. The kind a
+# declaration names may be written or left out, so a path copied from a problem the checker
+# reported resolves as it stands.
+of: arch.yaml
+highlight:
+  - path: declare[mark].options
+    note: >
+      A choice is untagged, so its options have to be distinguishable. The first option is a glyph
+      rather than a string, because every uri is a string and nothing could tell those two apart.
+  - path: declare[form].properties.equivalents
+    note: Several of one shape, which the page draws as a table.
+  - path: declare[forms].values[process].value.equivalents
+    note: The one form no language has a word for. Each cell says so rather than being left out.

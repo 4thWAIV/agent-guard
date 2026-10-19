@@ -8,6 +8,11 @@
 // the part it cannot draw appears ON THE PAGE as an error, where it can be seen. That is the
 // whole point of the error control: a problem you can look at beats a command that stopped.
 //
+// Given a highlight file rather than a document, the document it names is the one drawn, with the
+// marks it asks for. A highlight file names the file it highlights by that file's path, so it is
+// the one thing needed to draw a marked page, and it can be rewritten without touching what it
+// points at.
+//
 // Usage:  bun run ts/metalang/render.ts [file] [out]
 
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -18,6 +23,7 @@ import * as yaml from 'js-yaml'
 
 import { bundlePage } from './bundle.ts'
 import { LANGUAGE_FILE, WORDS } from './check.ts'
+import { highlightOf, isHighlight, marksOf, NO_MARKS, type Marks } from './highlight.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -61,31 +67,74 @@ export function titleOf(doc: unknown, file: string): string {
   return basename(file)
 }
 
+/**
+ * The file a page is named after: the document itself, or, given a highlight, the document it
+ * names. A highlight draws the same page with marks on it, so it writes to the same place.
+ */
+export function outputFor(file: string): string {
+  const read = loaded(file)
+  if ('why' in read || !isHighlight(read.doc)) return file
+  return join(dirname(file), highlightOf(read.doc).of)
+}
+
 /** Where a document's page is written when the caller does not say. */
 export function outputPathFor(file: string): string {
   return file.replace(/\.ya?ml$/, '.html')
 }
 
-export async function render(file: string, out: string): Promise<number> {
-  let doc: unknown
+/** A file read as YAML, or the one line saying why it could not be. */
+function loaded(file: string): { doc: unknown } | { why: string } {
   try {
-    doc = yaml.load(readFileSync(file, 'utf8'))
+    return { doc: yaml.load(readFileSync(file, 'utf8')) }
   } catch (e) {
-    // A file YAML cannot parse has no tree to draw, so there is nothing a page could show.
     const message = e instanceof Error ? e.message : String(e)
-    console.error(`${basename(file)} — not drawn`)
-    console.error()
-    console.error(`  ${message.split('\n')[0]}`)
-    return 1
+    return { why: message.split('\n')[0] ?? 'could not be read' }
+  }
+}
+
+const notDrawn = (file: string, why: string): number => {
+  console.error(`${basename(file)} — not drawn`)
+  console.error()
+  console.error(`  ${why}`)
+  return 1
+}
+
+export async function render(file: string, out: string): Promise<number> {
+  const read = loaded(file)
+  // A file YAML cannot parse has no tree to draw, so there is nothing a page could show.
+  if ('why' in read) return notDrawn(file, read.why)
+
+  let doc = read.doc
+  let drawing = file
+  let marks: Marks = NO_MARKS
+
+  // A highlight says which file it is about, so that file is the one drawn and the page is
+  // written beside it rather than beside the highlight.
+  if (isHighlight(doc)) {
+    const highlight = highlightOf(doc)
+    const target = join(dirname(file), highlight.of)
+    const held = loaded(target)
+    if ('why' in held) return notDrawn(target, held.why)
+    for (const wrong of highlight.wrong) console.error(`  ${basename(file)} — ${wrong}`)
+    doc = held.doc
+    drawing = target
+    marks = marksOf(doc, highlight.entries)
+    const said = `${marks.marked.size} marked`
+    const lost = marks.missing.length === 0 ? '' : `, ${marks.missing.length} naming nothing`
+    console.log(`${basename(file)} — ${said}${lost} in ${basename(target)}`)
   }
 
   const { code } = await bundlePage(join(here, 'client.tsx'), {
     __WORDS__: JSON.stringify(WORDS),
     __DOC__: JSON.stringify(doc ?? null),
+    __MARKS__: JSON.stringify({
+      marked: [...marks.marked],
+      missing: marks.missing,
+    }),
   })
 
   const css = readFileSync(join(here, 'style.css'), 'utf8')
-  writeFileSync(out, pageHtml(titleOf(doc, file), css, code))
+  writeFileSync(out, pageHtml(titleOf(doc, drawing), css, code))
 
   console.log(`${basename(out)} — ${(code.length / 1024).toFixed(0)}KB, drawn in the browser by React`)
   return 0
@@ -93,5 +142,5 @@ export async function render(file: string, out: string): Promise<number> {
 
 if (import.meta.main) {
   const file = process.argv[2] ?? LANGUAGE_FILE
-  process.exit(await render(file, process.argv[3] ?? outputPathFor(file)))
+  process.exit(await render(file, process.argv[3] ?? outputPathFor(outputFor(file))))
 }

@@ -11,6 +11,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { declaredBodiesOf, kindStyle, Page, text } from './app.tsx'
 import { WORDS } from './check.ts'
+import { marksOf, type Entry } from './highlight.ts'
 import type { Vocabulary } from './words.ts'
 
 const draw = (doc: unknown, words: Vocabulary = WORDS): string =>
@@ -1005,5 +1006,90 @@ describe('several of one shape', () => {
     const html = table({ held: { language: 'csharp', name: 'interface' } }, { held: { is: 'equivalent' } })
     expect(html).not.toContain('d-table')
     expect(html).toContain('<span class="d-part"><i>language</i>')
+  })
+})
+
+describe('where a highlight points', () => {
+  const doc = {
+    scope: ['metalang'],
+    title: 'A file',
+    declare: [
+      { entity: { id: 'object', primitive: true } },
+      { entity: { id: 'string', is: 'object', primitive: true } },
+      { choice: { id: 'mark', options: ['string'] } },
+      {
+        entity: {
+          id: 'form',
+          is: 'object',
+          properties: { mark: { is: 'mark' } },
+          constraints: [{ pattern: { value: 'x' } }],
+        },
+      },
+      {
+        enum: {
+          id: 'forms',
+          is: 'form',
+          values: [{ id: 'interface', value: { mark: '\u25c7' } }],
+        },
+      },
+    ],
+  }
+
+  const marked = (...entries: Entry[]): string =>
+    renderToStaticMarkup(<Page words={WORDS} doc={doc} marks={marksOf(doc, entries)} />)
+
+  const note = (path: string): string => marked({ path, note: 'Look here.' })
+
+  test('a document with no highlight carries no mark', () => {
+    expect(draw(doc)).not.toContain('d-marked')
+  })
+
+  test('a declaration is marked where it is drawn', () => {
+    expect(note('declare[mark]')).toContain('d-marked')
+  })
+
+  test('the note is drawn with the node', () => {
+    expect(note('declare[mark]')).toContain('Look here.')
+  })
+
+  test('an entry with no note marks without drawing one', () => {
+    const html = marked({ path: 'declare[mark]', note: '' })
+    expect(html).toContain('d-marked')
+    expect(html).not.toContain('d-note')
+  })
+
+  test('one property of a type', () => {
+    expect(note('declare[form].properties.mark')).toContain('d-marked')
+  })
+
+  test('one constraint of a type', () => {
+    expect(note('declare[form].constraints[0]')).toContain('d-marked')
+  })
+
+  test('the options of a choice', () => {
+    expect(note('declare[mark].options')).toContain('d-marked')
+  })
+
+  test('one of an enum\'s values', () => {
+    expect(note('declare[forms].values[interface]')).toContain('d-marked')
+  })
+
+  test('a part inside a value', () => {
+    expect(note('declare[forms].values[interface].value.mark')).toContain('d-marked')
+  })
+
+  test('a keyword on a declaration', () => {
+    expect(note('declare[forms].is')).toContain('d-marked')
+  })
+
+  test('a path naming nothing is said on the page rather than left out', () => {
+    const html = note('declare[gone].options')
+    expect(html).toContain('highlight names nothing')
+    expect(html).toContain('declare[gone].options')
+    expect(html).not.toContain('d-marked')
+  })
+
+  test('nothing named says nothing on a page with marks that resolve', () => {
+    expect(note('declare[mark]')).not.toContain('highlight names nothing')
   })
 })
