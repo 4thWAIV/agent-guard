@@ -1,0 +1,7 @@
+# The coverage floor matches the 75 percent hard gate the .NET side holds
+# (eng/coverage-gate.sh). There is no environment override on that side and there is none here.
+[test]
+coverage = true
+coverageThreshold = 0.75
+coverageSkipTestFiles = true
+coverageReporter = ["text", "lcov"]

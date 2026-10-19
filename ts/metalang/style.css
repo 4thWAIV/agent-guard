@@ -1,0 +1,197 @@
+/* Appearance, carried over from the design already agreed: paper ground, card sections,
+   a filled mark for anything the page cannot make sense of, and a chip for a reference
+   coloured by whether it resolves.
+
+   A kind's colour is DERIVED from its position in the vocabulary, never written per kind.
+   Five hand-written rules keyed on an id is how the earlier page ended up with a sixth
+   actor drawing in no colour and saying nothing about it. */
+
+:root{
+  --paper:#f7f6f2; --card:#fff; --ink:#15192b; --soft:#454d63; --dim:#848b9c;
+  --rule:#e2dfd6; --band:#f1efe8;
+  --accent:#0d6e68; --accent-soft:#dff2ef; --accent-line:#8fc9c2;
+  --warm:#9a5b00; --warm-soft:#fdf2dd; --warm-line:#e6bd72;
+  --bad:#b3261e; --bad-soft:#fdecea; --bad-line:#eda39c;
+  /* a boolean value, green for true and red for false */
+  --yes:#1a7f37; --yes-soft:#e3f4e8; --yes-line:#9ad3ad;
+  --no:#c02d1f; --no-soft:#fdeae7; --no-line:#f0ab9f;
+  /* a regular expression, in a colour no reference chip uses */
+  --expr:#c2410c; --expr-soft:#fdeee4; --expr-line:#f2b894;
+  /* what a type says about itself: one colour each, so the two never read as the same chip */
+  --abs:#3f36a8; --abs-soft:#eceafc; --abs-line:#b3abee;
+  --prim:#8d2a63; --prim-soft:#fbe9f3; --prim-line:#e4a5c8;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+ font:400 14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+main{max-width:62rem;margin:0 auto;padding:40px 24px 90px}
+code{font-family:var(--mono)}
+
+/* ── the header ──────────────────────────────────────────────────────────── */
+.d-top{margin-bottom:30px}
+h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
+
+/* WHAT NAMES THE FILE. A label and a breadcrumb, no box: the segments draw as the list they
+   are rather than as a dotted string, and the label says which list it is. */
+.d-ident{margin:0 0 14px;display:grid;gap:7px}
+.d-ident-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* the label and a segment are the same box: one height, one padding, one radius, so the only
+   thing that differs between them is what they say */
+.d-ident-row>i,.d-path b{display:inline-flex;align-items:center;height:28px;padding:0 10px;
+ border:1px solid transparent;border-radius:6px;flex:none}
+.d-ident-row>i{font:700 9px/1 var(--sans);font-style:normal;letter-spacing:.15em;
+ text-transform:uppercase;color:#fff;background:var(--accent);border-color:var(--accent)}
+.d-path{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.d-path b{font:600 14px/1 var(--mono);color:var(--accent);background:var(--accent-soft);
+ border-color:var(--accent-line)}
+.d-path em{font:400 15px/1 var(--sans);font-style:normal;color:var(--accent);opacity:.55}
+.d-path-none{font:italic 13px/1.5 var(--sans);color:var(--soft)}
+/* the scopes a file brings into itself, one path each */
+.d-imports{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.d-sub{font-size:14.5px;line-height:1.65;color:var(--soft);max-width:70ch;margin:0}
+.d-foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+ font-size:12.5px;color:var(--dim);max-width:76ch}
+.d-foot p{margin:0 0 .45rem}.d-foot p:last-child{margin:0}
+/* the fine print shows the colours it describes, drawn with the same rules as the page, and
+   names each colour in the colour it names */
+.d-legend{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;align-items:baseline;
+ margin:14px 0 0}
+.d-legend dt{display:flex;gap:5px;flex-wrap:wrap}
+.d-legend dd{margin:0}
+.d-legend .d-ref{font-size:11.5px;padding:2px 7px}
+.d-legend .d-kind{background:var(--kind)}
+.d-legend-keys{font:600 11.5px/1.5 var(--mono);color:var(--soft)}
+.c-declared{color:var(--accent)}
+.c-undeclared{color:var(--warm)}
+@media (max-width:560px){ .d-legend{grid-template-columns:1fr;gap:4px 0}
+  .d-legend dd{margin:0 0 10px} }
+
+/* ── a declaration ───────────────────────────────────────────────────────── */
+.d-decl{border:1px solid var(--rule);border-left:4px solid var(--kind,var(--rule));
+ border-radius:11px;overflow:hidden;background:var(--card);margin:0 0 14px}
+.d-decl-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+ padding:8px 14px;background:var(--band)}
+.d-kind{font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:#fff;background:var(--kind);padding:5px 8px;border-radius:4px;flex:none}
+.d-id{font:600 15.5px/1.3 var(--mono)}
+/* What a type says about itself: abstract, primitive. Drawn only when it is written true.
+   Each word carries its own colour. A word added to the page before it is given one still
+   draws, in ink on the card, so it is seen rather than lost against the band behind it. */
+.d-said{font:700 8.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:var(--ink);background:var(--card);border:1px solid var(--soft);
+ border-radius:4px;padding:4px 7px;flex:none}
+.s-abstract{color:var(--abs);background:var(--abs-soft);border-color:var(--abs-line)}
+.s-primitive{color:var(--prim);background:var(--prim-soft);border-color:var(--prim-line)}
+/* that a property may be left out. Dashed, because the thing it marks may not be there at all. */
+.s-optional{color:var(--dim);background:var(--band);border:1px dashed var(--rule);margin-left:8px}
+.d-count{font:700 9px/1 var(--mono);color:var(--soft);background:var(--card);
+ border:1px solid var(--rule);padding:4px 7px;border-radius:4px;margin-left:auto;flex:none}
+
+.d-is{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+ padding:7px 14px;border-top:1px solid var(--rule)}
+.d-is>i{font:700 9px/1.6 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--dim);flex:none}
+.d-is>span{display:flex;gap:6px;flex-wrap:wrap}
+/* `is` drawn on the declaration's own line, so a declaration costs one line and not two. It is
+   part of that line rather than a row of its own, so it keeps none of a row's padding or rule. */
+.d-is-head{gap:7px;margin:0;padding:0;border-top:0}
+
+/* ── a reference, coloured by whether it resolves ────────────────────────── */
+.d-ref{display:inline-flex;align-items:baseline;gap:5px;border-radius:5px;padding:3px 8px;
+ font:600 12px/1.4 var(--mono);border:1px solid transparent}
+.d-ref i{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;opacity:.75}
+/* the shape. It carries the same meaning the colour does, for anyone the colour excludes. */
+.d-ref b{font:400 11px/1 var(--sans);flex:none;opacity:.9}
+.r-declared{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
+.r-imported{color:var(--accent);background:var(--card);border-color:var(--accent-line)}
+.r-undeclared{color:var(--warm);background:var(--warm-soft);border-color:var(--warm-line)}
+
+/* ── the word that says a declaration's implementation lives outside the language ───────── */
+.d-extern{display:inline-flex;align-items:baseline;border-radius:5px;padding:3px 8px;
+ font:700 9px/1.6 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:var(--soft);background:var(--band);border:1px dashed var(--rule);flex:none}
+
+/* ── a value written in the file: what an enum's id stands for, and what a property always
+      holds. A value, not a type, so it carries no reference shape ─────────────────────────── */
+.d-val{display:inline-flex;align-items:baseline;border-radius:5px;padding:3px 8px;
+ font:600 12px/1.4 var(--mono);color:var(--soft);background:var(--band);
+ border:1px solid var(--rule)}
+/* a boolean, in the colour it reads as */
+.v-true{color:var(--yes);background:var(--yes-soft);border-color:var(--yes-line)}
+.v-false{color:var(--no);background:var(--no-soft);border-color:var(--no-line)}
+/* a regular expression, between the slashes it is written between in most languages */
+.v-expr{color:var(--expr);background:var(--expr-soft);border-color:var(--expr-line)}
+/* the marks around a value rather than the value itself: the equals sign every value follows,
+   and the slashes a regular expression sits between */
+.d-val i{font-style:normal;opacity:.5;padding:0 1px}
+.d-val .v-eq{padding:0 4px 0 0}
+
+/* A value of a type with properties: its named parts. The parts are chips, so the value holding
+   them carries none of a chip's own ground, border or padding, and each part keeps its own. */
+.d-val.v-parts{background:transparent;border-color:transparent;padding:0}
+.d-parts{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:5px 9px}
+.d-part{display:inline-flex;align-items:baseline;gap:5px}
+.d-part>i{font:600 10.5px/1.4 var(--sans);font-style:normal;letter-spacing:.07em;
+ text-transform:uppercase;color:var(--dim);opacity:1;padding:0}
+
+/* ── the prose a thing carries: one line saying what it is, then the explanation ─────────── */
+.d-prose{padding:1px 14px 11px;max-width:74ch}
+.d-prose b{display:block;font:600 12.75px/1.5 var(--sans);color:var(--ink)}
+.d-prose p{margin:4px 0 0;font:13px/1.62 var(--sans);color:var(--soft)}
+/* under a property or a value, lined up with the column that says what that name holds */
+.d-prose-row{display:grid;grid-template-columns:minmax(8rem,14rem) 1fr;gap:0 12px;
+ padding:0 14px 10px;max-width:none}
+.d-prose-row>*{grid-column:2;max-width:74ch}
+
+/* ── the properties ──────────────────────────────────────────────────────── */
+.d-prow{display:grid;grid-template-columns:minmax(8rem,14rem) 1fr;gap:12px;
+ align-items:baseline;padding:7px 14px;border-top:1px solid var(--rule)}
+.d-pname{font:600 12.75px/1.4 var(--mono)}
+.d-pfrom{font:italic 11.5px/1.45 var(--sans);color:var(--dim);margin-left:6px}
+/* A type written out rather than named: the word for one of its own properties, as in
+   "array of name". Low contrast, because the two type references either side carry the meaning. */
+.d-pof{font:600 9px/1.6 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--dim);margin:0 7px}
+/* the value a property always holds, drawn after the type it holds it as */
+.d-pval{margin-left:8px}
+.d-nothing{padding:26px 0;font:italic 14px/1.6 var(--sans);color:var(--dim)}
+
+/* ── a section of the file, headed by the top-level keyword that names it ─── */
+.d-section{margin:0 0 28px}
+.d-section-name{font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
+ color:var(--soft);margin:0 0 13px;padding:0 0 10px;border-bottom:1px solid var(--rule)}
+
+/* ── THE ERROR CONTROL. What draws when nothing describes the data. ──────── */
+.d-err{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+ background:var(--bad-soft);border:1px solid var(--bad-line);border-left-width:3px;
+ border-radius:6px;padding:6px 10px;margin:7px 14px}
+.d-err>em{font:800 9px/1 var(--sans);font-style:normal;letter-spacing:.13em;
+ text-transform:uppercase;color:#fff;background:var(--bad);padding:5px 7px;
+ border-radius:3px;flex:none}
+.d-err>b{font:600 12.5px/1.5 var(--sans);color:var(--bad);flex:1 1 18rem}
+.d-err>code{font-size:11px;color:var(--bad);background:var(--card);
+ border:1px solid var(--bad-line);padding:3px 6px;border-radius:3px;overflow-wrap:anywhere}
+.d-err-loose{margin:8px 0}
+
+@media (max-width:560px){
+  main{padding:28px 16px 64px}
+  h1{font-size:25px}
+  .d-prow{grid-template-columns:1fr;gap:3px}
+  .d-count{margin-left:0}
+}
+
+/* Several of one shape: a table saying each column's name once. It sits inside a value, so it
+   carries none of a chip's ground or border and lets the cells keep their own. */
+.d-val.v-table{background:transparent;border-color:transparent;padding:0;display:block}
+.d-table{border-collapse:collapse;margin:2px 0 0}
+.d-table th{font:600 10.5px/1.4 var(--sans);letter-spacing:.07em;text-transform:uppercase;
+ color:var(--dim);text-align:left;padding:0 10px 3px 0;white-space:nowrap}
+.d-table td{padding:1px 10px 1px 0;vertical-align:baseline}
+.d-table td:last-child,.d-table th:last-child{padding-right:0}
+.d-table .t-none{color:var(--dim);opacity:.6;font-style:normal}
+/* A column says what the cell is, so the equals sign inside it would say it a second time. */
+.d-table .v-eq{display:none}
