@@ -1,0 +1,81 @@
+# The parts of this toolchain, written in the architecture language rather than in MetaLang.
+#
+# `language: arch` says which rulebook this file is read against. The checker loads that file,
+# reads the scopes it brings in, and checks what is written here against the result — so `forms`
+# and `mark` below are the architecture language's own words, and MetaLang alone could say nothing
+# about them.
+#
+# `import: [metalang]` brings in the types the architecture language is itself written with, which
+# is where `string` comes from. A document reaches the language it names without importing it, and
+# reaches anything else by bringing it in.
+scope: [parts]
+language: arch
+import:
+  - [metalang]
+title: The parts of the MetaLang toolchain
+description: What each part of ts/metalang is, and which form it takes.
+declare:
+  - entity:
+      id: part
+      is: object
+      title: One part of this toolchain.
+      properties:
+        name:
+          is: string
+          title: The name it is known by in the code.
+        file:
+          is: string
+          title: The file it lives in.
+        form:
+          is: forms
+          title: Which form of the architecture it takes.
+        mark:
+          is: mark
+          optional: true
+          title: The glyph it is drawn with, where it is drawn with one of its own.
+        does:
+          is: string
+          title: One line saying what it does.
+
+  - enum:
+      id: parts
+      is: part
+      title: Every part of ts/metalang, in reading order.
+      values:
+        - id: vocabulary
+          value:
+            name: Vocabulary
+            file: words.ts
+            form: record
+            does: The whole vocabulary as one value, so nothing reads a subset of it.
+        - id: fault
+          value:
+            name: Fault
+            file: words.ts
+            form: record
+            does: One thing to say about one place in a document.
+        - id: rulebook
+          value:
+            name: Rulebook
+            file: rulebook.ts
+            form: record
+            does: The vocabulary a document is read against, or why it could not be read.
+        - id: expression
+          value:
+            name: Expression
+            file: expression.ts
+            form: interface
+            does: A regular expression that has been read, and what it matches.
+        - id: check
+          value:
+            name: check
+            file: check.ts
+            form: function
+            does: Reads one document against a vocabulary and says what is wrong with it.
+        - id: path_to
+          value:
+            name: pathTo
+            file: highlight.ts
+            form: function
+            mark: "◇"
+            does: Where a path written in a highlight points, in the form the page writes.

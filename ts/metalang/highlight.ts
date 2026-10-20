@@ -13,7 +13,7 @@
 // A path that names nothing is reported on the page, so a highlight left behind by an edit says so
 // rather than disappearing.
 
-import { isMapping, onlyWord, type Mapping } from './words.ts'
+import { BOOTSTRAP, isMapping, onlyWord, type Mapping } from './words.ts'
 
 /** The key naming the file a highlight file highlights. */
 export const OF = 'of'
@@ -91,7 +91,7 @@ export function stepsOf(path: string): readonly Step[] | null {
  */
 export function nameOf(node: unknown): string | null {
   if (!isMapping(node)) return null
-  const own = node.id
+  const own = node[BOOTSTRAP.id]
   if (typeof own === 'string') return own
   const word = onlyWord(node)
   return word === null ? null : nameOf(word[1])

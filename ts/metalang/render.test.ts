@@ -11,7 +11,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
 import { inlineScript, outputFor, outputPathFor, pageHtml, render, titleOf } from './render.ts'
-import { LANGUAGE_FILE } from './check.ts'
+import { LANGUAGE_FILE } from './rulebook.ts'
 
 let dir: string
 

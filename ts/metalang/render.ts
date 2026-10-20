@@ -22,7 +22,7 @@ import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
 
 import { bundlePage } from './bundle.ts'
-import { LANGUAGE_FILE, WORDS } from './check.ts'
+import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { highlightOf, isHighlight, marksOf, NO_MARKS, type Marks } from './highlight.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -124,8 +124,15 @@ export async function render(file: string, out: string): Promise<number> {
     console.log(`${basename(file)} — ${said}${lost} in ${basename(target)}`)
   }
 
+  // The page is drawn with the same vocabulary the checker reads the document against: the
+  // language it names and the scopes it brings in. A document whose rulebook could not be read is
+  // drawn against the one vocabulary there is, and the page says what could not be read, because
+  // a page that shows the document is worth more than a command that stopped.
+  const { words, faults } = rulebookFor(doc, drawing)
+  for (const fault of faults) console.error(`  ${basename(drawing)} — ${fault.where} ${fault.what}`)
+
   const { code } = await bundlePage(join(here, 'client.tsx'), {
-    __WORDS__: JSON.stringify(WORDS),
+    __WORDS__: JSON.stringify(words ?? WORDS),
     __DOC__: JSON.stringify(doc ?? null),
     __MARKS__: JSON.stringify({
       marked: [...marks.marked],

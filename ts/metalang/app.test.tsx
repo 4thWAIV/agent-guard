@@ -5,17 +5,26 @@
 // So the tests that matter most are the ones proving that something the page has no drawing
 // for appears ON the page as an error rather than being quietly left out.
 
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+
+import * as yaml from 'js-yaml'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { describe, expect, test } from 'bun:test'
 
 import { declaredBodiesOf, kindStyle, Page, text } from './app.tsx'
-import { WORDS } from './check.ts'
+import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { marksOf, type Entry } from './highlight.ts'
 import type { Vocabulary } from './words.ts'
 
 const draw = (doc: unknown, words: Vocabulary = WORDS): string =>
   renderToStaticMarkup(<Page words={words} doc={doc} />)
+
+/** A real document written in the architecture language, read from the file. */
+const parts = yaml.load(
+  readFileSync(join(dirname(LANGUAGE_FILE), 'parts.yaml'), 'utf8'),
+) as Record<string, unknown>
 
 const file = (extra: Record<string, unknown>): Record<string, unknown> => ({
   scope: ['metalang'],
@@ -870,6 +879,26 @@ describe('a document reaching the declarations of another scope', () => {
 
   test('the language file imports nothing and draws no import row', () => {
     expect(draw(file({ declare: [{ entity: { id: 'A' } }] }))).not.toContain('<i>import</i>')
+  })
+
+  test('a name of the language the document names draws as reached, naming that language', () => {
+    // The page is drawn with the vocabulary the document is read against, which here holds the
+    // architecture language's own declarations as well as MetaLang's. `forms` is reached because
+    // the document is written in that language, with no import saying so.
+    const { words } = rulebookFor(parts, join(dirname(LANGUAGE_FILE), 'parts.yaml'))
+    const html = draw(parts, words ?? undefined)
+    expect(html).toContain('<b aria-hidden="true">\u25C8</b>forms<i>arch</i>')
+    expect(html).toContain('<b aria-hidden="true">\u25C8</b>string<i>metalang</i>')
+    expect(html).not.toContain('>forms<i>undeclared</i>')
+  })
+
+  test('a name the document neither declares nor reaches still draws as undeclared', () => {
+    const { words } = rulebookFor(parts, join(dirname(LANGUAGE_FILE), 'parts.yaml'))
+    const html = draw(
+      { ...parts, declare: [{ entity: { id: 'p', properties: { f: { is: 'nothing' } } } }] },
+      words ?? undefined,
+    )
+    expect(html).toContain('>nothing<i>undeclared</i>')
   })
 })
 

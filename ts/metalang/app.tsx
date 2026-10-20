@@ -28,11 +28,13 @@ import {
   IMPORT,
   importedBy,
   importsScope,
+  LANGUAGE,
   isMapping,
   onlyWord,
   primitiveOf,
   propertiesOf,
   propertyAbove,
+  samePath,
   SCOPE,
   SELF,
   typeOfPart,
@@ -64,10 +66,11 @@ interface Drawing {
    */
   readonly declared: ReadonlyMap<string, Mapping>
   /**
-   * The scope this document imports, where it is the one the vocabulary was read from, written
-   * the way the document writes it. Nothing when the document imports no scope this page has.
+   * The scope a name this document does not declare is reached through, written the way the
+   * document writes it, or nothing when the document reaches no such name. A document reaches a
+   * scope by bringing it in, and reaches the language it names without bringing it in.
    */
-  readonly imported: string | null
+  readonly brought: (name: string) => string | null
   /**
    * What a highlight file says to mark, by the path of the node it points at, with what it says
    * of that node. Empty where no highlight was given, which is how every document draws without
@@ -92,9 +95,9 @@ const useDrawing = (): Drawing => {
  * rule the checker reads by.
  */
 const useBodyOf = (): BodyOf => {
-  const { words, declared, imported } = useDrawing()
+  const { words, declared, brought } = useDrawing()
   return (id: string) =>
-    declared.get(id) ?? (imported === null ? undefined : words.declared[id]?.body)
+    declared.get(id) ?? (brought(id) === null ? undefined : words.declared[id]?.body)
 }
 
 /**
@@ -259,7 +262,8 @@ const Prose = ({ node, row = false }: { node: unknown; row?: boolean }) => {
 // shape, a word, and the colour. The shape and the word each carry the whole meaning on their
 // own, so the colour is the one that can be lost without losing anything.
 const Ref = ({ name }: { name: string }) => {
-  const { words, declared, imported } = useDrawing()
+  const { declared, brought } = useDrawing()
+  const from = brought(name)
   if (declared.has(name)) {
     return (
       <span className="d-ref r-declared" title="declared in this document">
@@ -268,17 +272,17 @@ const Ref = ({ name }: { name: string }) => {
       </span>
     )
   }
-  if (imported !== null && words.declared[name] !== undefined) {
+  if (from !== null) {
     return (
-      <span className="d-ref r-imported" title={`brought in by importing ${imported}`}>
+      <span className="d-ref r-imported" title={`declared in ${from}, which this document reaches`}>
         <b aria-hidden="true">&#9672;</b>
         {name}
-        <i>{imported}</i>
+        <i>{from}</i>
       </span>
     )
   }
   return (
-    <span className="d-ref r-undeclared" title="no scope this document imports declares it">
+    <span className="d-ref r-undeclared" title="no scope this document reaches declares it">
       <b aria-hidden="true">&#9671;</b>
       {name}
       <i>undeclared</i>
@@ -989,11 +993,25 @@ export const Page = ({
   marks?: Marks
 }) => {
   const { marked, missing } = marks
+
+  // A name this document does not declare is reached by bringing in the scope that declares it,
+  // or by naming that scope as the language the document is written in. Every declaration the
+  // vocabulary holds says which scope declared it, so the one it came from is the one drawn.
+  const written = isMapping(doc) ? doc[LANGUAGE] : undefined
+  const writtenIn = typeof written === 'string' && written.length > 0 ? [written] : null
+  const brought = (name: string): string | null => {
+    const held = words.declared[name]
+    if (held === undefined) return null
+    const reaches =
+      importsScope(doc, held.scope) || (writtenIn !== null && samePath(writtenIn, held.scope))
+    return reaches ? held.scope.join('.') : null
+  }
+
   if (!isMapping(doc)) {
     return (
       <main>
         <DrawingContext.Provider
-          value={{ words, declared: new Map(), imported: null, marked, missing }}
+          value={{ words, declared: new Map(), brought, marked, missing }}
         >
           <Err loose at="the file">
             is not a mapping, so there is nothing to draw.
@@ -1010,14 +1028,9 @@ export const Page = ({
     (doc.scope as unknown[]).every((s) => typeof s === 'string' && s.length > 0)
   const scope: string[] = scopeOk ? (doc.scope as string[]) : []
 
-  // A name this document does not declare is reached by importing the scope that declares it. The
-  // one scope this page has is the one the vocabulary was read from, so that is the one it can
-  // draw a name as coming from.
-  const imported = importsScope(doc, words.scope) ? words.scope.join('.') : null
-
   return (
     <DrawingContext.Provider
-      value={{ words, declared: declaredBodiesOf(doc), imported, marked, missing }}
+      value={{ words, declared: declaredBodiesOf(doc), brought, marked, missing }}
     >
       <main>
         <div className="d-top">
@@ -1125,8 +1138,10 @@ export const Page = ({
               </span>
             </dt>
             <dd>
-              A scope this document imports declares it, and the chip names that scope. The mark is
-              a diamond within a diamond, because the name is reached rather than written here.
+              A scope this document reaches declares it, and the chip names that scope. A document
+              reaches a scope by bringing it in, and reaches the language it is written in without.
+              The mark is a diamond within a diamond, because the name is reached rather than
+              written here.
             </dd>
 
             <dt>
@@ -1135,8 +1150,8 @@ export const Page = ({
               </span>
             </dt>
             <dd>
-              Neither this document nor any scope it imports declares it, so nothing here says what
-              it is. The mark is hollow and the chip is <b className="c-undeclared">amber</b>.
+              Neither this document nor any scope it reaches declares it, so nothing here says
+              what it is. The mark is hollow and the chip is <b className="c-undeclared">amber</b>.
             </dd>
 
             <dt className="d-legend-kinds">

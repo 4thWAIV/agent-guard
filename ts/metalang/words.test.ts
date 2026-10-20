@@ -10,7 +10,7 @@ import * as yaml from 'js-yaml'
 
 import { describe, expect, test } from 'bun:test'
 
-import { LANGUAGE_FILE, WORDS } from './check.ts'
+import { LANGUAGE_FILE, WORDS } from './rulebook.ts'
 import {
   BOOTSTRAP,
   isMapping,

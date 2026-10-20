@@ -1,9 +1,11 @@
 // Checks a document against the APPROVED vocabulary and nothing else.
 //
-// Which words those are is in metalang.yaml and nowhere else, this comment included.
+// Which words those are is in the language the document names, and nowhere else, this comment
+// included. A document naming no language is written in MetaLang, whose words are in
+// metalang.yaml.
 //
-// The vocabulary is taken as an argument, from words.ts, which is the one copy every script
-// shares and which refuses to load if a word in it is not stated in metalang.yaml. This file
+// The vocabulary is taken as an argument. Loading it is rulebook.ts's job: the language the
+// document names, read from that language's file along with the scopes it brings in. This file
 // holds no word of its own, no table of types kept outside the language, and no default that
 // papers over a gap.
 //
@@ -17,12 +19,12 @@
 // Usage:  bun run ts/metalang/check.ts [file]
 
 import { readFileSync } from 'node:fs'
-import { basename, dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { basename } from 'node:path'
 
 import * as yaml from 'js-yaml'
 
 import { CONSTRAINTS, cannotApply, constraintsOn, logicFor, unmetBy } from './constraints.ts'
+import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import {
   BOOTSTRAP,
   derivesFrom,
@@ -30,6 +32,7 @@ import {
   IMPORT,
   importsScope,
   isMapping,
+  LANGUAGE,
   mayBeLeftOut,
   membersOf,
   onlyWord,
@@ -37,7 +40,6 @@ import {
   primitiveOf,
   propertiesOf,
   propertyAbove,
-  resolveVocabulary,
   samePath,
   saysOfProperty,
   SCOPE,
@@ -45,32 +47,11 @@ import {
   typeOfPart as typeOfPartHolding,
   typeOfProperty,
   type BodyOf,
+  type Fault,
   type Mapping,
   type Place,
   type Vocabulary,
 } from './words.ts'
-
-/** Where the language file is. It declares the vocabulary every script reads. */
-export const LANGUAGE_FILE = join(dirname(fileURLToPath(import.meta.url)), 'metalang.yaml')
-
-/**
- * The vocabulary a language file declares. It refuses to produce one it could not read, so no
- * script ever runs on a vocabulary that is partly guessed.
- */
-export function loadVocabulary(file: string = LANGUAGE_FILE): Vocabulary {
-  const { words, faults } = resolveVocabulary(yaml.load(readFileSync(file, 'utf8')))
-  if (faults.length > 0) throw new Error(`metalang-words: ${faults.join(' ')}`)
-  return words
-}
-
-/** The live vocabulary, read once. */
-export const WORDS: Vocabulary = loadVocabulary()
-
-/** One thing to say about one place in the document. */
-export interface Fault {
-  readonly where: string
-  readonly what: string
-}
 
 export interface CheckResult {
   /** Things wrong with the document. */
@@ -228,7 +209,6 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
   // What a document imports is the scopes it brings into itself, each one written the way a scope
   // is written. A scope this checker was not given cannot be brought in, so it is a blocker: the
   // document may be right and nothing here can say so.
-  const brings = importsScope(doc, words.scope)
   if (Array.isArray(doc[IMPORT])) {
     for (const [i, one] of (doc[IMPORT] as unknown[]).entries()) {
       const at = `${root}.${IMPORT}[${i}]`
@@ -237,18 +217,38 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
         continue
       }
       path(at, one)
-      if (!samePath(one, words.scope)) {
+      if (!words.brought.some((brought) => samePath(one, brought))) {
         block(at, `"${(one as unknown[]).join('.')}" is not a scope this checker was given`)
       }
     }
   }
 
-  if (doc.language !== undefined) {
+  // The language a document names is the rulebook it is read against. Loading that rulebook is
+  // the business of whoever calls this, so what is checked here is that the two agree: a document
+  // read against a vocabulary that is not the one it names has not been checked against its own
+  // language, and saying nothing about that would be passing it.
+  const written = doc[LANGUAGE]
+  const writtenIn = typeof written === 'string' && written.length > 0 ? [written] : null
+  if (writtenIn !== null && !samePath(writtenIn, words.scope)) {
     block(
-      `${root}.language`,
-      'a document written in another language cannot be checked against it, because the language' +
-        ' has no word yet for what a type is made of',
+      `${root}.${LANGUAGE}`,
+      `this document is written in "${written as string}" and it was read against` +
+        ` "${words.scope.join('.')}", so nothing in it was checked against its own language`,
     )
+  }
+
+  /**
+   * Whether this document reaches the declarations of that scope: it brings the scope in, or it
+   * names it as the language it is written in. Naming the language is naming where the words come
+   * from, so nothing further is needed to reach them.
+   */
+  const reaches = (scope: readonly string[]): boolean =>
+    importsScope(doc, scope) || (writtenIn !== null && samePath(writtenIn, scope))
+
+  /** One declaration of the vocabulary, when this document reaches the scope that declares it. */
+  const fromVocabulary = (id: string): { kind: string; body: Mapping } | undefined => {
+    const held = words.declared[id]
+    return held !== undefined && reaches(held.scope) ? held : undefined
   }
 
   // ── the declarations ───────────────────────────────────────────────────────
@@ -269,11 +269,15 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       return
     }
 
-    const found = byId.get(named) ?? (brings ? words.declared[named] : undefined)
+    const found = byId.get(named) ?? fromVocabulary(named)
     if (found === undefined) {
+      const elsewhere = words.declared[named]
       block(
         where,
-        `"${named}" is declared nowhere in this file and no scope it imports brings it in`,
+        elsewhere === undefined
+          ? `"${named}" is declared nowhere in this file and no scope it imports brings it in`
+          : `"${named}" is declared in "${elsewhere.scope.join('.')}", which this document does` +
+            ' not bring in',
       )
       return
     }
@@ -365,7 +369,7 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
    * then in what the document imports. A document's own declaration wins over an imported one.
    */
   const bodyOf = (id: string): Mapping | undefined =>
-    byId.get(id)?.body ?? (brings ? words.declared[id]?.body : undefined)
+    byId.get(id)?.body ?? fromVocabulary(id)?.body
 
   /**
    * The same, in the language file rather than in this document. A type written out is one of the
@@ -1037,8 +1041,17 @@ export function countDeclarations(doc: unknown): number {
 
 const WIDTH = 30
 
-/** The whole report as lines, so a test can read what would be printed. */
-export function reportLines(file: string, result: CheckResult, declared: number): string[] {
+/**
+ * The whole report as lines, so a test can read what would be printed. `against` names the
+ * language the document was read against when it names one, because a document checked against
+ * one rulebook and a document checked against another are not the same report.
+ */
+export function reportLines(
+  file: string,
+  result: CheckResult,
+  declared: number,
+  against: string | null = null,
+): string[] {
   const out: string[] = []
   const print = (heading: string, rows: readonly Fault[]): void => {
     out.push(`${rows.length} ${heading}${rows.length === 1 ? '' : 's'}:`)
@@ -1047,8 +1060,8 @@ export function reportLines(file: string, result: CheckResult, declared: number)
   }
 
   out.push(
-    `${file} — ${declared} declaration${declared === 1 ? '' : 's'}, checked against the approved` +
-      ' vocabulary',
+    `${file} — ${declared} declaration${declared === 1 ? '' : 's'}, checked against ` +
+      (against === null ? 'the approved vocabulary' : `"${against}", the language it names`),
   )
   out.push('')
 
@@ -1077,9 +1090,20 @@ export function run(file: string): number {
     return 1
   }
 
-  const result = check(doc, basename(file))
-  for (const line of reportLines(file, result, countDeclarations(doc))) console.log(line)
-  return result.problems.length > 0 || result.blockers.length > 0 ? 1 : 0
+  // The vocabulary comes from the language the document names and the scopes it brings in. A
+  // rulebook that could not be read whole leaves nothing to check against, so that is the whole
+  // report rather than a run against a vocabulary that is partly guessed.
+  const { words, faults } = rulebookFor(doc, file)
+  const named = isMapping(doc) && typeof doc[LANGUAGE] === 'string' ? doc[LANGUAGE] : null
+  const checked =
+    words === null
+      ? { problems: [], blockers: faults }
+      : (({ problems, blockers }) => ({ problems, blockers: [...faults, ...blockers] }))(
+          check(doc, basename(file), words),
+        )
+
+  for (const line of reportLines(file, checked, countDeclarations(doc), named)) console.log(line)
+  return checked.problems.length > 0 || checked.blockers.length > 0 ? 1 : 0
 }
 
 if (import.meta.main) process.exit(run(process.argv[2] ?? LANGUAGE_FILE))

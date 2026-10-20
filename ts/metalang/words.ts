@@ -21,6 +21,9 @@ export const SCOPE = 'scope'
 /** The top-level key naming the scopes a document brings into itself. */
 export const IMPORT = 'import'
 
+/** The top-level key naming the language a document is written in. */
+export const LANGUAGE = 'language'
+
 /** Whether two paths are the same path. */
 export const samePath = (a: readonly unknown[], b: readonly unknown[]): boolean =>
   a.length === b.length && a.every((x, i) => x === b[i])
@@ -86,6 +89,11 @@ export interface Vocabulary {
   /** Where the language file says its own declarations live, which is what a document imports. */
   readonly scope: readonly string[]
   /**
+   * Every scope this vocabulary was read from: the language's own first, then the scopes it
+   * brings in. A document may import any of them, and nothing else is in here to be reached.
+   */
+  readonly brought: readonly (readonly string[])[]
+  /**
    * Every declaration of the language file itself, by id: the kind it was written as and what it
    * writes. The vocabulary says which properties a type carries; this is where to read what one of
    * them holds, which is how a keyword's own type — the type an id has, the type a collection's
@@ -145,10 +153,18 @@ export type Mapping = Record<string, unknown>
 export const isMapping = (v: unknown): v is Mapping =>
   v !== null && typeof v === 'object' && !Array.isArray(v)
 
+/** One thing to say about one place in a document: where it is, and what is wrong there. */
+export interface Fault {
+  readonly where: string
+  readonly what: string
+}
+
 /** One declaration, as the vocabulary keeps it. */
 export interface Declared {
   readonly kind: Kind
   readonly body: Mapping
+  /** The scope of the file that declared it, which is what a document imports to reach it. */
+  readonly scope: readonly string[]
 }
 
 /** A vocabulary, and everything that stopped it being read as written. */
@@ -388,35 +404,70 @@ const namesOf = (v: unknown): readonly string[] =>
     (x): x is string => typeof x === 'string' && x.length > 0,
   )
 
+/** One declaration of one document, as the reader walks it. */
+interface Walked {
+  readonly at: string
+  readonly item: unknown
+  /** The scope of the document it was written in. */
+  readonly from: readonly string[]
+  /** Which document it was written in, so a name declared twice in ONE of them is reported. */
+  readonly group: number
+}
+
 /**
  * The vocabulary a document declares. Every declaration in the document's one list is read,
  * whether it is written plainly or inside `external`, because `external` says where a declaration
  * is implemented and not whether it is part of the language.
  *
+ * `beneath` is the documents this one is written on top of — the scopes it imports, deepest
+ * first. Their declarations are read the same way and kept the same way, and a name the document
+ * declares itself wins over the same name brought in, which is the rule a document is read by.
+ * A name declared twice in one document is still reported, because that is one file saying two
+ * things.
+ *
  * It reports rather than throws, so a test can drive it with a document that is wrong and read
  * what it said. The scripts that load the language file are what refuse to run.
  */
-export function resolveVocabulary(doc: unknown): Resolved {
+export function resolveVocabulary(doc: unknown, beneath: readonly unknown[] = []): Resolved {
   const faults: string[] = []
   const entities: Entity[] = []
   const choices = new Map<string, readonly string[]>()
   const declared: Record<string, Declared> = {}
   const seen = new Set<string>()
 
-  const held = isMapping(doc) ? doc[BOOTSTRAP.declare] : undefined
-  if (held !== undefined && !Array.isArray(held)) {
-    faults.push(`${BOOTSTRAP.declare}: the declarations are a list`)
+  /** Where one document says its declarations live, and how to name it in a fault. */
+  const scopeOf = (from: unknown, mine: boolean): { own: readonly string[]; where: string } => {
+    const written = isMapping(from) ? from[SCOPE] : undefined
+    const own = namesOf(written)
+    const where = mine ? '' : `${own.join('.')}.`
+    if (written !== undefined && !writtenAsNames(written)) {
+      faults.push(`${where}${SCOPE}: the scope is a list of names, written as text`)
+    }
+    return { own, where }
   }
-  const items: unknown[] = Array.isArray(held) ? held : []
 
-  const written = isMapping(doc) ? doc[SCOPE] : undefined
-  const scope = namesOf(written)
-  if (written !== undefined && !writtenAsNames(written)) {
-    faults.push(`${SCOPE}: the scope is a list of names, written as text`)
+  const scope = scopeOf(doc, true).own
+  const brought: (readonly string[])[] = [scope]
+
+  /** Which of the documents is the one being read, whose declarations win over the rest. */
+  const reading = beneath.length
+
+  // Deepest first, so a name brought in is written before the one that wins over it.
+  const walked: Walked[] = []
+  for (const [g, one] of [...beneath, doc].entries()) {
+    const mine = one === doc
+    const { own, where } = mine ? { own: scope, where: '' } : scopeOf(one, false)
+    if (!mine) brought.push(own)
+    const held = isMapping(one) ? one[BOOTSTRAP.declare] : undefined
+    if (held !== undefined && !Array.isArray(held)) {
+      faults.push(`${where}${BOOTSTRAP.declare}: the declarations are a list`)
+    }
+    for (const [i, item] of (Array.isArray(held) ? held : []).entries()) {
+      walked.push({ at: `${where}${BOOTSTRAP.declare}[${i}]`, item, from: own, group: g })
+    }
   }
 
-  for (const [i, item] of items.entries()) {
-    const at = `${BOOTSTRAP.declare}[${i}]`
+  for (const { at, item, from, group } of walked) {
     const outer = onlyWord(item)
     if (outer === null) {
       faults.push(`${at}: a declaration is a mapping naming exactly one kind`)
@@ -445,12 +496,24 @@ export function resolveVocabulary(doc: unknown): Resolved {
       faults.push(`${at}: ${a(kind)} declares its name as its id, written as text`)
       continue
     }
-    if (seen.has(id)) {
+    if (seen.has(`${group}:${id}`)) {
       faults.push(`${at}: "${id}" is declared twice`)
       continue
     }
-    seen.add(id)
-    declared[id] = { kind, body }
+    seen.add(`${group}:${id}`)
+
+    // Two scopes brought in declaring one name is the one case nobody has ruled on. The rule that
+    // exists is that the document's own name wins over a name it brings in, and it says nothing
+    // about two brought in. So that is reported rather than settled here, because keeping the last
+    // one read would be deciding it without saying so.
+    const already = declared[id]
+    if (already !== undefined && !samePath(already.scope, from) && group !== reading) {
+      faults.push(
+        `${at}: "${id}" is declared in "${already.scope.join('.')}" as well, and which of two` +
+          ' scopes brought in wins is not decided',
+      )
+    }
+    declared[id] = { kind, body, scope: from }
     if (!says) continue
 
     if (kind === BOOTSTRAP.choice) {
@@ -521,6 +584,7 @@ export function resolveVocabulary(doc: unknown): Resolved {
       entities: all,
       choices: Object.fromEntries(choices),
       scope: scope,
+      brought,
       declared,
     },
     faults,

@@ -59,8 +59,35 @@
 # This file imports nothing. It declares every name it writes, which is what makes it the file the
 # rest are written against.
 #
-# Not decided: what happens when two imported scopes declare the same name. One scope is all a
-# checker can be given today, so nothing can yet be written that would ask.
+# Not decided: what happens when two imported scopes declare the same name. More than one scope
+# can be brought in since 2026-10-19, so this can now be written. The checker reports it where it
+# is written rather than keeping one of the two, because keeping one would decide it.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the language a file names is the rulebook it is read against.   2026-10-19
+#
+#   language      which language the file is written in
+#
+# A file naming a language is read against that language's file: its declarations, and the ones
+# the scopes it brings in declare. So a file written in a language this one defines is checked by
+# that language's own rules, which is what defining a language is for.
+#
+#   scope: [parts]
+#   language: arch
+#   import:
+#     - [metalang]
+#
+# A file reaches the declarations of the language it names without bringing it in, because naming
+# the language is naming where its words come from. Everything else it reaches by bringing it in,
+# which is the rule above unchanged.
+#
+# A file naming no language is written in this one. The six top-level keys are this file's, so
+# every file has the same frame whatever language it is written in, and the language it names
+# decides what may be written under `declare`.
+#
+# Where a file sits is not said here. A scope of several segments is looked for as a path, so
+# `[guard, process]` is `guard/process.yaml`, beside the file being read and then beside this one.
 # ───────────────────────────────────────────────────────────────────────────────
 
 # ───────────────────────────────────────────────────────────────────────────────

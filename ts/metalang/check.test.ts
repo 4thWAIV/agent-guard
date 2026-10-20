@@ -6,20 +6,14 @@
 // test here asserts which list a thing lands in, not merely that something was said.
 
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 import * as yaml from 'js-yaml'
 
 import { describe, expect, test } from 'bun:test'
 
-import {
-  check,
-  countDeclarations,
-  LANGUAGE_FILE,
-  reportLines,
-  run,
-  WORDS,
-  type CheckResult,
-} from './check.ts'
+import { check, countDeclarations, reportLines, run, type CheckResult } from './check.ts'
+import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import type { Vocabulary } from './words.ts'
 
 const problemsAt = (r: CheckResult, where: string): string[] =>
@@ -310,9 +304,11 @@ describe('what a declaration derives from', () => {
     )
   })
 
-  test('a type declared nowhere blocks, because importing and the built-ins are unsettled', () => {
+  test('a type this document neither declares nor brings in blocks, and says where it is', () => {
     const r = only(file({ declare: [{ entity: { id: 'A', is: 'string' } }] }))
-    expect(blockersAt(r, 'declare[0].entity.is')[0]).toContain('declared nowhere in this file')
+    expect(blockersAt(r, 'declare[0].entity.is')[0]).toBe(
+      '"string" is declared in "metalang", which this document does not bring in',
+    )
   })
 
   test('deriving from several types names each position', () => {
@@ -366,7 +362,7 @@ describe('the two closed kinds — an enum lists values, a choice lists types', 
   test('an option declared nowhere blocks at its own position', () => {
     const r = only(file({ declare: [{ choice: { id: 'C', options: ['A', 'string'] } }] }))
     expect(blockersAt(r, 'declare[0].choice.options[0]')[0]).toContain('declared nowhere')
-    expect(blockersAt(r, 'declare[0].choice.options[1]')[0]).toContain('declared nowhere')
+    expect(blockersAt(r, 'declare[0].choice.options[1]')[0]).toContain('does not bring in')
   })
 
   test('an option that does not name a type is a problem', () => {
@@ -588,10 +584,10 @@ describe('properties', () => {
     expect(problemsAt(r, 'declare[0].entity.properties.p.is')).toEqual(['must name a type'])
   })
 
-  test('a property type declared nowhere blocks', () => {
+  test('a property type this document does not reach blocks', () => {
     const r = only(entity({ properties: { p: { is: 'string' } } }))
     expect(blockersAt(r, 'declare[0].entity.properties.p.is')[0]).toContain(
-      'declared nowhere in this file',
+      'does not bring in',
     )
   })
 })
@@ -1107,9 +1103,9 @@ describe('a keyword with no shape of its own', () => {
   test('a cast naming the types it converts between says nothing is wrong with it', () => {
     const r = cast({ from: 'uuid', to: 'string', implicit: true })
     expect(r.problems).toEqual([])
-    // The types it names are the language's own, which this document does not declare, and that
-    // is the one thing left unchecked about it.
-    for (const b of r.blockers) expect(b.what).toContain('is declared nowhere in this file')
+    // The types it names are the language's own, which this document neither declares nor brings
+    // in, and that is the one thing left unchecked about it.
+    for (const b of r.blockers) expect(b.what).toContain('does not bring in')
   })
 
   test('a keyword holding a type takes a type written out as well as a name', () => {
@@ -1205,7 +1201,7 @@ describe('a document reaching the declarations of another scope', () => {
   test('a document importing nothing reaches no name it does not declare', () => {
     const r = check(stage({}), 'stage.yaml')
     expect(blockersAt(r, 'declare[0].entity.properties.name.is')[0]).toBe(
-      '"string" is declared nowhere in this file and no scope it imports brings it in',
+      '"string" is declared in "metalang", which this document does not bring in',
     )
   })
 
@@ -1267,6 +1263,63 @@ describe('a document reaching the declarations of another scope', () => {
     const doc = yaml.load(readFileSync(LANGUAGE_FILE, 'utf8')) as Record<string, unknown>
     expect(doc.import).toBeUndefined()
     expect(check(doc, 'metalang.yaml')).toEqual({ problems: [], blockers: [] })
+  })
+})
+
+// A document says which language it is written in, and the rulebook is loaded from the file that
+// language names. What is checked here is that a document and the rulebook it was read against
+// agree, because a document read against the wrong one has not been checked.
+describe('a document written in a language of its own', () => {
+  const parts = join(dirname(LANGUAGE_FILE), 'parts.yaml')
+  const read = (file: string): Record<string, unknown> =>
+    yaml.load(readFileSync(file, 'utf8')) as Record<string, unknown>
+
+  test('naming a language it was not read against blocks, whatever else is written', () => {
+    const r = check({ scope: ['parts'], language: 'arch', title: 'Parts' }, 'parts.yaml')
+    expect(blockersAt(r, 'parts.yaml.language')[0]).toBe(
+      'this document is written in "arch" and it was read against "metalang", so nothing in it' +
+        ' was checked against its own language',
+    )
+  })
+
+  test('read against the language it names, a real one checks whole', () => {
+    const doc = read(parts)
+    const { words, faults } = rulebookFor(doc, parts)
+    expect(faults).toEqual([])
+    expect(words).not.toBeNull()
+    expect(check(doc, 'parts.yaml', words ?? undefined)).toEqual({ problems: [], blockers: [] })
+  })
+
+  test('the language own words judge what is written against them', () => {
+    const doc = read(parts)
+    const { words } = rulebookFor(doc, parts)
+    const declare = doc.declare as Record<string, Record<string, unknown>>[]
+    const values = (declare[1]?.enum?.values ?? []) as Record<string, Record<string, unknown>>[]
+    const first = values[0]?.value
+    if (first !== undefined) first.form = 'struct'
+    const r = check(doc, 'parts.yaml', words ?? undefined)
+    expect(problemsAt(r, 'declare[1].enum.values[0].value.form')[0]).toBe(
+      '"struct" is not a member of "forms" — the members are interface, class, record, enum,' +
+        ' function, process',
+    )
+  })
+
+  test('a name of the language it names is reached without bringing it in', () => {
+    const doc = read(parts)
+    const { words } = rulebookFor(doc, parts)
+    // `forms` is declared in arch and this document imports only metalang, so naming the language
+    // is what reaches it.
+    expect(words?.declared.forms?.scope).toEqual(['arch'])
+    expect(check(doc, 'parts.yaml', words ?? undefined).blockers).toEqual([])
+  })
+
+  test('a scope the rulebook brought in is one the checker was given', () => {
+    const doc = read(parts)
+    const { words } = rulebookFor(doc, parts)
+    expect(words?.brought).toEqual([['arch'], ['metalang']])
+    expect(blockersAt(check(doc, 'parts.yaml', words ?? undefined), 'parts.yaml.import[0]')).toEqual(
+      [],
+    )
   })
 })
 

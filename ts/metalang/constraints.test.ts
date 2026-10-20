@@ -7,7 +7,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { WORDS } from './check.ts'
+import { WORDS } from './rulebook.ts'
 import { cannotApply, constraintsOn, logicFor, unmetBy, type Constraint } from './constraints.ts'
 import type { BodyOf, Mapping } from './words.ts'
 
