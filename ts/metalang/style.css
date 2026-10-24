@@ -76,7 +76,8 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
  padding:8px 14px;background:var(--band)}
 .d-kind{font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
  color:#fff;background:var(--kind);padding:5px 8px;border-radius:4px;flex:none}
-.d-id{font:600 15.5px/1.3 var(--mono)}
+/* The name the thing is known by. It is what a reader is looking for, so it carries the head. */
+.d-id{font:600 17.5px/1.3 var(--mono);letter-spacing:-.01em}
 /* What a type says about itself: abstract, primitive. Drawn only when it is written true.
    Each word carries its own colour. A word added to the page before it is given one still
    draws, in ink on the card, so it is seen rather than lost against the band behind it. */
@@ -125,6 +126,11 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 .v-false{color:var(--no);background:var(--no-soft);border-color:var(--no-line)}
 /* a regular expression, between the slashes it is written between in most languages */
 .v-expr{color:var(--expr);background:var(--expr-soft);border-color:var(--expr-line)}
+/* A run of characters its type constrains in no way and no enum lists: matched against nothing,
+   so it is read rather than recognised. It draws as the sentence it is — the page's own font, no
+   ground, no border, and no equals sign standing in the middle of it. */
+.d-val.v-text{display:inline;background:transparent;border-color:transparent;padding:0;
+ font:400 13.5px/1.62 var(--sans);color:var(--ink)}
 /* the marks around a value rather than the value itself: the equals sign every value follows,
    and the slashes a regular expression sits between */
 .d-val i{font-style:normal;opacity:.5;padding:0 1px}
@@ -137,6 +143,23 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 .d-part{display:inline-flex;align-items:baseline;gap:5px}
 .d-part>i{font:600 10.5px/1.4 var(--sans);font-style:normal;letter-spacing:.07em;
  text-transform:uppercase;color:var(--dim);opacity:1;padding:0}
+
+/* ── what a declaration carries of its own ─────────────────────────────────
+   A declaration holding one value of its own type IS that value, so the keyword it is written
+   under is the language's word and never the reader's: the value draws as the body of the card
+   rather than as a row named after the keyword. Its parts take one row each — the part's name in
+   a quiet column, what it holds beside it — so a part holding a sentence and a part holding many
+   of a thing each have the width they need. */
+.d-own{padding:3px 14px 10px;border-top:1px solid var(--rule)}
+.d-own>.d-val.v-parts{display:block}
+.d-own .d-parts{display:block}
+.d-own .d-part{display:grid;grid-template-columns:minmax(4.5rem,7rem) minmax(0,1fr);
+ gap:0 16px;align-items:baseline;padding:7px 0}
+.d-own .d-part+.d-part{border-top:1px solid var(--band)}
+.d-own .d-part>i{padding-top:3px}
+/* A token is as wide as the word it holds; a sentence takes the column and wraps inside it. */
+.d-own .d-part>.d-val{min-width:0;max-width:74ch;justify-self:start}
+.d-own .d-part>.d-val.v-text,.d-own .d-part>.d-val.v-table{justify-self:stretch}
 
 /* ── the prose a thing carries: one line saying what it is, then the explanation ─────────── */
 .d-prose{padding:1px 14px 11px;max-width:74ch}
@@ -200,6 +223,13 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 .d-table .t-none{color:var(--dim);opacity:.6;font-style:normal}
 /* A column says what the cell is, so the equals sign inside it would say it a second time. */
 .d-table .v-eq{display:none}
+/* Several of one shape inside a declaration's own value is a list of that thing, read down the
+   page: the columns name themselves once at the top and every row is parted from the next. */
+.d-own .d-table{width:100%;margin:4px 0 2px}
+.d-own .d-table th{padding:0 18px 7px 0;border-bottom:1px solid var(--rule)}
+.d-own .d-table td{padding:8px 18px 8px 0;border-bottom:1px solid var(--band);vertical-align:top}
+.d-own .d-table tr:last-child td{border-bottom:0}
+.d-own .d-table td .d-val{max-width:62ch}
 
 /* Where a highlight points. The mark is around the node, so the node draws as it always does and
    nothing it holds knows it was marked. */

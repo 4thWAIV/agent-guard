@@ -33,9 +33,16 @@ const file = (extra: Record<string, unknown>): Record<string, unknown> => ({
   ...extra,
 })
 
-/** The markup a value draws as: the equals sign every value follows, then the value itself. */
+/** The markup a value its type pins down draws as: the equals sign it follows, then the value. */
 const val = (classes: string, shown: string): string =>
   `<span class="${classes}"><i class="v-eq" aria-hidden="true">=</i>${shown}</span>`
+
+/**
+ * The markup prose draws as. A run of characters its type constrains in no way and no enum lists
+ * is matched against nothing, so it is read rather than recognised: no ground, no border and no
+ * equals sign standing in the middle of a sentence.
+ */
+const prose = (classes: string, shown: string): string => `<span class="${classes}">${shown}</span>`
 
 describe('writing a value as text', () => {
   test('text is written as it stands', () => {
@@ -734,8 +741,40 @@ describe('a value drawn as what its type says it is', () => {
       ],
     })
 
-  test('every value follows an equals sign', () => {
-    expect(draw(written('string', 'x'))).toContain('<i class="v-eq" aria-hidden="true">=</i>')
+  // Whether a value is read or recognised is asked of the language and of nothing else: a type that
+  // constrains what its values may be, or an enum that lists them, is something a value is matched
+  // against, and a plain run of characters is not.
+  test('a value its type pins down follows an equals sign', () => {
+    const pinned = file({
+      declare: [
+        { entity: { id: 'string', primitive: true } },
+        { entity: { id: 'held', is: 'string', constraints: [{ pattern: { value: 'x+' } }] } },
+        { entity: { id: 'A', properties: { x: { is: 'held', value: 'x' } } } },
+      ],
+    })
+    expect(draw(pinned)).toContain('<i class="v-eq" aria-hidden="true">=</i>')
+  })
+
+  test('a run of characters nothing pins down draws as prose, with no equals sign', () => {
+    const html = draw(written('string', 'x'))
+    expect(html).toContain(prose('d-val v-text d-pval', 'x'))
+    expect(html).not.toContain('<i class="v-eq" aria-hidden="true">=</i>')
+  })
+
+  test('a value an enum lists is recognised, so it keeps the equals sign', () => {
+    const html = draw(
+      file({
+        declare: [
+          { entity: { id: 'string', primitive: true } },
+          { enum: { id: 'forms', is: 'string', values: [{ id: 'interface', value: 'interface' }] } },
+          { entity: { id: 'A', properties: { x: { is: 'forms', value: 'interface' } } } },
+        ],
+      }),
+    )
+    // The enum's own listed value is read against the type the enum is based on, which is a plain
+    // run of characters, so that one is prose. What the property holds is a member of the enum,
+    // and a member is recognised.
+    expect(html).toContain(val('d-val d-pval', 'interface'))
   })
 
   test('a regular expression draws between slashes, in a colour of its own', () => {
@@ -752,7 +791,7 @@ describe('a value drawn as what its type says it is', () => {
 
   test('text that is not a regular expression draws as it stands', () => {
     const html = draw(written('string', '[a-z]+'))
-    expect(html).toContain(val('d-val d-pval', '[a-z]+'))
+    expect(html).toContain(prose('d-val v-text d-pval', '[a-z]+'))
     expect(html).not.toContain('v-expr')
   })
 
@@ -922,8 +961,10 @@ describe('a value of a type with properties', () => {
 
   test('each part draws its name and its own value', () => {
     const html = listing(parts, { mark: '<>', example: 'IGuard' })
-    expect(html).toContain(`<span class="d-part"><i>mark</i>${val('d-val', '&lt;&gt;')}</span>`)
-    expect(html).toContain(`<span class="d-part"><i>example</i>${val('d-val', 'IGuard')}</span>`)
+    expect(html).toContain(`<span class="d-part"><i>mark</i>${prose('d-val v-text', '&lt;&gt;')}</span>`)
+    expect(html).toContain(
+      `<span class="d-part"><i>example</i>${prose('d-val v-text', 'IGuard')}</span>`,
+    )
   })
 
   test('the value holding the parts carries none of a chip of its own', () => {
@@ -954,7 +995,7 @@ describe('a value of a type with properties', () => {
       }),
     )
     expect(html).toContain(
-      `<span class="d-part"><i>csharp</i>${val('d-val', 'interface')}</span>`,
+      `<span class="d-part"><i>csharp</i>${prose('d-val v-text', 'interface')}</span>`,
     )
   })
 
@@ -1034,8 +1075,12 @@ describe('several of one shape', () => {
 
   test('a row carries each member', () => {
     const html = table({ equivalents: cells })
-    expect(html).toContain(`<td>${val('d-val', 'csharp')}</td><td>${val('d-val', 'interface')}</td>`)
-    expect(html).toContain(`<td>${val('d-val', 'rust')}</td><td>${val('d-val', 'trait')}</td>`)
+    expect(html).toContain(
+      `<td>${prose('d-val v-text', 'csharp')}</td><td>${prose('d-val v-text', 'interface')}</td>`,
+    )
+    expect(html).toContain(
+      `<td>${prose('d-val v-text', 'rust')}</td><td>${prose('d-val v-text', 'trait')}</td>`,
+    )
   })
 
   test('the table carries no equals sign of its own', () => {
@@ -1399,6 +1444,26 @@ describe('a declaration carrying one value of its own', () => {
         { name: 'PrecheckAsync', kind: 'method', does: 'Judges a tool call before it runs.' },
       ],
     })
+
+  test('the value is the body of the card, not a row named after the keyword', () => {
+    // `value` is the word the language writes it under. A reader of the document never wrote it
+    // and should not have to read it: what the declaration carries IS the declaration.
+    const html = shown(guard())
+    expect(html).toContain('<div class="d-own">')
+    expect(html).not.toContain('<span class="d-pname">value</span>')
+  })
+
+  test('a run of characters nothing pins down draws as prose inside the value', () => {
+    const html = shown(guard())
+    expect(html).toContain(
+      '<span class="d-val v-text">The three behaviours every guard answers a tool call through.</span>',
+    )
+  })
+
+  test('a member of an enum keeps the token it is, beside the prose that is not one', () => {
+    const html = shown(guard())
+    expect(html).toContain(val('d-val', 'interface'))
+  })
 
   test('several of one shape inside the value draw as a table, not as written-out text', () => {
     const html = shown(guard())

@@ -21,7 +21,7 @@ import { createContext, Fragment, useContext, type CSSProperties, type ReactNode
 
 import * as yaml from 'js-yaml'
 
-import { CONSTRAINTS } from './constraints.ts'
+import { CONSTRAINTS, constraintsOn } from './constraints.ts'
 import { NO_MARKS, pathTo, type Marks } from './highlight.ts'
 import { partsOf, type Part } from './syntax.ts'
 import {
@@ -37,6 +37,7 @@ import {
   acceptsOf,
   LANGUAGE,
   isMapping,
+  membersOf,
   NOTHING_FOUND,
   onlyWord,
   primitiveOf,
@@ -486,6 +487,22 @@ const Written = ({ word, inside }: { word: string; inside: unknown }) => (
 // question, so a part nothing says a type for still draws as what is written.
 const EXPRESSION = 'expression'
 const ROOT = 'object'
+const TEXT = 'string'
+
+/**
+ * Whether a value is a run of characters that is read rather than matched: its type constrains it
+ * in no way and no enum lists it, so there is nothing to recognise it by and nothing to look it up
+ * against. That is the prose a document carries, and it draws as text. A name, a uri, a member of
+ * an enum and anything else a type pins down draws as a token, because what it is depends on
+ * matching it. The question is asked of the language and of nothing else, so a word the page has
+ * never heard of draws as prose the day its type says it is prose.
+ */
+const isProse = (bodyOf: BodyOf, type: string | null, primitive: string | null, value: unknown): boolean =>
+  primitive === TEXT &&
+  typeof value === 'string' &&
+  type !== null &&
+  membersOf(bodyOf, type) === null &&
+  constraintsOn(bodyOf, type).length === 0
 
 /**
  * Whether a value is several of one shape, drawn as a table. It is when the type is written out as
@@ -623,6 +640,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
   const rows = rowsOf(bodyOf, type, value)
   const parts = primitive === ROOT && named !== null && isMapping(value)
   const expression = primitive === EXPRESSION && typeof value === 'string'
+  const prose = isProse(bodyOf, named, primitive, value)
   const said = parts
     ? ' v-parts'
     : value === true
@@ -631,7 +649,9 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
         ? ' v-false'
         : expression
           ? ' v-expr'
-          : ''
+          : prose
+            ? ' v-text'
+            : ''
   const at = `d-val${said}${className === '' ? '' : ` ${className}`}`
 
   // Several of one shape read as a table, which says each column's name once instead of once per
@@ -665,11 +685,15 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
     )
   }
 
+  // Prose is read as the sentence it is, so the equals sign that tells a value from the type beside
+  // it would be a mark in the middle of a sentence and says nothing a reader of prose needs.
   return (
     <span className={at}>
-      <i className="v-eq" aria-hidden="true">
-        =
-      </i>
+      {prose ? null : (
+        <i className="v-eq" aria-hidden="true">
+          =
+        </i>
+      )}
       {expression ? (
         <>
           <i aria-hidden="true">/</i>
@@ -940,11 +964,8 @@ const Values = ({ at, is, value }: { at: string; is: unknown; value: unknown }) 
  * unaccounted for what the checker verified.
  */
 const OwnValue = ({ at, type, value }: { at: string; type: unknown; value: unknown }) => (
-  <div className="d-prow">
-    <span className="d-pname">{VALUE}</span>
-    <span>
-      <Val value={value} type={type} where={`${at}.${VALUE}`} />
-    </span>
+  <div className="d-own">
+    <Val value={value} type={type} where={`${at}.${VALUE}`} />
   </div>
 )
 
