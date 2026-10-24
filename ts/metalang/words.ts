@@ -398,6 +398,19 @@ export function typeOfPart(
   return outside.length === 1 && word !== undefined ? { [word]: declared[word] } : undefined
 }
 
+/** The keyword a declaration writes the one value it carries of its own type under. */
+export const VALUE = 'value'
+
+/**
+ * The type the one value a declaration carries is of, which is the type its `is` names. A value an
+ * enum lists is read against the enum's own type; a declaration carrying one value of its own is
+ * the same rule one level up. The language cannot say this itself — a keyword's `is` names a type,
+ * not another keyword — so `value` is declared as holding the root type and the real type is
+ * resolved here. Both the checker and the page read it this way, so the rule is written once and
+ * the two cannot disagree about what a value is of.
+ */
+export const typeOfOwnValue = (body: Mapping): unknown => body[BOOTSTRAP.is]
+
 /** On a property, that it may be left out. */
 export const OPTIONAL = 'optional'
 

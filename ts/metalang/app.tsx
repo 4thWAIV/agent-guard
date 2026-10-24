@@ -45,8 +45,10 @@ import {
   samePath,
   SCOPE,
   SELF,
+  typeOfOwnValue,
   typeOfPart,
   typeOfProperty,
+  VALUE,
   type BodyOf,
   type CheckResult,
   type Fault,
@@ -362,6 +364,7 @@ const DRAWN_ON_KIND: readonly string[] = [
   'primitive',
   CONSTRAINTS,
   'properties',
+  VALUE,
   'values',
   'options',
 ]
@@ -369,8 +372,8 @@ const DRAWN_ON_KIND: readonly string[] = [
 // What a type says about itself rather than about its properties. Each is drawn only when the
 // declaration writes it true, because writing it false says the same as leaving it off.
 const SAID_OF_TYPE: readonly string[] = ['abstract', 'primitive']
-const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, 'value']
-const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, 'value']
+const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, VALUE]
+const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, VALUE]
 
 // ── the prose a thing carries ────────────────────────────────────────────────
 //
@@ -927,6 +930,24 @@ const Values = ({ at, is, value }: { at: string; is: unknown; value: unknown }) 
   )
 }
 
+/**
+ * The one value a declaration carries of its own type, drawn against the type the declaration
+ * names rather than against what the language says the keyword holds. `value` is declared as
+ * holding the root type, because a keyword's `is` names a type and cannot name another keyword, so
+ * the root is as much as the language can say about it. Drawn against the root, every part inside
+ * the value loses its type and any part that is a structure of its own falls to being written out
+ * as text. `typeOfOwnValue` is the rule the checker reads it by as well, so the page cannot show as
+ * unaccounted for what the checker verified.
+ */
+const OwnValue = ({ at, type, value }: { at: string; type: unknown; value: unknown }) => (
+  <div className="d-prow">
+    <span className="d-pname">{VALUE}</span>
+    <span>
+      <Val value={value} type={type} where={`${at}.${VALUE}`} />
+    </span>
+  </div>
+)
+
 // ── what a type says its values may be ───────────────────────────────────────
 //
 // Each constraint is one word naming the kind of constraint with what it holds inside it, which
@@ -1139,6 +1160,9 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
       ) : null}
       {claimed.includes('values') && body.values !== undefined ? (
         <Values at={here} is={body.is} value={body.values} />
+      ) : null}
+      {claimed.includes(VALUE) && body[VALUE] !== undefined ? (
+        <OwnValue at={here} type={typeOfOwnValue(body)} value={body[VALUE]} />
       ) : null}
       {claimed.includes('properties') ? (
         <Properties

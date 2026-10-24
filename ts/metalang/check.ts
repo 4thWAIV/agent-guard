@@ -47,8 +47,10 @@ import {
   saysOfProperty,
   SCOPE,
   SELF,
+  typeOfOwnValue,
   typeOfPart as typeOfPartHolding,
   typeOfProperty,
+  VALUE,
   valuesOf,
   type BodyOf,
   type CheckResult,
@@ -69,14 +71,14 @@ const APART_ON_KIND = [
   BOOTSTRAP.is,
   BOOTSTRAP.options,
   BOOTSTRAP.properties,
-  'value',
+  VALUE,
   'values',
   CONSTRAINTS,
 ]
 
 /** The same, on one of an enum's values and on one property of a type. */
-const APART_ON_VALUE = [BOOTSTRAP.id, 'value']
-const APART_ON_PROPERTY = [BOOTSTRAP.is, 'value']
+const APART_ON_VALUE = [BOOTSTRAP.id, VALUE]
+const APART_ON_PROPERTY = [BOOTSTRAP.is, VALUE]
 
 const list = (words: readonly string[]): string => words.join(', ')
 const a = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a') + ' ' + word
@@ -508,7 +510,7 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       fail(where, `${a(word)} written out has no "of" to say what each member is`)
       return
     }
-    const unique = saysOfProperty(lookUp, word, 'unique', 'value')
+    const unique = saysOfProperty(lookUp, word, 'unique', VALUE)
     if (typeof unique !== 'boolean') {
       block(where, `nothing says whether the members of ${a(word)} may repeat, so repeats cannot be checked`)
     }
@@ -890,9 +892,10 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       }
     }
 
-    // A declaration carrying one value of its own is checked against the type its `is` names,
-    // the same rule a value an enum lists is read by.
-    if (body.value !== undefined) holdsValue(`${at}.value`, body.is, body.value)
+    // A declaration carrying one value of its own is checked against the type `typeOfOwnValue`
+    // names, the same rule a value an enum lists is read by and the same rule the page draws it
+    // against, so neither can read it as something the other does not.
+    if (body[VALUE] !== undefined) holdsValue(`${at}.${VALUE}`, typeOfOwnValue(body), body[VALUE])
 
     // Every value an enum lists carries its own id and what that id stands for. The id names the
     // value inside this enum alone, so it is not added to the file's ids and nothing outside the

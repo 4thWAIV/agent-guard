@@ -14,6 +14,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'bun:test'
 
 import { kindStyle, Page, text } from './app.tsx'
+import { checkedAgainst } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { marksOf, pathTo, type Entry } from './highlight.ts'
 import { declaredBodiesOf, type Fault, type Vocabulary } from './words.ts'
@@ -1362,4 +1363,99 @@ describe('what the checker found, said on the document', () => {
     // The band says where the report says it is, which is the path the report printed.
     expect(html).toContain(`>${wrongMark.where}</a>`)
   })
+})
+
+// ── a declaration carrying one value of its own ──────────────────────────────
+//
+// The language declares `value` as holding the root type, because a keyword's `is` names a type and
+// cannot name another keyword. Drawn against the root, every part inside a value loses its type and
+// any part that is a structure falls to being written out as text — a page of YAML for a document
+// the checker verified in full. These tests hold the page to the type the declaration names, which
+// is the rule the checker reads it by, so the two cannot drift apart again.
+describe('a declaration carrying one value of its own', () => {
+  const where = join(dirname(LANGUAGE_FILE), 'parts.yaml')
+
+  /** A document in the architecture language, read against the live language beside it. */
+  const written = (value: Record<string, unknown>): Record<string, unknown> => ({
+    scope: ['guard'],
+    language: 'arch',
+    import: [['metalang']],
+    title: 'The parts of the guard',
+    declare: [{ constant: { id: 'IGuard', is: 'element', value } }],
+  })
+
+  const shown = (doc: Record<string, unknown>): string => {
+    const { words } = rulebookFor(doc, where)
+    const found = checkedAgainst(doc, where, rulebookFor(doc, where))
+    return renderToStaticMarkup(<Page words={words ?? WORDS} doc={doc} found={found} />)
+  }
+
+  const guard = (): Record<string, unknown> =>
+    written({
+      form: 'interface',
+      does: 'The three behaviours every guard answers a tool call through.',
+      members: [
+        { name: 'Name', kind: 'property', does: 'The name this guard reports itself by.' },
+        { name: 'PrecheckAsync', kind: 'method', does: 'Judges a tool call before it runs.' },
+      ],
+    })
+
+  test('several of one shape inside the value draw as a table, not as written-out text', () => {
+    const html = shown(guard())
+    expect(html).toContain('<table class="d-table"')
+    expect(html).not.toContain('v-written')
+  })
+
+  test('the table names each column once, from the type the parts are of', () => {
+    const html = shown(guard())
+    for (const column of ['name', 'kind', 'does']) {
+      expect(html).toContain(`<th>${column}</th>`)
+    }
+  })
+
+  test('nothing inside the value is marked as a word the vocabulary cannot account for', () => {
+    expect(shown(guard())).not.toContain('y-unknown')
+  })
+
+  test('what the checker found inside the value is drawn where the thing sits', () => {
+    const doc = guard()
+    const members = (doc.declare as { constant: { value: { members: Record<string, unknown>[] } } }[])
+    const member = members[0]?.constant.value.members[1]
+    if (member === undefined) throw new Error('the document has no member to break')
+    member.kind = 'delegate'
+    const html = shown(doc)
+    expect(html).toContain('id="declare[0].constant.value.members[1].kind"')
+    expect(html).not.toContain('not drawn on this page')
+  })
+
+  test('a value whose type nothing names is still written out, which is the last resort', () => {
+    // The checker reports the missing `is`; the page has no type to draw against and says what is
+    // written rather than nothing at all. This is the only path the written-out drawing is for.
+    const doc = written({ form: 'interface', does: 'Something.' })
+    delete (doc.declare as { constant: Record<string, unknown> }[])[0]?.constant.is
+    expect(shown(doc)).toContain('v-written')
+  })
+})
+
+// Every document this repository holds, drawn. A document the checker passes and the page cannot
+// account for is the two disagreeing about the same file, which is the defect this guards against.
+describe('every document in this repository draws whole', () => {
+  const documents = ['metalang.yaml', 'arch.yaml', 'names.yaml', 'parts.yaml', 'stage.yaml']
+
+  for (const name of documents) {
+    test(`${name} draws with nothing unaccounted for and nothing left undrawn`, () => {
+      const path = join(dirname(LANGUAGE_FILE), name)
+      const doc = yaml.load(readFileSync(path, 'utf8'))
+      const book = rulebookFor(doc, path)
+      const found = checkedAgainst(doc, path, book)
+      const html = renderToStaticMarkup(
+        <Page words={book.words ?? WORDS} doc={doc} found={found} />,
+      )
+      expect(found.problems).toEqual([])
+      expect(found.blockers).toEqual([])
+      expect(html).not.toContain('y-unknown')
+      expect(html).not.toContain('not drawn on this page')
+      expect(html).not.toContain('class="d-err')
+    })
+  }
 })
