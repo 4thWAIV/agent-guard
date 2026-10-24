@@ -80,6 +80,24 @@
 # `declaration` choice and replace its list, it took MetaLang's `enum` away from every document
 # written in this language, and it left the file and the glyph in `ts/metalang/parts.yaml` with
 # nowhere to live. Tim rejected it on 2026-10-24.
+# ── APPROVED — step 3, what a thing is made of. ──
+#                                                                                   2026-10-24
+# Tim approved the five kinds a member may be on 2026-10-21 — method, constructor, property, field
+# and value — and approved the exact lines on 2026-10-24. `value` is one of the closed set an enum
+# declares rather than stored data on a type.
+#
+# Three declarations and one property. `kind` and `kinds` are the vocabulary, written the way `form`
+# and `forms` are written. `member` is one named piece of an element, carrying its own `name` because
+# a member is not declared and so has no id to be known by. `members` on `element` holds them in the
+# order the source declares them.
+#
+# The sentence this buys is `IGuard` has a member called `PrecheckAsync`, and `PrecheckAsync` is a
+# method. Rules and tests are written about members rather than about whole types, so nothing could
+# be signed while a member could not be named.
+#
+# `members` is written as a `list`, MetaLang's ordered collection with no two entries the same, which
+# is what the members of a type are. It is optional because `reportLines` is a function with no
+# members at all, and an element with none leaves the line out rather than writing an empty list.
 scope: [arch]
 import:
   - [metalang]
@@ -155,6 +173,72 @@ declare:
             description: An ordered run of steps with a gate at each end.
 
   - entity:
+      id: kind
+      is: object
+      title: One kind of member an element can have.
+      description: Every member of an element is of exactly one kind.
+      properties:
+        appearance: { is: appearance, title: How it is drawn. }
+        example:
+          is: string
+          accepts: [pending]
+          title: A real one from this repository.
+        name: { is: string, title: The name it is shown by. }
+        description: { is: string, title: One line saying what the kind is. }
+
+  - enum:
+      id: kinds
+      is: kind
+      title: Every kind of member, in reading order.
+      values:
+        - id: method
+          value:
+            appearance: { mark: "()" }
+            example: IGuard.PrecheckAsync
+            name: Method
+            description: A callable on a type. Carries a signature.
+        - id: constructor
+          value:
+            appearance: { mark: new }
+            example: FileGuard(FileGuardConfiguration)
+            name: Constructor
+            description: How an instance comes into being.
+        - id: property
+          value:
+            appearance: { mark: get/set }
+            example: Verdict.Kind
+            name: Property
+            description: Accessed as data, computed as behaviour.
+        - id: field
+          value:
+            appearance: { mark: "▪" }
+            example: FileGuard._defaultVerifier
+            name: Field
+            description: Stored data on a type.
+        - id: value
+          value:
+            appearance: { mark: "◆" }
+            example: VerdictKind.Deny
+            name: Value
+            description: One of the closed set an enum declares. Not stored data on a type.
+
+  - entity:
+      id: member
+      is: object
+      title: One named piece of an element.
+      description: Its name is written here, because a member is not declared and has no id.
+      properties:
+        name:
+          is: string
+          title: The name it is known by.
+        kind:
+          is: kinds
+          title: Which of the five kinds of member it is.
+        does:
+          is: string
+          title: One line saying what it does.
+
+  - entity:
       id: element
       is: object
       title: One named piece of an architecture.
@@ -166,3 +250,7 @@ declare:
         does:
           is: string
           title: One line saying what it does.
+        members:
+          list: { of: member }
+          optional: true
+          title: The members it has, in the order the source declares them.

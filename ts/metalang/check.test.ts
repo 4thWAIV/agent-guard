@@ -1370,6 +1370,81 @@ describe('a document written in a language of its own', () => {
     expect(check(doc, 'parts.yaml', words ?? undefined).blockers).toEqual([])
   })
 
+  // What a thing is made of. The document is built here rather than read from a file, but it is
+  // resolved through a real path in `ts/metalang`, so it is read against the live architecture
+  // language and not against a copy.
+  describe('the members an element has', () => {
+    /** `members` is left out altogether when none is given, the way a function writes it. */
+    const having = (members?: unknown): Record<string, unknown> => ({
+      scope: ['guard'],
+      language: 'arch',
+      import: [['metalang']],
+      title: 'The parts of the guard',
+      declare: [
+        {
+          constant: {
+            id: 'IGuard',
+            is: 'element',
+            value: {
+              form: 'interface',
+              does: 'The three behaviours every guard answers a tool call through.',
+              ...(members === undefined ? {} : { members }),
+            },
+          },
+        },
+      ],
+    })
+
+    const checked = (members: unknown): CheckResult => {
+      const doc = having(members)
+      const { words } = rulebookFor(doc, parts)
+      return check(doc, 'guard.yaml', words ?? undefined)
+    }
+
+    const one = { name: 'PrecheckAsync', kind: 'method', does: 'Judges a tool call before it runs.' }
+
+    test('an element naming its members is wholly right', () => {
+      expect(checked([one])).toEqual({ problems: [], blockers: [], pending: [] })
+    })
+
+    test('an element with no members at all is right, because a function has none', () => {
+      const doc = having()
+      const { words } = rulebookFor(doc, parts)
+      expect(check(doc, 'guard.yaml', words ?? undefined).problems).toEqual([])
+    })
+
+    test('a kind that is not one of the five is a problem that lists the five', () => {
+      const r = checked([{ ...one, kind: 'delegate' }])
+      expect(problemsAt(r, 'declare[0].constant.value.members[0].kind')).toEqual([
+        '"delegate" is not a member of "kinds" — the members are method, constructor, property,' +
+          ' field, value',
+      ])
+    })
+
+    test('a member with no name is a problem, and so is one with no kind', () => {
+      expect(problemsAt(checked([{ kind: 'method', does: 'x' }]), 'declare[0].constant.value.members[0]')).toEqual([
+        'has no name',
+      ])
+      expect(problemsAt(checked([{ name: 'A', does: 'x' }]), 'declare[0].constant.value.members[0]')).toEqual([
+        'has no kind',
+      ])
+    })
+
+    test('a word a member does not carry is a problem at the word itself', () => {
+      const r = checked([{ ...one, returns: 'Verdict' }])
+      expect(problemsAt(r, 'declare[0].constant.value.members[0].returns')).toEqual([
+        '"member" has no property called "returns"',
+      ])
+    })
+
+    test('the same member written twice is a problem, because a list is unique', () => {
+      const r = checked([one, one])
+      expect(problemsAt(r, 'declare[0].constant.value.members[1]')).toEqual([
+        'repeats an earlier member, and the members of a list are unique',
+      ])
+    })
+  })
+
   test('a scope the rulebook brought in is one the checker was given', () => {
     const doc = read(parts)
     const { words } = rulebookFor(doc, parts)
@@ -1902,7 +1977,14 @@ describe('the architecture language itself', () => {
 
   test('the element every architecture document names its parts with is declared here', () => {
     const element = arch.declare.find((d) => d.entity?.id === 'element')
-    expect(Object.keys(element?.entity?.properties ?? {})).toEqual(['form', 'does'])
+    expect(Object.keys(element?.entity?.properties ?? {})).toEqual(['form', 'does', 'members'])
+  })
+
+  test('the member an element is made of is declared here, carrying its own name', () => {
+    // A member is not declared and so has no id to be known by, which is why it carries `name`
+    // where an element does not.
+    const member = arch.declare.find((d) => d.entity?.id === 'member')
+    expect(Object.keys(member?.entity?.properties ?? {})).toEqual(['name', 'kind', 'does'])
   })
 })
 
