@@ -1,14 +1,23 @@
-// What a type says its values may be.
+// What the reader makes of what is written: how a value of each primitive is read, and what a type
+// says its values may be.
 //
-// Two things are worth proving here. A type is held to what it derives as well as to what it
-// writes, because that is the whole reason a constraint sits on a type rather than on a value.
-// And a kind of constraint nothing here knows how to apply says so, rather than letting a value
-// through unjudged.
+// Three things are worth proving here. One table says how a value of a primitive is read, so the
+// checker and the colouring cannot disagree about what a word carries. A type is held to what it
+// derives as well as to what it writes, because that is the whole reason a constraint sits on a
+// type rather than on a value. And a kind of constraint nothing here knows how to apply says so,
+// rather than letting a value through unjudged.
 
 import { describe, expect, test } from 'bun:test'
 
 import { WORDS } from './rulebook.ts'
-import { cannotApply, constraintsOn, logicFor, unmetBy, type Constraint } from './constraints.ts'
+import {
+  cannotApply,
+  constraintsOn,
+  logicFor,
+  readerFor,
+  unmetBy,
+  type Constraint,
+} from './constraints.ts'
 import type { BodyOf, Mapping } from './words.ts'
 
 /** A document's declarations, by id, in the shape the rules read them in. */
@@ -26,6 +35,44 @@ const one = (from: string, kind: string, body: unknown): Constraint => ({
   index: 0,
   kind,
   body,
+})
+
+describe('how a value of a primitive is read', () => {
+  test('a word carries the value the primitive makes of it', () => {
+    expect(readerFor('boolean')?.from('true')).toEqual({ read: true })
+    expect(readerFor('boolean')?.from('false')).toEqual({ read: false })
+    expect(readerFor('number')?.from('-1.5')).toEqual({ read: -1.5 })
+    expect(readerFor('byte')?.from('3')).toEqual({ read: 3 })
+    expect(readerFor('string')?.from('3')).toEqual({ read: '3' })
+    expect(readerFor('expression')?.from('[a-z]')).toEqual({ read: '[a-z]' })
+    expect(readerFor('uuid')?.from('x')).toEqual({ read: 'x' })
+  })
+
+  test('a word that is not a value of the primitive carries nothing', () => {
+    expect(readerFor('boolean')?.from('yes')).toBeNull()
+    expect(readerFor('number')?.from('three')).toBeNull()
+    expect(readerFor('byte')?.from('')).toBeNull()
+  })
+
+  test('a set of named parts is never one word, so one word carries nothing of it', () => {
+    expect(readerFor('object')?.from('wall')).toBeNull()
+  })
+
+  test('a value already read out of a file is judged as it stands', () => {
+    expect(readerFor('number')?.is(7)).toBe(true)
+    expect(readerFor('number')?.is('7')).toBe(false)
+    expect(readerFor('boolean')?.is(true)).toBe(true)
+    expect(readerFor('string')?.is('a')).toBe(true)
+    expect(readerFor('expression')?.is('[a-z]')).toBe(true)
+    expect(readerFor('uuid')?.is('x')).toBe(true)
+    expect(readerFor('byte')?.is(3)).toBe(true)
+    expect(readerFor('object')?.is({})).toBe(true)
+    expect(readerFor('object')?.is('a')).toBe(false)
+  })
+
+  test('a primitive nothing here says is read by nothing, rather than read loosely', () => {
+    expect(readerFor('instant')).toBeNull()
+  })
 })
 
 describe('the constraints a type carries', () => {

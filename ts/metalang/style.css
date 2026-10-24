@@ -184,6 +184,11 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
   .d-count{margin-left:0}
 }
 
+/* A value written out as YAML sits inside a value, so the value carries none of a chip's ground
+   or border and the block keeps its own. */
+.d-val.v-written{background:transparent;border-color:transparent;padding:0;display:block}
+.d-val.v-written pre.y{margin:2px 0 0}
+
 /* Several of one shape: a table saying each column's name once. It sits inside a value, so it
    carries none of a chip's ground or border and lets the cells keep their own. */
 .d-val.v-table{background:transparent;border-color:transparent;padding:0;display:block}
@@ -206,3 +211,50 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 /* One member of a table, where a highlight points at the member rather than at the whole list. */
 .d-table tr.r-marked>td{background:color-mix(in oklch, var(--mark,oklch(72% 0.16 85)) 10%,
  transparent)}
+
+/* ── WHAT THE CHECKER FOUND, SAID ON THE DOCUMENT ─────────────────────────────
+   Each finding is drawn where it sits, as a mark in the colour of the list it came from, and the
+   band says the same things once at the top of the page, above everything they are about. A
+   document nothing was found in draws no band: the page spends no height saying a thing is
+   absent. */
+.d-found{border:1px solid var(--rule);border-left:4px solid var(--warm);border-radius:9px;
+ background:var(--card);padding:11px 14px 13px;margin:0 0 26px}
+.d-found.has-problem{border-left-color:var(--bad)}
+.d-found-head{font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
+ color:var(--soft);margin:0 0 11px}
+.d-found ul{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.d-found li{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+/* which list it came from, spelled out, because the colour alone leaves some readers out */
+.f-what{font:700 8.5px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ border-radius:4px;padding:4px 7px;flex:none}
+.f-problem{color:var(--bad);background:var(--bad-soft);border:1px solid var(--bad-line)}
+.f-blocker{color:var(--soft);background:var(--band);border:1px solid var(--rule)}
+.f-at{font:600 11.5px/1.5 var(--mono);color:var(--accent);overflow-wrap:anywhere}
+/* one naming no node has nowhere to point, so it is not a link and does not read as one */
+.f-nowhere{color:var(--soft)}
+.f-says{font:400 13px/1.5 var(--sans);color:var(--ink)}
+
+/* The colour of a mark is the worst thing said at it. One carrying only a highlight keeps the
+   colour a highlight has always drawn in. */
+.m-problem{--mark:var(--bad)}
+.m-blocker{--mark:var(--dim)}
+
+/* What is said about one member of a table, under the row it is about. A row cannot be wrapped
+   the way every other node is, so the mark is the row itself and this is where its words go. */
+.d-table tr.r-note>td{padding-top:0}
+.d-table tr.r-note .d-note{font:400 12px/1.5 var(--sans);color:var(--ink);margin:1px 0 5px;
+ opacity:.9}
+
+/* A reserved state where a value goes: the word the document writes, dashed, for the same reason
+   the word saying a property may be left out is dashed — the thing it marks is not there. One
+   that is reported is amber; one that says an absence was decided is quiet. */
+.d-val.v-reserved{border-style:dashed}
+.d-val.v-pending{color:var(--warm);background:var(--warm-soft);border-color:var(--warm-line)}
+.d-val.v-none{color:var(--dim);background:var(--band);border-color:var(--rule)}
+.m-pending{--mark:var(--warm)}
+.f-pending{color:var(--warm);background:var(--warm-soft);border:1px solid var(--warm-line)}
+/* what a property takes in place of a value, said on the property itself */
+.s-accepts{color:var(--warm);background:var(--warm-soft);border:1px dashed var(--warm-line);
+ margin-left:8px;text-transform:none;letter-spacing:.04em;font-family:var(--mono)}
+/* what a highlight asks, which is allowed on a page only where it needs reading */
+.f-highlight{color:var(--warm);background:var(--card);border:1px solid var(--warm-line)}

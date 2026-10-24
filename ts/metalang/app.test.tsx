@@ -13,10 +13,10 @@ import { renderToStaticMarkup } from 'react-dom/server'
 
 import { describe, expect, test } from 'bun:test'
 
-import { declaredBodiesOf, kindStyle, Page, text } from './app.tsx'
+import { kindStyle, Page, text } from './app.tsx'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
-import { marksOf, type Entry } from './highlight.ts'
-import type { Vocabulary } from './words.ts'
+import { marksOf, pathTo, type Entry } from './highlight.ts'
+import { declaredBodiesOf, type Fault, type Vocabulary } from './words.ts'
 
 const draw = (doc: unknown, words: Vocabulary = WORDS): string =>
   renderToStaticMarkup(<Page words={words} doc={doc} />)
@@ -883,13 +883,13 @@ describe('a document reaching the declarations of another scope', () => {
 
   test('a name of the language the document names draws as reached, naming that language', () => {
     // The page is drawn with the vocabulary the document is read against, which here holds the
-    // architecture language's own declarations as well as MetaLang's. `forms` is reached because
-    // the document is written in that language, with no import saying so.
+    // architecture language's own declarations as well as MetaLang's. `element` is reached
+    // because the document is written in that language, with no import saying so.
     const { words } = rulebookFor(parts, join(dirname(LANGUAGE_FILE), 'parts.yaml'))
     const html = draw(parts, words ?? undefined)
-    expect(html).toContain('<b aria-hidden="true">\u25C8</b>forms<i>arch</i>')
+    expect(html).toContain('<b aria-hidden="true">\u25C8</b>element<i>arch</i>')
     expect(html).toContain('<b aria-hidden="true">\u25C8</b>string<i>metalang</i>')
-    expect(html).not.toContain('>forms<i>undeclared</i>')
+    expect(html).not.toContain('>element<i>undeclared</i>')
   })
 
   test('a name the document neither declares nor reaches still draws as undeclared', () => {
@@ -967,6 +967,29 @@ describe('a value of a type with properties', () => {
   })
 })
 
+describe('a value with no drawing of its own', () => {
+  // A structure nothing on the page draws as a table or as named parts. It used to print as
+  // JSON, which is a second language on a page about this one.
+  const odd = (value: unknown): unknown =>
+    file({ declare: [{ entity: { id: 'A', properties: { x: { value } } } }] })
+
+  test('it is written out in the language, through the control that colours every example', () => {
+    const html = draw(odd({ holds: ['one', 'two'] }))
+    expect(html).toContain('<pre class="y">')
+    expect(html).toContain('<span class="y-mark">-</span>')
+    expect(html).not.toContain('&quot;one&quot;')
+  })
+
+  test('the value sits inside it, so the block keeps its own ground', () => {
+    expect(draw(odd({ holds: [] }))).toContain('<span class="d-val v-written d-pval">')
+  })
+
+  test('a word nothing accounts for is marked where it is written', () => {
+    // Nothing says what this value is, so none of its keys is a keyword of anything.
+    expect(draw(odd({ holds: [] }))).toContain('<span class="y-unknown">holds</span>')
+  })
+})
+
 describe('several of one shape', () => {
   // A set written out, holding a type with named parts: the shape the architecture language's
   // equivalents have.
@@ -1038,32 +1061,100 @@ describe('several of one shape', () => {
   })
 })
 
-describe('where a highlight points', () => {
-  const doc = {
-    scope: ['metalang'],
-    title: 'A file',
-    declare: [
-      { entity: { id: 'object', primitive: true } },
-      { entity: { id: 'string', is: 'object', primitive: true } },
-      { choice: { id: 'mark', options: ['string'] } },
-      {
-        entity: {
-          id: 'form',
-          is: 'object',
-          properties: { mark: { is: 'mark' } },
-          constraints: [{ pattern: { value: 'x' } }],
-        },
-      },
-      {
-        enum: {
-          id: 'forms',
-          is: 'form',
-          values: [{ id: 'interface', value: { mark: '\u25c7' } }],
-        },
-      },
-    ],
-  }
+describe('a value a property takes in place of a value', () => {
+  const written = (value: unknown, accepts?: unknown): string =>
+    draw(
+      file({
+        declare: [
+          { entity: { id: 'object', primitive: true } },
+          { entity: { id: 'string', is: 'object', primitive: true } },
+          {
+            entity: {
+              id: 'form',
+              is: 'object',
+              properties: {
+                example:
+                  accepts === undefined ? { is: 'string' } : { is: 'string', accepts },
+              },
+            },
+          },
+          { enum: { id: 'forms', is: 'form', values: [{ id: 'one', value: { example: value } }] } },
+        ],
+      }),
+    )
 
+  test('is drawn as the state it names rather than as the text it reads as', () => {
+    expect(written('pending', ['pending'])).toContain('d-val v-reserved v-pending')
+  })
+
+  test('one deliberately left empty is drawn quietly', () => {
+    expect(written('none', ['none'])).toContain('v-reserved v-none')
+  })
+
+  test('the same word is the text it is where the property takes none', () => {
+    const html = written('pending')
+    expect(html).not.toContain('v-reserved')
+    expect(html).toContain('pending')
+  })
+
+  test('the property says what it takes, so the page accounts for the word', () => {
+    const html = written('pending', ['pending', 'none'])
+    expect(html).toContain('accepts pending, none')
+    expect(html).not.toContain('incomplete')
+  })
+})
+
+/** A document carrying one of everything a mark can land on, read by the two describes below. */
+const doc = {
+  scope: ['metalang'],
+  title: 'A file',
+  declare: [
+    { entity: { id: 'object', primitive: true } },
+    { entity: { id: 'string', is: 'object', primitive: true } },
+    { choice: { id: 'mark', options: ['string'] } },
+    { entity: { id: 'collection', is: 'object', abstract: true } },
+    { entity: { id: 'set', is: 'collection' } },
+    {
+      entity: {
+        id: 'equivalent',
+        is: 'object',
+        properties: { language: { is: 'string' }, name: { is: 'string' } },
+      },
+    },
+    {
+      entity: {
+        id: 'form',
+        is: 'object',
+        properties: {
+          mark: { is: 'mark' },
+          equivalents: { set: { of: 'equivalent' } },
+          always: { is: 'string', value: { a: 'one' } },
+        },
+        constraints: [{ pattern: { value: 'x' } }],
+      },
+    },
+    {
+      enum: {
+        id: 'forms',
+        is: 'form',
+        values: [
+          {
+            id: 'interface',
+            value: {
+              mark: '\u25c7',
+              equivalents: [
+                { language: 'csharp', name: 'interface' },
+                { language: 'rust', name: 'trait' },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  ],
+}
+
+describe('where a highlight points', () => {
   const marked = (...entries: Entry[]): string =>
     renderToStaticMarkup(<Page words={WORDS} doc={doc} marks={marksOf(doc, entries)} />)
 
@@ -1111,14 +1202,164 @@ describe('where a highlight points', () => {
     expect(note('declare[forms].is')).toContain('d-marked')
   })
 
+  test('the value an id stands for', () => {
+    expect(note('declare[forms].values[interface].value')).toContain('d-marked')
+  })
+
+  test('the value a property always holds', () => {
+    expect(note('declare[form].properties.always.value')).toContain('d-marked')
+  })
+
+  test('one cell of a table', () => {
+    const html = note('declare[forms].values[interface].value.equivalents[0].name')
+    expect(html).toContain('d-marked')
+    expect(html).toContain('Look here.')
+  })
+
+  test('one member of a table is marked on the row, and says what it says under it', () => {
+    const html = note('declare[forms].values[interface].value.equivalents[0]')
+    expect(html).toContain('r-marked')
+    expect(html).toContain('Look here.')
+  })
+
+  test('a node marked where two components draw it carries one mark', () => {
+    const html = note('declare[forms].values[interface].value.mark')
+    expect(html.match(/d-marked/g)).toHaveLength(1)
+  })
+
   test('a path naming nothing is said on the page rather than left out', () => {
     const html = note('declare[gone].options')
-    expect(html).toContain('highlight names nothing')
+    expect(html).toContain('not drawn on this page')
     expect(html).toContain('declare[gone].options')
     expect(html).not.toContain('d-marked')
   })
 
-  test('nothing named says nothing on a page with marks that resolve', () => {
-    expect(note('declare[mark]')).not.toContain('highlight names nothing')
+  test('a mark no part of the page drew is said rather than dropped', () => {
+    // The value is written out as text, so what is inside it is drawn by no component that
+    // asks whether it was marked.
+    const html = note('declare[form].properties.always.value.a')
+    expect(html).toContain('not drawn on this page')
+    expect(html).toContain('names a node this page draws no mark on')
+    expect(html).toContain(pathTo(doc, 'declare[form].properties.always.value.a') ?? 'nowhere')
+  })
+
+  test('nothing is said of the page when every mark is drawn', () => {
+    expect(note('declare[mark]')).not.toContain('not drawn on this page')
+  })
+})
+
+describe('what the checker found, said on the document', () => {
+  const found = (problems: Fault[], blockers: Fault[] = [], pending: Fault[] = []): string =>
+    renderToStaticMarkup(<Page words={WORDS} doc={doc} found={{ problems, blockers, pending }} />)
+
+  const wrongMark: Fault = {
+    where: 'declare[forms].values[interface].value.mark',
+    what: 'is not written as a string',
+  }
+
+  test('a document nothing was found in carries no band', () => {
+    expect(draw(doc)).not.toContain('d-found')
+  })
+
+  test('the band says how many were found, in the words the report counts in', () => {
+    const html = found([wrongMark, { where: 'declare[mark].options', what: 'names one type' }])
+    expect(html).toContain('2 problems')
+  })
+
+  test('the band says one of each kind apart', () => {
+    const html = found([wrongMark], [{ where: 'the file', what: 'could not be read' }])
+    expect(html).toContain('1 problem, 1 blocker')
+  })
+
+  test('the band carries where it is and what the report says about it', () => {
+    const html = found([wrongMark])
+    expect(html).toContain(wrongMark.where)
+    expect(html).toContain(wrongMark.what)
+  })
+
+  test('a problem is drawn on the node it is about, in its own colour', () => {
+    expect(found([wrongMark])).toContain('d-marked m-problem')
+  })
+
+  test('a blocker is drawn in a colour of its own', () => {
+    expect(found([], [wrongMark])).toContain('d-marked m-blocker')
+  })
+
+  test('a problem on a node a highlight points at draws one mark carrying both', () => {
+    const html = renderToStaticMarkup(
+      <Page
+        words={WORDS}
+        doc={doc}
+        marks={marksOf(doc, [{ path: wrongMark.where, note: 'Look here.' }])}
+        found={{ problems: [wrongMark], blockers: [], pending: [] }}
+      />,
+    )
+    expect(html.match(/d-marked/g)).toHaveLength(1)
+    expect(html).toContain('m-problem')
+    expect(html).toContain('Look here.')
+    expect(html).toContain(wrongMark.what)
+  })
+
+  test('a finding naming no node in the document is said in the band with nowhere to point', () => {
+    const html = found([{ where: 'a.yaml', what: 'is not a mapping' }])
+    expect(html).toContain('f-nowhere')
+    expect(html).toContain('is not a mapping')
+  })
+
+  test('a value not yet given is said in its own words and drawn in its own colour', () => {
+    const notGiven: Fault = {
+      where: 'declare[forms].values[interface].value.mark',
+      what: 'is required and not yet given',
+    }
+    const html = found([], [], [notGiven])
+    expect(html).toContain('1 pending value')
+    expect(html).toContain('f-what f-pending')
+    expect(html).toContain('d-marked m-pending')
+    // Nothing is wrong with the document, so the band is not the colour of a problem.
+    expect(html).not.toContain('d-found has-problem')
+  })
+
+  test('what is wrong and what is not finished are counted apart in the band', () => {
+    const html = found([wrongMark], [], [{ where: 'declare[mark].options', what: 'not yet given' }])
+    expect(html).toContain('1 problem, 1 pending value')
+    expect(html).toContain('d-found has-problem')
+  })
+
+  test('what a highlight asks is in the band as well, because it needs reading too', () => {
+    const html = renderToStaticMarkup(
+      <Page
+        words={WORDS}
+        doc={doc}
+        marks={marksOf(doc, [{ path: 'declare[mark]', note: 'Shall we?' }])}
+      />,
+    )
+    expect(html).toContain('1 highlight')
+    expect(html).toContain('f-what f-highlight')
+    expect(html).toContain('Shall we?')
+  })
+
+  test('a highlight and a finding are counted apart in the one band', () => {
+    const html = renderToStaticMarkup(
+      <Page
+        words={WORDS}
+        doc={doc}
+        marks={marksOf(doc, [{ path: 'declare[mark]', note: 'Shall we?' }])}
+        found={{ problems: [wrongMark], blockers: [], pending: [] }}
+      />,
+    )
+    expect(html).toContain('1 problem, 1 highlight')
+  })
+
+  test('a document with nothing called out draws no band', () => {
+    expect(draw(doc)).not.toContain('d-found')
+  })
+
+  test('the place is a link to the mark drawn there, and the band reads as the report', () => {
+    const html = found([wrongMark])
+    const at = pathTo(doc, wrongMark.where) ?? 'nowhere'
+    expect(html).toContain(`href="#${encodeURIComponent(at)}"`)
+    expect(html).toContain(`id="${at}"`)
+    // The band says where the report says it is, which is the path the report printed.
+    expect(html).toContain(`>${wrongMark.where}</a>`)
   })
 })

@@ -146,7 +146,24 @@ export const SELF = {
   object: 'object',
   /** The type every kind of many-of-a-thing derives from. */
   collection: 'collection',
+  /** The enum listing what a value may say in place of a value of its own type. */
+  reserved: 'reserved',
 } as const
+
+/**
+ * The reserved states a property may take in place of a value. Each is a member of the
+ * `reserved` enum, and what each one means to a checker is here: one is reported and the other
+ * is not, which is the whole of the difference between them.
+ */
+export const RESERVED = {
+  /** Required, and not yet given. Reported, and the run it is reported in exits non-zero. */
+  pending: 'pending',
+  /** Deliberately left empty. Nothing is said about it, because nothing is missing. */
+  none: 'none',
+} as const
+
+/** The keyword on a property holding the reserved states it takes. */
+export const ACCEPTS = 'accepts'
 
 export type Mapping = Record<string, unknown>
 
@@ -157,6 +174,57 @@ export const isMapping = (v: unknown): v is Mapping =>
 export interface Fault {
   readonly where: string
   readonly what: string
+}
+
+/**
+ * What a checker made of a document, by the list each thing it found goes in. It lives here
+ * rather than beside the checker because the page is handed one as well, and the page is drawn
+ * in a browser where nothing the checker reads from is available.
+ */
+export interface CheckResult {
+  /** Things wrong with the document. */
+  readonly problems: readonly Fault[]
+  /** Things this checker cannot verify, because the language has no word for them yet. */
+  readonly blockers: readonly Fault[]
+  /** Values that are required and not yet given, which say the document is not finished. */
+  readonly pending: readonly Fault[]
+}
+
+/** What a document nothing was found in comes back as, and what a page drawn without one has. */
+export const NOTHING_FOUND: CheckResult = { problems: [], blockers: [], pending: [] }
+
+/**
+ * Every declaration a document writes, by id, taking the `external` wrapper off where one is
+ * written. The document's own declarations are not in its vocabulary — the vocabulary is what it
+ * is read AGAINST — so anything resolving a name inside a document starts here.
+ */
+export function declaredBodiesOf(doc: unknown): ReadonlyMap<string, Mapping> {
+  const bodies = new Map<string, Mapping>()
+  if (!isMapping(doc)) return bodies
+  const held = doc[BOOTSTRAP.declare]
+  if (!Array.isArray(held)) return bodies
+  for (const item of held as unknown[]) {
+    const named = onlyWord(item)
+    if (named === null) continue
+    const inner = named[0] === BOOTSTRAP.external ? onlyWord(named[1]) : named
+    if (inner === null) continue
+    const body = inner[1]
+    if (isMapping(body) && typeof body.id === 'string' && !bodies.has(body.id)) {
+      bodies.set(body.id, body)
+    }
+  }
+  return bodies
+}
+
+/**
+ * The colour a kind is drawn in, as the hue of an oklch colour. It is DERIVED from where the kind
+ * sits in the vocabulary, so a kind the language gains is drawn in a colour of its own without
+ * anything being written for it here. Nothing when that word is not a kind.
+ */
+export function hueOfKind(kind: string, kinds: readonly string[]): number | null {
+  const i = kinds.indexOf(kind)
+  if (i < 0) return null
+  return Math.round((i * 360) / kinds.length + 268) % 360
 }
 
 /** One declaration, as the vocabulary keeps it. */
@@ -290,6 +358,16 @@ export function saysOfProperty(
 }
 
 /**
+ * The reserved states one property of a type takes in place of a value, as its `accepts` names
+ * them. Empty where it names none, which is every property that has not said otherwise.
+ */
+export function acceptsOf(bodyOf: BodyOf, owner: string, name: string): readonly string[] {
+  const written = saysOfProperty(bodyOf, owner, name, ACCEPTS)
+  if (!Array.isArray(written)) return []
+  return (written as unknown[]).filter((one): one is string => typeof one === 'string')
+}
+
+/**
  * The type a property of a type is declared to hold, whether that type declares the property
  * itself or takes it from one it derives from. Nothing when no declaration says, or when what is
  * written there is a type written out rather than a name.
@@ -346,16 +424,54 @@ export function optionsOf(bodyOf: BodyOf, id: string): readonly unknown[] | null
   return Array.isArray(written) ? (written as unknown[]) : null
 }
 
+/** One of the values an enum lists: the id that names it, and what that id stands for. */
+export interface Listed {
+  readonly id: string
+  readonly value: unknown
+}
+
+/**
+ * The values an enum lists, each with the id that names it, or nothing when the declaration is not
+ * an enum. A value of an enum is written as the bare id or written out in full, so both the ids
+ * and what they stand for are read from here.
+ */
+export function valuesOf(bodyOf: BodyOf, id: string): readonly Listed[] | null {
+  const written = bodyOf(id)?.[VALUES]
+  if (!Array.isArray(written)) return null
+  return (written as unknown[]).flatMap((one) =>
+    isMapping(one) && typeof one[BOOTSTRAP.id] === 'string'
+      ? [{ id: one[BOOTSTRAP.id] as string, value: one.value }]
+      : [],
+  )
+}
+
 /**
  * The ids an enum lists, or nothing when the declaration is not an enum. A value written as a bare
  * id names the member of that id, so this is what a bare value is resolved against.
  */
 export function membersOf(bodyOf: BodyOf, id: string): readonly string[] | null {
-  const written = bodyOf(id)?.[VALUES]
-  if (!Array.isArray(written)) return null
-  return (written as unknown[]).flatMap((one) =>
-    isMapping(one) && typeof one[BOOTSTRAP.id] === 'string' ? [one[BOOTSTRAP.id] as string] : [],
-  )
+  return valuesOf(bodyOf, id)?.map((one) => one.id) ?? null
+}
+
+/**
+ * Whether two values written in a document are the same value. Two sets of named parts are the
+ * same when they carry the same parts, whatever order they were written in, because the order
+ * parts are written in says nothing about what they are. This decides whether a collection whose
+ * members are unique holds the same member twice, and whether a value written out in full is one
+ * of the values an enum lists, so both ask it rather than each deciding sameness for itself.
+ */
+export function sameValue(one: unknown, other: unknown): boolean {
+  if (isMapping(one) && isMapping(other)) {
+    const mine = Object.keys(one)
+    return (
+      mine.length === Object.keys(other).length &&
+      mine.every((key) => key in other && sameValue(one[key], other[key]))
+    )
+  }
+  if (Array.isArray(one) && Array.isArray(other)) {
+    return one.length === other.length && one.every((held, i) => sameValue(held, other[i]))
+  }
+  return one === other
 }
 
 /** Whether a type is, or derives from, another. */
@@ -371,6 +487,45 @@ export function derivesFrom(
   return namesOf(body[BOOTSTRAP.is]).some((parent) =>
     derivesFrom(bodyOf, parent, ancestor, [...path, id]),
   )
+}
+
+/**
+ * The options of a choice in the order a value is tried against them, narrowest first.
+ *
+ * A choice is untagged, so nothing written beside a value says which option it belongs to and the
+ * options themselves have to decide it. Where one option derives from another, every value of the
+ * narrower one is a value of the wider one as well, and only the narrower one says anything about
+ * it — so the narrower one is asked first and the value belongs to it when it takes it. That is
+ * what makes a choice between an enum and the type it is based on mean what it reads as: a value
+ * the enum lists is the enum, and anything else is the type underneath.
+ *
+ * Options with no derivation between them are left in the order they were written, because the
+ * declarations say nothing to order them by. Two of those taking the same value is a value that
+ * cannot be told apart, and saying so belongs to whoever is reading the value.
+ *
+ * This is the one place the order is decided. The checker judges a value in it and the colouring
+ * draws a value by it, so neither can read a choice differently from the other.
+ */
+export function optionsInOrder(
+  bodyOf: BodyOf,
+  options: readonly unknown[],
+): readonly { readonly option: unknown; readonly named: string | null }[] {
+  const named = options.map((option) => ({
+    option,
+    named: typeof option === 'string' && option.length > 0 ? option : null,
+  }))
+  // How many of the other options this one derives from. An option below another in the
+  // derivation is below every option that one is below, so counting them orders a whole chain.
+  const depth = (mine: string | null, at: number): number =>
+    mine === null
+      ? 0
+      : named.filter(
+          (other, j) => j !== at && other.named !== null && derivesFrom(bodyOf, mine, other.named),
+        ).length
+  return named
+    .map((one, at) => ({ one, at, deep: depth(one.named, at) }))
+    .sort((x, y) => y.deep - x.deep || x.at - y.at)
+    .map(({ one }) => one)
 }
 
 /** The one word a node names, or nothing when it names none or more than one. */

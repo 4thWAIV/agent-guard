@@ -1,10 +1,14 @@
-// What a type says its values may be: gathering the constraints a type carries, and applying them.
+// What the reader makes of what is written: how a value of each primitive is read, and what a type
+// says its values may be once it has been read.
 //
-// The language says that a constraint exists, what it holds, and which type carries it. What a
-// kind of constraint MEANS — that a pattern is matched against the whole value — is here, one
-// piece per kind, beside the table in the checker that says what a value of each primitive looks
-// like once a file has been read. Both are statements about the concrete syntax rather than about
-// the vocabulary, and both are the place where the language stops and the reader begins.
+// The language says that a primitive exists, that a constraint exists, what it holds, and which
+// type carries it. What a value of a primitive LOOKS LIKE, and what a kind of constraint MEANS —
+// that a pattern is matched against the whole value — are here, one piece per primitive and one
+// per kind of constraint. Both are statements about the concrete syntax rather than about the
+// vocabulary, and both are the place where the language stops and the reader begins. They are in
+// one file because they answer one question between them, and because the checker and the
+// colouring both ask it: a value one of them reads and the other does not is a value drawn as
+// something the report calls a problem.
 //
 // A kind of constraint the language declares and nothing here applies is reported rather than
 // passed over, because a value nothing judged is not a value that was checked.
@@ -16,6 +20,55 @@ import { BOOTSTRAP, isMapping, onlyWord, type BodyOf, type Mapping } from './wor
 
 /** The keyword a type carries its constraints under. */
 export const CONSTRAINTS = 'constraints'
+
+/** The written form of a whole number, positive or negative, with or without a fractional part. */
+const NUMERAL = /^-?\d+(\.\d+)?$/
+
+/** How a value of one primitive is read. */
+export interface Reader {
+  /** Whether a value already read out of a file is one of this primitive. */
+  readonly is: (value: unknown) => boolean
+  /**
+   * What one bare word carries, held in `read`, or nothing when the word is not a value of this
+   * primitive at all. A primitive written as a set of named parts carries nothing as one word.
+   */
+  readonly from: (written: string) => { readonly read: unknown } | null
+}
+
+/**
+ * What one value of each primitive looks like once the file has been read, and what one bare word
+ * written in a file carries. In a YAML file `true` arrives as a boolean, `"a"` as text, `7` as a
+ * number, a regular expression as text and a set of named parts as a mapping, and another syntax
+ * would spell them differently without the language changing. A primitive with no entry here
+ * cannot have its values read, which is said rather than passed over.
+ *
+ * `object` is the root every type derives from, so that row is what a value of any type that is
+ * not one of the leaves looks like. Which parts it may carry and what each one holds is said in
+ * the language, under `properties`, and is read from there rather than from here.
+ *
+ * What a value of a primitive may be, once it has been read, is the business of the constraints
+ * the type carries. That is said in the language, so it is below rather than here.
+ */
+const numeral = (written: string): { read: number } | null =>
+  NUMERAL.test(written) ? { read: Number(written) } : null
+
+const text = (written: string): { read: string } => ({ read: written })
+
+const READERS: Record<string, Reader> = {
+  object: { is: isMapping, from: () => null },
+  boolean: {
+    is: (v) => typeof v === 'boolean',
+    from: (w) => (w === 'true' ? { read: true } : w === 'false' ? { read: false } : null),
+  },
+  string: { is: (v) => typeof v === 'string', from: text },
+  number: { is: (v) => typeof v === 'number', from: numeral },
+  expression: { is: (v) => typeof v === 'string', from: text },
+  byte: { is: (v) => typeof v === 'number', from: numeral },
+  uuid: { is: (v) => typeof v === 'string', from: text },
+}
+
+/** How a value of one primitive is read, or nothing when nothing here says. */
+export const readerFor = (primitive: string): Reader | null => READERS[primitive] ?? null
 
 /** One constraint written on a type, and which type wrote it. */
 export interface Constraint {

@@ -22,6 +22,7 @@ import { fileURLToPath } from 'node:url'
 import * as yaml from 'js-yaml'
 
 import { bundlePage } from './bundle.ts'
+import { checkedAgainst } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { highlightOf, isHighlight, marksOf, NO_MARKS, type Marks } from './highlight.ts'
 
@@ -128,8 +129,15 @@ export async function render(file: string, out: string): Promise<number> {
   // language it names and the scopes it brings in. A document whose rulebook could not be read is
   // drawn against the one vocabulary there is, and the page says what could not be read, because
   // a page that shows the document is worth more than a command that stopped.
-  const { words, faults } = rulebookFor(doc, drawing)
+  const rulebook = rulebookFor(doc, drawing)
+  const { words, faults } = rulebook
   for (const fault of faults) console.error(`  ${basename(drawing)} — ${fault.where} ${fault.what}`)
+
+  // The page says what the checker found, on the document itself. It is the same checker reading
+  // the same document against the same vocabulary, so the page and the report cannot disagree.
+  const found = checkedAgainst(doc, drawing, rulebook)
+  const wrong = found.problems.length + found.blockers.length + found.pending.length
+  if (wrong > 0) console.log(`${basename(drawing)} — ${wrong} found, and drawn on the page`)
 
   const { code } = await bundlePage(join(here, 'client.tsx'), {
     __WORDS__: JSON.stringify(words ?? WORDS),
@@ -138,9 +146,15 @@ export async function render(file: string, out: string): Promise<number> {
       marked: [...marks.marked],
       missing: marks.missing,
     }),
+    __FOUND__: JSON.stringify(found),
   })
 
-  const css = readFileSync(join(here, 'style.css'), 'utf8')
+  // Both stylesheets, because the page draws examples through the same control a page written
+  // by hand draws them through, and that control's colours live in their own file.
+  const css = [
+    readFileSync(join(here, 'style.css'), 'utf8'),
+    readFileSync(join(here, 'syntax.css'), 'utf8'),
+  ].join('\n')
   writeFileSync(out, pageHtml(titleOf(doc, drawing), css, code))
 
   console.log(`${basename(out)} — ${(code.length / 1024).toFixed(0)}KB, drawn in the browser by React`)

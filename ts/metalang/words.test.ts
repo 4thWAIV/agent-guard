@@ -15,9 +15,12 @@ import {
   BOOTSTRAP,
   isMapping,
   onlyWord,
+  optionsInOrder,
   propertiesOf,
   resolveVocabulary,
+  sameValue,
   SELF,
+  valuesOf,
   type BodyOf,
   type Mapping,
 } from './words.ts'
@@ -81,7 +84,7 @@ describe('the vocabulary the live language file declares', () => {
       entity: ['id', 'is', ...prose, 'abstract', 'primitive', 'constraints', 'properties'],
       enum: ['id', 'is', ...prose, 'values'],
       choice: ['id', ...prose, 'options'],
-      constant: ['id', ...prose],
+      constant: ['id', 'is', ...prose, 'value'],
       rule: ['id', ...prose],
       fact: ['id', ...prose],
       cast: ['id', ...prose, 'from', 'to', 'implicit'],
@@ -102,8 +105,8 @@ describe('the vocabulary the live language file declares', () => {
     expect('cast' in words.onKind).toBe(true)
   })
 
-  test('a property carries its type, its prose, whether it may be left out, and what it holds', () => {
-    expect(WORDS.onProperty).toEqual(['is', 'title', 'description', 'optional', 'value'])
+  test('a property carries its type, its prose, whether it may be left out, what it holds, and the reserved states it takes', () => {
+    expect(WORDS.onProperty).toEqual(['is', 'title', 'description', 'optional', 'value', 'accepts'])
     expect(WORDS.onValue).toEqual(['id', 'title', 'description', 'value'])
   })
 
@@ -186,6 +189,7 @@ describe('the words the reader knows before it reads anything', () => {
       'value',
       'object',
       'collection',
+      'reserved',
     ])
     for (const named of [SELF.document, SELF.property, SELF.value, SELF.object, SELF.collection]) {
       expect(named in WORDS.entities).toBe(true)
@@ -460,6 +464,95 @@ describe('every property a type has', () => {
 
   test('the live language file reads its own kinds this way', () => {
     const lookUp: BodyOf = (id) => WORDS.declared[id]?.body
-    expect(names(lookUp, 'constant')).toEqual(['id', 'title', 'description'])
+    expect(names(lookUp, 'constant')).toEqual(['id', 'is', 'title', 'description', 'value'])
+  })
+})
+
+describe('the order the options of a choice are asked in', () => {
+  const given = (declared: Record<string, Mapping>): BodyOf => (id) => declared[id]
+  const named = (lookUp: BodyOf, options: unknown[]): (string | null)[] =>
+    optionsInOrder(lookUp, options).map((one) => one.named)
+
+  // `colour` is an enum based on `text`, so every colour it lists is a text as well. Asking the
+  // enum first is what makes a value it lists the enum and everything else the text underneath.
+  const shades = given({
+    text: { id: 'text', primitive: true },
+    colour: { id: 'colour', is: 'text', values: [{ id: 'red', value: 'red' }] },
+    deeper: { id: 'deeper', is: 'colour' },
+    number: { id: 'number', primitive: true },
+  })
+
+  test('an option deriving from another is asked before it, however they were written', () => {
+    expect(named(shades, ['text', 'colour'])).toEqual(['colour', 'text'])
+    expect(named(shades, ['colour', 'text'])).toEqual(['colour', 'text'])
+  })
+
+  test('a whole chain comes out narrowest first', () => {
+    expect(named(shades, ['text', 'deeper', 'colour'])).toEqual(['deeper', 'colour', 'text'])
+  })
+
+  test('options with nothing between them keep the order they were written', () => {
+    expect(named(shades, ['text', 'number'])).toEqual(['text', 'number'])
+    expect(named(shades, ['number', 'text'])).toEqual(['number', 'text'])
+  })
+
+  test('an option that is not a name is kept, and named nothing', () => {
+    expect(named(shades, [7, 'text'])).toEqual([null, 'text'])
+  })
+
+  test('no options come out as no options', () => {
+    expect(optionsInOrder(shades, [])).toEqual([])
+  })
+})
+
+describe('the values an enum lists', () => {
+  const given = (declared: Record<string, Mapping>): BodyOf => (id) => declared[id]
+
+  test('each value comes out with the id naming it', () => {
+    const lookUp = given({ c: { id: 'c', values: [{ id: 'red', value: 'r' }] } })
+    expect(valuesOf(lookUp, 'c')).toEqual([{ id: 'red', value: 'r' }])
+  })
+
+  test('a declaration listing no values is not an enum', () => {
+    expect(valuesOf(given({ c: { id: 'c' } }), 'c')).toBeNull()
+  })
+
+  test('a listed value with no id of its own is passed over', () => {
+    const lookUp = given({ c: { id: 'c', values: ['red', { value: 'r' }, { id: 'blue' }] } })
+    expect(valuesOf(lookUp, 'c')).toEqual([{ id: 'blue', value: undefined }])
+  })
+})
+
+describe('whether two values written in a document are the same value', () => {
+  test('the same text, number, true or false', () => {
+    expect(sameValue('a', 'a')).toBe(true)
+    expect(sameValue(7, 7)).toBe(true)
+    expect(sameValue(true, true)).toBe(true)
+    expect(sameValue('a', 'b')).toBe(false)
+    expect(sameValue(7, '7')).toBe(false)
+  })
+
+  test('the same parts written in another order are the same value', () => {
+    expect(sameValue({ a: 1, b: 2 }, { b: 2, a: 1 })).toBe(true)
+  })
+
+  test('a part the other does not carry makes them different', () => {
+    expect(sameValue({ a: 1, b: 2 }, { a: 1 })).toBe(false)
+    expect(sameValue({ a: 1 }, { b: 1 })).toBe(false)
+  })
+
+  test('a list is the same only in the order it is written, because a list is ordered', () => {
+    expect(sameValue([1, 2], [1, 2])).toBe(true)
+    expect(sameValue([1, 2], [2, 1])).toBe(false)
+    expect(sameValue([1, 2], [1])).toBe(false)
+  })
+
+  test('parts inside parts are compared the same way all the way down', () => {
+    expect(sameValue({ a: { b: [1, { c: 2 }] } }, { a: { b: [1, { c: 2 }] } })).toBe(true)
+    expect(sameValue({ a: { b: [1, { c: 2 }] } }, { a: { b: [1, { c: 3 }] } })).toBe(false)
+  })
+
+  test('a mapping and a list are never the same value', () => {
+    expect(sameValue({ 0: 'a' }, ['a'])).toBe(false)
   })
 })

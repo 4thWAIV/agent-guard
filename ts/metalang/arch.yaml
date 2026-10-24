@@ -12,68 +12,91 @@
 # The approvals arrived through his jarvis session.
 #
 # Everything in this file is now checked, and the checker says so:
-#   - A value written against a choice belongs to whichever option it is a value of. Each glyph
-#     below is a `string`; a uri would be a value of both options and is accepted as either.
-#   - A bare value on a property typed by an enum names one member of that enum, resolved among
-#     that enum's own values. `csharp` in a cell of `equivalents` is the member `csharp` of
-#     `languages`. This is how an enum behaves, not a word of MetaLang, and a bare value that
-#     names no member is a problem that lists the members.
-#   - A property that writes its type out, as `equivalents` writes `set: { of: equivalent }`, is a
-#     list whose members are each of the `of` type, with no two the same when the collection is
-#     unique. The six lists of cells are read that way.
+#   - A value written against a choice belongs to whichever option it is a value of, asked
+#     narrowest first. Each mark below is a `string`, and a uri would be a `uri`.
+#   - A value written against a property whose type is an entity is read one level further down,
+#     each key against the property it names. The `appearance` of each form is read that way.
 # The checker never skips or passes what it cannot verify: it reports a blocker or a problem.
 #
-# `mark` is a choice between a glyph and a uri, approved as a choice between a string and a uri. A
-# choice is untagged, so its options have to be distinguishable, and every uri is a string — which
-# the checker now reports. So the first option is `glyph`, one character drawn as it is, which
-# neither derives from `uri` nor has `uri` deriving from it.
+# ── APPROVED — one element, the naming dictionary moved out, and `mark` under `appearance`. ──
+#                                                                                   2026-10-21
+# Tim approved three changes, through his jarvis session, after the case for each was put to him:
+#
+#   - `element` is declared here: one named piece of an architecture, carrying which of the six
+#     forms it takes and one line saying what it does. Until it existed, a document could call the
+#     name of a part anything at all and the checker had no opinion, because this language never
+#     said how one piece of an architecture is written down. `ts/metalang/parts.yaml` now derives
+#     its `part` from `element` and keeps only the `file` and `mark` it adds of its own.
+#   - The naming dictionary — `language`, `languages`, `equivalent`, and the `equivalents`
+#     property this file hung on `form` — is now `ts/metalang/names.yaml`, a document written in
+#     this language, with one entry for each form in each language. What each language calls a
+#     form is naming rather than architecture, and it is also the first half of the verifiable
+#     path to each language, which is where the second half will be written.
+#   - `mark` now sits under `appearance`, an entity declared here, which is the grouping Tim asked
+#     for on 2026-10-18. The `mark` choice itself stays in this file, because
+#     `ts/metalang/parts.yaml` names it as a type of its own.
+#
+# What is left in this file is `form`, `forms`, `element`, and the two declarations that say how a
+# form is drawn.
+#
+# The `function` form's example was the first value this language ever left unwritten. It said so
+# in text — "none in this repository" — which read as an answer and was not one, so on 2026-10-20
+# it was written as `pending` and the checker reported this document as right and not finished.
+# Tim then asked for the example, and it is `reportLines` in `ts/metalang/check.ts`: a callable
+# belonging to no type, in the one language in this repository that has them. C# has none, which
+# is what the `function_csharp` entry of `ts/metalang/names.yaml` says. `example` still accepts
+# `pending`, because the next form with no example to give needs the same word.
+#
+# `mark` is a choice between a `string` and a `uri`, which is the shape Tim approved. It was
+# narrowed on 2026-10-19 to a `glyph` entity declared in this file, because the checker then
+# reported any choice where one option derives from another, and every uri is a string. Tim said on
+# 2026-10-20 that he never approved that `glyph`, and it has been removed. A narrower option is now
+# asked before the one it derives from, so a value carrying a scheme and a colon is a `uri` and
+# every other value is a `string`. The `glyph` entity carried a pattern allowing one non-whitespace
+# character, and the approved shape has no such limit: any string is now a mark.
+# ── APPROVED — one declaration per element, and `name` comes off `element`. ──
+#                                                                                   2026-10-24
+# Tim approved writing each element as its own declaration rather than as one value of an enum
+# listing them all, and approved `constant` gaining the two keywords that let it hold one value of
+# a named type. A part of an architecture is now written like this:
+#
+#   - constant:
+#       id: IGuard
+#       is: element
+#       value:
+#         form: interface
+#         does: The three behaviours every guard answers a tool call through.
+#
+# `name` comes off `element` because the declaration's own id is the name of the element. Before
+# this, every element carried two names — the id naming it inside its enum, and the `name` it
+# actually has — and the one a reader cares about was the second. The full name of an element is
+# now its scope and its id, which is how MetaLang names every other declared thing.
+#
+# Writing them as an enum also said the set was closed. The six forms are a closed set and `forms`
+# is rightly an enum: a seventh is a change to this language. The parts of a guard are not that.
+#
+# The direction this replaces is recorded where it was rejected: declaring the six forms as the six
+# kinds an architecture document may write. It required this language to re-declare MetaLang's own
+# `declaration` choice and replace its list, it took MetaLang's `enum` away from every document
+# written in this language, and it left the file and the glyph in `ts/metalang/parts.yaml` with
+# nowhere to live. Tim rejected it on 2026-10-24.
 scope: [arch]
 import:
   - [metalang]
 title: The architecture language
 description: What an architecture may contain, written against MetaLang.
 declare:
-  - entity:
-      id: language
-      is: object
-      title: One language a form may be named in.
-      properties:
-        name: { is: string, title: The name the language is shown by. }
-
-  - enum:
-      id: languages
-      is: language
-      title: Every language a form is named in, in reading order.
-      values:
-        - id: csharp
-          value: { name: C# }
-        - id: python
-          value: { name: Python }
-        - id: rust
-          value: { name: Rust }
-        - id: typescript
-          value: { name: TypeScript }
-
-  - entity:
-      id: equivalent
-      is: object
-      title: What one form is called in one language.
-      description: A form absent from a language says so in the cell rather than leaving it out.
-      properties:
-        language: { is: languages, title: The language. }
-        name: { is: string, title: What that language calls the form. }
-
-  - entity:
-      id: glyph
-      is: string
-      title: One character, drawn as it is.
-      constraints:
-        - pattern: { value: '[^\s]' }
-
   - choice:
       id: mark
-      options: [glyph, uri]
-      title: A glyph, or a uri saying where the glyph is drawn from.
+      options: [string, uri]
+      title: The character a form is drawn with, or a uri saying where its mark is drawn from.
+
+  - entity:
+      id: appearance
+      is: object
+      title: How a form is drawn, and nothing else about it.
+      properties:
+        mark: { is: mark, title: "The character it is drawn with, or where it is drawn from." }
 
   - entity:
       id: form
@@ -81,11 +104,13 @@ declare:
       title: One kind of declaration an architecture can make.
       description: Every element of an architecture is of exactly one form.
       properties:
-        mark: { is: mark, title: "The glyph it is drawn with, or where it is drawn from." }
-        example: { is: string, title: A real one from this repository. }
+        appearance: { is: appearance, title: How it is drawn. }
+        example:
+          is: string
+          accepts: [pending]
+          title: A real one from this repository.
         name: { is: string, title: The name it is shown by. }
         description: { is: string, title: One line saying what the form is. }
-        equivalents: { set: { of: equivalent }, title: What each language calls it. }
 
   - enum:
       id: forms
@@ -94,67 +119,50 @@ declare:
       values:
         - id: interface
           value:
-            mark: "◇"
+            appearance: { mark: "◇" }
             example: IGuard
             name: Interface
             description: A declaration of surface with no implementation.
-            equivalents:
-              - { language: csharp, name: interface }
-              - { language: python, name: Protocol or ABC }
-              - { language: rust, name: trait }
-              - { language: typescript, name: interface }
         - id: class
           value:
-            mark: "■"
+            appearance: { mark: "■" }
             example: FileGuard
             name: Class
             description: An implementation satisfying an interface.
-            equivalents:
-              - { language: csharp, name: class }
-              - { language: python, name: class }
-              - { language: rust, name: struct with an impl }
-              - { language: typescript, name: class }
         - id: record
           value:
-            mark: "≡"
+            appearance: { mark: "≡" }
             example: Verdict
             name: Record
             description: Data only. No behaviour.
-            equivalents:
-              - { language: csharp, name: record }
-              - { language: python, name: dataclass or NamedTuple }
-              - { language: rust, name: struct }
-              - { language: typescript, name: "interface, or a type alias" }
         - id: enum
           value:
-            mark: "◈"
+            appearance: { mark: "◈" }
             example: VerdictKind
             name: Enum
             description: A closed set of values.
-            equivalents:
-              - { language: csharp, name: enum }
-              - { language: python, name: Enum }
-              - { language: rust, name: "enum — a sum type, so not the same thing" }
-              - { language: typescript, name: "enum, or a union of literals" }
         - id: function
           value:
-            mark: "ƒ"
-            example: none in this repository
+            appearance: { mark: "ƒ" }
+            example: reportLines
             name: Function
             description: A callable belonging to no type.
-            equivalents:
-              - { language: csharp, name: none — a static method on a class is the workaround }
-              - { language: python, name: def at module level }
-              - { language: rust, name: fn at module level }
-              - { language: typescript, name: function at module level }
         - id: process
           value:
-            mark: "▷"
+            appearance: { mark: "▷" }
             example: the Conversation phase
             name: Process
             description: An ordered run of steps with a gate at each end.
-            equivalents:
-              - { language: csharp, name: none — a process is not a type }
-              - { language: python, name: none }
-              - { language: rust, name: none }
-              - { language: typescript, name: none }
+
+  - entity:
+      id: element
+      is: object
+      title: One named piece of an architecture.
+      description: The name it is known by is the name it is declared under.
+      properties:
+        form:
+          is: forms
+          title: Which of the six forms it takes.
+        does:
+          is: string
+          title: One line saying what it does.

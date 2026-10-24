@@ -156,6 +156,27 @@ describe('rendering a file', () => {
   test('a file that is not there stops it', async () => {
     expect(await render(join(dir, 'missing.yaml'), join(dir, 'missing.html'))).toBe(1)
   })
+
+  test('what the checker found is written into the page, to be said on the document', async () => {
+    const path = join(dir, 'wrong.yaml')
+    await writeFile(
+      path,
+      'scope: [x]\ntitle: Wrong\nlanguage: metalang\ndeclare:\n  - entity:\n      id: 7\n',
+      'utf8',
+    )
+    const out = join(dir, 'wrong.html')
+    expect(await render(path, out)).toBe(0)
+    const html = await readFile(out, 'utf8')
+    expect(html).toContain('declare[0].entity.id')
+    expect(html).toContain('must be written as text')
+  })
+
+  test('a document nothing was found in carries nothing to say about itself', async () => {
+    const out = join(dir, 'clean.html')
+    expect(await render(LANGUAGE_FILE, out)).toBe(0)
+    // The bundler writes the value out as source, so it is read here the way it is written there.
+    expect(await readFile(out, 'utf8')).toContain('problems:[],blockers:[]')
+  })
 })
 
 describe('a highlight drawn over the file it names', () => {

@@ -10,6 +10,16 @@
 // one word naming its kind with the body inside, and that word may be written or left out, so a
 // path copied from a problem the checker reported resolves as it stands.
 //
+// WHAT MAY BE HIGHLIGHTED. The system exists to put in front of Tim the things that need his
+// attention, so an entry is allowed only where it asks him to decide something, or gives him
+// something he has to understand or acknowledge. Anything he asked for, and anything he has
+// already decided, is not highlighted: the narrowest option of a choice being asked first is his
+// own ruling, so it is not marked. A value that is required and not yet given stays marked for as
+// long as it is not given. Tim set this rule on 2026-10-20.
+//
+// An entry that asks something is written as the question, with the recommendation, so the page
+// reads as what it is rather than as a note about the document.
+//
 // A path that names nothing is reported on the page, so a highlight left behind by an edit says so
 // rather than disappearing.
 

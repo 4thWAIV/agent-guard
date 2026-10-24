@@ -1,0 +1,112 @@
+/* The colours a document written out as YAML is drawn in.
+ *
+ * One file, used by the rendered pages and by any page written by hand, so an example never
+ * reads one way in one place and another way somewhere else. What each class means is decided
+ * in syntax.ts, from the vocabulary; this file only says what each one looks like.
+ *
+ * Every colour falls back to its own value, so a page that carries none of the page tokens still
+ * draws the example the same way.
+ *
+ * Light, like every page here. */
+
+pre.y {
+  font: 400 13px/1.62 var(--mono, ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace);
+  background: var(--band, #f1efe8);
+  color: var(--ink, #15192b);
+  border: 1px solid var(--rule, #e2dfd6);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 0;
+  overflow-x: auto;
+  min-width: 0;
+  tab-size: 2;
+}
+
+/* A comment: what a person wrote beside the language, not the language. */
+.y-note {
+  color: var(--dim, #848b9c);
+  font-style: italic;
+}
+
+/* The punctuation YAML is written with. It holds the shape and says nothing itself. */
+.y-mark {
+  color: var(--dim, #848b9c);
+}
+
+/* The word naming what a declaration is, in the colour the vocabulary gives that kind. */
+.y-kind {
+  color: var(--kind, var(--accent, #0d6e68));
+  font-weight: 700;
+}
+
+/* A keyword the language declares. */
+.y-word {
+  color: var(--accent, #0d6e68);
+  font-weight: 600;
+}
+
+/* A name the document gives: what it declares, and what it calls its own properties. */
+.y-name {
+  color: var(--ink, #15192b);
+  font-weight: 600;
+}
+
+/* A word pointing at a declared type. */
+.y-ref {
+  color: var(--accent, #0d6e68);
+  background: var(--accent-soft, #dff2ef);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* A word the keyword's own type lists as one of its values. */
+.y-member {
+  color: var(--prim, #8d2a63);
+  background: var(--prim-soft, #fbe9f3);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+/* A true and a false, in the colours they read as. */
+.y-true {
+  color: var(--yes, #1a7f37);
+  font-weight: 600;
+}
+
+.y-false {
+  color: var(--no, #c02d1f);
+  font-weight: 600;
+}
+
+.y-number {
+  color: var(--abs, #3f36a8);
+}
+
+/* A regular expression, in the colour no reference uses. */
+.y-expr {
+  color: var(--expr, #c2410c);
+}
+
+/* Text: a title, prose, anything whose type is a string. Quiet, because it is most of a file. */
+.y-text {
+  color: var(--soft, #454d63);
+}
+
+/* Anything the vocabulary does not account for. Loud on purpose, and underlined as well as
+   coloured, so it is seen by a reader the colour leaves out. */
+.y-unknown {
+  color: var(--bad, #b3261e);
+  background: var(--bad-soft, #fdecea);
+  border-radius: 3px;
+  padding: 0 3px;
+  text-decoration: underline wavy var(--bad, #b3261e);
+  text-underline-offset: 3px;
+}
+
+/* A word standing where a value goes, saying the value is not there. Dashed underneath, like the
+   edge the page draws round the same word, because the thing it marks is not there. */
+.y-reserved {
+  color: var(--warm, #9a5b00);
+  text-decoration: underline dashed var(--warm-line, #e6bd72);
+  text-underline-offset: 3px;
+}

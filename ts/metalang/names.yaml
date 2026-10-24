@@ -1,0 +1,130 @@
+# What each language calls each form — a document written in the architecture language.
+#
+# ── APPROVED — the naming dictionary is its own document.                        2026-10-21 ──
+# Tim approved moving this dictionary out of `ts/metalang/arch.yaml`, through his jarvis session.
+# What each language calls a form is naming rather than architecture, so it is written here, in
+# the architecture language, rather than declared inside it. `language`, `languages` and
+# `equivalent` came here with it, and the `equivalents` property that used to hang on `form` is
+# now one entry for each form in each language: six forms, four languages, twenty-four entries.
+#
+# `language: arch` says which rulebook this file is read against, so `forms` below is the
+# architecture language's own word and MetaLang alone could say nothing about it.
+# `import: [metalang]` brings in `string`.
+#
+# Two things the checker proves about this file:
+#   - A bare value on a property typed by an enum names one member of that enum, resolved among
+#     that enum's own values. `csharp` in an entry below is the member `csharp` of `languages`,
+#     and `interface` is the member `interface` of `forms`. A bare value that names no member is
+#     a problem that lists the members.
+#   - A form absent from a language says so. The four `process` entries hold the reserved state
+#     `none`, which Tim approved on 2026-10-20: a decided absence reads as one, and nothing is
+#     reported, because nothing is missing. No language has a word for a process.
+#
+# The `function` entry for C# is text rather than `none`, because C# has no callable belonging to
+# no type and the workaround is worth saying.
+#
+# This file is the first half of the verifiable path to each language that Tim asked for on
+# 2026-10-05: what each language calls a form. The second half — how to find one in that
+# language's source — belongs here too, and is step 6 on the road.
+scope: [names]
+language: arch
+import:
+  - [metalang]
+title: What each language calls each form
+description: One entry for each of the six forms in each of the four languages.
+declare:
+  - entity:
+      id: language
+      is: object
+      title: One language a form may be named in.
+      properties:
+        name: { is: string, title: The name the language is shown by. }
+
+  - enum:
+      id: languages
+      is: language
+      title: Every language a form is named in, in reading order.
+      values:
+        - id: csharp
+          value: { name: C# }
+        - id: python
+          value: { name: Python }
+        - id: rust
+          value: { name: Rust }
+        - id: typescript
+          value: { name: TypeScript }
+
+  - entity:
+      id: equivalent
+      is: object
+      title: What one form is called in one language.
+      description: A form absent from a language says so in the entry rather than leaving it out.
+      properties:
+        form: { is: forms, title: The form being named. }
+        language: { is: languages, title: The language naming it. }
+        name:
+          is: string
+          accepts: [none]
+          title: What that language calls the form.
+
+  - enum:
+      id: equivalents
+      is: equivalent
+      title: What each language calls each form, in reading order.
+      values:
+        - id: interface_csharp
+          value: { form: interface, language: csharp, name: interface }
+        - id: interface_python
+          value: { form: interface, language: python, name: Protocol or ABC }
+        - id: interface_rust
+          value: { form: interface, language: rust, name: trait }
+        - id: interface_typescript
+          value: { form: interface, language: typescript, name: interface }
+
+        - id: class_csharp
+          value: { form: class, language: csharp, name: class }
+        - id: class_python
+          value: { form: class, language: python, name: class }
+        - id: class_rust
+          value: { form: class, language: rust, name: struct with an impl }
+        - id: class_typescript
+          value: { form: class, language: typescript, name: class }
+
+        - id: record_csharp
+          value: { form: record, language: csharp, name: record }
+        - id: record_python
+          value: { form: record, language: python, name: dataclass or NamedTuple }
+        - id: record_rust
+          value: { form: record, language: rust, name: struct }
+        - id: record_typescript
+          value: { form: record, language: typescript, name: "interface, or a type alias" }
+
+        - id: enum_csharp
+          value: { form: enum, language: csharp, name: enum }
+        - id: enum_python
+          value: { form: enum, language: python, name: Enum }
+        - id: enum_rust
+          value: { form: enum, language: rust, name: "enum — a sum type, so not the same thing" }
+        - id: enum_typescript
+          value: { form: enum, language: typescript, name: "enum, or a union of literals" }
+
+        - id: function_csharp
+          value:
+            form: function
+            language: csharp
+            name: none — a static method on a class is the workaround
+        - id: function_python
+          value: { form: function, language: python, name: def at module level }
+        - id: function_rust
+          value: { form: function, language: rust, name: fn at module level }
+        - id: function_typescript
+          value: { form: function, language: typescript, name: function at module level }
+
+        - id: process_csharp
+          value: { form: process, language: csharp, name: none }
+        - id: process_python
+          value: { form: process, language: python, name: none }
+        - id: process_rust
+          value: { form: process, language: rust, name: none }
+        - id: process_typescript
+          value: { form: process, language: typescript, name: none }

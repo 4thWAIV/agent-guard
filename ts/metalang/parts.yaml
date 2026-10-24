@@ -1,9 +1,18 @@
 # The parts of this toolchain, written in the architecture language rather than in MetaLang.
 #
 # `language: arch` says which rulebook this file is read against. The checker loads that file,
-# reads the scopes it brings in, and checks what is written here against the result — so `forms`
+# reads the scopes it brings in, and checks what is written here against the result — so `element`
 # and `mark` below are the architecture language's own words, and MetaLang alone could say nothing
 # about them.
+#
+# `part` derives from `element`, which the architecture language declares, so the form a part takes
+# and the line saying what it does are that language's words and not this file's invention. This
+# file adds the two things `element` does not carry: the file a part lives in, and the glyph it is
+# drawn with where it has one of its own. Tim approved `element` on 2026-10-21.
+#
+# Each part is its own `constant`, declared under the name the part actually has, which Tim approved
+# on 2026-10-24. They were one enum called `parts` until then, which said the toolchain has these
+# six parts and can have no others, and gave every part two names.
 #
 # `import: [metalang]` brings in the types the architecture language is itself written with, which
 # is where `string` comes from. A document reaches the language it names without importing it, and
@@ -17,65 +26,62 @@ description: What each part of ts/metalang is, and which form it takes.
 declare:
   - entity:
       id: part
-      is: object
+      is: element
       title: One part of this toolchain.
       properties:
-        name:
-          is: string
-          title: The name it is known by in the code.
         file:
           is: string
           title: The file it lives in.
-        form:
-          is: forms
-          title: Which form of the architecture it takes.
         mark:
           is: mark
           optional: true
           title: The glyph it is drawn with, where it is drawn with one of its own.
-        does:
-          is: string
-          title: One line saying what it does.
 
-  - enum:
-      id: parts
+  - constant:
+      id: Vocabulary
       is: part
-      title: Every part of ts/metalang, in reading order.
-      values:
-        - id: vocabulary
-          value:
-            name: Vocabulary
-            file: words.ts
-            form: record
-            does: The whole vocabulary as one value, so nothing reads a subset of it.
-        - id: fault
-          value:
-            name: Fault
-            file: words.ts
-            form: record
-            does: One thing to say about one place in a document.
-        - id: rulebook
-          value:
-            name: Rulebook
-            file: rulebook.ts
-            form: record
-            does: The vocabulary a document is read against, or why it could not be read.
-        - id: expression
-          value:
-            name: Expression
-            file: expression.ts
-            form: interface
-            does: A regular expression that has been read, and what it matches.
-        - id: check
-          value:
-            name: check
-            file: check.ts
-            form: function
-            does: Reads one document against a vocabulary and says what is wrong with it.
-        - id: path_to
-          value:
-            name: pathTo
-            file: highlight.ts
-            form: function
-            mark: "◇"
-            does: Where a path written in a highlight points, in the form the page writes.
+      value:
+        file: words.ts
+        form: record
+        does: The whole vocabulary as one value, so nothing reads a subset of it.
+
+  - constant:
+      id: Fault
+      is: part
+      value:
+        file: words.ts
+        form: record
+        does: One thing to say about one place in a document.
+
+  - constant:
+      id: Rulebook
+      is: part
+      value:
+        file: rulebook.ts
+        form: record
+        does: The vocabulary a document is read against, or why it could not be read.
+
+  - constant:
+      id: Expression
+      is: part
+      value:
+        file: expression.ts
+        form: interface
+        does: A regular expression that has been read, and what it matches.
+
+  - constant:
+      id: check
+      is: part
+      value:
+        file: check.ts
+        form: function
+        does: Reads one document against a vocabulary and says what is wrong with it.
+
+  - constant:
+      id: pathTo
+      is: part
+      value:
+        file: highlight.ts
+        form: function
+        mark: "◇"
+        does: Where a path written in a highlight points, in the form the page writes.

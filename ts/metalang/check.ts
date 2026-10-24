@@ -23,9 +23,10 @@ import { basename } from 'node:path'
 
 import * as yaml from 'js-yaml'
 
-import { CONSTRAINTS, cannotApply, constraintsOn, logicFor, unmetBy } from './constraints.ts'
-import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
+import { CONSTRAINTS, cannotApply, constraintsOn, logicFor, readerFor, unmetBy } from './constraints.ts'
+import { LANGUAGE_FILE, rulebookFor, WORDS, type Rulebook } from './rulebook.ts'
 import {
+  acceptsOf,
   BOOTSTRAP,
   derivesFrom,
   holdsAType,
@@ -34,55 +35,30 @@ import {
   isMapping,
   LANGUAGE,
   mayBeLeftOut,
-  membersOf,
   onlyWord,
+  optionsInOrder,
   optionsOf,
   primitiveOf,
   propertiesOf,
   propertyAbove,
+  RESERVED,
   samePath,
+  sameValue,
   saysOfProperty,
   SCOPE,
   SELF,
   typeOfPart as typeOfPartHolding,
   typeOfProperty,
+  valuesOf,
   type BodyOf,
+  type CheckResult,
   type Fault,
   type Mapping,
   type Place,
   type Vocabulary,
 } from './words.ts'
 
-export interface CheckResult {
-  /** Things wrong with the document. */
-  readonly problems: readonly Fault[]
-  /** Things this checker cannot verify, because the language has no word for them yet. */
-  readonly blockers: readonly Fault[]
-}
-
-/**
- * What one value of each primitive looks like once the file has been read. This belongs to the
- * concrete syntax rather than to the vocabulary: in a YAML file `true` arrives as a boolean, `"a"`
- * as text, `7` as a number, a regular expression as text and a set of named parts as a mapping,
- * and another syntax would spell them differently without the language changing. A primitive with
- * no entry here cannot have its values checked.
- *
- * `object` is the root every type derives from, so this row is what a value of any type that is
- * not one of the leaves looks like. Which parts it may carry and what each one holds is said in
- * the language, under `properties`, and is read from there rather than from here.
- *
- * What a value of a primitive may be, once it has been read, is the business of the constraints
- * the type carries. That is said in the language, so it is not here.
- */
-const AS_READ: Record<string, (value: unknown) => boolean> = {
-  object: isMapping,
-  boolean: (v) => typeof v === 'boolean',
-  string: (v) => typeof v === 'string',
-  number: (v) => typeof v === 'number',
-  expression: (v) => typeof v === 'string',
-  byte: (v) => typeof v === 'number',
-  uuid: (v) => typeof v === 'string',
-}
+export type { CheckResult }
 
 /**
  * The keywords of a declaration whose shape is more than the keyword's own type says, so each is
@@ -93,6 +69,7 @@ const APART_ON_KIND = [
   BOOTSTRAP.is,
   BOOTSTRAP.options,
   BOOTSTRAP.properties,
+  'value',
   'values',
   CONSTRAINTS,
 ]
@@ -103,6 +80,14 @@ const APART_ON_PROPERTY = [BOOTSTRAP.is, 'value']
 
 const list = (words: readonly string[]): string => words.join(', ')
 const a = (word: string): string => (/^[aeiou]/i.test(word) ? 'an' : 'a') + ' ' + word
+
+/** One value as it reads inside a message, so a message can name what was written. */
+const asWritten = (value: unknown): string => {
+  if (typeof value === 'string') return `"${value}"`
+  if (isMapping(value)) return 'what is written here'
+  if (Array.isArray(value)) return 'the list written here'
+  return String(value)
+}
 
 /** Every segment of a declaration, once its id is known. */
 interface Declared {
@@ -125,14 +110,21 @@ interface Declared {
 export function check(doc: unknown, root: string, words: Vocabulary = WORDS): CheckResult {
   const problems: Fault[] = []
   const blockers: Fault[] = []
-  // Where a fault goes. It is the two lists above unless a trial is running: judging a value
+  const pending: Fault[] = []
+  // Where a fault goes. It is the three lists above unless a trial is running: judging a value
   // against each option of a choice has to see what each option would say without saying it.
-  let into: { problems: Fault[]; blockers: Fault[] } = { problems, blockers }
+  let into: { problems: Fault[]; blockers: Fault[]; pending: Fault[] } = {
+    problems,
+    blockers,
+    pending,
+  }
   const fail = (where: string, what: string): void => void into.problems.push({ where, what })
   const block = (where: string, what: string): void => void into.blockers.push({ where, what })
-  const trial = (run: () => void): { problems: Fault[]; blockers: Fault[] } => {
+  /** A value that is correctly written, fully checked, and not given yet. */
+  const unfinished = (where: string, what: string): void => void into.pending.push({ where, what })
+  const trial = (run: () => void): { problems: Fault[]; blockers: Fault[]; pending: Fault[] } => {
     const saved = into
-    const mine = { problems: [] as Fault[], blockers: [] as Fault[] }
+    const mine = { problems: [] as Fault[], blockers: [] as Fault[], pending: [] as Fault[] }
     into = mine
     try {
       run()
@@ -146,11 +138,11 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
   // the rest of the checks. Everything after it runs whatever else has already failed.
   if (doc === null || doc === undefined) {
     fail(root, 'the file is empty')
-    return { problems, blockers }
+    return { problems, blockers, pending }
   }
   if (!isMapping(doc)) {
     fail(root, 'the file is not a mapping')
-    return { problems, blockers }
+    return { problems, blockers, pending }
   }
 
   // ── the top level ──────────────────────────────────────────────────────────
@@ -414,7 +406,10 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     for (const keyword of keywords) {
       if (apart.includes(keyword) || body[keyword] === undefined) continue
       const where = `${at}.${keyword}`
-      const holds = typeOfProperty(inVocabulary, owner, keyword)
+      // The type a keyword holds may be named under `is` or written out as one word with its own
+      // properties inside, which is how `accepts` says it holds several reserved states. Both are
+      // read the one way, so a keyword written the second way is checked rather than blocked.
+      const holds = typeOfPart(inVocabulary, owner, keyword)
       if (holdsAType(inVocabulary, owner, keyword)) writesType(where, body[keyword], new Set())
       else if (holds === undefined) {
         block(where, `nothing says what "${keyword}" holds, so what is written here cannot be checked`)
@@ -438,6 +433,29 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     typeOfPartHolding(lookUp, words.onProperty, owner, name)
 
   /**
+   * Whether what is written for one property of a type is a reserved state rather than a value,
+   * which it is when the property's own `accepts` names it. What each state means is said here
+   * and nowhere else: one is reported and the other is not. A state a property accepts that this
+   * checker has no rule for is a blocker, because a word it cannot account for has not been
+   * checked.
+   */
+  const reserved = (
+    at: string,
+    lookUp: BodyOf,
+    type: string,
+    name: string,
+    written: unknown,
+  ): boolean => {
+    if (typeof written !== 'string') return false
+    if (!acceptsOf(lookUp, type, name).includes(written)) return false
+    if (written === RESERVED.pending) unfinished(at, 'is required and not yet given')
+    else if (written !== RESERVED.none) {
+      block(at, `nothing says what "${written}" means where a value goes`)
+    }
+    return true
+  }
+
+  /**
    * The named parts of a value written against a type that derives down to `object`. Each key
    * names one of the type's properties and holds a value of that property's type, and which of
    * them have to be there is the same rule every other thing in the file is read by.
@@ -455,6 +473,7 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
         block(at, `nothing says what type "${name}" holds, so what is written here cannot be checked`)
         continue
       }
+      if (reserved(at, lookUp, type, name, value[name])) continue
       judges(at, holds, value[name], lookUp)
     }
     mustCarry(where, type, value, [...properties.keys()], lookUp)
@@ -493,20 +512,25 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     if (typeof unique !== 'boolean') {
       block(where, `nothing says whether the members of ${a(word)} may repeat, so repeats cannot be checked`)
     }
-    const earlier = new Set<string>()
+    const earlier: unknown[] = []
     for (const [i, member] of value.entries()) {
       judges(`${where}[${i}]`, members, member, lookUp)
-      const key = JSON.stringify(member)
-      if (unique === true && earlier.has(key)) {
+      if (unique === true && earlier.some((seen) => sameValue(seen, member))) {
         fail(`${where}[${i}]`, `repeats an earlier member, and the members of ${a(word)} are unique`)
       }
-      earlier.add(key)
+      earlier.push(member)
     }
   }
 
   /**
-   * A value written against a choice. It belongs to whichever option it is a value of, so each
-   * option is tried without saying anything and the value is fine when one of them takes it.
+   * A value written against a choice. It belongs to whichever option it is a value of, and the
+   * options are asked narrowest first: where one option derives from another, every value of the
+   * narrower one is a value of the wider one as well, so the narrower one is asked first and the
+   * value is of it when it takes it. A value the enum of a choice lists is therefore the enum,
+   * and a value it does not list falls through to the type underneath.
+   *
+   * Two options that take the same value with no derivation between them leave nothing to tell
+   * the value apart by, so that is reported rather than settled by the order they were written in.
    */
   const judgesChoice = (
     where: string,
@@ -524,13 +548,39 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       fail(where, `"${type}" is a choice of nothing, so nothing is a value of it`)
       return
     }
-    const tried = options.map((option) => ({
+    const tried = optionsInOrder(lookUp, options).map(({ option, named }) => ({
       option,
+      named,
       ...trial(() => {
         judges(where, option, value, lookUp, [...via, type])
       }),
     }))
-    if (tried.some((t) => t.problems.length === 0 && t.blockers.length === 0)) return
+    const took = tried.filter((t) => t.problems.length === 0 && t.blockers.length === 0)
+    const winner = took[0]
+    if (winner !== undefined) {
+      // The winner is the narrowest option that took the value. Any other option that also took
+      // it has to be one the winner derives from, or the two say the same thing about this value
+      // and nothing in the document says which was meant.
+      for (const other of took.slice(1)) {
+        if (
+          winner.named !== null &&
+          other.named !== null &&
+          derivesFrom(lookUp, winner.named, other.named)
+        ) {
+          continue
+        }
+        fail(
+          where,
+          `is a value of both "${String(winner.option)}" and "${String(other.option)}" of` +
+            ` "${type}", and neither derives from the other, so nothing tells the two apart`,
+        )
+        return
+      }
+      // What the winning option found that is not wrong is said, because it was said about this
+      // value by the option the value belongs to. A losing option's findings are not.
+      for (const one of winner.pending) unfinished(one.where, one.what)
+      return
+    }
 
     if (tried.every((t) => t.problems.length > 0)) {
       const says = tried.map((t) => `as ${String(t.option)} ${t.problems[0]?.what ?? ''}`)
@@ -574,14 +624,20 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
 
     const primitive = primitiveOf(lookUp, type)
 
-    // A bare id names the member of an enum that has it, resolved among that enum's own values.
-    const members = membersOf(lookUp, type)
-    if (members !== null && typeof value === 'string') {
-      if (members.includes(value)) return
-      if (primitive === null || !(AS_READ[primitive]?.(value) ?? false)) {
-        fail(where, `"${value}" is not a member of "${type}" — the members are ${list(members)}`)
-        return
-      }
+    // An enum is a closed set of values. A value of one is written as the id naming a member, or
+    // written out in full as one of the values listed. Nothing else is a value of the enum: one
+    // that also took every value of the type it is based on would say nothing that type does not
+    // say already, and the one thing it is for — listing the values there are — would go unchecked.
+    const listed = valuesOf(lookUp, type)
+    if (listed !== null) {
+      if (typeof value === 'string' && listed.some((one) => one.id === value)) return
+      if (listed.some((one) => sameValue(one.value, value))) return
+      const members = listed.map((one) => one.id)
+      fail(
+        where,
+        `${asWritten(value)} is not a member of "${type}" — the members are ${list(members)}`,
+      )
+      return
     }
 
     if (primitive === null) {
@@ -591,12 +647,12 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       )
       return
     }
-    const reads = AS_READ[primitive]
-    if (reads === undefined) {
+    const reader = readerFor(primitive)
+    if (reader === null) {
       block(where, `nothing says what one value of ${a(primitive)} looks like once a file is read`)
       return
     }
-    if (!reads(value)) {
+    if (!reader.is(value)) {
       fail(where, `is not written as ${a(primitive)}`)
       return
     }
@@ -820,28 +876,23 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
           namesType(`${at}.options[${j}]`, one)
         }
 
-        // A choice is untagged, so the types it is one of have to be distinguishable. Two of them
-        // are not when one derives from the other, because every value of the narrower one is a
-        // value of the wider one as well, and the defect is in the choice rather than in anything
-        // written against it.
+        // One option deriving from another is not a defect of the choice: it is what orders the
+        // two. The narrower option is asked first and takes the values it accounts for, and the
+        // wider one takes the rest, which is how a choice between an enum and the type it is
+        // based on works. Where two options take the same value with no derivation between them
+        // the value is the one that cannot be told apart, and it is reported where it is written.
         const options = (body.options as unknown[]).filter((o): o is string => typeof o === 'string')
         for (const [j, one] of options.entries()) {
-          for (const other of options.slice(j + 1)) {
-            const derived = derivesFrom(bodyOf, one, other)
-              ? one
-              : derivesFrom(bodyOf, other, one)
-                ? other
-                : null
-            if (derived === null) continue
-            const above = derived === one ? other : one
-            fail(
-              `${at}.options`,
-              `"${derived}" derives from "${above}", so nothing can tell the two apart`,
-            )
+          if (options.indexOf(one) !== j) {
+            fail(`${at}.options`, `"${one}" is written twice, and a choice is one of each once`)
           }
         }
       }
     }
+
+    // A declaration carrying one value of its own is checked against the type its `is` names,
+    // the same rule a value an enum lists is read by.
+    if (body.value !== undefined) holdsValue(`${at}.value`, body.is, body.value)
 
     // Every value an enum lists carries its own id and what that id stands for. The id names the
     // value inside this enum alone, so it is not added to the file's ids and nothing outside the
@@ -1029,7 +1080,7 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     }
   }
 
-  return { problems, blockers }
+  return { problems, blockers, pending }
 }
 
 /** How many declarations a document holds. */
@@ -1067,14 +1118,37 @@ export function reportLines(
 
   if (result.problems.length > 0) print('problem', result.problems)
   if (result.blockers.length > 0) print('blocker', result.blockers)
+  if (result.pending.length > 0) print('pending value', result.pending)
 
+  // Whether anything is wrong with the document and whether the document is finished are two
+  // questions, so the line that closes the report answers the one the report leaves open.
   if (result.problems.length === 0 && result.blockers.length === 0) {
-    out.push('Checked, and nothing is wrong.')
+    out.push(
+      result.pending.length === 0
+        ? 'Checked, and nothing is wrong.'
+        : 'Nothing is wrong with the document, and it is not finished.',
+    )
   } else if (result.problems.length === 0) {
     out.push('Nothing is wrong with what could be checked. The blockers above were not checked.')
   }
 
   return out
+}
+
+/**
+ * What the checker makes of a document read against a rulebook, with whatever stopped that
+ * rulebook being read whole already in it. A rulebook that could not be read leaves nothing to
+ * check against, so that is the whole of what comes back: a document checked against a
+ * vocabulary that is partly guessed has not been checked.
+ *
+ * Both the command that reports and the command that draws the page read a document this way,
+ * so the page cannot show one thing while the report says another.
+ */
+export function checkedAgainst(doc: unknown, file: string, rulebook: Rulebook): CheckResult {
+  const { words, faults } = rulebook
+  if (words === null) return { problems: [], blockers: faults, pending: [] }
+  const { problems, blockers, pending } = check(doc, basename(file), words)
+  return { problems, blockers: [...faults, ...blockers], pending }
 }
 
 /** Reads a file, checks it, prints the report, and returns the exit code. */
@@ -1090,20 +1164,14 @@ export function run(file: string): number {
     return 1
   }
 
-  // The vocabulary comes from the language the document names and the scopes it brings in. A
-  // rulebook that could not be read whole leaves nothing to check against, so that is the whole
-  // report rather than a run against a vocabulary that is partly guessed.
-  const { words, faults } = rulebookFor(doc, file)
+  // The vocabulary comes from the language the document names and the scopes it brings in.
   const named = isMapping(doc) && typeof doc[LANGUAGE] === 'string' ? doc[LANGUAGE] : null
-  const checked =
-    words === null
-      ? { problems: [], blockers: faults }
-      : (({ problems, blockers }) => ({ problems, blockers: [...faults, ...blockers] }))(
-          check(doc, basename(file), words),
-        )
+  const checked = checkedAgainst(doc, file, rulebookFor(doc, file))
 
   for (const line of reportLines(file, checked, countDeclarations(doc), named)) console.log(line)
-  return checked.problems.length > 0 || checked.blockers.length > 0 ? 1 : 0
+  return checked.problems.length > 0 || checked.blockers.length > 0 || checked.pending.length > 0
+    ? 1
+    : 0
 }
 
 if (import.meta.main) process.exit(run(process.argv[2] ?? LANGUAGE_FILE))

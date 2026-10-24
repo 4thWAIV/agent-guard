@@ -243,8 +243,20 @@
 # The two are different things. An enum's alternatives are the values themselves and carry no
 # structure. A choice's alternatives are types, and its values are their values.
 #
-# A choice is untagged. A value belongs to whichever member type it is a value of, and no label
-# is written, so the member types have to be distinguishable from one another.
+# A choice is untagged. A value belongs to whichever option it is a value of, and no label is
+# written beside it, so the options themselves have to decide which one a value belongs to.
+#
+# APPROVED — the options are asked narrowest first.                          2026-10-20
+#
+# Where one option derives from another, every value of the narrower one is a value of the wider
+# one as well, and only the narrower one says anything about it. So the narrower one is asked
+# first, and the value belongs to it when it takes it. That is what makes a choice between an
+# enum and the type it is based on read the way it is written: a value the enum lists is the
+# enum, and a value it does not list is the type underneath.
+#
+# Two options with no derivation between them that both take one value leave nothing to say
+# which of the two was meant. That is reported where the value is written rather than on the
+# choice, because the options are fine and it is the one value that cannot be told apart.
 #
 # That leaves three ways to say a thing may be one of several, with no overlap between them:
 #
@@ -271,6 +283,13 @@
 #
 # A value's id names it inside its own enum and nowhere else. It is not a declaration of the
 # file, and nothing outside the enum refers to it by that name alone.
+#
+# APPROVED — an enum enforces its members.                                   2026-10-20
+#
+# An enum is a closed set of values. A value of one is written as the id naming a member, or
+# written out in full as one of the values listed, and nothing else is a value of it. An enum
+# that also took every value of the type it is based on would say nothing that type does not say
+# already, and the list of values it exists to close would go unchecked.
 #
 # The enum has to carry over into languages that allow an enum to be numbers only. C# is the
 # case to hold in mind: it has no string enum, and the same thing is written there as a
@@ -380,15 +399,15 @@
 # `name` is its own type, separate from `string`. An id is a name and not any text. Which
 # characters a name may contain is not settled, and every declaration is refused until it is.
 #
-# Together they separate a name that defines something from a name that points at a type. The slot
-# says which it is, not the name:
+# Together they separate a name that defines something from a name that points at a type. The
+# property says which it is, not the name:
 #
 #   id            has the type `name`
 #   is            has the type `type`, so what is written there resolves to an entity, an enum or
 #                 a choice, and to nothing else
 #
-# A slot holding a value is typed by the value's own type, so nothing further is needed to tell a
-# type reference from a value reference.
+# A property holding a value is typed by the value's own type, so nothing further is needed to
+# tell a type reference from a value reference.
 #
 # A built-in type is declared as an entity, with Tim's reason: an entity is a template for a data
 # structure, and no entity in this language carries an implementation. `name` derives from
@@ -534,6 +553,47 @@
 # enum's `is`, and an enum value's `id` and `value` are now required because the language says so.
 # The one check that stays is that a property has an `is`, because its type may come from the
 # declaration above it instead.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a value that is required and not yet given.                 2026-10-20
+#
+#   accepts    on a property, the reserved states it takes in place of a value
+#   reserved   an enum of two: `pending` and `none`
+#
+# Tim approved all three. A document had no way to say that a value is coming, so an author wrote
+# text in its place — "none in this repository" — and nothing could tell that from an answer.
+#
+# `pending` says a value is required and not yet given. The checker reports it in a list of its
+# own, headed as unfinished rather than as wrong, and the run exits non-zero, so a document that
+# is not finished can never print that nothing is wrong with it. Whether anything is wrong with a
+# document and whether a document is finished are two questions with two answers.
+#
+# `none` says a value was deliberately left empty. Nothing is reported, because nothing is
+# missing. It is in the language so that a decided absence reads as one.
+#
+# A property takes a reserved state only where its own `accepts` names it. Without that the word
+# is the text it is written as, so no document gains a meaning it did not ask for.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a constant says what its value is of, and holds it.         2026-10-24
+#
+#   is       on a constant, the type its value is of
+#   value    on a constant, the value itself
+#
+# Tim approved both. `constant` could name a fixed value and say nothing about it: it carried `id`,
+# `title` and `description` alone, so it could not say what type the value was or hold anything. An
+# `enum` was therefore the only kind that carried data, and a document with five real things to
+# write down had to list them as the values of an enum, which says the set is closed and gives each
+# thing two names — the id inside the enum and the name it actually has.
+#
+# Both are required. A constant that does not say what its value is of cannot be checked, and the
+# checker never passes what it could not verify. A constant with no value is a name standing for
+# nothing.
+#
+# They are the two words `enum` already uses, one level up: `is` names the type, and `value` is
+# written exactly as a value an enum lists is written, and read by the same rule.
 # ───────────────────────────────────────────────────────────────────────────────
 
 scope: [metalang]
@@ -723,6 +783,10 @@ declare:
           is: object
           optional: true
           title: What the property always holds.
+        accepts:
+          set: { of: reserved }
+          optional: true
+          title: The reserved states this property takes in place of a value.
 
   - entity:
       id: value
@@ -784,6 +848,27 @@ declare:
           optional: true
           title: Its named properties, in the order they are written.
 
+  - enum:
+      id: reserved
+      is: string
+      title: What a value says when it is not the value itself.
+      description: >
+        A property takes one of these only where its `accepts` names it, so a document that does
+        not use the word holds it as the text it is.
+      values:
+        - id: pending
+          value: pending
+          title: Required, and not yet given.
+          description: >
+            The work is not done. It is reported, and the run it is reported in exits non-zero,
+            so a document holding one can never be called finished.
+        - id: none
+          value: none
+          title: Deliberately left empty.
+          description: >
+            Nothing is missing, so nothing is reported. It says that the absence was decided
+            rather than overlooked, which is what writing nothing at all cannot say.
+
   - entity:
       id: enum
       is: object
@@ -838,6 +923,9 @@ declare:
         id:
           is: name
           title: The name the constant is known by.
+        is:
+          is: type
+          title: The type the value is of.
         title:
           is: string
           optional: true
@@ -846,6 +934,9 @@ declare:
           is: string
           optional: true
           title: Prose explaining the constant.
+        value:
+          is: object
+          title: The value itself.
 
   - entity:
       id: rule

@@ -19,17 +19,25 @@
 
 import { createContext, Fragment, useContext, type CSSProperties, type ReactNode } from 'react'
 
+import * as yaml from 'js-yaml'
+
 import { CONSTRAINTS } from './constraints.ts'
-import { NO_MARKS, type Marks } from './highlight.ts'
+import { NO_MARKS, pathTo, type Marks } from './highlight.ts'
+import { partsOf, type Part } from './syntax.ts'
 import {
   BOOTSTRAP,
+  declaredBodiesOf,
   derivesFrom,
   holdsAType,
+  hueOfKind,
   IMPORT,
   importedBy,
   importsScope,
+  ACCEPTS,
+  acceptsOf,
   LANGUAGE,
   isMapping,
+  NOTHING_FOUND,
   onlyWord,
   primitiveOf,
   propertiesOf,
@@ -40,6 +48,8 @@ import {
   typeOfPart,
   typeOfProperty,
   type BodyOf,
+  type CheckResult,
+  type Fault,
   type Mapping,
   type Vocabulary,
 } from './words.ts'
@@ -55,6 +65,87 @@ export const text = (v: unknown): string => {
   if (typeof v === 'function') return 'a function'
   return JSON.stringify(v)
 }
+
+// ── what is said about a node ────────────────────────────────────────────────
+//
+// Two things point at a node by its path: a highlight file, which says what to look at, and the
+// checker, which says what it found. The page draws both the same way, as a mark around whatever
+// the node draws as, because a reader looking at a value wants to know what is said about THAT
+// value wherever it was said.
+
+/** Which list a thing said about a node came from. A highlight is not one of the checker's. */
+type From = 'highlight' | 'problem' | 'blocker' | 'pending'
+
+/** One thing said about one node: what it says, and which list it came from. */
+export interface Said {
+  readonly note: string
+  readonly from: From
+}
+
+/** One thing the checker found, and the node on the page it is about. */
+export interface Finding {
+  readonly fault: Fault
+  readonly from: 'problem' | 'blocker' | 'pending'
+  /**
+   * The path the page writes for the node it is about, or nothing when it names no node here —
+   * which is what a fault about the whole file names. One of those is said in the band at the
+   * top of the page and nowhere else, because there is no node to put it beside.
+   */
+  readonly at: string | null
+}
+
+/** Everything the checker found, each placed on the node it is about. */
+export function findingsIn(doc: unknown, found: CheckResult): readonly Finding[] {
+  const placed = (from: 'problem' | 'blocker' | 'pending') => (fault: Fault): Finding => ({
+    fault,
+    from,
+    at: pathTo(doc, fault.where),
+  })
+  return [
+    ...found.problems.map(placed('problem')),
+    ...found.blockers.map(placed('blocker')),
+    ...found.pending.map(placed('pending')),
+  ]
+}
+
+/**
+ * What is said about each node, by the path the page writes for that node. A fault is placed by
+ * the same path form a highlight is placed by, which is why a path copied out of a report lands
+ * on the node the report was about.
+ */
+export function saidAbout(
+  marked: ReadonlyMap<string, string>,
+  findings: readonly Finding[],
+): ReadonlyMap<string, readonly Said[]> {
+  const said = new Map<string, Said[]>()
+  const add = (at: string, one: Said): void => {
+    const held = said.get(at)
+    if (held === undefined) said.set(at, [one])
+    else held.push(one)
+  }
+  for (const finding of findings) {
+    if (finding.at !== null) add(finding.at, { note: finding.fault.what, from: finding.from })
+  }
+  for (const [at, note] of marked) add(at, { note, from: 'highlight' })
+  return said
+}
+
+/**
+ * The colour a mark takes, which is the worst thing said at it. A mark with only a highlight on
+ * it takes none of its own and draws in the colour a highlight has always drawn in.
+ */
+const colourOf = (says: readonly Said[]): string | null =>
+  says.some((s) => s.from === 'problem')
+    ? 'm-problem'
+    : says.some((s) => s.from === 'blocker')
+      ? 'm-blocker'
+      : says.some((s) => s.from === 'pending')
+        ? 'm-pending'
+        : null
+
+/** One class name made of the parts of it that there are. */
+const classes = (...parts: readonly (string | null)[]): string =>
+  parts.filter((p) => p !== null).join(' ')
 
 // ── what the whole page is drawing against ───────────────────────────────────
 interface Drawing {
@@ -72,13 +163,20 @@ interface Drawing {
    */
   readonly brought: (name: string) => string | null
   /**
-   * What a highlight file says to mark, by the path of the node it points at, with what it says
-   * of that node. Empty where no highlight was given, which is how every document draws without
-   * one.
+   * What is said about each node, by the path of the node it is said about. A highlight file and
+   * the checker both point at a node by its path, and both are drawn as a mark around whatever
+   * that node draws as, so one map holds both and every drawing site asks one question. Empty
+   * where there is no highlight and nothing was found, which is how most documents draw.
    */
-  readonly marked: ReadonlyMap<string, string>
-  /** Every path a highlight gave that names no node here, so the page can say so. */
-  readonly missing: readonly string[]
+  readonly said: ReadonlyMap<string, readonly Said[]>
+  /**
+   * The path of every mark the page has drawn so far. The page says at the end which marks
+   * nothing drew, and this is how it knows: a mark is drawn in one place, and the part of the
+   * page that reports the rest is drawn after every part that could have drawn one.
+   */
+  readonly drawn: Set<string>
+  /** Everything the checker found, in the order the report prints it. */
+  readonly findings: readonly Finding[]
 }
 
 const DrawingContext = createContext<Drawing | null>(null)
@@ -101,66 +199,101 @@ const useBodyOf = (): BodyOf => {
 }
 
 /**
- * What a highlight says of the node drawn at this path, or nothing when it says nothing of it. A
- * node is marked by where it sits, so nothing on the node itself says it is marked and no kind
- * holds a list of what may be.
+ * What is said of the node drawn at this path, or nothing when nothing is said of it. A node is
+ * marked by where it sits, so nothing on the node itself says it is marked and no kind holds a
+ * list of what may be.
  */
-const useMarked = (at: string): string | null => {
-  const { marked } = useDrawing()
-  return marked.get(at) ?? null
+const useSaid = (at: string): readonly Said[] | null => {
+  const { said } = useDrawing()
+  return said.get(at) ?? null
 }
-
-/** Whether a highlight points at one member of a table, which is marked on the row itself. */
-const markedRow = (
-  marked: ReadonlyMap<string, string>,
-  where: string | undefined,
-  i: number,
-): string | undefined =>
-  where !== undefined && marked.has(`${where}[${i}]`) ? 'r-marked' : undefined
 
 /**
- * A node drawn where a highlight points. The mark goes around whatever the node draws as, so
- * every kind is markable and none of them knows it.
+ * The path an enclosing mark has already drawn. Two components can draw the same node — a part
+ * of a value draws the name beside the value, and the value draws itself — and one node carries
+ * one mark, so the outer one wins and the inner one leaves it alone.
+ */
+const MarkedAbove = createContext<string | null>(null)
+
+/** The lines a mark carries: everything said at it, each on its own line. */
+const Notes = ({ says }: { says: readonly Said[] }) => (
+  <>
+    {says.map((one, i) =>
+      one.note === '' ? null : (
+        <p key={i} className="d-note">
+          {one.note}
+        </p>
+      ),
+    )}
+  </>
+)
+
+/**
+ * A node something is said about. The mark goes around whatever the node draws as, so every kind
+ * is markable and none of them knows it. It carries the path as its id, so the band at the top
+ * of the page can point at it.
+ *
+ * Drawing a mark writes the path into the set the page holds. That is a change made while the
+ * page is being drawn, and it is deliberate: it is the only way the page can say at the end
+ * which marks nothing drew, and the part that says so is drawn after every part that draws one.
  */
 const Marked = ({ at, children }: { at: string; children: ReactNode }) => {
-  const note = useMarked(at)
-  if (note === null) return <>{children}</>
+  const says = useSaid(at)
+  const { drawn } = useDrawing()
+  const above = useContext(MarkedAbove)
+  if (says === null || at === above) return <>{children}</>
+  drawn.add(at)
   return (
-    <div className="d-marked">
-      {children}
-      {note === '' ? null : <p className="d-note">{note}</p>}
-    </div>
+    <MarkedAbove.Provider value={at}>
+      <div className={classes('d-marked', colourOf(says))} id={at}>
+        {children}
+        <Notes says={says} />
+      </div>
+    </MarkedAbove.Provider>
   )
-}
-
-/** Every declaration a document writes, by id, taking the external wrapper off where one is
-    written. */
-export function declaredBodiesOf(doc: unknown): ReadonlyMap<string, Mapping> {
-  const bodies = new Map<string, Mapping>()
-  if (!isMapping(doc)) return bodies
-  const held = doc[BOOTSTRAP.declare]
-  if (!Array.isArray(held)) return bodies
-  for (const item of held as unknown[]) {
-    const named = onlyWord(item)
-    if (named === null) continue
-    const inner = named[0] === BOOTSTRAP.external ? onlyWord(named[1]) : named
-    if (inner === null) continue
-    const body = inner[1]
-    if (isMapping(body) && typeof body.id === 'string' && !bodies.has(body.id)) {
-      bodies.set(body.id, body)
-    }
-  }
-  return bodies
 }
 
 // A hue per kind, spread evenly round the wheel by position. Any number of kinds, no gaps.
 // oklch rather than hsl because hsl at one lightness goes muddy through the yellows and
 // greens, so a kind's colour would carry weight it did not mean.
 export function kindStyle(kind: string, kinds: readonly string[]): CSSProperties | undefined {
-  const i = kinds.indexOf(kind)
-  if (i < 0) return undefined
-  const hue = Math.round((i * 360) / kinds.length + 268) % 360
+  const hue = hueOfKind(kind, kinds)
+  if (hue === null) return undefined
   return { '--kind': `oklch(54% 0.17 ${hue})` } as CSSProperties
+}
+
+/**
+ * A value written out as YAML, coloured by the one control that colours every example of this
+ * language — the same reading a page written by hand draws from, so an example on a page and an
+ * example inside the language never read differently.
+ *
+ * What the keys mean is read against the type the value is written against. Where nothing says
+ * what that type is, the parts say so rather than drawing a guess.
+ */
+const Yaml = ({ value, type }: { value: unknown; type?: string | null }) => {
+  const { words, declared } = useDrawing()
+  const written = yaml.dump(value, { lineWidth: 88, noRefs: true })
+  const parts = partsOf(written, words, {
+    declared,
+    ...(typeof type === 'string' && type.length > 0 ? { inside: type } : {}),
+  })
+  return (
+    <pre className="y">
+      {parts.map((part: Part, i: number) =>
+        part.is === 'gap' ? (
+          <Fragment key={i}>{part.text}</Fragment>
+        ) : (
+          <span
+            key={i}
+            className={`y-${part.is}`}
+            style={part.kind === undefined ? undefined : kindStyle(part.kind, words.kinds)}
+          >
+            {part.text}
+          </span>
+        ),
+      )}
+    </pre>
+  )
 }
 
 // ── the error control ────────────────────────────────────────────────────────
@@ -236,7 +369,7 @@ const DRAWN_ON_KIND: readonly string[] = [
 // What a type says about itself rather than about its properties. Each is drawn only when the
 // declaration writes it true, because writing it false says the same as leaving it off.
 const SAID_OF_TYPE: readonly string[] = ['abstract', 'primitive']
-const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, 'value']
+const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, 'value']
 const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, 'value']
 
 // ── the prose a thing carries ────────────────────────────────────────────────
@@ -382,7 +515,7 @@ const Table = ({
   members: readonly Mapping[]
   where?: string | undefined
 }) => {
-  const { words, marked } = useDrawing()
+  const { words, said, drawn } = useDrawing()
   const bodyOf = useBodyOf()
   const columns = [...propertiesOf(bodyOf, of).keys()]
   return (
@@ -395,44 +528,92 @@ const Table = ({
         </tr>
       </thead>
       <tbody>
-        {members.map((member, i) => (
-          <tr key={i} className={markedRow(marked, where, i)}>
-            {columns.map((name) => (
-              <td key={name}>
-                {member[name] === undefined ? (
-                  <i className="t-none" aria-hidden="true">
-                    —
-                  </i>
-                ) : (
-                  <Val
-                    value={member[name]}
-                    type={typeOfPart(bodyOf, words.onProperty, of, name)}
-                    where={where === undefined ? undefined : `${where}[${i}].${name}`}
-                  />
-                )}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {members.map((member, i) => {
+          // A row cannot be wrapped the way every other node is, so the mark is the row itself:
+          // the colour on the row, and what is said under it, spanning the columns. A whole
+          // member and one cell of it are two nodes, and each carries its own mark.
+          const rowAt = where === undefined ? '' : `${where}[${i}]`
+          const says = said.get(rowAt) ?? null
+          if (says !== null) drawn.add(rowAt)
+          return (
+            <Fragment key={i}>
+              <tr
+                className={says === null ? undefined : classes('r-marked', colourOf(says))}
+                id={says === null ? undefined : rowAt}
+              >
+                {columns.map((name) => (
+                  <td key={name}>
+                    {member[name] === undefined ? (
+                      <i className="t-none" aria-hidden="true">
+                        —
+                      </i>
+                    ) : (
+                      <Val
+                        value={member[name]}
+                        type={typeOfPart(bodyOf, words.onProperty, of, name)}
+                        accepts={acceptsOf(bodyOf, of, name)}
+                        where={where === undefined ? undefined : `${where}[${i}].${name}`}
+                      />
+                    )}
+                  </td>
+                ))}
+              </tr>
+              {says === null ? null : (
+                <tr className="r-note">
+                  <td colSpan={columns.length}>
+                    <Notes says={says} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          )
+        })}
       </tbody>
     </table>
   )
 }
 
-const Val = ({
-  value,
-  type,
-  className = '',
-  where,
-}: {
+/** What one value needs to be drawn: the value, the type it is written against, and where it sits. */
+interface OneValue {
   value: unknown
   /** The type the value is written against, so what it is drawn as is known. */
   type?: unknown
   className?: string
-  /** Where this value sits, so a highlight can point at a part of it. Nothing where unknown. */
+  /** Where this value sits, so anything said about it can be drawn on it. Nothing where unknown. */
   where?: string | undefined
-}) => {
+  /**
+   * The reserved states the property this value is written for takes, so a word that is one of
+   * them is drawn as the state it is rather than as the text it would otherwise be. Empty
+   * everywhere a property says nothing, and where the value belongs to no property at all.
+   */
+  accepts?: readonly string[]
+}
+
+/**
+ * A value, with whatever is said about it drawn on it. Every value the page draws comes through
+ * here, so there is one place that asks, and a value drawn anywhere — a property's own value, a
+ * value an enum's id stands for, a named part, one cell of a table — carries what is said about
+ * it. A value drawn where nothing says where it sits asks nothing, because nothing could point
+ * at it.
+ */
+const Val = (props: OneValue) => (
+  <Marked at={props.where ?? ''}>
+    <Drawn {...props} />
+  </Marked>
+)
+
+const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) => {
   const bodyOf = useBodyOf()
+
+  // A word the property takes in place of a value is the state it names, not the text it reads
+  // as. It is drawn where the value would go, with a dashed edge, because the value is not there.
+  if (typeof value === 'string' && accepts.includes(value)) {
+    return (
+      <span className={classes('d-val', 'v-reserved', `v-${value}`, className === '' ? null : className)}>
+        {value}
+      </span>
+    )
+  }
   const named = typeof type === 'string' && type.length > 0 ? type : null
   const primitive = named === null ? null : primitiveOf(bodyOf, named)
 
@@ -466,6 +647,17 @@ const Val = ({
     return (
       <span className={at}>
         <Parts type={named} value={value} where={where} />
+      </span>
+    )
+  }
+
+  // A value that is a structure of its own is written out the way this language is written,
+  // through the control that colours every example of it. JSON on the page would be a second
+  // language to read, and the reader is here to read this one.
+  if (value !== null && typeof value === 'object') {
+    return (
+      <span className={`d-val v-written${className === '' ? '' : ` ${className}`}`}>
+        <Yaml value={value} type={named} />
       </span>
     )
   }
@@ -508,6 +700,7 @@ const Parts = ({
             <Val
               value={held}
               type={typeOfPart(bodyOf, words.onProperty, type, name)}
+              accepts={acceptsOf(bodyOf, type, name)}
               where={where === undefined ? undefined : `${where}.${name}`}
             />
           </span>
@@ -570,6 +763,7 @@ const Property = ({
     written === undefined && type === undefined ? propertyAbove(bodyOf, owner, name) : null
   const held = above === null ? type : above.property.is
   const namesNoType = type !== undefined && !Array.isArray(type) && (typeof type !== 'string' || type.length === 0)
+  const accepted = acceptsOf(bodyOf, owner, name)
 
   return (
     <>
@@ -587,8 +781,19 @@ const Property = ({
               {OPTIONAL}
             </span>
           ) : null}
+          {accepted.length === 0 ? null : (
+            <span className="d-said s-accepts" title="what this property takes in place of a value">
+              {ACCEPTS} {list(accepted)}
+            </span>
+          )}
           {node.value !== undefined ? (
-            <Val value={node.value} type={held} className="d-pval" />
+            <Val
+              value={node.value}
+              type={held}
+              className="d-pval"
+              accepts={acceptsOf(bodyOf, owner, name)}
+              where={`${at}.value`}
+            />
           ) : null}
         </span>
       </div>
@@ -982,17 +1187,139 @@ const Path = ({ segments }: { segments: readonly unknown[] }) => (
   </span>
 )
 
+/** A count in the words the report counts in, so the page and the report never disagree. */
+const counted = (many: number, word: string): string => `${many} ${word}${many === 1 ? '' : 's'}`
+
+/** One line of the band: where it is, what is said there, and which list it came from. */
+interface CalledOut {
+  readonly from: From
+  /** Where it is, written the way whatever said it writes it. */
+  readonly where: string
+  readonly says: string
+  /** The path of the mark to jump to, or nothing where it sits on no node. */
+  readonly at: string | null
+}
+
+/**
+ * Everything called out on this page, in the order the band lists it: what the checker found,
+ * and then what a highlight asks. A highlight is allowed only where it needs Tim's attention, so
+ * it belongs in the same list as a finding rather than waiting below to be scrolled past.
+ */
+const calledOut = (
+  findings: readonly Finding[],
+  said: ReadonlyMap<string, readonly Said[]>,
+): readonly CalledOut[] => [
+  ...findings.map((one) => ({
+    from: one.from,
+    where: one.fault.where,
+    says: one.fault.what,
+    at: one.at,
+  })),
+  ...[...said].flatMap(([at, says]) =>
+    says
+      .filter((one) => one.from === 'highlight')
+      .map((one) => ({ from: one.from, where: at, says: one.note, at })),
+  ),
+]
+
+/** What each list is counted in, in the order the band says them. */
+const COUNTED: readonly (readonly [From, string])[] = [
+  ['problem', 'problem'],
+  ['blocker', 'blocker'],
+  ['pending', 'pending value'],
+  ['highlight', 'highlight'],
+]
+
+/**
+ * What needs reading, under the document's title and above everything it is about. Each line says
+ * which list it came from, where it is, and what is said there, and the place is a link to the
+ * mark drawn there. A document with nothing called out draws no band at all: the page spends no
+ * height saying that a thing is absent.
+ *
+ * A finding naming no node in this document — one about the file itself — is said here and
+ * nowhere else, because there is no node to put it beside, so it carries no link.
+ */
+const Found = () => {
+  const { findings, said } = useDrawing()
+  const rows = calledOut(findings, said)
+  if (rows.length === 0) return null
+  const many = (from: From): number => rows.filter((one) => one.from === from).length
+  return (
+    <section className={many('problem') > 0 ? 'd-found has-problem' : 'd-found'}>
+      <p className="d-found-head">
+        {COUNTED.map(([from, word]) => (many(from) === 0 ? null : counted(many(from), word)))
+          .filter((one) => one !== null)
+          .join(', ')}
+      </p>
+      <ul>
+        {rows.map((one, i) => (
+          <li key={i}>
+            <span className={`f-what f-${one.from}`}>{one.from}</span>
+            {one.at === null ? (
+              <span className="f-at f-nowhere">{one.where}</span>
+            ) : (
+              <a className="f-at" href={`#${encodeURIComponent(one.at)}`}>
+                {one.where}
+              </a>
+            )}
+            <span className="f-says">{one.says}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * Everything said about this document that is not drawn on it, which is the one thing a mark
+ * cannot show by being drawn. A path may name no node at all, or it may name a node the page
+ * draws no mark on — a part of a value written out as text, say — and either way what was said
+ * about it would otherwise be counted and then dropped without a word.
+ *
+ * It is drawn after every part of the page that draws a mark, because what it says is which
+ * marks those parts did not draw.
+ */
+const NotOnThePage = ({ missing }: { missing: readonly string[] }) => {
+  const { said, drawn } = useDrawing()
+  const undrawn = [...said.keys()].filter((at) => !drawn.has(at))
+  if (missing.length === 0 && undrawn.length === 0) return null
+  return (
+    <section className="d-section">
+      <h2 className="d-section-name">not drawn on this page</h2>
+      {missing.map((path) => (
+        <Err key={path} loose at={path}>
+          names no node in this document.
+        </Err>
+      ))}
+      {undrawn.map((at) => (
+        <div key={at} id={at}>
+          <Err loose at={at} label="not drawn">
+            names a node this page draws no mark on, so what is said about it is not beside it.
+          </Err>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 export const Page = ({
   words,
   doc,
   marks = NO_MARKS,
+  found = NOTHING_FOUND,
 }: {
   words: Vocabulary
   doc: unknown
   /** What a highlight file says to mark here. A document with no highlight draws the same way. */
   marks?: Marks
+  /** What the checker found in this document. A page drawn without one draws no band. */
+  found?: CheckResult
 }) => {
   const { marked, missing } = marks
+  const findings = findingsIn(doc, found)
+  const said = saidAbout(marked, findings)
+  // Filled while the page is drawn, by the marks that are drawn. See `Marked`.
+  const drawn = new Set<string>()
 
   // A name this document does not declare is reached by bringing in the scope that declares it,
   // or by naming that scope as the language the document is written in. Every declaration the
@@ -1011,8 +1338,9 @@ export const Page = ({
     return (
       <main>
         <DrawingContext.Provider
-          value={{ words, declared: new Map(), brought, marked, missing }}
+          value={{ words, declared: new Map(), brought, said, drawn, findings }}
         >
+          <Found />
           <Err loose at="the file">
             is not a mapping, so there is nothing to draw.
           </Err>
@@ -1030,7 +1358,7 @@ export const Page = ({
 
   return (
     <DrawingContext.Provider
-      value={{ words, declared: declaredBodiesOf(doc), brought, marked, missing }}
+      value={{ words, declared: declaredBodiesOf(doc), brought, said, drawn, findings }}
     >
       <main>
         <div className="d-top">
@@ -1069,6 +1397,8 @@ export const Page = ({
           ) : null}
         </div>
 
+        <Found />
+
         <Unclaimed at="the file" node={doc} drawn={DRAWN_AT_FILE} />
 
         {doc.scope !== undefined && !scopeOk ? (
@@ -1098,18 +1428,7 @@ export const Page = ({
           </section>
         )}
 
-        {/* A highlight that points at nothing is said here rather than left out, because a path
-            that stopped resolving is the one thing a highlight cannot show by drawing. */}
-        {missing.length === 0 ? null : (
-          <section className="d-section">
-            <h2 className="d-section-name">highlight names nothing</h2>
-            {missing.map((path) => (
-              <Err key={path} loose at={path}>
-                names no node in this document.
-              </Err>
-            ))}
-          </section>
-        )}
+        <NotOnThePage missing={missing} />
 
         <div className="d-foot">
           <p>
