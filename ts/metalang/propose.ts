@@ -242,12 +242,20 @@ function drawn(body: Mapping): Drawn {
       keys: [],
     }
   }
+  const items = yaml.load(lines)
+  if (!Array.isArray(items)) throw new Error(`${from} — the lines under yaml are not declarations`)
+  return pageOf(from, items)
+}
 
+/**
+ * One document's own header, with these declarations in place of the ones it makes, drawn as a
+ * page. Everything a declaration holds is drawn, because the control draws the whole of it, so a
+ * document that says more than this renderer knows about still draws all of it.
+ */
+function pageOf(from: string, items: readonly unknown[]): Drawn {
   const path = join(REPO, from)
   const host = yaml.load(readFileSync(path, 'utf8'))
   if (!isMapping(host)) throw new Error(`${from} — this is not a document`)
-  const items = yaml.load(lines)
-  if (!Array.isArray(items)) throw new Error(`${from} — the lines under yaml are not declarations`)
 
   const doc = { ...host, declare: items }
   const rulebook = rulebookFor(doc, path)
@@ -277,9 +285,6 @@ type Shows = (body: Mapping) => Drawn
 
 const plain = (html: string): Drawn => ({ sheet: html, keys: [] })
 
-/** The architecture language, which is where every vocabulary a reading is drawn with lives. */
-const ARCH = join('ts', 'metalang', 'arch.yaml')
-
 /** One document, read whole. */
 function documentAt(file: string): Mapping {
   const doc = yaml.load(readFileSync(join(REPO, file), 'utf8'))
@@ -293,9 +298,15 @@ const bodiesIn = (doc: Mapping): readonly Mapping[] =>
     .filter(isMapping)
     .flatMap((one) => Object.values(one).filter(isMapping))
 
-/** One declaration of a document, by the name it is known by. */
-function declarationIn(file: string, id: string): Mapping {
-  const found = bodiesIn(documentAt(file)).find((body) => text(body.id) === id)
+/** One item under `declare`, whole, by the name the declaration inside it is known by. */
+function itemIn(file: string, id: string): Mapping {
+  const doc = documentAt(file)
+  const items = (Array.isArray(doc.declare) ? doc.declare : []).filter(isMapping)
+  const found = items.find((item) =>
+    Object.values(item)
+      .filter(isMapping)
+      .some((body) => text(body.id) === id),
+  )
   if (found === undefined) throw new Error(`${file} declares nothing called "${id}"`)
   return found
 }
@@ -303,10 +314,6 @@ function declarationIn(file: string, id: string): Mapping {
 /** The character a word of a vocabulary is drawn with, where it is drawn with one. */
 const markOf = (word: Mapping | undefined): string | null =>
   word !== undefined && isMapping(word.appearance) ? text(word.appearance.mark) : null
-
-/** What each word of a closed set stands for, by the name it is known by. */
-const byId = (words: readonly Word[]): ReadonlyMap<string, Mapping> =>
-  new Map(words.map((one) => [one.id, one.value]))
 
 /** One word a closed set lists: the entry as written, and what its id stands for. */
 interface Word {
@@ -373,46 +380,15 @@ function readsFrom(body: Mapping): { file: string; id: string } | string {
 }
 
 /**
- * One element as it would read: headed by what it IS and the name it is known by, the sentence
- * saying what it does under the heading, and its members read down the page, each with the mark
- * of its kind beside it. It is drawn out of the real document, so it cannot say anything that
- * document does not.
+ * One declaration as it would read, drawn out of the real document by the control that draws that
+ * document's own page. Nothing is chosen here, so everything the declaration holds is on the card
+ * and a reader sees what the page would really make of it.
  */
 const showReading: Shows = (body) => {
   const from = readsFrom(body)
   if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
-  const held = declarationIn(from.file, from.id)
-  const value = isMapping(held.value) ? held.value : {}
-  const theForms = entriesOf(ARCH, 'forms')
-  const theKinds = entriesOf(ARCH, 'kinds')
-  const forms = byId(theForms.words)
-  const kinds = byId(theKinds.words)
-  const formId = text(value.form) ?? ''
-  const form = forms.get(formId)
-  const members = (Array.isArray(value.members) ? value.members : []).filter(isMapping)
-
-  const rows = members
-    .map((one) => {
-      const kindId = text(one.kind) ?? ''
-      const kind = kinds.get(kindId)
-      return `<li class="mem">
-        <span class="mem-mark" title="${escapeAttribute(theKinds.named(kindId, kind))}">${escape(markOf(kind) ?? '?')}</span>
-        <code class="mem-name">${said(one.name)}</code>
-        <span class="mem-kind">${escape(theKinds.named(kindId, kind))}</span>
-        <span class="mem-does">${said(one.does)}</span>
-      </li>`
-    })
-    .join('')
-
-  return plain(`<p class="plain says-line">${said(body.says)}</p>
-  <div class="look-card">
-    <p class="card-kind"><span class="card-mark">${escape(markOf(form) ?? '?')}</span>
-      ${escape(theForms.named(formId, form))}</p>
-    <h3 class="card-id">${said(held.id)}</h3>
-    <p class="card-does">${said(value.does)}</p>
-    <p class="card-sec">Its members</p>
-    ${members.length > 0 ? `<ul class="mems">${rows}</ul>` : `<p class="mem-none">${said(value.members)}</p>`}
-  </div>`)
+  const page = pageOf(from.file, [itemIn(from.file, from.id)])
+  return { sheet: `<p class="plain says-line">${said(body.says)}</p>${page.sheet}`, keys: page.keys }
 }
 
 /** A closed set, drawn whole: every word it lists, the mark it is drawn with, and a real one. */
@@ -644,34 +620,6 @@ const PAGE = `
   .says-line { margin:0 0 12px; color:var(--soft); }
   .problem { font-size:18px; line-height:1.5; margin:0; padding-left:14px;
              border-left:3px solid var(--bad-line); color:var(--ink); }
-
-  /* ── one element as it would read ───────────────────────────────────────── */
-  .look-card { background:var(--card); border:1px solid var(--rule); border-radius:12px;
-               padding:20px 22px 16px; box-shadow:0 1px 2px rgba(21,25,43,.04); }
-  .card-kind { display:flex; align-items:center; gap:9px; margin:0 0 2px;
-               font:600 12px var(--mono); letter-spacing:.1em; text-transform:uppercase;
-               color:var(--accent); }
-  .card-mark { display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 5px;
-               border-radius:7px; background:var(--accent-soft); border:1px solid var(--accent-line);
-               font:600 13px var(--mono); letter-spacing:0; color:var(--accent); }
-  .card-id { font:600 27px/1.2 var(--mono); letter-spacing:-.02em; margin:0 0 6px; }
-  .card-does { font-size:17px; line-height:1.45; color:var(--soft); margin:0 0 18px;
-               max-width:62ch; }
-  .card-sec { font:600 11px var(--mono); letter-spacing:.1em; text-transform:uppercase;
-              color:var(--dim); margin:0 0 6px; border-top:1px solid var(--rule); padding-top:12px; }
-  .mems { list-style:none; margin:0; padding:0; }
-  .mem { display:grid; grid-template-columns:62px minmax(0,auto) minmax(0,auto) minmax(0,1fr);
-         gap:0 12px; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--band); }
-  .mem:last-child { border-bottom:0; }
-  .mem-mark { justify-self:start; display:inline-grid; place-items:center; min-width:26px;
-              height:20px; padding:0 7px; border-radius:6px; background:var(--band);
-              color:var(--soft); font:600 10.5px/1 var(--mono); white-space:nowrap; }
-  .mem-name { font:600 15px var(--mono); color:var(--ink); }
-  .mem-kind { font-size:12.5px; color:var(--dim); }
-  .mem-does { color:var(--soft); font-size:15px; line-height:1.4; }
-  @media (max-width: 760px) { .mem { grid-template-columns:62px minmax(0,1fr); }
-                              .mem-kind, .mem-does { grid-column:2; } }
-  .mem-none { margin:0; color:var(--soft); }
 
   /* ── a closed set, drawn whole ──────────────────────────────────────────── */
   .vocab { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
