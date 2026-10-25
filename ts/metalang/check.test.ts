@@ -632,7 +632,7 @@ describe('properties', () => {
   test('a role the language does not list is a problem that names the ones it does', () => {
     const r = only(entity({ properties: { p: { is: 'string', role: 'heading' } } }))
     expect(problemsAt(r, 'declare[0].entity.properties.p.role')).toEqual([
-      '"heading" is not a member of "role" — the members are kind, prose, name',
+      '"heading" is not a member of "role" — the members are kind, prose, name, mark',
     ])
   })
 
@@ -1403,6 +1403,7 @@ describe('a document written in a language of its own', () => {
             value: {
               form: 'interface',
               does: 'The three behaviours every guard answers a tool call through.',
+              sits: { package: 'none', assembly: 'A.Abstractions', namespace: 'A.Abstractions.Contracts' },
               ...(members === undefined ? {} : { members }),
             },
           },
@@ -1999,16 +2000,16 @@ describe('the architecture language itself', () => {
     const r = check(unwritten, 'arch.yaml')
     expect(r.problems).toEqual([])
     expect(r.pending).toEqual([
-      { where: 'declare[4].enum.values[4].value.example', what: 'is required and not yet given' },
+      { where: 'declare[3].enum.values[4].value.example', what: 'is required and not yet given' },
     ])
   })
 
   test('a mark that is neither a glyph nor a uri is a problem', () => {
     const broken = structuredClone(arch)
-    const forms = broken.declare.find((d) => d.enum?.values.some((v) => 'appearance' in v.value))
+    const forms = broken.declare.find((d) => d.enum?.values.some((v) => 'mark' in v.value))
     const first = forms?.enum?.values[0]
     if (first === undefined) throw new Error('arch.yaml has no form to break')
-    first.value.appearance = { mark: 7 }
+    first.value.mark = 7
     const r = check(broken, 'arch.yaml')
     expect(r.problems).toHaveLength(1)
     expect(r.problems[0]?.what).toContain('is not a value of any option of "mark"')
@@ -2016,7 +2017,7 @@ describe('the architecture language itself', () => {
 
   test('the element every architecture document names its parts with is declared here', () => {
     const element = arch.declare.find((d) => d.entity?.id === 'element')
-    expect(Object.keys(element?.entity?.properties ?? {})).toEqual(['form', 'does', 'members'])
+    expect(Object.keys(element?.entity?.properties ?? {})).toEqual(['form', 'does', 'members', 'sits'])
   })
 
   test('the member an element is made of is declared here, carrying its own name', () => {
@@ -2314,5 +2315,98 @@ describe('a reserved state written on a keyword a declaration carries', () => {
   test('none on a keyword holding text is the state, and any other text is the text', () => {
     expect(doc({ lines: 'none', word: 'none' }).problems).toEqual([])
     expect(doc({ lines: 'none', word: 'role' }).problems).toEqual([])
+  })
+})
+
+// ── a value keyed by a closed set ────────────────────────────────────────────
+//
+// `map` is written as one line for each word of the set named under `by`. The keys belong to the
+// set, so what a document may write is decided by the language and not by whoever is writing. All
+// four things that can go wrong are checked here: a key the set does not list, a word with no line
+// at all, a line whose value is not of the type each line holds, and the whole thing written as a
+// list, which is how every other collection is written and is not how this one is.
+describe('a value keyed by a closed set', () => {
+  const language = (sits: unknown, value: unknown): Record<string, unknown> => ({
+    scope: ['arch'],
+    import: [['metalang']],
+    title: 'The architecture language',
+    declare: [
+      {
+        entity: {
+          id: 'place',
+          is: 'object',
+          title: 'One kind of place.',
+          properties: { name: { is: 'string', title: 'The name it is shown by.' } },
+        },
+      },
+      {
+        enum: {
+          id: 'places',
+          is: 'place',
+          title: 'Every kind of place, widest first.',
+          values: [
+            { id: 'package', value: { name: 'Package' } },
+            { id: 'assembly', value: { name: 'Assembly' } },
+          ],
+        },
+      },
+      {
+        entity: {
+          id: 'element',
+          is: 'object',
+          title: 'One named piece of an architecture.',
+          properties: { sits: { map: sits, title: 'Where it sits.' } },
+        },
+      },
+      { constant: { id: 'thing', is: 'element', title: 'A thing.', value: { sits: value } } },
+    ],
+  })
+
+  const keyed = { by: 'places', of: 'string', accepts: ['none'] }
+  const where = 'declare[3].constant.value.sits'
+  const written = (value: unknown): CheckResult => only(language(keyed, value))
+
+  test('one line for each word of the set is what the whole set asks for', () => {
+    expect(written({ package: 'AgentGuard.Engine', assembly: 'AgentGuard.Engine' }).problems).toEqual([])
+  })
+
+  test('each line is read against the type every line holds', () => {
+    const r = written({ package: 'AgentGuard.Engine', assembly: 7 })
+    expect(problemsAt(r, `${where}.assembly`)).toEqual(['is not written as a string'])
+  })
+
+  test('a key the set does not list is named against the words it does', () => {
+    const r = written({ package: 'a', assembly: 'b', folder: 'src' })
+    expect(problemsAt(r, `${where}.folder`)).toEqual([
+      '"folder" is not a member of "places" — the members are package, assembly',
+    ])
+  })
+
+  test('a word with no line is reported rather than read as a word holding nothing', () => {
+    expect(problemsAt(written({ package: 'a' }), where)).toEqual(['has no assembly'])
+  })
+
+  test('a word that holds nothing says so with a state the keys are written to take', () => {
+    expect(written({ package: 'none', assembly: 'a' }).problems).toEqual([])
+  })
+
+  test('a state the keys are not written to take is read as the value it is', () => {
+    const plain = { by: 'places', of: 'string' }
+    const r = only(language(plain, { package: 'none', assembly: 7 }))
+    expect(problemsAt(r, `${where}.assembly`)).toEqual(['is not written as a string'])
+    expect(problemsAt(r, `${where}.package`)).toEqual([])
+  })
+
+  test('written as a list, which is how every other collection is written, is a problem', () => {
+    expect(problemsAt(written([{ place: 'package', name: 'a' }]), where)).toEqual([
+      'is not written as one line for each word of "places", which is how a value of a map is written',
+    ])
+  })
+
+  test('the states the keys take are checked where they are written', () => {
+    const r = only(language({ by: 'places', of: 'string', accepts: ['sometime'] }, { package: 'a', assembly: 'b' }))
+    expect(problemsAt(r, 'declare[2].entity.properties.sits.map.accepts[0]')[0]).toContain(
+      'is not a member of "reserved"',
+    )
   })
 })

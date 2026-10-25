@@ -181,6 +181,8 @@ export const ROLES = {
   prose: 'prose',
   /** This property holds the name the thing is shown by. */
   name: 'name',
+  /** This property holds the character the thing is drawn with. */
+  mark: 'mark',
 } as const
 
 export type Mapping = Record<string, unknown>

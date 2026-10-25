@@ -617,6 +617,20 @@
 # has to get one answer.
 # ───────────────────────────────────────────────────────────────────────────────
 
+# ── APPROVED — one of a thing for each word of a closed set, and a fourth role. ──
+#                                                                                   2026-10-25
+# Tim approved `map`, the fifth way to write many of a thing. The other four — a list, an array, a
+# set and a bag — are all written as a sequence, so a value keyed by a vocabulary had to repeat the
+# key word on every item. A map's keys are the words of the closed set named under `by`: every word
+# that set lists is written, the order is the set's rather than the author's, a key the set does
+# not list is refused by name, and a word that holds nothing says so with a state written under
+# `accepts`. `ts/metalang/arch.yaml` writes where an element sits with it.
+#
+# He also approved `mark`, a fourth member of `role`, saying which property of a type holds the
+# character a thing is drawn with. The three roles before it reached a thing's kind, its prose and
+# its name; there was no third step to the glyph, so the only route to it was writing a property
+# name into a renderer.
+
 scope: [metalang]
 title: MetaLang
 description: The approved vocabulary of the language that defines languages.
@@ -775,6 +789,25 @@ declare:
         ordered: { value: false }
         unique: { value: false }
 
+  - entity:
+      id: map
+      is: collection
+      title: One of a thing for each word of a closed set.
+      description: >
+        It is written as a block whose keys are the words that set lists, so the keys are the
+        language's and not the author's. Every word the set lists is written, and a word that
+        holds no value says so with a reserved state rather than by being left out.
+      properties:
+        by:
+          is: type
+          title: The closed set whose words the keys are.
+        accepts:
+          set: { of: reserved }
+          optional: true
+          title: The reserved states one word of the set takes in place of a value.
+        ordered: { value: true }
+        unique: { value: false }
+
   # What one property of a type is to a reader, which a language says of its own properties.
   - enum:
       id: role
@@ -801,8 +834,14 @@ declare:
           value: name
           title: It holds the name this thing is shown by.
           description: >
-            A value naming this thing is drawn with that name beside the id, because the id is
-            what it is written as and the name is what it is called.
+            A value naming this thing is drawn with that name beside the id where the two differ,
+            because the id is what it is written as and the name is what it is called.
+        - id: mark
+          value: mark
+          title: It holds the character this thing is drawn with.
+          description: >
+            A page draws the character beside the name, so a reader tells one kind of thing from
+            another without reading a word.
 
   # What a property carries, and what one value of an enum carries.
   - entity:

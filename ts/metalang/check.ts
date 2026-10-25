@@ -353,7 +353,12 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
         writesType(`${where}.${named}.${key}`, held, new Set([...inside, value]))
       } else {
         const at = `${where}.${named}.${key}`
-        judges(at, typeOfProperty(inVocabulary, named, key), held, inVocabulary)
+        // The type one part holds is asked for the same way everywhere, so a property written as
+        // a collection of its own is read here exactly as it is read on a value.
+        const holds = typeOfPart(inVocabulary, named, key)
+        if (holds === undefined) {
+          block(at, `nothing says what type "${key}" holds, so what is written here cannot be checked`)
+        } else judges(at, holds, held, inVocabulary)
       }
     }
   }
@@ -445,21 +450,23 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
    * checker has no rule for is a blocker, because a word it cannot account for has not been
    * checked.
    */
-  const reserved = (
-    at: string,
-    lookUp: BodyOf,
-    type: string,
-    name: string,
-    written: unknown,
-  ): boolean => {
+  const reservedState = (at: string, allowed: readonly string[], written: unknown): boolean => {
     if (typeof written !== 'string') return false
-    if (!acceptsOf(lookUp, type, name).includes(written)) return false
+    if (!allowed.includes(written)) return false
     if (written === RESERVED.pending) unfinished(at, 'is required and not yet given')
     else if (written !== RESERVED.none) {
       block(at, `nothing says what "${written}" means where a value goes`)
     }
     return true
   }
+
+  const reserved = (
+    at: string,
+    lookUp: BodyOf,
+    type: string,
+    name: string,
+    written: unknown,
+  ): boolean => reservedState(at, acceptsOf(lookUp, type, name), written)
 
   /**
    * The named parts of a value written against a type that derives down to `object`. Each key
@@ -505,13 +512,17 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       )
       return
     }
-    if (!Array.isArray(value)) {
-      fail(where, `is not written as a list, which is how a value of ${a(word)} is written`)
-      return
-    }
     const members = isMapping(inner) ? inner.of : undefined
     if (members === undefined) {
       fail(where, `${a(word)} written out has no "of" to say what each member is`)
+      return
+    }
+    if (isMapping(inner) && inner.by !== undefined) {
+      judgesKeyed(where, word, inner.by, members, inner.accepts, value, lookUp)
+      return
+    }
+    if (!Array.isArray(value)) {
+      fail(where, `is not written as a list, which is how a value of ${a(word)} is written`)
       return
     }
     const unique = saysOfProperty(lookUp, word, 'unique', VALUE)
@@ -525,6 +536,51 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
         fail(`${where}[${i}]`, `repeats an earlier member, and the members of ${a(word)} are unique`)
       }
       earlier.push(member)
+    }
+  }
+
+  /**
+   * A value keyed by a closed set: one line for each word that set lists, written in the order it
+   * lists them. The keys are the set's, so a key it does not list is named against the words it
+   * does, and a word with no line is reported rather than read as a word that holds nothing. A
+   * word that really holds nothing says so with the state written where the keys are said.
+   */
+  const judgesKeyed = (
+    where: string,
+    word: string,
+    by: unknown,
+    members: unknown,
+    accepts: unknown,
+    value: unknown,
+    lookUp: BodyOf,
+  ): void => {
+    if (typeof by !== 'string' || lookUp(by) === undefined) {
+      block(where, `nothing says which closed set ${a(word)} is keyed by, so the keys written here cannot be checked`)
+      return
+    }
+    const words = valuesOf(lookUp, by)?.map((one) => one.id) ?? null
+    if (words === null || words.length === 0) {
+      block(where, `"${by}" lists no words, so the keys of ${a(word)} keyed by it cannot be checked`)
+      return
+    }
+    if (!isMapping(value)) {
+      fail(where, `is not written as one line for each word of "${by}", which is how a value of ${a(word)} is written`)
+      return
+    }
+    const allowed = Array.isArray(accepts)
+      ? accepts.filter((one): one is string => typeof one === 'string')
+      : []
+    for (const key of Object.keys(value)) {
+      const at = `${where}.${key}`
+      if (!words.includes(key)) {
+        fail(at, `"${key}" is not a member of "${by}" — the members are ${list(words)}`)
+        continue
+      }
+      if (reservedState(at, allowed, value[key])) continue
+      judges(at, members, value[key], lookUp)
+    }
+    for (const one of words) {
+      if (!(one in value)) fail(where, `has no ${one}`)
     }
   }
 
