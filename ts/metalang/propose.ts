@@ -36,7 +36,7 @@ import * as yaml from 'js-yaml'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { Page } from './app.tsx'
+import { kindColour, Page } from './app.tsx'
 import { checkedAgainst } from './check.ts'
 import { rulebookFor } from './rulebook.ts'
 import { htmlOf, partsOf, type Part, type Written } from './syntax.ts'
@@ -311,10 +311,6 @@ function itemIn(file: string, id: string): Mapping {
   return found
 }
 
-/** The character a word of a vocabulary is drawn with, where it is drawn with one. */
-const markOf = (word: Mapping | undefined): string | null =>
-  word !== undefined && isMapping(word.appearance) ? text(word.appearance.mark) : null
-
 /** One word a closed set lists: the entry as written, and what its id stands for. */
 interface Word {
   readonly id: string
@@ -331,6 +327,8 @@ interface Vocab {
   readonly words: readonly Word[]
   /** What a word of this set is shown by, falling back to the id rather than to a guess. */
   readonly named: (id: string, word: Mapping | undefined) => string
+  /** The character a word of this set is drawn with, where this set gives its words one. */
+  readonly marked: (word: Mapping | undefined) => string | null
 }
 
 /**
@@ -351,24 +349,31 @@ function entriesOf(file: string, id: string): Vocab {
   if (words.length !== listed.length || words.length === 0) {
     throw new Error(`${file} — "${id}" lists ${listed.length} words and this renderer read ${words.length}`)
   }
-  return { words, named: nameIn(doc, found) }
+  const held = heldIn(doc, found)
+  const name = held(ROLES.name)
+  const mark = held(ROLES.mark)
+  return {
+    words,
+    named: (id, word) => (word === undefined ? id : (name(word) ?? id)),
+    marked: (word) => (word === undefined ? null : mark(word)),
+  }
 }
 
 /**
- * What a word of one closed set is shown by: the property the type of its values says is the name.
- * The vocabulary is asked which property that is — the question `role: name` exists to answer — so
- * a set whose type says nothing is shown by the id, which is what it is written as.
+ * What one word of a closed set holds for a role, read through the property the type of its values
+ * says carries that role. The vocabulary is asked which property that is — the question `role`
+ * exists to answer — so a set whose words are spelled differently reads the same way and no field
+ * name of a language is in this code.
  */
-function nameIn(doc: Mapping, set: Mapping): (id: string, word: Mapping | undefined) => string {
+function heldIn(doc: Mapping, set: Mapping): (role: string) => (word: Mapping) => string | null {
   const bodies = declaredBodiesOf(doc)
   const bodyOf: BodyOf = (named) => bodies.get(named)
   const of = typeOfOwnValue(set)
-  const held =
-    typeof of === 'string' && of.length > 0
-      ? propertyCarrying(bodyOf, of, ROLES.name)
-      : undefined
-  return (id, word) =>
-    word === undefined || held === undefined ? id : (text(word[held]) ?? id)
+  return (role) => {
+    const part =
+      typeof of === 'string' && of.length > 0 ? propertyCarrying(bodyOf, of, role) : undefined
+    return (word) => (part === undefined ? null : text(word[part]))
+  }
 }
 
 /** The document and declaration a drawing is read out of, or why it cannot be. */
@@ -396,15 +401,17 @@ const showVocabulary: Shows = (body) => {
   const from = readsFrom(body)
   if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
   const set = entriesOf(from.file, from.id)
+  const ids = set.words.map((one) => one.id)
   const tiles = set.words
     .map((word) => {
-      const mark = markOf(word.value)
+      const colour = kindColour(word.id, ids)
+      const mark = set.marked(word.value)
       const example = text(word.value.example)
       const line = text(word.entry.title) ?? text(word.value.description) ?? text(word.entry.description)
       if (line === null) {
         throw new Error(`${from.file} — "${from.id}" says nothing about "${word.id}"`)
       }
-      return `<div class="tile">
+      return `<div class="tile"${colour === null ? '' : ` style="--kind:${colour}"`}>
         ${mark === null ? '' : `<span class="tile-mark">${escape(mark)}</span>`}
         <b class="tile-name">${escape(set.named(word.id, word.value))}</b>
         ${example === null ? '' : `<code class="tile-eg">${escape(example)}</code>`}
@@ -668,11 +675,11 @@ const PAGE = `
   .dec .pair + .pair { margin-top:10px; }
   .dec .sheet { background:var(--paper); }
   .tile { background:var(--card); border:1px solid var(--rule); border-radius:10px;
-          padding:12px 14px 13px; }
+          padding:12px 14px 13px; border-left:3px solid var(--kind,var(--rule)); }
   .tile-mark { display:inline-grid; place-items:center; min-width:26px; height:26px; padding:0 6px;
-               border-radius:7px; background:var(--band); color:var(--ink);
+               border-radius:7px; background:var(--band); color:var(--kind,var(--ink));
                font:600 14px var(--mono); }
-  .tile-name { display:block; margin:8px 0 2px; font-size:15px; }
+  .tile-name { display:block; margin:8px 0 2px; font-size:15px; color:var(--kind,var(--ink)); }
   .tile-eg { display:block; font:400 12px var(--mono); color:var(--accent); margin:0 0 6px;
              overflow-wrap:anywhere; }
   .tile-says { margin:0; color:var(--soft); font-size:13.5px; line-height:1.4; }

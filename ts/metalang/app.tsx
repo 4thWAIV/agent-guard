@@ -264,10 +264,14 @@ const Marked = ({ at, children }: { at: string; children: ReactNode }) => {
 // A hue per kind, spread evenly round the wheel by position. Any number of kinds, no gaps.
 // oklch rather than hsl because hsl at one lightness goes muddy through the yellows and
 // greens, so a kind's colour would carry weight it did not mean.
-export function kindStyle(kind: string, kinds: readonly string[]): CSSProperties | undefined {
+export function kindColour(kind: string, kinds: readonly string[]): string | null {
   const hue = hueOfKind(kind, kinds)
-  if (hue === null) return undefined
-  return { '--kind': `oklch(54% 0.17 ${hue})` } as CSSProperties
+  return hue === null ? null : `oklch(54% 0.17 ${hue})`
+}
+
+export function kindStyle(kind: string, kinds: readonly string[]): CSSProperties | undefined {
+  const colour = kindColour(kind, kinds)
+  return colour === null ? undefined : ({ '--kind': colour } as CSSProperties)
 }
 
 /**
@@ -461,6 +465,21 @@ const Inside = ({ word, inside }: { word: string; inside: unknown }) => {
     <>
       {Object.entries(inside).map(([key, held]) => {
         const nested = isMapping(held) ? onlyWord(held) : null
+        // The states a written-out type takes in place of a value are drawn as the states they
+        // are, the way they are drawn on a property, rather than as a list of words a reader has
+        // to recognise.
+        const written = Array.isArray(held) ? (held as readonly unknown[]) : null
+        const states =
+          key === ACCEPTS && written !== null
+            ? written.filter((one): one is string => typeof one === 'string')
+            : null
+        if (states !== null && written !== null && states.length === written.length) {
+          return (
+            <span key={key} className="d-said s-accepts" title="what this takes in place of a value">
+              {ACCEPTS} {list(states)}
+            </span>
+          )
+        }
         return (
           <span key={key}>
             <i className="d-pof">{key}</i>
@@ -530,15 +549,31 @@ const isProse = (bodyOf: BodyOf, type: string | null, primitive: string | null, 
  * member holds there is what the word is called. The id is what it is written as and the name is
  * what it is called, so a reader wants both.
  */
-const calledBy = (bodyOf: BodyOf, type: string | null, value: unknown): string | null => {
+const shownBy = (
+  bodyOf: BodyOf,
+  type: string | null,
+  value: unknown,
+  role: string,
+): string | null => {
   if (type === null || typeof value !== 'string') return null
   const of = typeOfOwnValue(bodyOf(type) ?? {})
   if (typeof of !== 'string' || of.length === 0) return null
-  const name = propertyCarrying(bodyOf, of, ROLES.name)
-  if (name === undefined) return null
+  const part = propertyCarrying(bodyOf, of, role)
+  if (part === undefined) return null
   const member = valuesOf(bodyOf, type)?.find((one) => one.id === value)
-  const held = member === undefined || !isMapping(member.value) ? undefined : member.value[name]
+  const held = member === undefined || !isMapping(member.value) ? undefined : member.value[part]
   return typeof held === 'string' && held.length > 0 ? held : null
+}
+
+/**
+ * The name a value naming one member of a closed set is drawn with, where that name says anything
+ * the id does not. A set that names a member after itself leaves the two the same word in two
+ * cases, and the same word read twice says nothing the first reading did not.
+ */
+const calledBy = (bodyOf: BodyOf, type: string | null, value: unknown): string | null => {
+  const name = shownBy(bodyOf, type, value, ROLES.name)
+  if (name === null || typeof value !== 'string') return null
+  return name.toLowerCase() === value.toLowerCase() ? null : name
 }
 
 /**
@@ -560,6 +595,86 @@ const rowsOf = (
   if (typeof of !== 'string' || primitiveOf(bodyOf, of) !== ROOT) return null
   if (!value.every((member) => isMapping(member))) return null
   return { of, members: value as readonly Mapping[] }
+}
+
+/**
+ * A value keyed by a closed set: the set its keys come from, the type each line holds, and the
+ * states one line may take in place of a value. Nothing when the type is not keyed by a set.
+ */
+const keyedOf = (
+  bodyOf: BodyOf,
+  type: unknown,
+  value: unknown,
+): { by: string; of: unknown; accepts: readonly string[] } | null => {
+  if (!isMapping(type) || !isMapping(value)) return null
+  const written = onlyWord(type)
+  if (written === null) return null
+  const [word, inner] = written
+  if (bodyOf(word) === undefined || !derivesFrom(bodyOf, word, SELF.collection)) return null
+  if (!isMapping(inner) || typeof inner.by !== 'string') return null
+  return {
+    by: inner.by,
+    of: inner.of,
+    accepts: Array.isArray(inner.accepts)
+      ? inner.accepts.filter((one): one is string => typeof one === 'string')
+      : [],
+  }
+}
+
+/**
+ * One line for each word of a closed set, in the order the set lists them, each shown by the name
+ * that set gives its words. The words are read out of the language, so the page names none of them
+ * and a set with different words draws the same way. A word the value says nothing for is drawn as
+ * the gap it is rather than left off the page.
+ */
+const Rungs = ({
+  by,
+  of,
+  accepts,
+  value,
+  where,
+}: {
+  by: string
+  of: unknown
+  accepts: readonly string[]
+  value: Mapping
+  where?: string | undefined
+}) => {
+  const bodyOf = useBodyOf()
+  const words = valuesOf(bodyOf, by) ?? []
+  const ids = words.map((one) => one.id)
+  const type = typeOfOwnValue(bodyOf(by) ?? {})
+  const shown =
+    typeof type === 'string' && type.length > 0 ? propertyCarrying(bodyOf, type, ROLES.name) : undefined
+  const nameOf = (word: unknown): string | null =>
+    shown === undefined || !isMapping(word) ? null : text(word[shown])
+  return (
+    <ul className="d-rungs">
+      {words.map((one, step) => (
+        <li
+          key={one.id}
+          className="d-rung"
+          // The colour is the word's own place in its set, which is where every other colour on
+          // the page comes from, so a word reads the same wherever it is drawn.
+          style={{ ...kindStyle(one.id, ids), '--step': step } as CSSProperties}
+        >
+          <span className="rung-word" title={one.id}>
+            {nameOf(one.value) ?? one.id}
+          </span>
+          {one.id in value ? (
+            <Val
+              value={value[one.id]}
+              type={of}
+              accepts={accepts}
+              where={where === undefined ? undefined : `${where}.${one.id}`}
+            />
+          ) : (
+            <em className="gone">not written</em>
+          )}
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 /** Several of one shape: a column for every part the shape has, in the order it declares them. */
@@ -711,6 +826,17 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
     )
   }
 
+  // One of a thing for each word of a closed set reads as the set, not as a block of keys: the
+  // words come out in the set's own order, whether or not the value wrote them in it.
+  const keyed = keyedOf(bodyOf, type, value)
+  if (keyed !== null && isMapping(value)) {
+    return (
+      <span className={`d-val v-rungs${className === '' ? '' : ` ${className}`}`}>
+        <Rungs by={keyed.by} of={keyed.of} accepts={keyed.accepts} value={value} where={where} />
+      </span>
+    )
+  }
+
   // A value that is a structure of its own is written out the way this language is written,
   // through the control that colours every example of it. JSON on the page would be a second
   // language to read, and the reader is here to read this one.
@@ -725,6 +851,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
   // Prose is read as the sentence it is, so the equals sign that tells a value from the type beside
   // it would be a mark in the middle of a sentence and says nothing a reader of prose needs.
   const called = calledBy(bodyOf, named, value)
+  const mark = shownBy(bodyOf, named, value, ROLES.mark)
   return (
     <span className={at}>
       {prose ? null : (
@@ -732,6 +859,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
           =
         </i>
       )}
+      {mark === null ? null : <b className="v-mark">{mark}</b>}
       {expression ? (
         <>
           <i aria-hidden="true">/</i>
@@ -1258,10 +1386,18 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
   const drawsValue =
     claimed.includes(VALUE) && body[VALUE] !== undefined && !(isMapping(rest) && Object.keys(rest).length === 0)
 
+  // The character the thing is drawn with, asked of the vocabulary the head came from. A set
+  // whose words carry none, and a head that is the kind itself, draw no mark.
+  const mark =
+    heads.at === null || typeof vocabulary !== 'string'
+      ? null
+      : shownBy(bodyOf, vocabulary, heads.word, ROLES.mark)
+
   return (
     <section className="d-decl" style={kindStyle(heads.word, heads.among)}>
       <div className="d-decl-head">
         {external ? <span className="d-extern">{BOOTSTRAP.external}</span> : null}
+        {mark === null ? null : <span className="d-mark">{mark}</span>}
         {heads.at === null ? (
           <span className="d-kind">{heads.word}</span>
         ) : (

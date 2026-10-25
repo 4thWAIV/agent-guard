@@ -1511,10 +1511,16 @@ describe('a declaration carrying one value of its own', () => {
     expect(drawn).toContain('<i>members</i>')
   })
 
-  test('a value naming one member of an enum draws with the name that enum gives it', () => {
+  test('a value naming one member of an enum draws with the mark that enum gives it', () => {
     expect(shown(guard())).toContain(
-      '<i class="v-eq" aria-hidden="true">=</i>property<b class="v-name">Property</b>',
+      '<i class="v-eq" aria-hidden="true">=</i><b class="v-mark">get/set</b>property',
     )
+  })
+
+  // `property` is called `Property`, which is the same word in another case and says nothing the
+  // id has not already said. Reading it twice is what this stops.
+  test('a name that is the id in another case is not drawn beside it', () => {
+    expect(shown(guard())).not.toContain('<b class="v-name">Property</b>')
   })
 
   test('a value that is nothing but the head and the line draws no value row at all', () => {
@@ -1586,10 +1592,17 @@ describe('a value naming one member of a closed set', () => {
     return renderToStaticMarkup(<Page words={book.words ?? WORDS} doc={doc} found={found} />)
   }
 
-  test('draws with the name that set gives it, beside the id it is written as', () => {
+  test('draws with the name that set gives it where the name says what the id does not', () => {
     const html = page('names.yaml')
     expect(html).toContain('csharp<b class="v-name">C#</b>')
-    expect(html).toContain('interface<b class="v-name">Interface</b>')
+  })
+
+  // Every form is named after itself, so the name beside the id would be the same word twice.
+  // The mark the set gives it is drawn instead, which says what the word cannot.
+  test('a name that is the id in another case gives way to the mark that set gives it', () => {
+    const html = page('names.yaml')
+    expect(html).not.toContain('<b class="v-name">Interface</b>')
+    expect(html).toContain('<b class="v-mark">◇</b>interface')
   })
 
   test('a set whose type says which property is the name is the only one drawn that way', () => {
