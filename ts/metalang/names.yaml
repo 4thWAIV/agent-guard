@@ -26,6 +26,14 @@
 # This file is the first half of the verifiable path to each language that Tim asked for on
 # 2026-10-05: what each language calls a form. The second half — how to find one in that
 # language's source — belongs here too, and is step 6 on the road.
+# ── APPROVED — the name a language is shown by, said to be the name.             2026-10-25 ──
+# Tim approved `role: name` on `language.name`, through his jarvis session. A value naming one
+# member of a closed set is drawn with the name that set gives it beside the id, so an entry below
+# reads `csharp C#` rather than `csharp`, and the form it names reads `interface Interface`. The id
+# is what it is written as and the name is what it is called, and saying so is what stops both
+# renderers reading the property literally spelled `name`, which is a field name written into code
+# that this repository does not allow.
+
 scope: [names]
 language: arch
 import:
@@ -38,7 +46,10 @@ declare:
       is: object
       title: One language a form may be named in.
       properties:
-        name: { is: string, title: The name the language is shown by. }
+        name:
+          is: string
+          role: name
+          title: The name the language is shown by.
 
   - enum:
       id: languages

@@ -165,6 +165,24 @@ export const RESERVED = {
 /** The keyword on a property holding the reserved states it takes. */
 export const ACCEPTS = 'accepts'
 
+/** The keyword on a property saying what it is to a reader, beyond the value it holds. */
+export const ROLE = 'role'
+
+/**
+ * What a property may be to a reader, beyond the value it holds. Each is a member of the `role`
+ * enum, and what each one means to a reader is here: a thing is headed by the property carrying
+ * `kind`, the one carrying `prose` is read as the line under that heading, and a value naming the
+ * thing is drawn with what the one carrying `name` holds.
+ */
+export const ROLES = {
+  /** What this property holds is which kind of thing this is. */
+  kind: 'kind',
+  /** This property is the prose explaining what this thing is. */
+  prose: 'prose',
+  /** This property holds the name the thing is shown by. */
+  name: 'name',
+} as const
+
 export type Mapping = Record<string, unknown>
 
 export const isMapping = (v: unknown): v is Mapping =>
@@ -365,6 +383,43 @@ export function acceptsOf(bodyOf: BodyOf, owner: string, name: string): readonly
   const written = saysOfProperty(bodyOf, owner, name, ACCEPTS)
   if (!Array.isArray(written)) return []
   return (written as unknown[]).filter((one): one is string => typeof one === 'string')
+}
+
+/**
+ * Every property of a type carrying that role, in the order the type reads its properties. A
+ * role is given to at most one property of a type, so two of them coming back says the language
+ * has not answered the question that role asks, and whatever asked says so rather than picking
+ * one of the two.
+ *
+ * This is the one place the question "which property of this type carries that role" is answered.
+ * Every renderer asks it here, so none of them carries the name of a property of a language it
+ * draws, and a language that spells its words differently is drawn by the same code.
+ */
+export function propertiesCarrying(
+  bodyOf: BodyOf,
+  owner: string,
+  role: string,
+): readonly string[] {
+  const carrying: string[] = []
+  for (const [name, property] of propertiesOf(bodyOf, owner)) {
+    if (property[ROLE] === role) carrying.push(name)
+  }
+  return carrying
+}
+
+/**
+ * The one property of a type carrying that role, or nothing where none does — and nothing where
+ * two of them do, because then the question has no answer and `propertiesCarrying` is what to ask
+ * to say which two. A thing whose type answers none of the three draws as it drew before the
+ * language had the word.
+ */
+export function propertyCarrying(
+  bodyOf: BodyOf,
+  owner: string,
+  role: string,
+): string | undefined {
+  const carrying = propertiesCarrying(bodyOf, owner, role)
+  return carrying.length === 1 ? carrying[0] : undefined
 }
 
 /**

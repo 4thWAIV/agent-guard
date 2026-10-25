@@ -17,7 +17,7 @@ import { kindStyle, Page, text } from './app.tsx'
 import { checkedAgainst } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { marksOf, pathTo, type Entry } from './highlight.ts'
-import { declaredBodiesOf, type Fault, type Vocabulary } from './words.ts'
+import { declaredBodiesOf, hueOfKind, membersOf, type Fault, type Vocabulary } from './words.ts'
 
 const draw = (doc: unknown, words: Vocabulary = WORDS): string =>
   renderToStaticMarkup(<Page words={words} doc={doc} />)
@@ -493,6 +493,32 @@ describe('a property', () => {
     const html = prop({ is: 'string', default: 1 })
     expect(html).toContain('is an incomplete language feature')
     expect(html).toContain('default')
+  })
+
+  // What a property is to a reader, beyond the value it holds. The page reads three of them, so
+  // the word has to be claimed where a property is drawn or it would draw as a word the page has
+  // no drawing for — which is what every other unclaimed keyword rightly does.
+  test('what it is to a reader draws as the word the language gives it, not as an error', () => {
+    const html = prop({ is: 'string', role: 'kind' })
+    expect(html).toContain('<span class="d-said s-role"')
+    expect(html).toContain('role kind')
+    expect(html).not.toContain('is an incomplete language feature')
+  })
+
+  test('two properties of one type carrying one role draw an error naming both', () => {
+    const html = draw(
+      file({
+        declare: [
+          {
+            entity: {
+              id: 'A',
+              properties: { one: { is: 'string', role: 'kind' }, two: { is: 'string', role: 'kind' } },
+            },
+          },
+        ],
+      }),
+    )
+    expect(html).toContain('A gives role kind to one, two, so nothing says which of them holds it.')
   })
 
   test('none written says so on the declaration, and draws no row for them', () => {
@@ -1453,16 +1479,49 @@ describe('a declaration carrying one value of its own', () => {
     expect(html).not.toContain('<span class="d-pname">value</span>')
   })
 
-  test('a run of characters nothing pins down draws as prose inside the value', () => {
+  // What the thing IS heads the card, because that is what a reader came for. The keyword the
+  // declaration happens to be written under is the language's word and not the reader's: every
+  // part of the guard is a `constant`, and nobody reading the document ever wrote that.
+  test('the card is headed by what its value says it is, not by the keyword', () => {
     const html = shown(guard())
-    expect(html).toContain(
-      '<span class="d-val v-text">The three behaviours every guard answers a tool call through.</span>',
+    expect(html).toContain('<span class="d-kind">interface</span>')
+    expect(html).not.toContain('<span class="d-kind">constant</span>')
+  })
+
+  test('the colour comes from where that word sits in its own vocabulary', () => {
+    const arch = yaml.load(readFileSync(join(dirname(LANGUAGE_FILE), 'arch.yaml'), 'utf8'))
+    const bodies = declaredBodiesOf(arch)
+    const forms = membersOf((id) => bodies.get(id), 'forms') ?? []
+    // `interface` is the first of the six forms and `constant` the fourth of the kinds, so the
+    // hue says which vocabulary the head was taken from and not merely that a word changed.
+    expect(hueOfKind('interface', forms)).not.toBe(hueOfKind('constant', WORDS.kinds))
+    expect(shown(guard())).toContain(`--kind:oklch(54% 0.17 ${hueOfKind('interface', forms)})`)
+  })
+
+  test('the line the value says is its prose reads under the name, not as a labelled row', () => {
+    expect(shown(guard())).toContain(
+      '<div class="d-prose"><b>The three behaviours every guard answers a tool call through.</b></div>',
     )
   })
 
-  test('a member of an enum keeps the token it is, beside the prose that is not one', () => {
-    const html = shown(guard())
-    expect(html).toContain(val('d-val', 'interface'))
+  test('neither is drawn again as a row of the value, because each is drawn once', () => {
+    const drawn = shown(guard())
+    expect(drawn).not.toContain('<i>form</i>')
+    expect(drawn).not.toContain('<i>does</i>')
+    expect(drawn).toContain('<i>members</i>')
+  })
+
+  test('a value naming one member of an enum draws with the name that enum gives it', () => {
+    expect(shown(guard())).toContain(
+      '<i class="v-eq" aria-hidden="true">=</i>property<b class="v-name">Property</b>',
+    )
+  })
+
+  test('a value that is nothing but the head and the line draws no value row at all', () => {
+    const only = written({ form: 'function', does: 'Turns what was found into lines.', members: 'none' })
+    expect(shown(only)).toContain('<span class="d-val v-reserved v-none">none</span>')
+    const bare = written({ form: 'function', does: 'Turns what was found into lines.' })
+    expect(shown(bare)).not.toContain('<div class="d-own">')
   })
 
   test('several of one shape inside the value draw as a table, not as written-out text', () => {
@@ -1493,12 +1552,50 @@ describe('a declaration carrying one value of its own', () => {
     expect(html).not.toContain('not drawn on this page')
   })
 
+  // The head and the line are still the nodes they were, so what the checker says about either
+  // is drawn where it now sits. A node drawn in a new place and left out of the marks is how a
+  // finding goes missing, and the page says at the end which marks nothing drew.
+  test('what the checker found on either of the two lifted parts is drawn where it now sits', () => {
+    const doc = guard()
+    const value = (doc.declare as { constant: { value: Record<string, unknown> } }[])[0]?.constant.value
+    if (value === undefined) throw new Error('the document has no value to break')
+    value.form = 'struct'
+    const html = shown(doc)
+    expect(html).toContain('id="declare[0].constant.value.form"')
+    expect(html).not.toContain('not drawn on this page')
+  })
+
   test('a value whose type nothing names is still written out, which is the last resort', () => {
     // The checker reports the missing `is`; the page has no type to draw against and says what is
     // written rather than nothing at all. This is the only path the written-out drawing is for.
     const doc = written({ form: 'interface', does: 'Something.' })
     delete (doc.declare as { constant: Record<string, unknown> }[])[0]?.constant.is
     expect(shown(doc)).toContain('v-written')
+  })
+})
+
+// What a value naming one word of a vocabulary reads as. The id is what the document writes and
+// the name is what the vocabulary calls it, so a reader of a naming dictionary wants both, and
+// which property holds the name is the vocabulary's answer rather than this page's guess.
+describe('a value naming one member of a closed set', () => {
+  const page = (name: string): string => {
+    const path = join(dirname(LANGUAGE_FILE), name)
+    const doc = yaml.load(readFileSync(path, 'utf8'))
+    const book = rulebookFor(doc, path)
+    const found = checkedAgainst(doc, path, book)
+    return renderToStaticMarkup(<Page words={book.words ?? WORDS} doc={doc} found={found} />)
+  }
+
+  test('draws with the name that set gives it, beside the id it is written as', () => {
+    const html = page('names.yaml')
+    expect(html).toContain('csharp<b class="v-name">C#</b>')
+    expect(html).toContain('interface<b class="v-name">Interface</b>')
+  })
+
+  test('a set whose type says which property is the name is the only one drawn that way', () => {
+    // MetaLang's own enums are of a primitive, so no type of theirs says which property is the
+    // name and no value in the whole file draws one. The page guesses nothing where nothing said.
+    expect(page('metalang.yaml')).not.toContain('v-name')
   })
 })
 

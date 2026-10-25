@@ -20,6 +20,8 @@
   /* what a type says about itself: one colour each, so the two never read as the same chip */
   --abs:#3f36a8; --abs-soft:#eceafc; --abs-line:#b3abee;
   --prim:#8d2a63; --prim-soft:#fbe9f3; --prim-line:#e4a5c8;
+  /* what one property of a type is to a reader, beyond the value it holds */
+  --role:#1f5e9e; --role-soft:#e8f1fb; --role-line:#a7c8e8;
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
   --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
 }
@@ -286,5 +288,13 @@ h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
 /* what a property takes in place of a value, said on the property itself */
 .s-accepts{color:var(--warm);background:var(--warm-soft);border:1px dashed var(--warm-line);
  margin-left:8px;text-transform:none;letter-spacing:.04em;font-family:var(--mono)}
+/* What one property of a type is to a reader, beyond the value it holds. Solid, because what it
+   marks is there: the role says how the value is read, not whether it was written. */
+.s-role{color:var(--role);background:var(--role-soft);border:1px solid var(--role-line);
+ margin-left:8px;text-transform:none;letter-spacing:.04em;font-family:var(--mono)}
+
+/* The name a vocabulary gives the word a value names, beside the id it is written as. The id
+   carries the weight, because it is what the document says; the name is what it is called. */
+.d-val .v-name{font:600 11.5px/1.4 var(--sans);margin-left:7px;opacity:.72}
 /* what a highlight asks, which is allowed on a page only where it needs reading */
 .f-highlight{color:var(--warm);background:var(--card);border:1px solid var(--warm-line)}

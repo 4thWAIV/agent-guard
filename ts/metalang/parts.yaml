@@ -14,6 +14,12 @@
 # on 2026-10-24. They were one enum called `parts` until then, which said the toolchain has these
 # six parts and can have no others, and gave every part two names.
 #
+# Every member below was read out of the source before it was written here: `Vocabulary` and
+# `Fault` in ts/metalang/words.ts, `Rulebook` in ts/metalang/rulebook.ts, and `Expression` in
+# ts/metalang/expression.ts. `check` and `pathTo` are callables belonging to no type, so each
+# writes `members: none` rather than a list. Checking that automatically is step 6 on the road and
+# does not exist yet.
+#
 # `import: [metalang]` brings in the types the architecture language is itself written with, which
 # is where `string` comes from. A document reaches the language it names without importing it, and
 # reaches anything else by bringing it in.
@@ -44,6 +50,43 @@ declare:
         file: words.ts
         form: record
         does: The whole vocabulary as one value, so nothing reads a subset of it.
+        members:
+          - name: places
+            kind: property
+            does: Where a declaration may be written, and which kinds may be written there.
+          - name: types
+            kind: property
+            does: The kinds whose declarations are types, so a name under `is` may point at one.
+          - name: topLevel
+            kind: property
+            does: The top-level keys a file may write.
+          - name: kinds
+            kind: property
+            does: Every kind a declaration may be, wherever it may be written.
+          - name: onKind
+            kind: property
+            does: The keywords each kind carries, or nothing where they are not decided.
+          - name: onProperty
+            kind: property
+            does: The keywords a property carries.
+          - name: onValue
+            kind: property
+            does: The keywords one value of an enum carries.
+          - name: entities
+            kind: property
+            does: Every entity the language file declares, and the properties each one carries.
+          - name: choices
+            kind: property
+            does: Every choice the language file declares, and the options it lists.
+          - name: scope
+            kind: property
+            does: Where the language file says its own declarations live.
+          - name: brought
+            kind: property
+            does: Every scope this vocabulary was read from, the language's own first.
+          - name: declared
+            kind: property
+            does: Every declaration of the language file itself, by the id it declares.
 
   - constant:
       id: Fault
@@ -52,6 +95,13 @@ declare:
         file: words.ts
         form: record
         does: One thing to say about one place in a document.
+        members:
+          - name: where
+            kind: property
+            does: The place in the document it is about.
+          - name: what
+            kind: property
+            does: What is wrong there.
 
   - constant:
       id: Rulebook
@@ -60,6 +110,13 @@ declare:
         file: rulebook.ts
         form: record
         does: The vocabulary a document is read against, or why it could not be read.
+        members:
+          - name: words
+            kind: property
+            does: The vocabulary, or nothing when a language it needs could not be read.
+          - name: faults
+            kind: property
+            does: Everything that stopped it being read as written.
 
   - constant:
       id: Expression
@@ -68,6 +125,13 @@ declare:
         file: expression.ts
         form: interface
         does: A regular expression that has been read, and what it matches.
+        members:
+          - name: source
+            kind: property
+            does: The text it was written as.
+          - name: matches
+            kind: method
+            does: Whether the whole of the value is what it matches.
 
   - constant:
       id: check
@@ -76,6 +140,7 @@ declare:
         file: check.ts
         form: function
         does: Reads one document against a vocabulary and says what is wrong with it.
+        members: none
 
   - constant:
       id: pathTo
@@ -85,3 +150,4 @@ declare:
         form: function
         mark: "◇"
         does: Where a path written in a highlight points, in the form the page writes.
+        members: none

@@ -512,4 +512,32 @@ describe('a word standing where a value goes', () => {
   test('a word the property does not take is read against the type as it always was', () => {
     expect(rolesOf(written('[pending]', 'other'), 'other')).toEqual(['text'])
   })
+
+  // The state stands in place of the WHOLE value, so it reads the same whether that value would
+  // have been one of a type or many of one. `members: none` on an element is the second, and it
+  // read as a word nothing accounted for until the reading was asked the same question there.
+  test('is the state it names where the value it stands for is many of one thing', () => {
+    const text = [
+      'declare:',
+      '  - entity:',
+      '      id: member',
+      '      is: object',
+      '      properties:',
+      '        name: { is: name }',
+      '  - entity:',
+      '      id: element',
+      '      is: object',
+      '      properties:',
+      '        members:',
+      '          list: { of: member }',
+      '          accepts: [none, pending]',
+      '  - constant:',
+      '      id: IGuard',
+      '      is: element',
+      '      value:',
+      '        members: none',
+      '',
+    ].join('\n')
+    expect(rolesOf(text, 'none')).toEqual(['member', 'reserved'])
+  })
 })

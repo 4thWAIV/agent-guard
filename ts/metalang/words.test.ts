@@ -13,11 +13,15 @@ import { describe, expect, test } from 'bun:test'
 import { LANGUAGE_FILE, WORDS } from './rulebook.ts'
 import {
   BOOTSTRAP,
+  declaredBodiesOf,
   isMapping,
   onlyWord,
   optionsInOrder,
+  propertiesCarrying,
   propertiesOf,
+  propertyCarrying,
   resolveVocabulary,
+  ROLES,
   sameValue,
   SELF,
   valuesOf,
@@ -105,8 +109,16 @@ describe('the vocabulary the live language file declares', () => {
     expect('cast' in words.onKind).toBe(true)
   })
 
-  test('a property carries its type, its prose, whether it may be left out, what it holds, and the reserved states it takes', () => {
-    expect(WORDS.onProperty).toEqual(['is', 'title', 'description', 'optional', 'value', 'accepts'])
+  test('a property carries its type, its prose, whether it may be left out, what it holds, the reserved states it takes, and what it is to a reader', () => {
+    expect(WORDS.onProperty).toEqual([
+      'is',
+      'title',
+      'description',
+      'optional',
+      'value',
+      'accepts',
+      'role',
+    ])
     expect(WORDS.onValue).toEqual(['id', 'title', 'description', 'value'])
   })
 
@@ -465,6 +477,64 @@ describe('every property a type has', () => {
   test('the live language file reads its own kinds this way', () => {
     const lookUp: BodyOf = (id) => WORDS.declared[id]?.body
     expect(names(lookUp, 'constant')).toEqual(['id', 'is', 'title', 'description', 'value'])
+  })
+})
+
+// Which property of a type carries a role. It is asked here and nowhere else, so no renderer
+// names a property of a language it draws, and a language spelling its words differently is
+// drawn by the same code.
+describe('which property of a type carries a role', () => {
+  const given = (declared: Record<string, Mapping>): BodyOf => (id) => declared[id]
+
+  const element = given({
+    element: {
+      id: 'element',
+      properties: {
+        form: { is: 'forms', role: 'kind' },
+        does: { is: 'string', role: 'prose' },
+        members: { is: 'string' },
+      },
+    },
+    part: { id: 'part', is: 'element', properties: { file: { is: 'string' } } },
+  })
+
+  test('is the one the type gives it', () => {
+    expect(propertyCarrying(element, 'element', ROLES.kind)).toBe('form')
+    expect(propertyCarrying(element, 'element', ROLES.prose)).toBe('does')
+  })
+
+  test('is nothing where the type gives it to none, and the thing draws as it always did', () => {
+    expect(propertyCarrying(element, 'element', ROLES.name)).toBeUndefined()
+  })
+
+  test('is taken from the type above, so a type deriving from one answers the same', () => {
+    expect(propertyCarrying(element, 'part', ROLES.kind)).toBe('form')
+  })
+
+  test('a type declared nowhere carries none, rather than throwing', () => {
+    expect(propertyCarrying(given({}), 'absent', ROLES.kind)).toBeUndefined()
+  })
+
+  // A role answers one question about a type once. Two properties carrying it is not an answer,
+  // so nothing comes back and whatever asked says which two rather than picking one of them.
+  test('two properties carrying one role is no answer at all', () => {
+    const two = given({
+      A: { id: 'A', properties: { one: { role: 'kind' }, two: { role: 'kind' } } },
+    })
+    expect(propertiesCarrying(two, 'A', ROLES.kind)).toEqual(['one', 'two'])
+    expect(propertyCarrying(two, 'A', ROLES.kind)).toBeUndefined()
+  })
+
+  test('the live architecture language answers each of the three it uses', () => {
+    const arch = yaml.load(
+      readFileSync(LANGUAGE_FILE.replace('metalang.yaml', 'arch.yaml'), 'utf8'),
+    )
+    const bodies = declaredBodiesOf(arch)
+    const bodyOf: BodyOf = (id) => bodies.get(id)
+    expect(propertyCarrying(bodyOf, 'element', ROLES.kind)).toBe('form')
+    expect(propertyCarrying(bodyOf, 'element', ROLES.prose)).toBe('does')
+    expect(propertyCarrying(bodyOf, 'member', ROLES.kind)).toBe('kind')
+    expect(propertyCarrying(bodyOf, 'form', ROLES.name)).toBe('name')
   })
 })
 

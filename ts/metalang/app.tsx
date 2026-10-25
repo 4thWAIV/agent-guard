@@ -41,8 +41,12 @@ import {
   NOTHING_FOUND,
   onlyWord,
   primitiveOf,
+  propertiesCarrying,
   propertiesOf,
   propertyAbove,
+  propertyCarrying,
+  ROLE,
+  ROLES,
   samePath,
   SCOPE,
   SELF,
@@ -50,6 +54,7 @@ import {
   typeOfPart,
   typeOfProperty,
   VALUE,
+  valuesOf,
   type BodyOf,
   type CheckResult,
   type Fault,
@@ -373,7 +378,7 @@ const DRAWN_ON_KIND: readonly string[] = [
 // What a type says about itself rather than about its properties. Each is drawn only when the
 // declaration writes it true, because writing it false says the same as leaving it off.
 const SAID_OF_TYPE: readonly string[] = ['abstract', 'primitive']
-const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, VALUE]
+const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, ROLE, VALUE]
 const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, VALUE]
 
 // ── the prose a thing carries ────────────────────────────────────────────────
@@ -381,12 +386,26 @@ const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, VALUE]
 // A thing that says neither draws nothing at all, so a file that carries no prose costs no
 // height. On a property or a value it is drawn under the second column, where what the row says
 // about that name already is.
-const Prose = ({ node, row = false }: { node: unknown; row?: boolean }) => {
+const Prose = ({
+  node,
+  row = false,
+  line,
+}: {
+  node: unknown
+  row?: boolean
+  /**
+   * The property a language says is the prose explaining the thing, drawn first and in the same
+   * place, because a reader looking for what a thing is looks under its heading whichever word
+   * the language spells it with.
+   */
+  line?: ReactNode
+}) => {
   const title = isMapping(node) ? node[TITLE] : undefined
   const description = isMapping(node) ? node[DESCRIPTION] : undefined
-  if (title === undefined && description === undefined) return null
+  if (title === undefined && description === undefined && line === undefined) return null
   return (
     <div className={row ? 'd-prose d-prose-row' : 'd-prose'}>
+      {line ?? null}
       {title !== undefined ? <b>{text(title)}</b> : null}
       {description !== undefined ? <p>{text(description)}</p> : null}
     </div>
@@ -503,6 +522,24 @@ const isProse = (bodyOf: BodyOf, type: string | null, primitive: string | null, 
   type !== null &&
   membersOf(bodyOf, type) === null &&
   constraintsOn(bodyOf, type).length === 0
+
+/**
+ * The name the vocabulary gives the word this value names, or nothing where it has none to give.
+ * It is the question `role: name` exists to answer: the value names one member of an enum, the
+ * type that enum's values are of says which of its properties holds the name, and what that
+ * member holds there is what the word is called. The id is what it is written as and the name is
+ * what it is called, so a reader wants both.
+ */
+const calledBy = (bodyOf: BodyOf, type: string | null, value: unknown): string | null => {
+  if (type === null || typeof value !== 'string') return null
+  const of = typeOfOwnValue(bodyOf(type) ?? {})
+  if (typeof of !== 'string' || of.length === 0) return null
+  const name = propertyCarrying(bodyOf, of, ROLES.name)
+  if (name === undefined) return null
+  const member = valuesOf(bodyOf, type)?.find((one) => one.id === value)
+  const held = member === undefined || !isMapping(member.value) ? undefined : member.value[name]
+  return typeof held === 'string' && held.length > 0 ? held : null
+}
 
 /**
  * Whether a value is several of one shape, drawn as a table. It is when the type is written out as
@@ -687,6 +724,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
 
   // Prose is read as the sentence it is, so the equals sign that tells a value from the type beside
   // it would be a mark in the middle of a sentence and says nothing a reader of prose needs.
+  const called = calledBy(bodyOf, named, value)
   return (
     <span className={at}>
       {prose ? null : (
@@ -703,6 +741,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
       ) : (
         text(value)
       )}
+      {called === null ? null : <b className="v-name">{called}</b>}
     </span>
   )
 }
@@ -792,6 +831,13 @@ const Property = ({
   const namesNoType = type !== undefined && !Array.isArray(type) && (typeof type !== 'string' || type.length === 0)
   const accepted = acceptsOf(bodyOf, owner, name)
 
+  // What this property is to a reader, beyond the value it holds. A role answers one question
+  // about a type once, so where the type gives the same role to a second property the question
+  // has no answer: the page says which two carry it rather than picking one, because picking
+  // would be the page deciding something the language has not said.
+  const role = node[ROLE]
+  const carrying = typeof role === 'string' ? propertiesCarrying(bodyOf, owner, role) : []
+
   return (
     <>
       <div className="d-prow">
@@ -813,6 +859,14 @@ const Property = ({
               {ACCEPTS} {list(accepted)}
             </span>
           )}
+          {role === undefined ? null : (
+            <span
+              className="d-said s-role"
+              title="what this property is to a reader, beyond the value it holds"
+            >
+              {ROLE} {text(role)}
+            </span>
+          )}
           {node.value !== undefined ? (
             <Val
               value={node.value}
@@ -831,6 +885,12 @@ const Property = ({
         <Err at={`${at}.is`}>a property holds one type, and this names {type.length}.</Err>
       ) : null}
       {namesNoType ? <Err at={`${at}.is`}>must name a type.</Err> : null}
+      {carrying.length > 1 ? (
+        <Err at={`${at}.${ROLE}`}>
+          {owner} gives {ROLE} {text(role)} to {list(carrying)}, so nothing says which of them
+          holds it.
+        </Err>
+      ) : null}
       {written === undefined && type === undefined && above === null ? (
         <Err at={at}>has no is, so there is nothing to say what it holds.</Err>
       ) : null}
@@ -1063,8 +1123,25 @@ const Keyword = ({
   )
 }
 
+/**
+ * What heads a declaration's card: the word it is headed by, the vocabulary its colour is taken
+ * from, and where that word sits so anything said about it is drawn on it.
+ *
+ * A declaration carrying one value of its own, whose type says which of its properties holds the
+ * kind, is headed by what that property holds, because that is what the thing IS: `IGuard` reads
+ * as an interface rather than as the `constant` it happens to be written under. A declaration
+ * whose type says nothing is headed by its kind, as every declaration was, and `at` is nothing
+ * because the word is the keyword rather than a node of the document.
+ */
+interface Heads {
+  readonly word: string
+  readonly among: readonly string[]
+  readonly at: string | null
+}
+
 export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
   const { words } = useDrawing()
+  const bodyOf = useBodyOf()
 
   if (!isMapping(node)) {
     return (
@@ -1140,11 +1217,58 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
   }
   const count = counted()
 
+  // The one value this declaration carries, and the type it is of. What that type says two of
+  // its properties are to a reader is the whole of what follows: one holds the kind of the thing,
+  // and one is the prose explaining it. Each is drawn once — the kind in the head, the prose
+  // under it — and so neither is drawn again as a row of the value below.
+  const of = typeOfOwnValue(body)
+  const ofType = typeof of === 'string' && of.length > 0 ? of : null
+  const own = claimed.includes(VALUE) && isMapping(body[VALUE]) ? body[VALUE] : null
+  const partFor = (role: string): string | null =>
+    ofType === null || own === null ? null : (propertyCarrying(bodyOf, ofType, role) ?? null)
+  const kindPart = partFor(ROLES.kind)
+  const prosePart = partFor(ROLES.prose)
+
+  const held = kindPart === null || own === null ? undefined : own[kindPart]
+  const vocabulary = kindPart === null || ofType === null
+    ? undefined
+    : typeOfProperty(bodyOf, ofType, kindPart)
+  const among = vocabulary === undefined ? null : membersOf(bodyOf, vocabulary)
+  const heads: Heads =
+    kindPart !== null && typeof held === 'string' && held.length > 0 && among !== null
+      ? { word: held, among, at: `${here}.${VALUE}.${kindPart}` }
+      : { word: kind, among: words.kinds, at: null }
+
+  const says = prosePart === null || own === null ? undefined : own[prosePart]
+  const line =
+    prosePart === null || says === undefined ? undefined : (
+      <Marked at={`${here}.${VALUE}.${prosePart}`}>
+        <b>{text(says)}</b>
+      </Marked>
+    )
+
+  // What is left of the value once the head and the line have taken their parts. A declaration
+  // whose value is nothing but those two draws no value row at all, because both are already on
+  // the page above.
+  const lifted = [kindPart, prosePart].filter((one): one is string => one !== null)
+  const rest =
+    own === null || lifted.length === 0
+      ? body[VALUE]
+      : Object.fromEntries(Object.entries(own).filter(([k]) => !lifted.includes(k)))
+  const drawsValue =
+    claimed.includes(VALUE) && body[VALUE] !== undefined && !(isMapping(rest) && Object.keys(rest).length === 0)
+
   return (
-    <section className="d-decl" style={kindStyle(kind, words.kinds)}>
+    <section className="d-decl" style={kindStyle(heads.word, heads.among)}>
       <div className="d-decl-head">
         {external ? <span className="d-extern">{BOOTSTRAP.external}</span> : null}
-        <span className="d-kind">{kind}</span>
+        {heads.at === null ? (
+          <span className="d-kind">{heads.word}</span>
+        ) : (
+          <Marked at={heads.at}>
+            <span className="d-kind">{heads.word}</span>
+          </Marked>
+        )}
         <span className="d-id">
           {typeof body.id === 'string' && body.id.length > 0 ? (
             body.id
@@ -1165,7 +1289,7 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
         {count !== null ? <span className="d-count">{count}</span> : null}
       </div>
 
-      <Prose node={body} />
+      <Prose node={body} line={line} />
 
       {typeof body.id !== 'string' || body.id.length === 0 ? (
         <Err at={`${here}.id`}>every declaration carries an id, written as text.</Err>
@@ -1182,9 +1306,7 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
       {claimed.includes('values') && body.values !== undefined ? (
         <Values at={here} is={body.is} value={body.values} />
       ) : null}
-      {claimed.includes(VALUE) && body[VALUE] !== undefined ? (
-        <OwnValue at={here} type={typeOfOwnValue(body)} value={body[VALUE]} />
-      ) : null}
+      {drawsValue ? <OwnValue at={here} type={of} value={rest} /> : null}
       {claimed.includes('properties') ? (
         <Properties
           at={here}
@@ -1477,11 +1599,13 @@ export const Page = ({
 
         <div className="d-foot">
           <p>
-            A declaration draws as its kind, its id, what it is, and its properties. An enum
-            draws the one type it is based on and every value it lists, each with its own id and
-            what that id stands for. A choice draws the types it is one of. A property is a name
-            and a type, and a property holding many draws the collection it is and what that
-            collection holds.
+            A declaration draws as its kind, its id, what it is, and its properties. One carrying
+            a value of a type that says which of its properties holds the kind is headed by what
+            that property holds instead, and the property that type says is its prose reads as the
+            line under that heading. An enum draws the one type it is based on and every value it
+            lists, each with its own id and what that id stands for. A choice draws the types it
+            is one of. A property is a name and a type, and a property holding many draws the
+            collection it is and what that collection holds.
           </p>
 
           <dl className="d-legend">

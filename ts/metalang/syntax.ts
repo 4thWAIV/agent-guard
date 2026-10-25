@@ -110,7 +110,7 @@ const EXPRESSION = 'expression'
 const NAME = 'name'
 
 /** What the things written beneath a key are, which is what decides how they are coloured. */
-type Holds =
+type Holds = (
   /** Keys that are the properties of one type. */
   | { readonly of: 'mapping'; readonly owner: string }
   /** Many of one thing, written either as a list or as a key for each one. */
@@ -123,13 +123,18 @@ type Holds =
    * takes it, asked narrowest first.
    */
   | { readonly of: 'choice'; readonly among: readonly string[]; readonly options: readonly unknown[] }
-  /**
-   * A value of one type, with the reserved states the property holding it takes in place of a
-   * value. A word among them is the state it names rather than the text it reads as.
-   */
-  | { readonly of: 'scalar'; readonly type: string; readonly accepts?: readonly string[] }
+  /** A value of one type. */
+  | { readonly of: 'scalar'; readonly type: string }
   /** Nothing the vocabulary accounts for. */
   | { readonly of: 'unknown' }
+) & {
+  /**
+   * The reserved states the property holding this takes in place of a value. A word among them is
+   * the state it names rather than the text it reads as. It stands in place of the WHOLE value,
+   * so it is carried whatever that value would have been — one of a type, or many of one.
+   */
+  readonly accepts?: readonly string[]
+}
 
 const UNKNOWN: Holds = { of: 'unknown' }
 
@@ -235,8 +240,9 @@ export function partsOf(text: string, words: Vocabulary, written: Written = {}):
   /** What one bare value is, read against the type the keyword answering it holds. */
   const roleOfValue = (value: string, holds: Holds, via: readonly string[] = []): Role => {
     // A word the property takes in place of a value is read as the state it names before it is
-    // read as a value at all, which is the order the checker reads it in.
-    if (holds.of === 'scalar' && holds.accepts?.includes(value) === true) return 'reserved'
+    // read as a value at all, which is the order the checker reads it in — and whatever the value
+    // would have been, because the state stands in place of all of it.
+    if (holds.accepts?.includes(value) === true) return 'reserved'
     if (holds.of === 'collection') return roleOfValue(value, holdsFor(holds.member), via)
     if (holds.of === 'oneWord') return holds.among.includes(value) ? 'word' : 'unknown'
     // A value of a choice belongs to whichever option takes it, and the options are asked in the
@@ -327,9 +333,9 @@ export function partsOf(text: string, words: Vocabulary, written: Written = {}):
     return []
   }
 
-  /** A value of one type, with the reserved states the property holding it takes, where it has any. */
+  /** What is written beneath a keyword, with the reserved states it takes where it takes any. */
   const takes = (child: Holds, accepts: readonly string[]): Holds =>
-    accepts.length > 0 && child.of === 'scalar' ? { ...child, accepts } : child
+    accepts.length > 0 ? { ...child, accepts } : child
 
   /** What is written beneath a keyword, with `object` meaning a value of the type above. */
   const childOf = (held: unknown): Holds => {

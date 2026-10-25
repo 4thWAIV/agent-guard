@@ -14,7 +14,7 @@ import { describe, expect, test } from 'bun:test'
 
 import { check, countDeclarations, reportLines, run, type CheckResult } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
-import type { Vocabulary } from './words.ts'
+import { resolveVocabulary, type Vocabulary } from './words.ts'
 
 const problemsAt = (r: CheckResult, where: string): string[] =>
   r.problems.filter((p) => p.where === where).map((p) => p.what)
@@ -617,8 +617,23 @@ describe('properties', () => {
     const r = only(entity({ properties: { p: { is: 'T', default: 1 } } }))
     expect(problemsAt(r, 'declare[0].entity.properties.p')[0]).toBe(
       '"default" cannot be written on a property — the only ones are is, title, description,' +
-        ' optional, value, accepts',
+        ' optional, value, accepts, role',
     )
+  })
+
+  // What a property is to a reader, beyond the value it holds. It is a member of an enum the
+  // language declares, so a word that is not one of the three is refused with the three named.
+  test('a role the language lists is written on a property and nothing is wrong', () => {
+    for (const role of ['kind', 'prose', 'name']) {
+      expect(only(entity({ properties: { p: { is: 'string', role } } })).problems).toEqual([])
+    }
+  })
+
+  test('a role the language does not list is a problem that names the ones it does', () => {
+    const r = only(entity({ properties: { p: { is: 'string', role: 'heading' } } }))
+    expect(problemsAt(r, 'declare[0].entity.properties.p.role')).toEqual([
+      '"heading" is not a member of "role" — the members are kind, prose, name',
+    ])
   })
 
   test('a property with no is is a problem, because nothing says what it holds', () => {
@@ -1374,7 +1389,7 @@ describe('a document written in a language of its own', () => {
   // resolved through a real path in `ts/metalang`, so it is read against the live architecture
   // language and not against a copy.
   describe('the members an element has', () => {
-    /** `members` is left out altogether when none is given, the way a function writes it. */
+    /** `members` is left out altogether, which is what the language refuses to read as none. */
     const having = (members?: unknown): Record<string, unknown> => ({
       scope: ['guard'],
       language: 'arch',
@@ -1407,10 +1422,34 @@ describe('a document written in a language of its own', () => {
       expect(checked([one])).toEqual({ problems: [], blockers: [], pending: [] })
     })
 
-    test('an element with no members at all is right, because a function has none', () => {
+    // Nothing written is not an answer to how many members a thing has. The language gives an
+    // element with none the word for it, so leaving the line out is the one thing it refuses.
+    test('an element with nothing written for its members is a problem saying so', () => {
       const doc = having()
       const { words } = rulebookFor(doc, parts)
-      expect(check(doc, 'guard.yaml', words ?? undefined).problems).toEqual([])
+      expect(problemsAt(check(doc, 'guard.yaml', words ?? undefined), 'declare[0].constant.value')).toEqual([
+        'has no members',
+      ])
+    })
+
+    test('an element that has none says so, and nothing is reported', () => {
+      expect(checked('none')).toEqual({ problems: [], blockers: [], pending: [] })
+    })
+
+    test('members nobody has written yet are a pending value, so nothing reads as finished', () => {
+      const r = checked('pending')
+      expect(r.problems).toEqual([])
+      expect(r.pending).toEqual([
+        { where: 'declare[0].constant.value.members', what: 'is required and not yet given' },
+      ])
+    })
+
+    test('a member name that is not an identifier is a problem, because a name is one', () => {
+      const r = checked([{ ...one, name: 'Precheck Async' }])
+      expect(problemsAt(r, 'declare[0].constant.value.members[0].name')).toEqual([
+        '"Precheck Async" does not match [A-Za-z_][A-Za-z0-9_]*, which "name" requires of every' +
+          ' value of it',
+      ])
     })
 
     test('a kind that is not one of the five is a problem that lists the five', () => {
@@ -1960,7 +1999,7 @@ describe('the architecture language itself', () => {
     const r = check(unwritten, 'arch.yaml')
     expect(r.problems).toEqual([])
     expect(r.pending).toEqual([
-      { where: 'declare[3].enum.values[4].value.example', what: 'is required and not yet given' },
+      { where: 'declare[4].enum.values[4].value.example', what: 'is required and not yet given' },
     ])
   })
 
@@ -2183,5 +2222,97 @@ describe('the report, with a value not yet given in it', () => {
     expect(both).toContain('1 problem:')
     expect(both).toContain('1 pending value:')
     expect(both.some((l) => l.startsWith('Nothing is wrong'))).toBe(false)
+  })
+})
+
+// `accepts` says which reserved states a property takes in place of a value. It is read the same
+// way wherever it is written: on a part of a value, and on a keyword a declaration carries. Two
+// readings of one word would let a decided absence check clean in one place and fail in the other.
+describe('a reserved state written on a keyword a declaration carries', () => {
+  const metalang = yaml.load(readFileSync(LANGUAGE_FILE, 'utf8'))
+
+  /** A language whose one kind carries a keyword holding a list, and one holding text. */
+  const words = ((): Vocabulary => {
+    const { words: made, faults } = resolveVocabulary(
+      {
+        scope: ['tiny'],
+        import: [['metalang']],
+        title: 'A tiny language',
+        declare: [
+          {
+            entity: {
+              id: 'note',
+              is: 'object',
+              title: 'A note.',
+              properties: {
+                id: { is: 'name', title: 'The name it is known by.' },
+                lines: {
+                  list: { of: 'string' },
+                  accepts: ['none', 'pending'],
+                  title: 'The lines it carries.',
+                },
+                word: { is: 'string', accepts: ['none'], title: 'The word it names.' },
+              },
+            },
+          },
+          {
+            choice: {
+              id: 'declaration',
+              options: ['note', 'entity', 'enum', 'choice', 'constant', 'rule', 'fact', 'external'],
+              title: 'What may be declared.',
+            },
+          },
+        ],
+      },
+      [metalang],
+    )
+    if (faults.length > 0) throw new Error(faults.join(' '))
+    return made
+  })()
+
+  const doc = (body: Record<string, unknown>): CheckResult =>
+    check(
+      {
+        scope: ['doc'],
+        language: 'tiny',
+        import: [['metalang']],
+        title: 'A document',
+        declare: [{ note: { id: 'A', ...body } }],
+      },
+      'f.yaml',
+      words,
+    )
+
+  test('none on a keyword holding a list is a decided absence and nothing is wrong', () => {
+    expect(doc({ lines: 'none', word: 'none' })).toEqual({ problems: [], blockers: [], pending: [] })
+  })
+
+  test('pending on a keyword holding a list is reported as pending, not as a problem', () => {
+    const r = doc({ lines: 'pending', word: 'none' })
+    expect(r.problems).toEqual([])
+    expect(r.blockers).toEqual([])
+    expect(r.pending.map((f) => [f.where, f.what])).toEqual([
+      ['declare[0].note.lines', 'is required and not yet given'],
+    ])
+  })
+
+  test('a real list is still read as a list, so the states do not replace the check', () => {
+    expect(doc({ lines: ['a', 'b'], word: 'none' })).toEqual({
+      problems: [],
+      blockers: [],
+      pending: [],
+    })
+  })
+
+  test('a word the keyword does not accept is still checked as the value it is', () => {
+    const r = doc({ lines: 'nothing', word: 'none' })
+    expect(problemsAt(r, 'declare[0].note.lines')).toEqual([
+      'is not written as a list, which is how a value of a list is written',
+    ])
+  })
+
+  test('none on a keyword holding text is the state, and any other text is the text', () => {
+    expect(doc({ lines: 'none', word: 'none' }).problems).toEqual([])
+    expect(doc({ lines: 'none', word: 'role' }).problems).toEqual([])
   })
 })

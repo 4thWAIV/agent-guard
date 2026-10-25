@@ -413,6 +413,10 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       // read the one way, so a keyword written the second way is checked rather than blocked.
       const holds = typeOfPart(inVocabulary, owner, keyword)
       if (holdsAType(inVocabulary, owner, keyword)) writesType(where, body[keyword], new Set())
+      // A reserved state is read the same way wherever `accepts` is written, whether the keyword
+      // sits on a declaration or on a part of a value, so the two cannot disagree about what a
+      // decided absence is.
+      else if (reserved(where, inVocabulary, owner, keyword, body[keyword])) continue
       else if (holds === undefined) {
         block(where, `nothing says what "${keyword}" holds, so what is written here cannot be checked`)
       } else judges(where, holds, body[keyword], inVocabulary)

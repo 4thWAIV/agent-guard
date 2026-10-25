@@ -98,6 +98,34 @@
 # `members` is written as a `list`, MetaLang's ordered collection with no two entries the same, which
 # is what the members of a type are. It is optional because `reportLines` is a function with no
 # members at all, and an element with none leaves the line out rather than writing an empty list.
+# ── APPROVED — the three roles, one word for a vocabulary, and members required. ──
+#                                                                                   2026-10-25
+# Tim approved five changes, through his jarvis session, each one put to him as the word it uses,
+# the lines it adds and the result it draws:
+#
+#   - `role: kind` on `element.form` and `member.kind`. What the property holds is what the thing
+#     IS, so a page heads the thing with it and marks it with it, instead of with the keyword the
+#     declaration happens to be written under — which for every part of the guard is `constant`.
+#   - `role: prose` on `element.does` and `member.does`. The property holds the prose explaining
+#     the thing, read as the line under the heading, which is where `title` and `description` are
+#     read on a declaration, rather than sitting in a row labelled with a keyword nobody wrote.
+#   - `member.name` is `name`, MetaLang's type for an identifier, rather than `string`. `name`
+#     matches `[A-Za-z_][A-Za-z0-9_]*` and nothing else; `string` matches a sentence.
+#   - `members` on `element` is required and accepts the two reserved states. `none` says there
+#     are none and that was decided, and nothing is reported; `pending` says they are required and
+#     not written yet, and the run exits non-zero. This replaces the line in the block above
+#     saying `members` is optional because `reportLines` is a function with no members at all:
+#     `reportLines` now writes `members: none`, which says that and says it was decided.
+#   - `word` is one word of a vocabulary this language draws, carrying the four properties `form`
+#     and `kind` each had — `appearance`, `example`, `name` and `description` — written once, with
+#     `form` and `kind` deriving from it and writing none of them. It is abstract, so nothing is
+#     ever directly of it. Tim took it before step 4 writes the third copy of those four, which is
+#     cheaper than unpicking three.
+#
+# `role: name` sits on `word.name`. A value naming one of these words is drawn with the name as
+# well as the id, because the id is what it is written as and the name is what it is called, and
+# it is what takes the last field name out of the two renderers that draw this language.
+
 scope: [arch]
 import:
   - [metalang]
@@ -117,18 +145,30 @@ declare:
         mark: { is: mark, title: "The character it is drawn with, or where it is drawn from." }
 
   - entity:
-      id: form
+      id: word
       is: object
-      title: One kind of declaration an architecture can make.
-      description: Every element of an architecture is of exactly one form.
+      abstract: true
+      title: One word of a vocabulary this language draws.
+      description: >
+        Every closed vocabulary here is read as a set of these, so the four words they share are
+        written once and a new vocabulary cannot drift from the others.
       properties:
         appearance: { is: appearance, title: How it is drawn. }
         example:
           is: string
           accepts: [pending]
           title: A real one from this repository.
-        name: { is: string, title: The name it is shown by. }
-        description: { is: string, title: One line saying what the form is. }
+        name:
+          is: string
+          role: name
+          title: The name it is shown by.
+        description: { is: string, title: One line saying what it is. }
+
+  - entity:
+      id: form
+      is: word
+      title: One kind of declaration an architecture can make.
+      description: Every element of an architecture is of exactly one form.
 
   - enum:
       id: forms
@@ -174,17 +214,9 @@ declare:
 
   - entity:
       id: kind
-      is: object
+      is: word
       title: One kind of member an element can have.
       description: Every member of an element is of exactly one kind.
-      properties:
-        appearance: { is: appearance, title: How it is drawn. }
-        example:
-          is: string
-          accepts: [pending]
-          title: A real one from this repository.
-        name: { is: string, title: The name it is shown by. }
-        description: { is: string, title: One line saying what the kind is. }
 
   - enum:
       id: kinds
@@ -229,13 +261,15 @@ declare:
       description: Its name is written here, because a member is not declared and has no id.
       properties:
         name:
-          is: string
+          is: name
           title: The name it is known by.
         kind:
           is: kinds
+          role: kind
           title: Which of the five kinds of member it is.
         does:
           is: string
+          role: prose
           title: One line saying what it does.
 
   - entity:
@@ -246,11 +280,13 @@ declare:
       properties:
         form:
           is: forms
+          role: kind
           title: Which of the six forms it takes.
         does:
           is: string
+          role: prose
           title: One line saying what it does.
         members:
           list: { of: member }
-          optional: true
+          accepts: [none, pending]
           title: The members it has, in the order the source declares them.

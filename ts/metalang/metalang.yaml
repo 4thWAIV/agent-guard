@@ -596,6 +596,27 @@
 # written exactly as a value an enum lists is written, and read by the same rule.
 # ───────────────────────────────────────────────────────────────────────────────
 
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — what a property is to a reader.                             2026-10-25
+#
+#   role   on a property, what it is to a reader beyond the value it holds
+#
+# Tim approved the word and its three members — `kind`, `prose` and `name` — through his jarvis
+# session. A page draws a thing by what it IS, and two of the things it has to draw are not the
+# value: which kind of thing this is, and the prose explaining it. MetaLang knows its own two
+# prose words, `title` and `description`, because it declared them. A language built on MetaLang
+# has its own, and until now nothing let it say which.
+#
+# Without the word a page has to guess: the kind is the first property whose type is an enum, the
+# prose is a string no constraint pins down, and the name is the property literally spelled
+# `name`. Each guess is wrong for some language, and the third is a field name written into code,
+# which this repository does not allow.
+#
+# A property carries no role unless the language that declares it gives it one, and a role is
+# given to at most one property of a type, because a reader asking which property holds the kind
+# has to get one answer.
+# ───────────────────────────────────────────────────────────────────────────────
+
 scope: [metalang]
 title: MetaLang
 description: The approved vocabulary of the language that defines languages.
@@ -754,6 +775,35 @@ declare:
         ordered: { value: false }
         unique: { value: false }
 
+  # What one property of a type is to a reader, which a language says of its own properties.
+  - enum:
+      id: role
+      is: string
+      title: What a property is to a reader, beyond the value it holds.
+      description: >
+        A property carries no role unless the language that declares it gives it one, and a role is
+        given to at most one property of a type, because a reader asking which property holds the
+        kind has to get one answer.
+      values:
+        - id: kind
+          value: kind
+          title: It names which kind of thing this is.
+          description: >
+            The thing is headed and marked by what this property holds, rather than by the keyword
+            it happens to be declared under.
+        - id: prose
+          value: prose
+          title: It is the prose explaining what this thing is.
+          description: >
+            It is read as the line under the heading, which is where `title` and `description` are
+            read on a declaration.
+        - id: name
+          value: name
+          title: It holds the name this thing is shown by.
+          description: >
+            A value naming this thing is drawn with that name beside the id, because the id is
+            what it is written as and the name is what it is called.
+
   # What a property carries, and what one value of an enum carries.
   - entity:
       id: property
@@ -787,6 +837,10 @@ declare:
           set: { of: reserved }
           optional: true
           title: The reserved states this property takes in place of a value.
+        role:
+          is: role
+          optional: true
+          title: What this property is to a reader, beyond the value it holds.
 
   - entity:
       id: value
