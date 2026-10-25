@@ -207,12 +207,21 @@ READINESS runs ONCE per fix round. It reports every mismatch it finds, the orche
 - **Role:** Independent adversaries selected by Level. L1 runs Prove-It, SOLID, DRY, Laziness-auditor, and Lie-catcher. L2 runs Prove-It, DRY, and Lie-catcher, with Laziness-auditor when requested. L3 runs DRY, with Lie-catcher when Tim requests it.
 - **Script:** `refute.js`.
 - **Inputs:** `level` defaults to L1. L1 and L2 receive the complete contract; L3 instead receives `humanRequest` containing Tim's exact request and L3 approval. Every Level receives changed files and the live working tree. `stageOutputPaths` carries file paths to the recorded GROUND, DESIGN, and hidden-decision results, never their content, and each adversary opens and reads the named file itself: all three are required at L1, L2 supplies only the stages that ran, and L3 supplies none. `additionalAdversaries` may add Laziness-auditor at L2 or a human-requested Lie-catcher at L3.
-- **Outputs:** One `PASS` or `FAIL` verdict per lens, findings, refutation attempts, proof checked, and a fix path from every adversary except the Lie-catcher.
+- **Outputs:** One `PASS` or `FAIL` verdict per lens, blocking findings, separate non-blocking observations, refutation attempts, proof checked, and a fix path for blocking findings from every adversary except the Lie-catcher.
 - **Revoked authority:** Adversaries do not change code. The Lie-catcher gives no fix advice. No adversary approves its own work.
 
 DRY is required at every Level. The SOLID, DRY, Laziness, and Lie-catcher adversaries load `rails-solid-code`, `rails-dry-code`, `rails-real-work`, and `rails-decisions` as their reusable checklists. Prove-It uses the contract. The Lie-catcher also verifies every supplied `autoResolved` record and the corresponding decision filtering, and audits the orchestrator’s own steps.
 
 Adjudicate every finding against the live code before acting. Reject a false positive only with evidence. A finding that changes an approved design returns to the human before a fix is built. Any condition attached to an accepted finding travels verbatim into the fix direction.
+
+### Review findings and observations
+
+Apply this classification before assigning a verdict in every review stage. It does not change the approval process, authorize scope changes, or waive a governing requirement.
+
+- **Blocking findings** identify the requirement violated, the affected code, test, authorization, or required evidence, and exactly what remains incorrect or unproven. Code defects, weakened or incomplete tests, duplicated knowledge or logic, missing required proof, and approval violations remain blocking. An unmet explicit deliverable is not an observation merely because its file is documentation.
+- **Non-blocking observations** identify administrative omissions or descriptive inaccuracies for which the reviewer has established that no requirement remains unmet and no required proof or approval is missing. A missing reuse-ledger entry alone is an observation after the actual ownership has been inspected, as defined by `rails-dry-code`. State the evidence and the reason the observation does not block. Uncertainty about correctness is not a reason to downgrade a finding.
+- **False claims** remain visible and never count as evidence. If a claimed check was not run, obtain the required proof before acceptance. If independent evidence already establishes the required result, identify the false claim and that evidence as an observation rather than requiring another review round to rewrite an unnecessary narrative. Fabricated approvals, concealed defects, and altered or truncated required evidence remain blocking; an observation cannot excuse them.
+- **Verdicts** are FAIL when blocking findings exist and PASS when none exist. Retain observations alongside either verdict. Observations do not set `anyFail`, authorize a correction round, or become new required work. Historical FAIL verdicts remain unchanged.
 
 ### GATE
 
@@ -222,7 +231,7 @@ Adjudicate every finding against the live code before acting. Reject a false pos
 - **Outputs:** Accepted or rejected, plus the closing `make build` and `make test` output with exit codes.
 - **Revoked authority:** The gate does not waive a finding, accept cropped or stale output, call a red “pre-existing,” or accept a suppressed rule. Only an explicit human waiver recorded under the scope rule can waive the cleanup law.
 
-A result counts only when no adversary refutes and every verification includes the flags, bytes, command output, and exit code needed to rerun it. The closing build and tests are green under the analyzer fence. `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, or a dropped analyzer reference used to reach green is an automatic refute. A status message or exit code without positive state proof is not proof.
+A result counts only when no blocking finding remains, every required reviewer returned a valid result, and every verification includes the flags, bytes, command output, and exit code needed to rerun it. Non-blocking observations are retained, not treated as unfinished implementation. The closing build and tests are green under the analyzer fence. `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, or a dropped analyzer reference used to reach green is an automatic refute. A status message or exit code without positive state proof is not proof.
 
 Refuted work returns to the worker with one reconciled directive. SOLID wins when SOLID and DRY conflict. The orchestrator never loosens a rule to reconcile findings.
 

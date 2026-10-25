@@ -1,0 +1,868 @@
+// The proposal renderer — one page from one document written in the proposal language.
+//
+// Not the renderer in `ts/metalang/render.ts`. That one draws a document as the declarations it
+// makes, which is the right page for a language. A proposal is read to decide something, so the
+// page is built around the document it is proposing: the document runs down two thirds of the
+// page as one continuous read, and the third on the left is empty until a part of it is chosen,
+// when it shows the lines that make that part and nothing else.
+//
+// So the reader is never made to fit a whole file beside a document. The lines are there when he
+// asks what makes a thing, and out of the way when he is reading.
+//
+// What it does not do is as important. It writes no colours of its own: the YAML is coloured by
+// `ts/metalang/syntax.ts`, against the vocabulary each block belongs to. The page reads both
+// stylesheets straight out of `ts/metalang` rather than copying them. The document views are
+// drawn by `ts/metalang/app.tsx`, the page control itself, into the same flow, so what a proposal
+// promises a document will look like is what the renderer really makes of those same lines.
+//
+// Nothing is dropped quietly. The file is cut into regions and the regions are checked to add
+// back up to the file, so no line can fall between two of them, and the lines of each region are
+// counted again after they are coloured and laid out. What the checker found is drawn on the
+// page. A declaration of a kind this renderer has no drawing for says so where it sits.
+//
+// It prints nothing standing. No line saying what a proposal is, no table of what the language
+// lets a proposal write, no note under a drawing saying where the drawing came from, and no
+// instructions in an empty panel. Tim rejected a proposal on 24 October 2026 for exactly this:
+// text that is the same on every page costs a reader his attention and tells him nothing he did
+// not have. Every word on the page has to come from the document.
+//
+// Usage:  bun run ts/metalang/propose.ts [document.yaml] [out.html]
+
+import { readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+import * as yaml from 'js-yaml'
+import { createElement } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+
+import { Page } from './app.tsx'
+import { checkedAgainst } from './check.ts'
+import { rulebookFor } from './rulebook.ts'
+import { htmlOf, partsOf, type Part, type Written } from './syntax.ts'
+import {
+  declaredBodiesOf,
+  isMapping,
+  propertyCarrying,
+  ROLES,
+  typeOfOwnValue,
+  type BodyOf,
+  type Mapping,
+  type Vocabulary,
+} from './words.ts'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const REPO = resolve(here, '..', '..')
+const STYLE = join(REPO, 'ts', 'metalang', 'style.css')
+const SYNTAX = join(REPO, 'ts', 'metalang', 'syntax.css')
+
+const escape = (s: string): string =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+/** The same, for text sitting inside a quoted attribute. */
+const escapeAttribute = (s: string): string => escape(s).replace(/"/g, '&quot;')
+
+/** A value written as text, or nothing, so a missing word is drawn as missing and not as "undefined". */
+const text = (held: unknown): string | null => (typeof held === 'string' ? held : null)
+
+/** What a line says, with the word itself drawn where it is not there. */
+const said = (held: unknown): string => {
+  const written = text(held)
+  return written === null ? '<em class="gone">not written</em>' : escape(written)
+}
+
+/** What this document is read against, and what it declares itself. */
+interface Own {
+  readonly words: Vocabulary
+  readonly written: Written
+}
+
+// ── the file, cut into the regions a reader asks about ───────────────────────
+
+/** One piece of the file: the header, or one declaration, with the text exactly as written. */
+interface Region {
+  /** The lines themselves, straight out of the file. */
+  readonly source: string
+  /** The kind declared here, or nothing for the header above `declare:`. */
+  readonly kind: string | null
+  /** What is written under that kind. */
+  readonly body: Mapping | null
+}
+
+/**
+ * The file cut at each declaration, in the order it is written.
+ *
+ * The regions are put back together and compared with the file before any of them is drawn, so a
+ * line that fell between two regions stops the page instead of going missing from it.
+ */
+function regionsOf(file: string, declared: readonly unknown[]): readonly Region[] {
+  const source = readFileSync(file, 'utf8')
+  const lines = source.split('\n')
+  const starts: number[] = []
+  let inDeclare = false
+  for (const [at, line] of lines.entries()) {
+    if (/^declare:\s*$/.test(line)) {
+      inDeclare = true
+      continue
+    }
+    if (!inDeclare) continue
+    // A key back at the left margin would be a part of the file after the declarations, and this
+    // renderer has nowhere to put it.
+    if (/^\S/.test(line)) {
+      throw new Error(`${basename(file)} line ${at + 1} — this renderer reads nothing after declare:`)
+    }
+    if (/^ {2}- /.test(line)) starts.push(at)
+  }
+  if (starts.length !== declared.length) {
+    throw new Error(
+      `${basename(file)} — ${starts.length} declarations in the text and ${declared.length} read from it`,
+    )
+  }
+
+  const cut = (from: number, to: number): string => lines.slice(from, to).join('\n')
+  const texts = [
+    cut(0, starts[0] ?? lines.length),
+    ...starts.map((start, at) => cut(start, starts[at + 1] ?? lines.length)),
+  ]
+  if (texts.join('\n') !== source) {
+    throw new Error(`${basename(file)} — the regions do not add back up to the file`)
+  }
+
+  return texts.map((region, at) => {
+    if (at === 0) return { source: region, kind: null, body: null }
+    const one = declared[at - 1]
+    const written = isMapping(one) ? Object.entries(one) : []
+    const [first] = written
+    if (written.length !== 1 || first === undefined) {
+      throw new Error(
+        `${basename(file)} — declaration ${at} is written with ${written.length} words, not one`,
+      )
+    }
+    const [kind, body] = first
+    return { source: region, kind, body: isMapping(body) ? body : null }
+  })
+}
+
+// ── the lines, coloured and laid out to be read in a narrow column ───────────
+
+/**
+ * The coloured text cut back into its lines.
+ *
+ * `htmlOf` writes one flat span per part and nothing nested, so a line ends by closing the span
+ * it is in and the next line starts by opening it again. A tag that never closes stops the page.
+ */
+function linesOfHtml(html: string): readonly string[] {
+  const out: string[] = []
+  let open: string | null = null
+  let line = ''
+  let at = 0
+  while (at < html.length) {
+    const tag = html.indexOf('<', at)
+    if (tag !== at) {
+      const to = tag < 0 ? html.length : tag
+      const pieces = html.slice(at, to).split('\n')
+      for (const [piece, held] of pieces.entries()) {
+        if (piece > 0) {
+          out.push(line + (open === null ? '' : '</span>'))
+          line = open ?? ''
+        }
+        line += held
+      }
+      at = to
+      continue
+    }
+    const end = html.indexOf('>', at)
+    if (end < 0) throw new Error('a tag in the coloured lines is never closed')
+    const held = html.slice(at, end + 1)
+    open = held.startsWith('</') ? null : held
+    line += held
+    at = end + 1
+  }
+  out.push(line + (open === null ? '' : '</span>'))
+  return out
+}
+
+/**
+ * A block of YAML, coloured against the vocabulary it belongs to and laid out to be read in a
+ * column a third of the page wide.
+ *
+ * Each line is its own block, indented by what it is written under and hanging by two more, so a
+ * line too long for the column wraps beneath itself and the shape of the file survives. The lines
+ * are counted again afterwards, because a lost line is the one thing this must not do.
+ */
+function block(lines: string, words: Vocabulary, written: Written): string {
+  const parts: readonly Part[] = partsOf(lines, words, written)
+  const coloured = linesOfHtml(htmlOf(parts, words.kinds))
+  const source = lines.split('\n')
+  if (coloured.length !== source.length) {
+    throw new Error(`${source.length} lines went in and ${coloured.length} came out`)
+  }
+  const laid = coloured
+    .map((line, at) => {
+      const indent = /^ */.exec(source[at] ?? '')?.[0].length ?? 0
+      const body = line.replace(/^((?:<span[^>]*>)?) */, '$1')
+      if ((source[at] ?? '').trim() === '') return '<span class="l gap"></span>'
+      return `<span class="l" style="--in:${indent}ch">${body}</span>`
+    })
+    .join('')
+  const lost = parts.filter((p) => p.is === 'unknown').length
+  const note =
+    lost === 0
+      ? ''
+      : `<p class="lost">${lost} word${lost === 1 ? '' : 's'} here the vocabulary does not account for, drawn in red.</p>`
+  return `<pre class="y lines">${laid}</pre>${note}`
+}
+
+// ── the drawn view: the same lines, through the page control itself ──────────
+
+/** A drawn page, split from the keys it carries so a key is drawn once instead of once per page. */
+interface Drawn {
+  readonly sheet: string
+  readonly keys: readonly string[]
+}
+
+/**
+ * The lines of one block, drawn as a page.
+ *
+ * `against` names a real file whose header these lines are read with. The lines go into that
+ * file's own header, are read against that file's rulebook, and are drawn by the control that
+ * draws every other document, so the view is what the renderer really makes of them rather than a
+ * picture of one.
+ */
+function drawn(body: Mapping): Drawn {
+  const from = text(body.against)
+  const lines = text(body.yaml)
+  if (lines === null) {
+    return { sheet: '<p class="gone">no lines are written here, so there is nothing to draw.</p>', keys: [] }
+  }
+  if (from === null) {
+    return {
+      sheet: `<p class="gone">no file is named under <code>against</code>, so these lines belong to
+        no document yet and there is no page to draw them on.</p>`,
+      keys: [],
+    }
+  }
+
+  const path = join(REPO, from)
+  const host = yaml.load(readFileSync(path, 'utf8'))
+  if (!isMapping(host)) throw new Error(`${from} — this is not a document`)
+  const items = yaml.load(lines)
+  if (!Array.isArray(items)) throw new Error(`${from} — the lines under yaml are not declarations`)
+
+  const doc = { ...host, declare: items }
+  const rulebook = rulebookFor(doc, path)
+  if (rulebook.words === null) {
+    throw new Error(`${from} — ${rulebook.faults.map((f) => f.what).join('; ')}`)
+  }
+  const found = checkedAgainst(doc, path, rulebook)
+  const markup = renderToStaticMarkup(createElement(Page, { words: rulebook.words, doc, found }))
+
+  // The control draws a whole page, so it ends in the key telling a reader what the marks mean.
+  // Several pages on one page would carry it several times, and it is the same key, so it comes
+  // out here and is drawn once at the end.
+  if (!markup.startsWith('<main>') || !markup.endsWith('</main>')) {
+    throw new Error(`${from} — the drawn page is not the shape this renderer takes apart`)
+  }
+  const foot = markup.lastIndexOf('<div class="d-foot">')
+  if (foot < 0) throw new Error(`${from} — the drawn page carries no key to lift out`)
+  const inner = markup.slice('<main>'.length, markup.length - '</main>'.length)
+  const to = foot - '<main>'.length
+  return { sheet: `<div class="sheet">${inner.slice(0, to)}</div>`, keys: [inner.slice(to)] }
+}
+
+// ── one drawing for each kind of line ────────────────────────────────────────
+
+/** What one declaration comes to in the document, and any keys the pages it drew carried. */
+type Shows = (body: Mapping) => Drawn
+
+const plain = (html: string): Drawn => ({ sheet: html, keys: [] })
+
+/** The architecture language, which is where every vocabulary a reading is drawn with lives. */
+const ARCH = join('ts', 'metalang', 'arch.yaml')
+
+/** One document, read whole. */
+function documentAt(file: string): Mapping {
+  const doc = yaml.load(readFileSync(join(REPO, file), 'utf8'))
+  if (!isMapping(doc)) throw new Error(`${file} — this is not a document`)
+  return doc
+}
+
+/** Every declaration a document makes, whatever kind each one is written as. */
+const bodiesIn = (doc: Mapping): readonly Mapping[] =>
+  (Array.isArray(doc.declare) ? doc.declare : [])
+    .filter(isMapping)
+    .flatMap((one) => Object.values(one).filter(isMapping))
+
+/** One declaration of a document, by the name it is known by. */
+function declarationIn(file: string, id: string): Mapping {
+  const found = bodiesIn(documentAt(file)).find((body) => text(body.id) === id)
+  if (found === undefined) throw new Error(`${file} declares nothing called "${id}"`)
+  return found
+}
+
+/** The character a word of a vocabulary is drawn with, where it is drawn with one. */
+const markOf = (word: Mapping | undefined): string | null =>
+  word !== undefined && isMapping(word.appearance) ? text(word.appearance.mark) : null
+
+/** What each word of a closed set stands for, by the name it is known by. */
+const byId = (words: readonly Word[]): ReadonlyMap<string, Mapping> =>
+  new Map(words.map((one) => [one.id, one.value]))
+
+/** One word a closed set lists: the entry as written, and what its id stands for. */
+interface Word {
+  readonly id: string
+  readonly entry: Mapping
+  readonly value: Mapping
+}
+
+/**
+ * One closed set, read whole: every word it lists, and what a word of it is shown by. The name is
+ * asked of the vocabulary rather than read off a property this renderer names, so a language that
+ * spells its words differently draws the same way and no field name of a language is in this code.
+ */
+interface Vocab {
+  readonly words: readonly Word[]
+  /** What a word of this set is shown by, falling back to the id rather than to a guess. */
+  readonly named: (id: string, word: Mapping | undefined) => string
+}
+
+/**
+ * Every word one closed set lists, in the order it is written. A set whose entries this renderer
+ * cannot read comes back as a fault rather than as a shorter set, because a vocabulary drawn from
+ * half a list would read as the whole of one.
+ */
+function entriesOf(file: string, id: string): Vocab {
+  const doc = documentAt(file)
+  const found = bodiesIn(doc).find((body) => text(body.id) === id)
+  if (found === undefined) throw new Error(`${file} declares nothing called "${id}"`)
+  const listed = Array.isArray(found.values) ? found.values : []
+  const words = listed.filter(isMapping).flatMap((entry): Word[] => {
+    const name = text(entry.id)
+    if (name === null) return []
+    return [{ id: name, entry, value: isMapping(entry.value) ? entry.value : {} }]
+  })
+  if (words.length !== listed.length || words.length === 0) {
+    throw new Error(`${file} — "${id}" lists ${listed.length} words and this renderer read ${words.length}`)
+  }
+  return { words, named: nameIn(doc, found) }
+}
+
+/**
+ * What a word of one closed set is shown by: the property the type of its values says is the name.
+ * The vocabulary is asked which property that is — the question `role: name` exists to answer — so
+ * a set whose type says nothing is shown by the id, which is what it is written as.
+ */
+function nameIn(doc: Mapping, set: Mapping): (id: string, word: Mapping | undefined) => string {
+  const bodies = declaredBodiesOf(doc)
+  const bodyOf: BodyOf = (named) => bodies.get(named)
+  const of = typeOfOwnValue(set)
+  const held =
+    typeof of === 'string' && of.length > 0
+      ? propertyCarrying(bodyOf, of, ROLES.name)
+      : undefined
+  return (id, word) =>
+    word === undefined || held === undefined ? id : (text(word[held]) ?? id)
+}
+
+/** The document and declaration a drawing is read out of, or why it cannot be. */
+function readsFrom(body: Mapping): { file: string; id: string } | string {
+  const file = text(body.file)
+  const id = text(body.declaration)
+  if (file === null || id === null) return 'no document and declaration are named here.'
+  return { file, id }
+}
+
+/**
+ * One element as it would read: headed by what it IS and the name it is known by, the sentence
+ * saying what it does under the heading, and its members read down the page, each with the mark
+ * of its kind beside it. It is drawn out of the real document, so it cannot say anything that
+ * document does not.
+ */
+const showReading: Shows = (body) => {
+  const from = readsFrom(body)
+  if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
+  const held = declarationIn(from.file, from.id)
+  const value = isMapping(held.value) ? held.value : {}
+  const theForms = entriesOf(ARCH, 'forms')
+  const theKinds = entriesOf(ARCH, 'kinds')
+  const forms = byId(theForms.words)
+  const kinds = byId(theKinds.words)
+  const formId = text(value.form) ?? ''
+  const form = forms.get(formId)
+  const members = (Array.isArray(value.members) ? value.members : []).filter(isMapping)
+
+  const rows = members
+    .map((one) => {
+      const kindId = text(one.kind) ?? ''
+      const kind = kinds.get(kindId)
+      return `<li class="mem">
+        <span class="mem-mark" title="${escapeAttribute(theKinds.named(kindId, kind))}">${escape(markOf(kind) ?? '?')}</span>
+        <code class="mem-name">${said(one.name)}</code>
+        <span class="mem-kind">${escape(theKinds.named(kindId, kind))}</span>
+        <span class="mem-does">${said(one.does)}</span>
+      </li>`
+    })
+    .join('')
+
+  return plain(`<p class="plain says-line">${said(body.says)}</p>
+  <div class="look-card">
+    <p class="card-kind"><span class="card-mark">${escape(markOf(form) ?? '?')}</span>
+      ${escape(theForms.named(formId, form))}</p>
+    <h3 class="card-id">${said(held.id)}</h3>
+    <p class="card-does">${said(value.does)}</p>
+    <p class="card-sec">Its members</p>
+    ${members.length > 0 ? `<ul class="mems">${rows}</ul>` : `<p class="mem-none">${said(value.members)}</p>`}
+  </div>`)
+}
+
+/** A closed set, drawn whole: every word it lists, the mark it is drawn with, and a real one. */
+const showVocabulary: Shows = (body) => {
+  const from = readsFrom(body)
+  if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
+  const set = entriesOf(from.file, from.id)
+  const tiles = set.words
+    .map((word) => {
+      const mark = markOf(word.value)
+      const example = text(word.value.example)
+      const line = text(word.entry.title) ?? text(word.value.description) ?? text(word.entry.description)
+      if (line === null) {
+        throw new Error(`${from.file} — "${from.id}" says nothing about "${word.id}"`)
+      }
+      return `<div class="tile">
+        ${mark === null ? '' : `<span class="tile-mark">${escape(mark)}</span>`}
+        <b class="tile-name">${escape(set.named(word.id, word.value))}</b>
+        ${example === null ? '' : `<code class="tile-eg">${escape(example)}</code>`}
+        <p class="tile-says">${escape(line)}</p>
+      </div>`
+    })
+    .join('')
+  return plain(`<p class="plain">${said(body.says)}</p><div class="vocab">${tiles}</div>`)
+}
+
+/** One thing wrong with what a reader has today. */
+const showProblem: Shows = (body) => plain(`<p class="problem">${said(body.says)}</p>`)
+
+/** One labelled part of a decision, written once however it is filled. */
+const under = (label: string, inside: string): string =>
+  `<p class="dec-label">${escape(label)}</p>${inside}`
+
+/** A part of a decision written as one run of text, with a decided absence read as one. */
+const asText = (held: unknown, how: string): string =>
+  text(held) === 'none'
+    ? '<p class="dec-none">none</p>'
+    : `<p class="${how}">${said(held)}</p>`
+
+/**
+ * One decision, with every part a reader needs to answer it.
+ *
+ * Nothing here is folded away and nothing is summarised: the word is drawn as the word, the lines
+ * are drawn as the document they would make, and what the checker says is quoted from the checker.
+ * A part that does not apply reads `none`, which the language made it say out loud.
+ */
+const showDecision: Shows = (body) => {
+  const keys: string[] = []
+
+  const changes =
+    text(body.changes) === 'none'
+      ? '<p class="dec-none">none — it changes no lines.</p>'
+      : (Array.isArray(body.changes) ? body.changes : [])
+          .filter(isMapping)
+          .map((block) => {
+            const page = drawn(block)
+            keys.push(...page.keys)
+            return `<p class="where"><code>${said(block.file)}</code></p>
+              <p class="does">${said(block.says)}</p>${page.sheet}`
+          })
+          .join('')
+
+  const refuses =
+    text(body.refuses) === 'none'
+      ? '<p class="dec-none">none — it refuses nothing it did not refuse before.</p>'
+      : (Array.isArray(body.refuses) ? body.refuses : [])
+          .filter(isMapping)
+          .map(
+            (one) => `<div class="pair"><pre class="given">${said(one.given)}</pre>
+              <p class="checker">${said(one.says)}</p></div>`,
+          )
+          .join('')
+
+  const parts =
+    text(body.parts) === 'none'
+      ? ''
+      : `<div class="senses">${(Array.isArray(body.parts) ? body.parts : [])
+          .filter(isMapping)
+          .map(
+            (one) => `<div class="sense"><code class="sense-word">${said(one.word)}</code>
+              <p class="sense-says">${said(one.says)}</p></div>`,
+          )
+          .join('')}</div>`
+
+  return {
+    sheet: `<section class="dec">
+      <p class="dec-name">${said(body.id)}
+        <span class="state">${said(body.state)}</span></p>
+      <h3 class="dec-says">${said(body.says)}</h3>
+      ${under('The word', `<p class="dec-word"><code>${said(body.word)}</code></p>${parts}`)}
+      ${under('What it means', asText(body.means, 'dec-text'))}
+      ${under('The lines', changes)}
+      ${under('What you would read', asText(body.result, 'dec-result'))}
+      ${under('What the checker refuses', refuses)}
+      ${under('Recommended', asText(body.pick, 'pick'))}
+      ${under('Instead', asText(body.instead, 'dec-text'))}
+      ${under('If it is not taken', asText(body.rejected, 'dec-text'))}
+      ${under('It costs', asText(body.costs, 'dec-text'))}
+    </section>`,
+    keys,
+  }
+}
+
+/**
+ * The three stages a proposal is read in, in order. Each is drawn once, where the first thing
+ * belonging to it sits, and says what it holds and what the reader does with it, because a band
+ * naming a stage and nothing else leaves a reader to work out why it is there.
+ */
+interface Step {
+  readonly at: number
+  readonly head: string
+  readonly why: string
+}
+
+const STEPS = {
+  failure: {
+    at: 1,
+    head: 'The failure now',
+    why: 'What the page draws today, and why the architecture cannot be read off it. Nothing to answer here.',
+  },
+  intended: {
+    at: 2,
+    head: 'What it should read',
+    why:
+      'The same part of the guard, drawn as it would be, with the closed sets its marks come from.' +
+      ' Read it and say whether it is what you want. Nothing to answer here either.',
+  },
+  decide: {
+    at: 3,
+    head: 'What you decide',
+    why:
+      'One block for each thing waiting on you. Each carries the word it adds, what that word means,' +
+      ' the exact lines, and what you would read once it is in. Answer each one by the name at its head.',
+  },
+} as const satisfies Readonly<Record<string, Step>>
+
+interface Kind {
+  /** The stage of the read this kind belongs to. */
+  readonly step: Step
+  readonly show: Shows
+}
+
+const KINDS: Readonly<Record<string, Kind>> = {
+  problem: { step: STEPS.failure, show: showProblem },
+  reading: { step: STEPS.intended, show: showReading },
+  vocabulary: { step: STEPS.intended, show: showVocabulary },
+  decision: { step: STEPS.decide, show: showDecision },
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+
+/** What the checker found, drawn where it cannot be missed. */
+function found(doc: unknown, file: string): string {
+  const rulebook = rulebookFor(doc, file)
+  const result = checkedAgainst(doc, file, rulebook)
+  const faults = [
+    ...rulebook.faults.map((f) => `${f.where} ${f.what}`),
+    ...result.blockers.map((f) => `${f.where} ${f.what}`),
+    ...result.problems.map((f) => `${f.where} ${f.what}`),
+    ...result.pending.map((f) => `${f.where} ${f.what}`),
+  ]
+  if (faults.length === 0) return ''
+  return `<div class="wrong"><p><b>${faults.length} the checker found in this proposal</b></p><ul>${faults
+    .map((f) => `<li>${escape(f)}</li>`)
+    .join('')}</ul></div>`
+}
+
+/** The page's own look. Every element selector is left to the stylesheet this page reads in. */
+const PAGE = `
+  .split { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,2fr); gap:0 32px;
+           align-items:start; max-width:1460px; margin:0 auto; padding:26px 24px 90px; }
+  @media (max-width: 980px) { .split { grid-template-columns:1fr; } .look { position:static; } }
+
+  /* The lines, on the left, for whatever is chosen on the right and nothing else. */
+  .look { position:sticky; top:22px; max-height:calc(100vh - 44px); overflow:auto; }
+  .look-head { font:600 11px var(--mono); letter-spacing:.09em; text-transform:uppercase;
+               color:var(--dim); margin:0 0 8px; }
+  pre.y.lines { white-space:normal; margin:0; }
+  .l { display:block; white-space:pre-wrap; padding-left:calc(var(--in, 0ch) + 2ch);
+       text-indent:-2ch; }
+  .gap { height:.55em; }
+
+  /* The document, on the right, read straight down. */
+  .doc { min-width:0; }
+  .sec { font:600 11px var(--mono); letter-spacing:.1em; text-transform:uppercase; color:var(--dim);
+         margin:34px 0 10px; border-bottom:1px solid var(--rule); padding-bottom:6px; }
+  .sec:first-child { margin-top:0; }
+  .area { border-left:3px solid transparent; border-radius:0 8px 8px 0; padding:10px 12px;
+          margin:0 0 4px -15px; cursor:pointer; }
+  .area:hover { border-left-color:var(--rule); background:var(--card); }
+  .area.on { border-left-color:var(--accent); background:var(--card); }
+  .area:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  .standfirst { color:var(--soft); margin:0; font-size:17px; }
+  .says { font-size:19px; line-height:1.45; margin:0 0 12px; }
+  .pick { background:var(--accent-soft); border-radius:8px; padding:10px 12px; color:var(--ink); margin:0; }
+  .stateline { margin:0 0 8px; }
+  .state { font:600 11px var(--mono); letter-spacing:.08em; text-transform:uppercase;
+           background:var(--warm-soft); color:var(--warm); border:1px solid var(--warm-line);
+           border-radius:999px; padding:3px 10px; }
+  .plain { margin:0; }
+  .where { margin:0 0 4px; }
+  .where code { font:600 13px var(--mono); background:var(--band); padding:2px 7px; border-radius:5px; }
+  .does { margin:0 0 12px; color:var(--soft); }
+  .sheet { border:1px solid var(--rule); border-radius:10px; padding:18px 20px; background:var(--paper); }
+  .pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px; align-items:start; }
+  @media (max-width: 760px) { .pair { grid-template-columns:1fr; } }
+  pre.given { font:400 12.5px/1.6 var(--mono); background:var(--band); border:1px solid var(--rule);
+              border-radius:8px; padding:10px 12px; margin:0; overflow-x:auto; white-space:pre-wrap; }
+  .checker { background:var(--bad-soft); border:1px solid var(--bad-line); color:var(--bad);
+             border-radius:8px; padding:10px 12px; font:400 12.5px/1.6 var(--mono); margin:0; }
+  .lost { color:var(--bad); font-size:13px; margin:6px 0 0; }
+  .gone { color:var(--bad); }
+  .wrong { background:var(--bad-soft); border:1px solid var(--bad-line); border-radius:8px;
+           padding:12px 14px; margin:0 0 18px; }
+  .wrong ul { margin:6px 0 0; padding-left:20px; font:400 12.5px/1.7 var(--mono); }
+  details.key { margin:0 0 8px; }
+  details.key > summary { cursor:pointer; color:var(--soft); font-size:14px; padding:6px 0; }
+  details.key > .sheet { margin-top:8px; }
+  #store { display:none; }
+
+  /* A drawn page is drawn into this page's own flow, so it gives up the margins of a page, and
+     the chrome naming the file it came from, which the line above the sheet already says. */
+  .sheet .d-top { display:none; }
+  .sheet .d-section-name { display:none; }
+  .sheet .d-foot { margin-top:0; }
+
+  /* ── what is wrong: short statements, read one after another ───────────── */
+  .says-line { margin:0 0 12px; color:var(--soft); }
+  .problem { font-size:18px; line-height:1.5; margin:0; padding-left:14px;
+             border-left:3px solid var(--bad-line); color:var(--ink); }
+
+  /* ── one element as it would read ───────────────────────────────────────── */
+  .look-card { background:var(--card); border:1px solid var(--rule); border-radius:12px;
+               padding:20px 22px 16px; box-shadow:0 1px 2px rgba(21,25,43,.04); }
+  .card-kind { display:flex; align-items:center; gap:9px; margin:0 0 2px;
+               font:600 12px var(--mono); letter-spacing:.1em; text-transform:uppercase;
+               color:var(--accent); }
+  .card-mark { display:inline-grid; place-items:center; min-width:24px; height:24px; padding:0 5px;
+               border-radius:7px; background:var(--accent-soft); border:1px solid var(--accent-line);
+               font:600 13px var(--mono); letter-spacing:0; color:var(--accent); }
+  .card-id { font:600 27px/1.2 var(--mono); letter-spacing:-.02em; margin:0 0 6px; }
+  .card-does { font-size:17px; line-height:1.45; color:var(--soft); margin:0 0 18px;
+               max-width:62ch; }
+  .card-sec { font:600 11px var(--mono); letter-spacing:.1em; text-transform:uppercase;
+              color:var(--dim); margin:0 0 6px; border-top:1px solid var(--rule); padding-top:12px; }
+  .mems { list-style:none; margin:0; padding:0; }
+  .mem { display:grid; grid-template-columns:62px minmax(0,auto) minmax(0,auto) minmax(0,1fr);
+         gap:0 12px; align-items:baseline; padding:8px 0; border-bottom:1px solid var(--band); }
+  .mem:last-child { border-bottom:0; }
+  .mem-mark { justify-self:start; display:inline-grid; place-items:center; min-width:26px;
+              height:20px; padding:0 7px; border-radius:6px; background:var(--band);
+              color:var(--soft); font:600 10.5px/1 var(--mono); white-space:nowrap; }
+  .mem-name { font:600 15px var(--mono); color:var(--ink); }
+  .mem-kind { font-size:12.5px; color:var(--dim); }
+  .mem-does { color:var(--soft); font-size:15px; line-height:1.4; }
+  @media (max-width: 760px) { .mem { grid-template-columns:62px minmax(0,1fr); }
+                              .mem-kind, .mem-does { grid-column:2; } }
+  .mem-none { margin:0; color:var(--soft); }
+
+  /* ── a closed set, drawn whole ──────────────────────────────────────────── */
+  .vocab { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
+           margin:12px 0 0; }
+  @media (max-width: 900px) { .vocab { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 560px) { .vocab { grid-template-columns:1fr; } }
+  /* ── the three stages, drawn as a progression ──────────────────────────── */
+  .step { display:grid; grid-template-columns:auto minmax(0,1fr); gap:0 16px; align-items:start;
+          margin:52px 0 18px; padding-top:22px; border-top:2px solid var(--ink); }
+  .step:first-child { margin-top:0; }
+  .step-no { display:inline-grid; place-items:center; width:42px; height:42px; border-radius:50%;
+             background:var(--ink); color:var(--paper); font:600 21px/1 var(--mono); }
+  .step-head { font:600 25px/1.2 var(--sans); margin:4px 0 4px; letter-spacing:-.015em; }
+  .step-why { margin:0; color:var(--soft); font-size:15.5px; line-height:1.5; max-width:70ch; }
+
+  /* ── the parts of a word, side by side ─────────────────────────────────── */
+  .senses { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px; margin:12px 0 0; }
+  @media (max-width: 820px) { .senses { grid-template-columns:1fr; } }
+  .sense { background:var(--band); border:1px solid var(--rule); border-radius:10px;
+           padding:12px 13px 13px; }
+  .sense-word { display:inline-block; font:600 14px var(--mono); color:var(--accent);
+                background:var(--accent-soft); border:1px solid var(--accent-line);
+                border-radius:6px; padding:2px 8px; }
+  .sense-says { margin:8px 0 0; color:var(--ink); font-size:14.5px; line-height:1.45; }
+
+  /* ── one decision, with every part a reader needs to answer it ──────────── */
+  .dec { background:var(--card); border:1px solid var(--rule); border-radius:12px;
+         padding:20px 22px 18px; margin:0; }
+  .dec-name { font:600 13px var(--mono); color:var(--accent); margin:0 0 6px;
+              display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .dec-says { font:600 21px/1.35 var(--sans); margin:0 0 4px; letter-spacing:-.01em; }
+  .dec-label { font:600 11px var(--mono); letter-spacing:.1em; text-transform:uppercase;
+               color:var(--dim); margin:20px 0 6px; border-top:1px solid var(--band);
+               padding-top:12px; }
+  .dec-text { margin:0; color:var(--soft); font-size:15.5px; line-height:1.5; max-width:74ch; }
+  .dec-word { margin:0; }
+  .dec-word code { font:600 19px var(--mono); background:var(--accent-soft);
+                   border:1px solid var(--accent-line); color:var(--accent);
+                   border-radius:8px; padding:4px 10px; }
+  .dec-result { margin:0; font-size:16px; line-height:1.5; max-width:74ch; color:var(--ink);
+                background:var(--warm-soft); border:1px solid var(--warm-line);
+                border-radius:8px; padding:11px 13px; }
+  .dec-none { margin:0; color:var(--dim); font-size:15px; }
+  .dec .where { margin:14px 0 4px; }
+  .dec .where:first-of-type { margin-top:0; }
+  .dec .pair + .pair { margin-top:10px; }
+  .dec .sheet { background:var(--paper); }
+  .tile { background:var(--card); border:1px solid var(--rule); border-radius:10px;
+          padding:12px 14px 13px; }
+  .tile-mark { display:inline-grid; place-items:center; min-width:26px; height:26px; padding:0 6px;
+               border-radius:7px; background:var(--band); color:var(--ink);
+               font:600 14px var(--mono); }
+  .tile-name { display:block; margin:8px 0 2px; font-size:15px; }
+  .tile-eg { display:block; font:400 12px var(--mono); color:var(--accent); margin:0 0 6px;
+             overflow-wrap:anywhere; }
+  .tile-says { margin:0; color:var(--soft); font-size:13.5px; line-height:1.4; }
+`
+
+/**
+ * Choosing a part of the document puts the lines that make it on the left.
+ *
+ * A part whose lines are not on the page says so in place of them, because an empty panel would
+ * read as a part made of nothing.
+ */
+const CHOOSE = `
+  const panel = document.getElementById('panel')
+  const head = document.getElementById('panel-head')
+  const store = document.getElementById('store')
+  const show = (area) => {
+    const held = store.querySelector('[data-for="' + area.dataset.at + '"]')
+    for (const other of document.querySelectorAll('.area.on')) other.classList.remove('on')
+    area.classList.add('on')
+    head.textContent = area.dataset.says
+    panel.innerHTML = held
+      ? held.innerHTML
+      : '<p class="lost">the lines for this part are not on the page.</p>'
+    document.querySelector('.look').scrollTop = 0
+  }
+  for (const area of document.querySelectorAll('.area')) {
+    area.addEventListener('click', () => show(area))
+    area.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(area) }
+    })
+  }
+`
+
+/** One page from one proposal document. */
+export function pageFor(file: string): string {
+  const doc = yaml.load(readFileSync(file, 'utf8'))
+  if (!isMapping(doc)) throw new Error(`${basename(file)} — this is not a document`)
+  const rulebook = rulebookFor(doc, file)
+  if (rulebook.words === null) {
+    throw new Error(`${basename(file)} — ${rulebook.faults.map((f) => f.what).join('; ')}`)
+  }
+  const own: Own = { words: rulebook.words, written: { declared: declaredBodiesOf(doc) } }
+  const declared = Array.isArray(doc.declare) ? doc.declare : []
+  const regions = regionsOf(file, declared)
+
+  const title = escape(text(doc.title) ?? basename(file))
+  const keys = new Set<string>()
+  const held: string[] = []
+  let under: number | null = null
+
+  const area = (at: number, says: string, inside: string): string =>
+    `<div class="area" tabindex="0" data-at="${at}" data-says="${escapeAttribute(says)}">${inside}</div>`
+
+  const parts = regions
+    .map((region, at) => {
+      const inside: Written = region.kind === null ? own.written : { ...own.written, inside: 'declaration' }
+      held.push(
+        `<div data-for="${at}">${block(region.source.replace(/\n+$/, ''), own.words, inside)}</div>`,
+      )
+
+      if (region.kind === null) {
+        under = null
+        return area(
+          at,
+          'the head of the file',
+          `<h1>${title}</h1>
+           <p class="standfirst">${escape(text(doc.description) ?? '')}</p>`,
+        )
+      }
+
+      const kind = region.kind
+      const known = KINDS[kind]
+      const step = known === undefined ? null : known.step
+      const sec =
+        step === null
+          ? `<p class="sec">${escape(kind)}</p>`
+          : under === step.at
+            ? ''
+            : `<div class="step"><span class="step-no">${step.at}</span>
+               <div class="step-of"><h2 class="step-head">${escape(step.head)}</h2>
+               <p class="step-why">${escape(step.why)}</p></div></div>`
+      under = step === null ? null : step.at
+
+      // A kind this renderer has no drawing for is still the document's, so it says so where that
+      // declaration sits rather than being quietly left off the page.
+      if (known === undefined) {
+        return `${sec}${area(
+          at,
+          `${kind} ${text(region.body?.id) ?? ''}`.trim(),
+          `<div class="wrong"><p><b>This renderer has no section for ${escape(
+            kind,
+          )}</b>, so what the document says under it is not drawn here.</p></div>`,
+        )}`
+      }
+
+      const shown = known.show(region.body ?? {})
+      for (const one of shown.keys) keys.add(one)
+      return `${sec}${area(at, `${kind} ${text(region.body?.id) ?? ''}`.trim(), shown.sheet)}`
+    })
+    .join('')
+
+  // Every drawn page ends with a key saying what its marks mean. It is kept, folded shut and
+  // unlabelled beyond what it is, because a reader who does not need it should not have to read
+  // past it, and a reader who does needs one click.
+  const folded = [...keys]
+    .map((shown) => `<details class="key"><summary>what the marks mean</summary>
+      <div class="sheet">${shown}</div></details>`)
+    .join('')
+
+  const band = found(doc, file)
+  const css = [readFileSync(STYLE, 'utf8'), readFileSync(SYNTAX, 'utf8'), PAGE].join('\n')
+
+  return `<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title}</title>
+<style>${css}</style>
+${band === '' ? '' : `<div class="split"><div></div>${band}</div>`}
+<div class="split">
+  <div class="look">
+    <p class="look-head" id="panel-head">The lines</p>
+    <div id="panel"></div>
+  </div>
+  <div class="doc">
+    ${parts}
+    ${folded}
+  </div>
+</div>
+<div id="store">${held.join('')}</div>
+<script>${CHOOSE}</script>
+</html>
+`
+}
+
+if (import.meta.main) {
+  const file = process.argv[2] ?? join(REPO, 'handoff', 'propose', 'kinds.yaml')
+  const out = process.argv[3] ?? file.replace(/\.ya?ml$/, '.html')
+  writeFileSync(out, pageFor(file))
+  console.log(`${basename(out)} — drawn from ${basename(file)}`)
+}
