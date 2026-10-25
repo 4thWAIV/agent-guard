@@ -48,6 +48,10 @@ declare:
       is: part
       value:
         file: words.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: record
         does: The whole vocabulary as one value, so nothing reads a subset of it.
         members:
@@ -93,6 +97,10 @@ declare:
       is: part
       value:
         file: words.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: record
         does: One thing to say about one place in a document.
         members:
@@ -108,6 +116,10 @@ declare:
       is: part
       value:
         file: rulebook.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: record
         does: The vocabulary a document is read against, or why it could not be read.
         members:
@@ -123,6 +135,10 @@ declare:
       is: part
       value:
         file: expression.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: interface
         does: A regular expression that has been read, and what it matches.
         members:
@@ -138,6 +154,10 @@ declare:
       is: part
       value:
         file: check.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: function
         does: Reads one document against a vocabulary and says what is wrong with it.
         members: none
@@ -147,6 +167,10 @@ declare:
       is: part
       value:
         file: highlight.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
         form: function
         mark: "◇"
         does: Where a path written in a highlight points, in the form the page writes.

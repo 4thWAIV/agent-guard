@@ -15,7 +15,7 @@
 #   - A value written against a choice belongs to whichever option it is a value of, asked
 #     narrowest first. Each mark below is a `string`, and a uri would be a `uri`.
 #   - A value written against a property whose type is an entity is read one level further down,
-#     each key against the property it names. The `appearance` of each form is read that way.
+#     each key against the property it names. The value each form's id stands for is read that way.
 # The checker never skips or passes what it cannot verify: it reports a blocker or a problem.
 #
 # ── APPROVED — one element, the naming dictionary moved out, and `mark` under `appearance`. ──
@@ -32,9 +32,9 @@
 #     this language, with one entry for each form in each language. What each language calls a
 #     form is naming rather than architecture, and it is also the first half of the verifiable
 #     path to each language, which is where the second half will be written.
-#   - `mark` now sits under `appearance`, an entity declared here, which is the grouping Tim asked
-#     for on 2026-10-18. The `mark` choice itself stays in this file, because
-#     `ts/metalang/parts.yaml` names it as a type of its own.
+#   - `mark` sat under `appearance`, an entity declared here, which was the grouping Tim asked for
+#     on 2026-10-18. The wrapper was retired on 2026-10-25, below. The `mark` choice itself stays
+#     in this file, because `ts/metalang/parts.yaml` names it as a type of its own.
 #
 # What is left in this file is `form`, `forms`, `element`, and the two declarations that say how a
 # form is drawn.
@@ -117,7 +117,7 @@
 #     saying `members` is optional because `reportLines` is a function with no members at all:
 #     `reportLines` now writes `members: none`, which says that and says it was decided.
 #   - `word` is one word of a vocabulary this language draws, carrying the four properties `form`
-#     and `kind` each had — `appearance`, `example`, `name` and `description` — written once, with
+#     and `kind` each had — the mark, `example`, `name` and `description` — written once, with
 #     `form` and `kind` deriving from it and writing none of them. It is abstract, so nothing is
 #     ever directly of it. Tim took it before step 4 writes the third copy of those four, which is
 #     cheaper than unpicking three.
@@ -125,6 +125,34 @@
 # `role: name` sits on `word.name`. A value naming one of these words is drawn with the name as
 # well as the id, because the id is what it is written as and the name is what it is called, and
 # it is what takes the last field name out of the two renderers that draw this language.
+# ── APPROVED — the mark on the word itself, and where a thing sits. ──
+#                                                                                   2026-10-25
+# Tim approved four changes, through his jarvis session, each put to him as the word it uses, the
+# lines it adds, what the checker refuses and the page it draws:
+#
+#   - `role: mark` on `word.mark`. The glyph comes up onto the word itself and the `appearance`
+#     wrapper is retired. A role answers one question about a type, and a wrapper holding one
+#     property put the answer out of reach: the only route from a page to the glyph was writing
+#     the words `appearance` and `mark` into that page's code. Every card is now headed by the
+#     mark of what it is, and a member reads `() method`.
+#   - A value naming one member of a closed set draws the name only where the name says what the
+#     id does not. Every form is named after itself, so `interface Interface` was one word read
+#     twice; the naming dictionary still reads `csharp C#`, which is the case worth drawing.
+#   - `places` is the third closed vocabulary of this language, beside the six forms and the five
+#     kinds of member: a package is shipped, an assembly is loaded, a namespace groups names
+#     inside one. Each carries its own mark, a real example, the name it is shown by and a
+#     sentence, and takes a colour from its place in the set, as every other vocabulary does.
+#   - `sits` on `element` holds one line for each of those places, written with MetaLang's new
+#     `map`, and `path` is the type a place's name is. A level the language has no word for says
+#     `none`: the three types in AgentGuard.Abstractions ship inside another package, and the
+#     TypeScript side has neither an assembly nor a namespace. The keys belong to the vocabulary,
+#     so the order is fixed, an invented place is refused by name, and a place left out is
+#     reported rather than read as an absence.
+#
+# What each language calls each kind of place is not written. Tim decided on 2026-10-25 to leave
+# it until a document needs it, because the three words read the same in C#, Python, Rust and
+# TypeScript, and a dictionary written before anything asks it would be wrong in whichever way the
+# first real non-C# document turns out to need.
 
 scope: [arch]
 import:
@@ -138,13 +166,6 @@ declare:
       title: The character a form is drawn with, or a uri saying where its mark is drawn from.
 
   - entity:
-      id: appearance
-      is: object
-      title: How a form is drawn, and nothing else about it.
-      properties:
-        mark: { is: mark, title: "The character it is drawn with, or where it is drawn from." }
-
-  - entity:
       id: word
       is: object
       abstract: true
@@ -153,7 +174,10 @@ declare:
         Every closed vocabulary here is read as a set of these, so the four words they share are
         written once and a new vocabulary cannot drift from the others.
       properties:
-        appearance: { is: appearance, title: How it is drawn. }
+        mark:
+          is: mark
+          role: mark
+          title: "The character it is drawn with, or where it is drawn from."
         example:
           is: string
           accepts: [pending]
@@ -177,37 +201,37 @@ declare:
       values:
         - id: interface
           value:
-            appearance: { mark: "◇" }
+            mark: "◇"
             example: IGuard
             name: Interface
             description: A declaration of surface with no implementation.
         - id: class
           value:
-            appearance: { mark: "■" }
+            mark: "■"
             example: FileGuard
             name: Class
             description: An implementation satisfying an interface.
         - id: record
           value:
-            appearance: { mark: "≡" }
+            mark: "≡"
             example: Verdict
             name: Record
             description: Data only. No behaviour.
         - id: enum
           value:
-            appearance: { mark: "◈" }
+            mark: "◈"
             example: VerdictKind
             name: Enum
             description: A closed set of values.
         - id: function
           value:
-            appearance: { mark: "ƒ" }
+            mark: "ƒ"
             example: reportLines
             name: Function
             description: A callable belonging to no type.
         - id: process
           value:
-            appearance: { mark: "▷" }
+            mark: "▷"
             example: the Conversation phase
             name: Process
             description: An ordered run of steps with a gate at each end.
@@ -225,34 +249,76 @@ declare:
       values:
         - id: method
           value:
-            appearance: { mark: "()" }
+            mark: "()"
             example: IGuard.PrecheckAsync
             name: Method
             description: A callable on a type. Carries a signature.
         - id: constructor
           value:
-            appearance: { mark: new }
+            mark: new
             example: FileGuard(FileGuardConfiguration)
             name: Constructor
             description: How an instance comes into being.
         - id: property
           value:
-            appearance: { mark: get/set }
+            mark: get/set
             example: Verdict.Kind
             name: Property
             description: Accessed as data, computed as behaviour.
         - id: field
           value:
-            appearance: { mark: "▪" }
+            mark: "▪"
             example: FileGuard._defaultVerifier
             name: Field
             description: Stored data on a type.
         - id: value
           value:
-            appearance: { mark: "◆" }
+            mark: "◆"
             example: VerdictKind.Deny
             name: Value
             description: One of the closed set an enum declares. Not stored data on a type.
+
+  - entity:
+      id: path
+      is: string
+      title: The name of a place, written in parts separated by dots.
+      description: >
+        A package, an assembly and a namespace are all named this way. MetaLang's `name` would
+        refuse both the dot an assembly carries and the hyphen a package carries.
+      constraints:
+        - pattern: { value: '[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_-]*)*' }
+
+  - entity:
+      id: place
+      is: word
+      title: One kind of place an element can sit in.
+      description: >
+        Each one is a level of its own: a package is shipped, an assembly is loaded, a namespace
+        groups names inside one. A language that has no word for a level has none of that kind.
+
+  - enum:
+      id: places
+      is: place
+      title: Every kind of place, widest first.
+      values:
+        - id: package
+          value:
+            mark: "▣"
+            example: AgentGuard.Engine
+            name: Package
+            description: What is shipped and depended on as one thing.
+        - id: assembly
+          value:
+            mark: "▤"
+            example: AgentGuard.Abstractions
+            name: Assembly
+            description: What is compiled and loaded as one thing.
+        - id: namespace
+          value:
+            mark: "::"
+            example: AgentGuard.Abstractions.Contracts
+            name: Namespace
+            description: What names are grouped under inside an assembly.
 
   - entity:
       id: member
@@ -290,3 +356,7 @@ declare:
           list: { of: member }
           accepts: [none, pending]
           title: The members it has, in the order the source declares them.
+        sits:
+          map: { by: places, of: path, accepts: [none] }
+          accepts: [none, pending]
+          title: Where it sits, one line for each kind of place.
