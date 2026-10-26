@@ -626,6 +626,16 @@
 # not list is refused by name, and a word that holds nothing says so with a state written under
 # `accepts`. `ts/metalang/arch.yaml` writes where an element sits with it.
 #
+# ── APPROVED — a value that names a declaration. ──                                 2026-10-25
+# Tim approved `link`: a value written as the id of a declaration, with `to` naming the type that
+# declaration must carry a value of. Nothing MetaLang could write before it pointed at another
+# declaration, so a relation between two things could only be written as text nothing reads. It is
+# written out the way a collection is, so many of them is `list: { of: { link: { to: element } } }`
+# and nothing further is needed to say that one thing stands to two others. A name nothing the
+# document reaches declares is refused where it is written, and so is a name whose declaration
+# carries no value, or carries a value of another type. `ts/metalang/arch.yaml` writes how two
+# elements relate with it.
+#
 # He also approved `mark`, a fourth member of `role`, saying which property of a type holds the
 # character a thing is drawn with. The three roles before it reached a thing's kind, its prose and
 # its name; there was no third step to the glyph, so the only route to it was writing a property
@@ -788,6 +798,19 @@ declare:
       properties:
         ordered: { value: false }
         unique: { value: false }
+
+  - entity:
+      id: link
+      is: object
+      title: A value naming one declaration.
+      description: >
+        It is written as the id of a declaration, and the one it names has to carry a value of the
+        type written under `to`. A name nothing the document reaches declares is reported, so a
+        thing written down here can never point at nothing.
+      properties:
+        to:
+          is: type
+          title: The type the declaration it names carries a value of.
 
   - entity:
       id: map

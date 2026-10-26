@@ -146,6 +146,8 @@ export const SELF = {
   object: 'object',
   /** The type every kind of many-of-a-thing derives from. */
   collection: 'collection',
+  /** The type a value naming one declaration is written out as. */
+  link: 'link',
   /** The enum listing what a value may say in place of a value of its own type. */
   reserved: 'reserved',
 } as const

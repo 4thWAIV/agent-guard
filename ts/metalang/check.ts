@@ -504,6 +504,10 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       return
     }
     const [word, inner] = one
+    if (lookUp(word) !== undefined && derivesFrom(lookUp, word, SELF.link)) {
+      judgesLink(where, word, isMapping(inner) ? inner.to : undefined, value, lookUp)
+      return
+    }
     if (lookUp(word) === undefined || !derivesFrom(lookUp, word, SELF.collection)) {
       block(
         where,
@@ -536,6 +540,42 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
         fail(`${where}[${i}]`, `repeats an earlier member, and the members of ${a(word)} are unique`)
       }
       earlier.push(member)
+    }
+  }
+
+  /**
+   * A value naming one declaration. The name is read against everything the document reaches, so a
+   * relation can never point at nothing: a name nothing declares is reported where it is written,
+   * and a name whose declaration carries a value of some other type is reported as what it is,
+   * because a thing pointing at the wrong kind of thing is not a relation either.
+   */
+  const judgesLink = (
+    where: string,
+    word: string,
+    to: unknown,
+    value: unknown,
+    lookUp: BodyOf,
+  ): void => {
+    if (typeof to !== 'string' || to.length === 0) {
+      block(where, `nothing says what ${a(word)} here names, so what is written here cannot be checked`)
+      return
+    }
+    if (typeof value !== 'string' || value.length === 0) {
+      fail(where, `is not written as the name of a declaration, which is how a value of ${a(word)} is written`)
+      return
+    }
+    const named = lookUp(value)
+    if (named === undefined) {
+      fail(where, `nothing this document reaches declares "${value}"`)
+      return
+    }
+    const carries = typeOfOwnValue(named)
+    if (named[VALUE] === undefined || typeof carries !== 'string' || carries.length === 0) {
+      fail(where, `"${value}" carries no value of its own, so it is not ${a(to)}`)
+      return
+    }
+    if (carries !== to && !derivesFrom(lookUp, carries, to)) {
+      fail(where, `"${value}" carries a value of "${carries}", and what is named here is ${a(to)}`)
     }
   }
 

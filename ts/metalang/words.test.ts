@@ -201,9 +201,10 @@ describe('the words the reader knows before it reads anything', () => {
       'value',
       'object',
       'collection',
+      'link',
       'reserved',
     ])
-    for (const named of [SELF.document, SELF.property, SELF.value, SELF.object, SELF.collection]) {
+    for (const named of [SELF.document, SELF.property, SELF.value, SELF.object, SELF.collection, SELF.link]) {
       expect(named in WORDS.entities).toBe(true)
     }
     for (const named of [SELF.declaration, SELF.external, SELF.type]) {

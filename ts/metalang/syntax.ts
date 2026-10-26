@@ -20,6 +20,7 @@
 
 import { cannotApply, constraintsOn, readerFor, unmetBy } from './constraints.ts'
 import {
+  ACCEPTS,
   acceptsOf,
   BOOTSTRAP,
   derivesFrom,
@@ -203,16 +204,33 @@ export function partsOf(text: string, words: Vocabulary, written: Written = {}):
       if (propertiesOf(bodyOf, held).size > 0) return { of: 'mapping', owner: held }
       return { of: 'scalar', type: held }
     }
-    // A type written out rather than named is a collection saying what it holds.
+    // A type written out rather than named is a collection saying what it holds, or a value
+    // naming one declaration.
     if (isMapping(held)) {
       const word = onlyWord(held)
+      // A name pointing at a declaration is read the same way a name pointing at a type is, so a
+      // name nothing a reader can reach declares is marked here as it is anywhere else.
+      if (word !== null && derivesFrom(bodyOf, word[0], SELF.link)) {
+        return { of: 'scalar', type: SELF.type }
+      }
       if (word !== null && derivesFrom(bodyOf, word[0], SELF.collection)) {
-        const body = word[1]
-        return { of: 'collection', member: isMapping(body) ? body[OF] : undefined }
+        const body = isMapping(word[1]) ? word[1] : {}
+        const taken = Array.isArray(body[ACCEPTS])
+          ? (body[ACCEPTS] as unknown[]).filter((one): one is string => typeof one === 'string')
+          : []
+        // The states written where a collection says what it holds stand in place of one of
+        // those, so they are carried down to each one rather than to the collection itself.
+        return taken.length > 0
+          ? { of: 'collection', member: body[OF], accepts: taken }
+          : { of: 'collection', member: body[OF] }
       }
     }
     return UNKNOWN
   }
+
+  /** Whether a type may be written out where a type is named, rather than named. */
+  const writtenOut = (name: string): boolean =>
+    derivesFrom(bodyOf, name, SELF.collection) || derivesFrom(bodyOf, name, SELF.link)
 
   /** Every type that derives from this one, which is what a value of an abstract type may be. */
   const below = (type: string): readonly string[] =>
@@ -354,8 +372,9 @@ export function partsOf(text: string, words: Vocabulary, written: Written = {}):
         return { role: 'word', child: takes(childOf(held), acceptsOf(bodyOf, holds.owner, name)) }
       }
       // A type written out in place of a name, which is how a property says it holds many of
-      // something. Only a collection may be written out, so nothing else is read as one.
-      if (derivesFrom(bodyOf, name, SELF.collection)) {
+      // something, or one name pointing at a declaration. Nothing else may be written out, so
+      // nothing else is read as one.
+      if (writtenOut(name)) {
         return { role: 'word', child: holdsFor(name) }
       }
       return { role: 'unknown', child: UNKNOWN }
@@ -369,10 +388,12 @@ export function partsOf(text: string, words: Vocabulary, written: Written = {}):
       return { role: 'word', child: holdsFor(name) }
     }
     // Many of one thing, written as a key for each one: the key is the name, not a keyword.
-    if (holds.of === 'collection') return { role: 'name', child: holdsFor(holds.member) }
-    // Where a type is named, a collection may be written out instead of named.
+    if (holds.of === 'collection') {
+      return { role: 'name', child: takes(holdsFor(holds.member), holds.accepts ?? []) }
+    }
+    // Where a type is named, one may be written out instead of named.
     if (holds.of === 'scalar' && holds.type === SELF.type) {
-      if (derivesFrom(bodyOf, name, SELF.collection)) return { role: 'word', child: holdsFor(name) }
+      if (writtenOut(name)) return { role: 'word', child: holdsFor(name) }
     }
     return { role: 'unknown', child: UNKNOWN }
   }

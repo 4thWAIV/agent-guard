@@ -1404,6 +1404,7 @@ describe('a document written in a language of its own', () => {
               form: 'interface',
               does: 'The three behaviours every guard answers a tool call through.',
               sits: { package: 'none', assembly: 'A.Abstractions', namespace: 'A.Abstractions.Contracts' },
+              relates: { implements: 'none', answers: 'none', holds: 'none' },
               ...(members === undefined ? {} : { members }),
             },
           },
@@ -2017,7 +2018,13 @@ describe('the architecture language itself', () => {
 
   test('the element every architecture document names its parts with is declared here', () => {
     const element = arch.declare.find((d) => d.entity?.id === 'element')
-    expect(Object.keys(element?.entity?.properties ?? {})).toEqual(['form', 'does', 'members', 'sits'])
+    expect(Object.keys(element?.entity?.properties ?? {})).toEqual([
+      'form',
+      'does',
+      'members',
+      'sits',
+      'relates',
+    ])
   })
 
   test('the member an element is made of is declared here, carrying its own name', () => {
@@ -2408,5 +2415,97 @@ describe('a value keyed by a closed set', () => {
     expect(problemsAt(r, 'declare[2].entity.properties.sits.map.accepts[0]')[0]).toContain(
       'is not a member of "reserved"',
     )
+  })
+})
+
+// ── a value naming one declaration ───────────────────────────────────────────
+//
+// A relation is one thing pointing at another, so the name it is written as has to be read against
+// what the document reaches rather than taken as text. Everything that can go wrong with a pointer
+// is checked here: a name nothing declares, a name that is a type rather than a thing carrying a
+// value, and a name whose declaration carries a value of some other type.
+describe('a value naming one declaration', () => {
+  const language = (stands: unknown, relates: unknown): Record<string, unknown> => ({
+    scope: ['arch'],
+    import: [['metalang']],
+    title: 'The architecture language',
+    declare: [
+      {
+        entity: {
+          id: 'element',
+          is: 'object',
+          title: 'One named piece of an architecture.',
+          properties: {
+            does: { is: 'string', title: 'One line saying what it does.' },
+            stands: { link: { to: 'element' }, accepts: ['none'], title: 'The one it stands to.' },
+            relates: {
+              list: { of: { link: { to: 'element' } } },
+              accepts: ['none'],
+              title: 'The ones it stands to.',
+            },
+          },
+        },
+      },
+      { constant: { id: 'note', is: 'string', title: 'A note.', value: 'anything at all' } },
+      {
+        constant: {
+          id: 'IGuard',
+          is: 'element',
+          title: 'A surface.',
+          value: { does: 'A declaration of surface.', stands: 'none', relates: 'none' },
+        },
+      },
+      {
+        constant: {
+          id: 'FileGuard',
+          is: 'element',
+          title: 'A class.',
+          value: { does: 'An implementation.', stands, relates },
+        },
+      },
+    ],
+  })
+
+  const at = 'declare[3].constant.value'
+  const stands = (value: unknown): CheckResult => only(language(value, 'none'))
+
+  test('a name the document declares, carrying a value of the type named, is right', () => {
+    expect(only(language('IGuard', ['IGuard'])).problems).toEqual([])
+  })
+
+  test('a name nothing the document reaches declares is reported where it is written', () => {
+    expect(problemsAt(stands('Ghost'), `${at}.stands`)).toEqual([
+      'nothing this document reaches declares "Ghost"',
+    ])
+  })
+
+  test('a name that is a type rather than a thing carrying a value is reported as that', () => {
+    expect(problemsAt(stands('element'), `${at}.stands`)).toEqual([
+      '"element" carries no value of its own, so it is not an element',
+    ])
+  })
+
+  test('a name whose declaration carries a value of another type is reported as what it is', () => {
+    expect(problemsAt(stands('note'), `${at}.stands`)).toEqual([
+      '"note" carries a value of "string", and what is named here is an element',
+    ])
+  })
+
+  test('a name is a name, so anything else written in its place is a problem', () => {
+    expect(problemsAt(stands(7), `${at}.stands`)).toEqual([
+      'is not written as the name of a declaration, which is how a value of a link is written',
+    ])
+  })
+
+  test('many of them is many names, each read the same way', () => {
+    const r = only(language('none', ['IGuard', 'Ghost']))
+    expect(problemsAt(r, `${at}.relates[0]`)).toEqual([])
+    expect(problemsAt(r, `${at}.relates[1]`)).toEqual([
+      'nothing this document reaches declares "Ghost"',
+    ])
+  })
+
+  test('a thing standing to nothing says so with the state the property takes', () => {
+    expect(only(language('none', 'none')).problems).toEqual([])
   })
 })
