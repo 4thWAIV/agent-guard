@@ -153,6 +153,23 @@
 # it until a document needs it, because the three words read the same in C#, Python, Rust and
 # TypeScript, and a dictionary written before anything asks it would be wrong in whichever way the
 # first real non-C# document turns out to need.
+# ── APPROVED — how two elements relate. ──
+#                                                                                   2026-10-25
+# Tim approved `relates`, step 5 of the road, through his jarvis session. `relations` is the fourth
+# closed vocabulary of this language, beside the six forms, the five kinds of member and the three
+# kinds of place: a thing implements another, answers with another, or holds another. Each carries
+# its own mark, a real pair from this repository, the name it is shown by and one line saying what
+# it is. `relates` on an element holds one line for each of them, and each line names the elements
+# it stands to that way; a way it does not stand to anything says `none`.
+#
+# Only elements a document declares are named. A member whose type is a string says nothing here,
+# because text is not a part of an architecture.
+#
+# It is written with MetaLang's `link`, approved the same day: a value written as the id of a
+# declaration, with `to` naming the type that declaration must carry a value of. A name nothing the
+# document reaches declares is refused where it is written, so a relation can never point at
+# nothing, and the page draws each name as the same reference chip every other reference uses.
+
 
 scope: [arch]
 import:
@@ -321,6 +338,38 @@ declare:
             description: What names are grouped under inside an assembly.
 
   - entity:
+      id: relation
+      is: word
+      title: One way an element can stand to another element.
+      description: >
+        Each one is a different question about the same two things, so a document that says which
+        one it means says what the relation is rather than that there is one.
+
+  - enum:
+      id: relations
+      is: relation
+      title: Every way one element can stand to another, in reading order.
+      values:
+        - id: implements
+          value:
+            mark: "⊢"
+            example: FileGuard implements IGuard
+            name: Implements
+            description: It satisfies the whole of the surface the other declares.
+        - id: answers
+          value:
+            mark: "→"
+            example: IGuard answers with a Verdict
+            name: Answers
+            description: It gives the other one back to whoever called it.
+        - id: holds
+          value:
+            mark: "⊂"
+            example: Verdict holds a VerdictKind
+            name: Holds
+            description: It carries the other one as part of itself.
+
+  - entity:
       id: member
       is: object
       title: One named piece of an element.
@@ -360,3 +409,7 @@ declare:
           map: { by: places, of: path, accepts: [none] }
           accepts: [none, pending]
           title: Where it sits, one line for each kind of place.
+        relates:
+          map: { by: relations, of: { list: { of: { link: { to: element } } } }, accepts: [none] }
+          accepts: [none, pending]
+          title: What it stands to, one line for each way one element can stand to another.
