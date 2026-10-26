@@ -598,6 +598,25 @@ const rowsOf = (
 }
 
 /**
+ * Many of a thing whose shape is written out rather than named: the shape each member is drawn
+ * against, and the members. Nothing when the type is not a collection, or when the members are
+ * several of one named shape, which is drawn as a table instead.
+ */
+const manyOf = (
+  bodyOf: BodyOf,
+  type: unknown,
+  value: unknown,
+): { of: unknown; members: readonly unknown[] } | null => {
+  if (!isMapping(type) || !Array.isArray(value)) return null
+  const written = onlyWord(type)
+  if (written === null) return null
+  const [word, inner] = written
+  if (bodyOf(word) === undefined || !derivesFrom(bodyOf, word, SELF.collection)) return null
+  if (!isMapping(inner) || inner.by !== undefined || inner.of === undefined) return null
+  return { of: inner.of, members: value as readonly unknown[] }
+}
+
+/**
  * A value keyed by a closed set: the set its keys come from, the type each line holds, and the
  * states one line may take in place of a value. Nothing when the type is not keyed by a set.
  */
@@ -648,6 +667,9 @@ const Rungs = ({
     typeof type === 'string' && type.length > 0 ? propertyCarrying(bodyOf, type, ROLES.name) : undefined
   const nameOf = (word: unknown): string | null =>
     shown === undefined || !isMapping(word) ? null : text(word[shown])
+  // A line holding one value reads as a ladder, and the step says the order. A line holding many
+  // has no single place on a ladder, so those draw level with each other instead.
+  const ladder = words.every((one) => !Array.isArray(value[one.id]))
   return (
     <ul className="d-rungs">
       {words.map((one, step) => (
@@ -656,7 +678,7 @@ const Rungs = ({
           className="d-rung"
           // The colour is the word's own place in its set, which is where every other colour on
           // the page comes from, so a word reads the same wherever it is drawn.
-          style={{ ...kindStyle(one.id, ids), '--step': step } as CSSProperties}
+          style={{ ...kindStyle(one.id, ids), '--step': ladder ? step : 0 } as CSSProperties}
         >
           <span className="rung-word" title={one.id}>
             {nameOf(one.value) ?? one.id}
@@ -824,6 +846,37 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
         <Parts type={named} value={value} where={where} />
       </span>
     )
+  }
+
+  // Many of a thing written out rather than named: each member is drawn against the shape the
+  // collection says it holds, so a list of names reads as those names and never as a file's text.
+  const many = manyOf(bodyOf, type, value)
+  if (many !== null) {
+    return (
+      <span className={`d-val v-many${className === '' ? '' : ` ${className}`}`}>
+        {many.members.map((member, i) => (
+          <Val
+            key={i}
+            value={member}
+            type={many.of}
+            where={where === undefined ? undefined : `${where}[${i}]`}
+          />
+        ))}
+      </span>
+    )
+  }
+
+  // A value naming a declaration is that declaration, so it draws as every other reference to a
+  // declared thing does, and says in the same way whether anything here declares it.
+  if (typeof value === 'string' && isMapping(type)) {
+    const written = onlyWord(type)
+    if (written !== null && bodyOf(written[0]) !== undefined && derivesFrom(bodyOf, written[0], SELF.link)) {
+      return (
+        <span className={`d-val v-link${className === '' ? '' : ` ${className}`}`}>
+          <Ref name={value} />
+        </span>
+      )
+    }
   }
 
   // One of a thing for each word of a closed set reads as the set, not as a block of keys: the
@@ -1605,11 +1658,23 @@ const NotOnThePage = ({ missing }: { missing: readonly string[] }) => {
   )
 }
 
+/** The name one item under `declare` declares, whatever kind it is written as. */
+const idOf = (item: unknown): string | null => {
+  if (!isMapping(item)) return null
+  for (const held of Object.values(item)) {
+    if (!isMapping(held)) continue
+    const id = held[BOOTSTRAP.id]
+    if (typeof id === 'string') return id
+  }
+  return null
+}
+
 export const Page = ({
   words,
   doc,
   marks = NO_MARKS,
   found = NOTHING_FOUND,
+  only,
 }: {
   words: Vocabulary
   doc: unknown
@@ -1617,6 +1682,12 @@ export const Page = ({
   marks?: Marks
   /** What the checker found in this document. A page drawn without one draws no band. */
   found?: CheckResult
+  /**
+   * The id of the one declaration to draw. The document keeps every declaration it makes, so a
+   * name one of them writes still reaches the others and the checker reads the document it really
+   * is; only what is drawn is narrowed.
+   */
+  only?: string
 }) => {
   const { marked, missing } = marks
   const findings = findingsIn(doc, found)
@@ -1722,11 +1793,14 @@ export const Page = ({
                 must be written as a list.
               </Err>
             ) : (
-              (declared as unknown[]).map((d, i) => (
-                <Marked key={i} at={`${BOOTSTRAP.declare}[${i}]`}>
-                  <Declaration at={`${BOOTSTRAP.declare}[${i}]`} node={d} />
-                </Marked>
-              ))
+              (declared as unknown[])
+                .map((d, i) => [d, i] as const)
+                .filter(([d]) => only === undefined || idOf(d) === only)
+                .map(([d, i]) => (
+                  <Marked key={i} at={`${BOOTSTRAP.declare}[${i}]`}>
+                    <Declaration at={`${BOOTSTRAP.declare}[${i}]`} node={d} />
+                  </Marked>
+                ))
             )}
           </section>
         )}

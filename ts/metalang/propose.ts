@@ -252,7 +252,7 @@ function drawn(body: Mapping): Drawn {
  * page. Everything a declaration holds is drawn, because the control draws the whole of it, so a
  * document that says more than this renderer knows about still draws all of it.
  */
-function pageOf(from: string, items: readonly unknown[]): Drawn {
+function pageOf(from: string, items: readonly unknown[], only?: string): Drawn {
   const path = join(REPO, from)
   const host = yaml.load(readFileSync(path, 'utf8'))
   if (!isMapping(host)) throw new Error(`${from} — this is not a document`)
@@ -263,7 +263,9 @@ function pageOf(from: string, items: readonly unknown[]): Drawn {
     throw new Error(`${from} — ${rulebook.faults.map((f) => f.what).join('; ')}`)
   }
   const found = checkedAgainst(doc, path, rulebook)
-  const markup = renderToStaticMarkup(createElement(Page, { words: rulebook.words, doc, found }))
+  const markup = renderToStaticMarkup(
+    createElement(Page, { words: rulebook.words, doc, found, ...(only === undefined ? {} : { only }) }),
+  )
 
   // The control draws a whole page, so it ends in the key telling a reader what the marks mean.
   // Several pages on one page would carry it several times, and it is the same key, so it comes
@@ -297,19 +299,6 @@ const bodiesIn = (doc: Mapping): readonly Mapping[] =>
   (Array.isArray(doc.declare) ? doc.declare : [])
     .filter(isMapping)
     .flatMap((one) => Object.values(one).filter(isMapping))
-
-/** One item under `declare`, whole, by the name the declaration inside it is known by. */
-function itemIn(file: string, id: string): Mapping {
-  const doc = documentAt(file)
-  const items = (Array.isArray(doc.declare) ? doc.declare : []).filter(isMapping)
-  const found = items.find((item) =>
-    Object.values(item)
-      .filter(isMapping)
-      .some((body) => text(body.id) === id),
-  )
-  if (found === undefined) throw new Error(`${file} declares nothing called "${id}"`)
-  return found
-}
 
 /** One word a closed set lists: the entry as written, and what its id stands for. */
 interface Word {
@@ -392,7 +381,10 @@ function readsFrom(body: Mapping): { file: string; id: string } | string {
 const showReading: Shows = (body) => {
   const from = readsFrom(body)
   if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
-  const page = pageOf(from.file, [itemIn(from.file, from.id)])
+  // The whole document goes in, so a name one declaration writes still reaches the others and the
+  // checker reads the document that really exists. Only the one asked for is drawn.
+  const whole = Array.isArray(documentAt(from.file).declare) ? documentAt(from.file).declare : []
+  const page = pageOf(from.file, whole as readonly unknown[], from.id)
   return { sheet: `<p class="plain says-line">${said(body.says)}</p>${page.sheet}`, keys: page.keys }
 }
 

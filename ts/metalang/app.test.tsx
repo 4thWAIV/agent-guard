@@ -1634,3 +1634,83 @@ describe('every document in this repository draws whole', () => {
     })
   }
 })
+
+// What a page makes of a value that names another declaration, and of many of a shape written out
+// rather than named. Both are new ways to write a value, and a page that cannot draw one falls
+// back to the text of a file, which is the thing this language exists to stop a reader having to
+// read.
+describe('a value naming another declaration', () => {
+  const where = join(dirname(LANGUAGE_FILE), 'parts.yaml')
+
+  const doc = (relates: unknown): Record<string, unknown> => ({
+    scope: ['guard'],
+    language: 'arch',
+    import: [['metalang']],
+    title: 'The parts of the guard',
+    declare: [
+      {
+        constant: {
+          id: 'IGuard',
+          is: 'element',
+          value: {
+            form: 'interface',
+            does: 'The three behaviours every guard answers a tool call through.',
+            members: 'none',
+            sits: { package: 'none', assembly: 'A.Abstractions', namespace: 'A.Abstractions' },
+            relates: { implements: 'none', answers: 'none', holds: 'none' },
+          },
+        },
+      },
+      {
+        constant: {
+          id: 'FileGuard',
+          is: 'element',
+          value: {
+            form: 'class',
+            does: 'The guard that blocks a write to a sealed file.',
+            members: 'none',
+            sits: { package: 'A.Engine', assembly: 'A.Engine', namespace: 'A.Engine' },
+            relates,
+          },
+        },
+      },
+    ],
+  })
+
+  const standing = { implements: ['IGuard'], answers: 'none', holds: 'none' }
+
+  const shown = (node: Record<string, unknown>, only?: string): string => {
+    const book = rulebookFor(node, where)
+    const found = checkedAgainst(node, where, book)
+    return renderToStaticMarkup(
+      <Page words={book.words ?? WORDS} doc={node} found={found} {...(only === undefined ? {} : { only })} />,
+    )
+  }
+
+  test('the name is drawn as the reference it is, not as the text of a file', () => {
+    const html = shown(doc(standing))
+    expect(html).toContain('<span class="d-ref r-declared" title="declared in this document">')
+    expect(html).toContain('IGuard')
+  })
+
+  test('many of a shape written out draws its members, rather than falling back to written text', () => {
+    const html = shown(doc({ implements: ['IGuard', 'IGuard'], answers: 'none', holds: 'none' }))
+    expect(html).toContain('v-many')
+    expect(html).not.toContain('v-written')
+  })
+
+  test('a name nothing declares draws as undeclared, so a broken relation reads as one', () => {
+    expect(shown(doc({ implements: ['Ghost'], answers: 'none', holds: 'none' }))).toContain(
+      'r-undeclared',
+    )
+  })
+
+  // A reading drawn from one declaration of a document is still read against the whole of it, or a
+  // name reaching another declaration in the same file would draw as undeclared.
+  test('one declaration can be drawn while the document keeps every declaration it makes', () => {
+    const html = shown(doc(standing), 'FileGuard')
+    expect(html).toContain('FileGuard')
+    expect(html).toContain('r-declared')
+    expect(html).not.toContain('>The three behaviours every guard answers a tool call through.<')
+  })
+})
