@@ -10,6 +10,16 @@
 
 GROUND found three instructions in this contract that the code cannot carry out, which is why that decision was needed. `PathCanonicalizer.Canonicalize` returns `CanonicalPath`, not a verdict. Five of the six places in group 3 return a bool, a nullable grant, a byte buffer or a list, none of which holds a reason. All three cleanup places in group 4 run where no verdict exists yet. Every one is now written to raise, with the catch placed at the nearest layer that already returns a reasoned result.
 
+**The guarded agent is told a coarse reason; the exact cause goes only where Tim reads it.** Approved 2026-11-08 in `four-choices-the-scan-found-that-nobody-1.0.0-localf47`, decision `tell`: "Coarse to it, exact to you — no oracle, no leaked paths, and you still see the real cause." The agent sees not-configured or not-accepted. No raw exception text and no absolute path reaches it. The alternative, naming the exact cause to the agent, was put to him and he chose against it, because separating an invalid signature from an expired grant from a wrong-length key is an oracle for forging one.
+
+**`ISignatureService.Verify` keeps its documented promise never to throw, and the two key cases split.** Approved in the same package, decision `trust`: "Keep it, and split the key cases — absent means switched off; corrupt means a loud failure." `Verify` still returns false on any malformed or wrong-length input and never throws. An absent key file means grants are switched off. A key that exists and is corrupt or the wrong length is a loud trust-configuration failure, because a wrong anchor that exists is evidence of tampering.
+
+**A build that cannot read its commit fails only on CI.** Approved in the same package, decision `local`, in his words: "THIS should be a CI only condition so it need not be so strict unless it's on the CI server. Any other build does not need this mess, and local is exactly what they are saying and why the word exists." A local build keeps stamping `local`, unchanged. Only a CI build fails, which is what `eng/compute-build-id.sh` already does, so the two halves agree instead of disagreeing.
+
+**One small record is added so two places can say why.** Approved 2026-11-08 in `two-places-have-nowhere-to-put-the-reaso-1.0.0-local21c`, decision `loaded`: "Add the one small record — both can finally say why, and nothing else is added." Shown to him as `record Loaded<T>(T Value, string? Why);`, used by `IGrantStore.GetActiveGrantsAsync` and `GuardEngine.LoadGrantPublicKey`. It is the only new type.
+
+**One small warning sink is added so a failed cleanup has somewhere to go.** Approved in the same package, decision `sweep`: "Give it one place to go — the failure is said out loud and the call still runs." It sits behind the `ISystemServices` container the guard already passes everywhere, so the per-OS adapters are covered, and the command line decides where it lands. The alternative, letting the sweep raise, was put to him and he chose against it, because a housekeeping failure would then block every tool call.
+
 **This contract covers a change under `analyzers/**`, which is a decision-gated area.** The change there is one test file, not a rule. Approving this contract is the approval for it.
 
 ## Rules to add
@@ -82,7 +92,11 @@ The exact path of each test-cleanup file is to be confirmed against the tree by 
 
 ## Reuse ledger
 
-None — this change introduces no new capability.
+Two new capabilities, each ruled `new`, and nothing else.
+
+**A value that can carry why it is what it is — `new`.** Nothing in the tree carries a value together with an optional reason. The reason-carrying types that exist are each tied to one case and hold no value: `CaptureFailed(string Reason)` at `src/AgentGuard.Abstractions/CaptureFailed.cs:10` is a capture outcome with no value, `StoreInspection.Reason` at `src/AgentGuard.Abstractions/StoreInspection.cs:26` belongs to one inspection, and `PresenceResult` pairs a mapped reason with a detail for one boundary. None can be returned by `GetActiveGrantsAsync` or `LoadGrantPublicKey` carrying their values. Tim approved `record Loaded<T>(T Value, string? Why);` by name.
+
+**A place to say a failure that stops nothing — `new`.** No logger, diagnostic sink or warning channel exists in the product. A search of `src` for `ILogger`, `IDiagnostic` and a warning call returns only `Verdict.cs` and `VerdictAggregator.cs`, and `Verdict.Warn` is reachable only where a verdict is being produced, which GROUND established is nowhere near the three cleanup places. Tim approved one sink behind `ISystemServices` by name.
 
 Every mechanism this work needs already exists and is reused. `Verdict.Deny(string reason)` at `src/AgentGuard.Abstractions/Verdict.cs:38` already carries a deny reason, and `FileGuard` reaches it one frame above `TryReadCurrentAsync`. `CaptureFailed(string Reason)` at `src/AgentGuard.Abstractions/CaptureFailed.cs:10` already carries a capture failure's cause, and `FileGuard.CaptureAsync` already produces one from either exception. `ConditionState.Broken` already carries a message, which is where the two setup conditions report an unreadable link. `RepairOutcome.NotRepairable(string)` already carries one, which is where a failed link repair reports. And the symlink read raises the `IOException` and `UnauthorizedAccessException` the framework already throws. No new exception type, no new result type, no new logging or diagnostic mechanism is added.
 
@@ -131,7 +145,7 @@ In the five test-cleanup places, let the exception surface, or assert on it wher
 ## What the agent MUST NOT do
 
 - Weaken, skip, delete or re-point any existing test. A test that goes red because of this change is fixed in the code.
-- Add a new exception type, result type, logging mechanism or diagnostic sink. The Reuse ledger rules every one of them out.
+- Add any new exception type, result type, logging mechanism or diagnostic sink other than the two Tim approved by name: the `Loaded<T>` record and the warning sink behind `ISystemServices`. Nothing else new is added, and neither of those two grows beyond what its decision describes.
 - Change whether any place denies or allows. Group 3 changes what a denial says, never whether it is made.
 - Suppress an analyzer diagnostic, or reshape code to slip past a rule. A rule that blocks the clean design is a wall: stop and report it.
 - Commit, push, open a pull request, or merge anything.
@@ -147,7 +161,12 @@ In the five test-cleanup places, let the exception surface, or assert on it wher
 5. A test proves `PathCanonicalizer` lets the exception through rather than treating an unreadable link as a non-link, and a second test proves the reason reaches a reasoned result: `FileGuard`'s capture returns `CaptureFailed` carrying the message, or the denial one frame up carries it. Name both tests in the output.
 6. `grep -n "catch (IOException)" src/AgentGuard.CrossPlatform/PlatformFileSystemBase.cs` returns nothing.
 7. The group 2 test fails when `ISystemServices` cannot be resolved. Prove it by running it against a compilation without that assembly and pasting the failure.
-8. For each of the six places in group 3, a test asserts the denial's message contains the cause. Six assertions, each naming its place.
+8. For each of the six places in group 3, a test asserts the cause survives on the trusted channel. Six assertions, each naming its place.
+8a. A test asserts that what the guarded agent is told names no exact cause: it is not-configured or not-accepted and nothing finer. The same test asserts the agent's text contains no raw exception message and no absolute path.
+8b. A test asserts `ISignatureService.Verify` still returns false and does not throw for a malformed key, a wrong-length key and a tampered signature. Three cases, named in the output.
+8c. A test asserts an absent key file reads as grants switched off, and a key file that exists and is the wrong length reads as a loud trust-configuration failure. Both cases, named.
+8d. A test asserts `Loaded<T>` carries the value and the reason together, and that an expired grant and a corrupt key each produce a reason that is not empty.
+8e. A test asserts a failed snapshot sweep reaches the warning sink and the tool call still runs. Prove the call still runs, not only that the sink was reached.
 9. No catch in the eight places in group 4 has a body that only comments. Prove it with a multi-line search that matches a comment-only body, run over the whole tree and pasted with its output:
    `python3 -I -c "import re,pathlib,sys; bad=[(str(f),m.start()) for f in list(pathlib.Path('src').rglob('*.cs'))+list(pathlib.Path('tests').rglob('*.cs')) for m in re.finditer(r'catch\s*(?:\([^)]*\))?\s*\{(?:\s|//[^\n]*\n)*\}', f.read_text())]; print(bad or 'none'); sys.exit(1 if bad else 0)"`
    The first draft of this check used a single-line regex, which matched none of the eight before the work and would match none after, so it could not prove the group either way.
