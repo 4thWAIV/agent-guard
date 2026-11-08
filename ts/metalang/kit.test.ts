@@ -30,8 +30,17 @@ afterAll(async () => {
 })
 
 describe('what the kit carries', () => {
-  test('carries the language the checker reads documents against', () => {
-    expect(carriedFiles().map((f) => f.name)).toContain('metalang.yaml')
+  test('carries every language, not only the one a document names by default', () => {
+    const names = carriedFiles().map((f) => f.name)
+    expect(names).toContain('metalang.yaml')
+    expect(names).toContain('arch.yaml')
+    expect(names).toContain('propose.yaml')
+  })
+
+  test('carries no document, because a document is the consumer\'s own', () => {
+    const names = carriedFiles().map((f) => f.name)
+    expect(names).not.toContain('parts.yaml')
+    expect(names).not.toContain('names.yaml')
   })
 
   test('carries both stylesheets, because drawing a page reads them from disk', () => {
@@ -44,9 +53,11 @@ describe('what the kit carries', () => {
     for (const file of carriedFiles()) expect(typeof file.required).toBe('boolean')
   })
 
-  test('the language file is required and EvoLang is not, because it is not written', () => {
+  test('every written language is required and EvoLang is not, because it is not written', () => {
     const byName = new Map(carriedFiles().map((f) => [f.name, f]))
     expect(byName.get('metalang.yaml')?.required).toBe(true)
+    expect(byName.get('arch.yaml')?.required).toBe(true)
+    expect(byName.get('propose.yaml')?.required).toBe(true)
     expect(byName.get('evolang.yaml')?.required).toBe(false)
   })
 })
@@ -161,5 +172,36 @@ describe('a required file the kit cannot find', () => {
         { name: 'metalang.yaml', from: join(dir, 'gone.yaml'), required: true },
       ]),
     ).rejects.toThrow('metalang.yaml is not beside the source')
+  })
+})
+
+describe('a document written in a language other than MetaLang', () => {
+  test('is checked from the kit alone, under node, because the kit carries that language', async () => {
+    const out = join(dir, 'kit-arch')
+    await buildKit(out)
+    // A real document written in the architecture language, copied away from the repository so
+    // nothing but the kit can be resolving its language.
+    const doc = join(dir, 'arch-document.yaml')
+    await Bun.write(doc, await Bun.file(join(import.meta.dir, 'parts.yaml')).text())
+
+    const ran = Bun.spawnSync(['node', join(out, 'kit.js'), 'check', doc], CAPTURED)
+    expect(said(ran)).toContain('checked against "arch"')
+    expect(said(ran)).toContain('nothing is wrong')
+    expect(said(ran)).not.toContain('names no file this checker could find')
+    expect(ran.exitCode).toBe(0)
+  })
+
+  test('is drawn as a page from the kit alone, under node', async () => {
+    const out = join(dir, 'kit-arch-page')
+    await buildKit(out)
+    const doc = join(dir, 'arch-page-document.yaml')
+    await Bun.write(doc, await Bun.file(join(import.meta.dir, 'parts.yaml')).text())
+    const page = join(dir, 'arch.html')
+
+    const ran = Bun.spawnSync(['node', join(out, 'kit.js'), 'render', doc, page], CAPTURED)
+    expect(ran.exitCode).toBe(0)
+    const html = await readFile(page, 'utf8')
+    expect(html).toContain('id="page-data"')
+    expect(html).toContain('The parts of the MetaLang toolchain')
   })
 })
