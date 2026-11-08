@@ -30,7 +30,7 @@ The 27 October 2026 vocabulary was committed on 2026-11-08 as `41a084c`, on Tim'
 
 **`handoff/` is ignored and local only.** It holds real documents, including `handoff/guard.yaml`, which is one of the three live documents written in the architecture language, and `handoff/propose/remaining.yaml`, the proposal that carried the last eleven language decisions and whose own first line now reads enacted. The ignore rule for the folder was committed on 2026-11-08 in `41a084c`; before that a fresh clone would not even have ignored it.
 
-`.private/` is ignored as well, and `docs/agent-guard-report.html` and `docs/silent-failure-audit.md` are untracked but not ignored. `.playwright-mcp/` was deleted on 2026-11-08.
+`.private/` is ignored as well, and `docs/agent-guard-report.html`, `docs/silent-failure-audit.md` and `.playwright-mcp/` are untracked but not ignored. `.playwright-mcp/` holds browser capture artifacts from sessions between September and November 2026, one console log of 66 MB among them.
 
 ## The files to read, in order
 
