@@ -12,7 +12,9 @@ Written on 2026-11-06 for the Denice session, at Tim's instruction, from `4thWAI
 
 **This repository records nothing about Denice.** No file, commit, issue folder or memory entry names Denice anywhere outside this package. What is known is what Tim said on 2026-11-06, which is in `00-what-tim-has-asked-for.md`.
 
-**The current state is only in the working tree, and this is a read.** The vocabulary approved on 27 October 2026 is uncommitted, and the whole design record is untracked, so a clone or a fetch does not carry them. Read `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` on this machine. Nothing here authorises editing, staging, committing, pushing or building anything in it — and the checkout at `/Users/timothystockstill/code/macos/denice/denice` holds a remote named `brij` pointing at agent-guard's own repository, configured for push as well as fetch, so a push from there is possible and is not wanted.
+**The current state is on one machine, and this is a read.** The branch holding the language, `metalang`, has never been pushed: there is no `origin/metalang`, and all nineteen of its commits are local. A clone or a fetch of `4thWAIV/agent-guard` gets no `ts/metalang` at all. Read `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` on this machine. Nothing here authorises editing, staging, committing, pushing or building anything in it.
+
+**Corrected on 2026-11-08, on two points.** This package was written on 2026-11-06. It said the remote carried the language up to commit `e8394e5`; it carries none of it, because that commit is on no remote branch either. And on 2026-11-08 Tim approved committing the 27 October vocabulary and this package, which landed as `41a084c` on the same unpushed branch, and approved disabling the push URL on the `brij` remote in the Denice checkout at `/Users/timothystockstill/code/macos/denice/denice`. That remote still fetches from agent-guard and can no longer push to it. `03-repository-map.md` carries the detail.
 
 ## The files, in the order they are weighted
 

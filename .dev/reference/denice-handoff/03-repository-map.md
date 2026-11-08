@@ -1,6 +1,8 @@
 # Every reference to this repository, and what a clone of it actually contains
 
-Read this before deciding how to get at the material. The short version: a clone of the remote does not contain the language work or the design record. Reading the working tree on this machine is the only route that gives you the current state today.
+Read this before deciding how to get at the material. The short version: a clone of the remote contains none of the language work and none of the design record. Reading the working tree on this machine is the only route that gives you the current state today.
+
+**Corrected on 2026-11-08.** This file was written on 2026-11-06 and said the remote carried the language up to commit `e8394e5`. That was wrong, and the section below is rewritten. The branch holding every commit of the language has never been pushed, so the remote has no MetaLang at all. On 2026-11-08 Tim approved committing the 27 October vocabulary and this handover package, which landed as `41a084c` on the same unpushed branch. Committing moved nothing off this machine; only a push would, and no push has been authorised.
 
 ## The repository
 
@@ -12,22 +14,23 @@ Read this before deciding how to get at the material. The short version: a clone
 | Visibility | public — anyone can clone it; no access grant is needed |
 | Absolute path on this machine | `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` |
 | Branch holding the language work | `metalang` |
-| Newest commit on it | `e8394e5` Draw a name that points at a declaration as the reference it is |
+| Newest commit on it | `41a084c` Record the vocabulary approved on 27 October and the Denice handover package, 2026-11-08 |
+| Is that branch on the remote? | **No.** There is no `origin/metalang`, the branch has no upstream configured, and all nineteen commits of the language work are on this machine only. |
 | Default branch on GitHub | `dev`. Work integrates there and is cut to `main` only at a milestone. The local `origin/HEAD` still points at `main` and is stale. |
 
-## What is in no commit
+## What is on this machine only
 
-On branch `metalang` the working tree adds 1446 lines and removes 236 across 23 modified files, with nothing staged, plus a set of untracked files. Everything below exists on this machine only.
+**The whole language is on this machine only, and committing it did not change that.** Branch `metalang` holds nineteen commits that no remote branch contains, starting at `fc5fa76` Add MetaLang, its checker and its page, with the architecture language. There is no `origin/metalang` and the branch has no upstream. A clone of `4thWAIV/agent-guard` gets no `ts/metalang` at all: no MetaLang, no architecture language, no naming dictionary, no proposal language and none of the TypeScript toolchain. This file said on 2026-11-06 that the remote's copy stopped at `e8394e5`; that was wrong, because `e8394e5` is itself on no remote branch.
 
-**The language itself is behind in the remote.** `ts/metalang/metalang.yaml`, `arch.yaml`, `names.yaml`, `parts.yaml`, `propose.yaml` and the whole TypeScript toolchain beside them are tracked, but the committed content stops at `e8394e5`. The vocabulary approved on 27 October 2026 is in the working tree and in no commit. A reader of the remote gets a MetaLang with no `path`, no `never`, no `when`, no `many`, no `distinct`, and no `declared` base carrying `standing` and `origin`, and an architecture language without `reach`, `exactness`, `builtin` or `grouping`. One word moves the other way: the committed `arch.yaml` has a `path` of its own, which the working tree renamed `placename` when MetaLang took the word.
+The 27 October 2026 vocabulary was committed on 2026-11-08 as `41a084c`, on Tim's word, together with this handover package. That commit sits on the same unpushed branch, so the material still exists in one place. Pushing the branch is a separate action and is not authorised.
 
 **The entire design record is untracked.** `.dev/inprocess/` holds only a placeholder file in the remote, so the whole of `.dev/inprocess/82-guard-process-workflow/` is local only — 57 files of its own, including `ROAD.md`, `rebuild/STATE.md`, `rebuild/GENERAL-FORM.md`, `human-checkins-proposal.md` and every diagram, plus an archive of two superseded languages and a vendored `node_modules` tree, which bring the raw file count to 339. Fifteen issue folders under `.dev/backlog/` are local only too: 83, 84, 88 to 93, 95, and 97 to 102.
 
 **`CLAUDE.md` is untracked.** The project instructions a clone gets do not include it.
 
-**`handoff/` is ignored and local only.** It holds real documents, including `handoff/guard.yaml`, which is one of the three live documents written in the architecture language, and `handoff/propose/remaining.yaml`, the proposal that carried the last eleven language decisions and whose own first line now reads enacted. The ignore rule for the folder is itself uncommitted, so a fresh clone would not even ignore it.
+**`handoff/` is ignored and local only.** It holds real documents, including `handoff/guard.yaml`, which is one of the three live documents written in the architecture language, and `handoff/propose/remaining.yaml`, the proposal that carried the last eleven language decisions and whose own first line now reads enacted. The ignore rule for the folder was committed on 2026-11-08 in `41a084c`; before that a fresh clone would not even have ignored it.
 
-`.private/` is ignored as well, and `docs/agent-guard-report.html`, `docs/silent-failure-audit.md` and `.playwright-mcp/` are untracked but not ignored.
+`.private/` is ignored as well, and `docs/agent-guard-report.html` and `docs/silent-failure-audit.md` are untracked but not ignored. `.playwright-mcp/` was deleted on 2026-11-08.
 
 ## The files to read, in order
 
@@ -58,7 +61,7 @@ Each line is the file's own top-of-file comment.
 - `propose.ts` — "The proposal renderer — one page from one document written in the proposal language."
 - `examples.ts` — "Colours the MetaLang examples in a page written by hand."
 
-Twelve of the thirteen source files have a test file beside them; `client.tsx`, which mounts the page, has none. `propose.test.ts` is untracked, so a clone gets `propose.ts` with no test for it.
+Twelve of the thirteen source files have a test file beside them; `client.tsx`, which mounts the page, has none. `propose.test.ts` was untracked until `41a084c` committed it on 2026-11-08.
 
 ## The commands
 
@@ -77,7 +80,7 @@ The `scripts` block of `package.json`, verbatim:
   },
 ```
 
-So: `bun run check <file.yaml>` checks one document against its language, `bun run render <file.yaml> <file.html>` draws its page, `bun test` runs the suite, and `bun run verify` adds the type check, the lint and coverage. The `examples` entry is uncommitted.
+So: `bun run check <file.yaml>` checks one document against its language, `bun run render <file.yaml> <file.html>` draws its page, `bun test` runs the suite, and `bun run verify` adds the type check, the lint and coverage. The `examples` entry was uncommitted until `41a084c` committed it on 2026-11-08.
 
 ## The state of the tree as it stands
 
