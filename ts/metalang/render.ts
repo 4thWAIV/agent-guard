@@ -25,8 +25,15 @@ import { bundlePage } from './bundle.ts'
 import { checkedAgainst } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { highlightOf, isHighlight, marksOf, NO_MARKS, type Marks } from './highlight.ts'
+import { dataBlock, DATA_ID, type PageData } from './page-data.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
+
+/** The page's entry point, which is what gets bundled into a page's script. */
+export const PAGE_SOURCE = 'client.tsx'
+
+/** The bundle a kit carries, built once when the kit was built. */
+export const PAGE_BUNDLE = 'page.js'
 
 const escapeHtml = (s: string): string => s.replace(/&/g, '&amp;').replace(/</g, '&lt;')
 
@@ -45,8 +52,12 @@ export function inlineScript(js: string): string {
   return js.replace(/<\/(script)/gi, '<\\/$1').replace(/<!--/g, '<\\!--')
 }
 
-/** The whole page as one string of HTML. */
-export function pageHtml(title: string, css: string, js: string): string {
+/**
+ * The whole page as one string of HTML: the styles, the data the page draws, and the bundle that
+ * draws it. The data sits in its own element rather than inside the bundle, so one bundle built
+ * once can draw any document.
+ */
+export function pageHtml(title: string, css: string, js: string, data: PageData): string {
   return `<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -54,6 +65,7 @@ export function pageHtml(title: string, css: string, js: string): string {
 <title>${escapeHtml(title)}</title>
 <style>${css}</style>
 <main id="root"></main>
+<script type="application/json" id="${DATA_ID}">${dataBlock(data)}</script>
 <script>${inlineScript(js)}</script>
 </html>
 `
@@ -100,7 +112,19 @@ const notDrawn = (file: string, why: string): number => {
   return 1
 }
 
-export async function render(file: string, out: string): Promise<number> {
+/**
+ * Writes a document's page using whatever bundle the caller hands over.
+ *
+ * The bundle is a function rather than a string so a caller with one already built never asks
+ * for a bundler. That is the whole difference between drawing a page in this repository, where
+ * the page's source is here and is built on the spot, and drawing one from the kit, which
+ * carries a bundle built when the kit was.
+ */
+export async function renderWith(
+  file: string,
+  out: string,
+  bundle: () => Promise<string>,
+): Promise<number> {
   const read = loaded(file)
   // A file YAML cannot parse has no tree to draw, so there is nothing a page could show.
   if ('why' in read) return notDrawn(file, read.why)
@@ -139,15 +163,7 @@ export async function render(file: string, out: string): Promise<number> {
   const wrong = found.problems.length + found.blockers.length + found.pending.length
   if (wrong > 0) console.log(`${basename(drawing)} — ${wrong} found, and drawn on the page`)
 
-  const { code } = await bundlePage(join(here, 'client.tsx'), {
-    __WORDS__: JSON.stringify(words ?? WORDS),
-    __DOC__: JSON.stringify(doc ?? null),
-    __MARKS__: JSON.stringify({
-      marked: [...marks.marked],
-      missing: marks.missing,
-    }),
-    __FOUND__: JSON.stringify(found),
-  })
+  const code = await bundle()
 
   // Both stylesheets, because the page draws examples through the same control a page written
   // by hand draws them through, and that control's colours live in their own file.
@@ -155,10 +171,28 @@ export async function render(file: string, out: string): Promise<number> {
     readFileSync(join(here, 'style.css'), 'utf8'),
     readFileSync(join(here, 'syntax.css'), 'utf8'),
   ].join('\n')
-  writeFileSync(out, pageHtml(titleOf(doc, drawing), css, code))
+  writeFileSync(
+    out,
+    pageHtml(titleOf(doc, drawing), css, code, {
+      words: words ?? WORDS,
+      doc: doc ?? null,
+      marks: { marked: [...marks.marked], missing: marks.missing },
+      found,
+    }),
+  )
 
   console.log(`${basename(out)} — ${(code.length / 1024).toFixed(0)}KB, drawn in the browser by React`)
   return 0
+}
+
+/** The page's source, bundled on the spot. Needs a bundler, and this repository has one. */
+export async function builtPageBundle(): Promise<string> {
+  return (await bundlePage(join(here, PAGE_SOURCE), {})).code
+}
+
+/** Writes a document's page, building the bundle from the page's own source. */
+export async function render(file: string, out: string): Promise<number> {
+  return renderWith(file, out, builtPageBundle)
 }
 
 if (import.meta.main) {

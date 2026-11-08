@@ -17,7 +17,8 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { bundleCommand } from './bundle.ts'
+import { bundleCommand, bundlePage } from './bundle.ts'
+import { PAGE_BUNDLE, PAGE_SOURCE } from './render.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -74,22 +75,21 @@ self-contained page.
 Checking reads the document and the language beside this readme. It needs node and nothing else.
 It prints what is wrong with the document and exits 1, or says nothing is wrong and exits 0.
 
-## Drawing a document as a page: not from this kit
+## Drawing a document as a page
 
-    node kit.js render <file.yaml>
+    node kit.js render <file.yaml> [out.html]
 
-This is refused, with the reason, under node and under bun alike. Drawing a page builds a browser
-bundle around the document from the page's own TypeScript source and React as it writes the page,
-and this kit is one built file, so it carries neither. The kit says that and exits 2 rather than
-failing inside the bundler.
+Drawing needs node and nothing else. The page's own bundle was built once, when this kit was built,
+and sits beside this readme as \`page.js\`; the document travels in the page's data block rather
+than inside that bundle, which is what lets one bundle draw a document it has never seen.
 
-Pages are drawn by a command in the repository this kit was built from. A page that comes out of it
-carries its own styles and its own script and needs nothing afterwards, so a drawn page travels on
-its own without this kit.
+The page that comes out carries its own styles and its own script and needs nothing from this folder
+afterwards, so a drawn page travels on its own.
 
 ## What is in here
 
 - \`kit.js\` — the command, with the checker and js-yaml built in.
+- \`page.js\` — the page's bundle, built once when this kit was. Read when a page is drawn.
 - \`metalang.yaml\` — the language that defines languages. A document naming no language is read
   against this one.
 - \`style.css\`, \`syntax.css\` — read from this folder while a page is drawn.
@@ -126,6 +126,11 @@ export async function buildKit(out: string, files: readonly Carried[] = carriedF
 
   const { code } = await bundleCommand(join(here, 'kit-entry.ts'))
   writeFileSync(join(out, 'kit.js'), code)
+
+  // The page's bundle, built once, here. It is what lets the kit draw a document under plain
+  // node: the document travels in the page's data block rather than inside this bundle.
+  const { code: page } = await bundlePage(join(here, PAGE_SOURCE), {})
+  writeFileSync(join(out, PAGE_BUNDLE), page)
 
   // Node loads an ES module only when something says the file is one.
   writeFileSync(

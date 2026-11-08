@@ -414,24 +414,51 @@ jobs:
 
   # The single check branch protection requires. It goes green only if all three OS jobs succeeded — a
   # skipped or failed OS job cannot green it.
+  # The TypeScript side: MetaLang, the language that defines languages, and the build that will later emit the
+  # workflow scripts. It shares nothing with the .NET build, so it runs on its own rather than inside the OS jobs,
+  # and it runs on all three because it reads paths and files and bun's behaviour there is not identical.
+  #
+  # bun test enforces the 75 percent coverage floor from bunfig.toml, matching the hard floor the .NET side holds
+  # in eng/coverage-gate.sh. bun strips types without checking them, so tsc --noEmit is a separate step rather
+  # than something the test run would have caught.
+  typescript:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - run: bun install --frozen-lockfile
+      - name: Types
+        run: bun run typecheck
+      - name: Lint
+        run: bun run lint
+      - name: Tests and the coverage floor
+        run: bun test
+
   gate:
-    needs: [macos, windows, linux]
+    needs: [macos, windows, linux, typescript]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Assert every OS job succeeded
         run: |
-          echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }}"
+          echo "macos=${{ needs.macos.result }} windows=${{ needs.windows.result }} linux=${{ needs.linux.result }} typescript=${{ needs.typescript.result }}"
           test "${{ needs.macos.result }}" = "success" \
             && test "${{ needs.windows.result }}" = "success" \
-            && test "${{ needs.linux.result }}" = "success"
+            && test "${{ needs.linux.result }}" = "success" \
+            && test "${{ needs.typescript.result }}" = "success"
 
   # Publishes ONE release from the six signed binaries — pre-release from dev, full release from main. Runs only
   # on a push (PRs publish nothing) and only after the gate is green (needs: gate). On macOS so it can re-verify
   # the mac codesign seals; cosign verify-blob covers all six. The assets are packaged as zips (release-zip-layout):
   # one agentguard-<rid>.zip per binary plus one evidence.zip with a subdirectory per OS/platform build.
   release:
-    needs: [version, gate, macos, windows, linux]
+    needs: [version, gate, macos, windows, linux, typescript]
     if: github.event_name == 'push'
     runs-on: macos-latest
     permissions:

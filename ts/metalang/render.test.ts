@@ -10,8 +10,25 @@ import { join } from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
-import { inlineScript, outputFor, outputPathFor, pageHtml, render, titleOf } from './render.ts'
+import {
+  inlineScript,
+  outputFor,
+  outputPathFor,
+  pageHtml,
+  render,
+  renderWith,
+  titleOf,
+} from './render.ts'
+import { dataFrom, DATA_ID, NO_PAGE_MARKS, type PageData } from './page-data.ts'
 import { LANGUAGE_FILE } from './rulebook.ts'
+
+/** The least a page can be given to draw: a vocabulary, a document, no marks, nothing found. */
+const DATA: PageData = {
+  words: { kinds: [] } as never,
+  doc: { title: 'a document' },
+  marks: NO_PAGE_MARKS,
+  found: { problems: [], blockers: [], pending: [] },
+}
 
 let dir: string
 
@@ -25,7 +42,7 @@ afterAll(async () => {
 
 describe('the page a document is written into', () => {
   test('is one self-contained file with the stylesheet and the script inside it', () => {
-    const html = pageHtml('A title', '.a{color:red}', 'var x=1')
+    const html = pageHtml('A title', '.a{color:red}', 'var x=1', DATA)
     expect(html.startsWith('<!doctype html>')).toBe(true)
     expect(html).toContain('<title>A title</title>')
     expect(html).toContain('<style>.a{color:red}</style>')
@@ -35,7 +52,7 @@ describe('the page a document is written into', () => {
   })
 
   test('a title carrying markup cannot close the title element', () => {
-    const html = pageHtml('</title><script>bad()</script>', '', '')
+    const html = pageHtml('</title><script>bad()</script>', '', '', DATA)
     // Escaping `<` is what makes it safe: the parser ends a title at `</title`, and there is
     // no longer one in the text. A bare `>` in element text needs no escaping.
     expect(html).toContain('<title>&lt;/title>&lt;script>bad()&lt;/script></title>')
@@ -43,7 +60,7 @@ describe('the page a document is written into', () => {
   })
 
   test('an ampersand in a title is written as one', () => {
-    expect(pageHtml('this & that', '', '')).toContain('this &amp; that')
+    expect(pageHtml('this & that', '', '', DATA)).toContain('this &amp; that')
   })
 })
 
@@ -75,7 +92,7 @@ describe('putting a bundle inside a script element', () => {
   })
 
   test('the real page carries nothing that could end its script', () => {
-    const html = pageHtml('T', '', 'var a = "</script>"')
+    const html = pageHtml('T', '', 'var a = "</script>"', DATA)
     const script = html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))
     expect(script).not.toContain('</script')
   })
@@ -234,5 +251,45 @@ declare:
 
   test('a file that cannot be read is named after itself', () => {
     expect(outputFor(join(dir, 'nothing-here.yaml'))).toBe(join(dir, 'nothing-here.yaml'))
+  })
+})
+
+describe('the data a page carries', () => {
+  test('sits in its own element, read back as what was written', () => {
+    const html = pageHtml('t', '', 'var x=1', DATA)
+    expect(html).toContain(`id="${DATA_ID}"`)
+    const block = html.split(`id="${DATA_ID}">`)[1]?.split('</script>')[0] ?? ''
+    expect(dataFrom(block)).toEqual(DATA)
+  })
+
+  test('a document that carries a closing script tag cannot end the block', () => {
+    const hostile: PageData = { ...DATA, doc: { title: '</script><script>bad()</script>' } }
+    const html = pageHtml('t', '', '', hostile)
+    const block = html.split(`id="${DATA_ID}">`)[1]?.split('</script>')[0] ?? ''
+    expect(dataFrom(block)).toEqual(hostile)
+  })
+})
+
+describe('drawing with a bundle the caller already has', () => {
+  test('uses it, and never asks for a bundler', async () => {
+    const out = join(dir, 'prebuilt.html')
+    let asked = 0
+    const code = await renderWith(LANGUAGE_FILE, out, () => {
+      asked += 1
+      return Promise.resolve('/* a bundle built earlier */')
+    })
+    expect(code).toBe(0)
+    expect(asked).toBe(1)
+    const html = await readFile(out, 'utf8')
+    expect(html).toContain('/* a bundle built earlier */')
+    expect(html).toContain(`id="${DATA_ID}"`)
+  })
+
+  test('the page it writes carries the document, so one bundle draws any document', async () => {
+    const out = join(dir, 'carries.html')
+    await renderWith(LANGUAGE_FILE, out, () => Promise.resolve(''))
+    const html = await readFile(out, 'utf8')
+    const block = html.split(`id="${DATA_ID}">`)[1]?.split('</script>')[0] ?? ''
+    expect(dataFrom(block).doc).not.toBeNull()
   })
 })

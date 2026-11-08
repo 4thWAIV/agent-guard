@@ -55,28 +55,29 @@ describe('parsing the command', () => {
 })
 
 describe('what render needs that check does not', () => {
-  test('says nothing when both the runtime and the page source are here', () => {
-    expect(whyRenderCannotRun({ hasBun: true, hasPageSource: true })).toBeNull()
+  test('a bundle already built asks nothing of the runtime', () => {
+    expect(
+      whyRenderCannotRun({ hasPageBundle: true, hasBun: false, hasPageSource: false }),
+    ).toBeNull()
   })
 
-  test('names bun when it is absent, rather than failing inside the bundler', () => {
-    const why = whyRenderCannotRun({ hasBun: true, hasPageSource: true })
-    expect(why).toBeNull()
-    const absent = whyRenderCannotRun({ hasBun: false, hasPageSource: true })
-    expect(absent).not.toBeNull()
-    expect(absent).toContain('bun')
-    expect(absent).toContain('check')
+  test('the page source and a bundler is the other way through', () => {
+    expect(
+      whyRenderCannotRun({ hasPageBundle: false, hasBun: true, hasPageSource: true }),
+    ).toBeNull()
   })
 
-  test('says the kit cannot draw a page at all, because it carries no page source', () => {
-    const why = whyRenderCannotRun({ hasBun: true, hasPageSource: false })
+  test('names bun when a bundle would have to be built and there is none', () => {
+    const why = whyRenderCannotRun({ hasPageBundle: false, hasBun: false, hasPageSource: true })
     expect(why).not.toBeNull()
-    expect(why).toContain('client.tsx')
-    expect(why).toContain('one built file')
+    expect(why).toContain('bun')
+    expect(why).toContain('check')
   })
 
-  test('the missing page source is named before the runtime, because it is the harder wall', () => {
-    const why = whyRenderCannotRun({ hasBun: false, hasPageSource: false })
+  test('names both routes when neither is open', () => {
+    const why = whyRenderCannotRun({ hasPageBundle: false, hasBun: true, hasPageSource: false })
+    expect(why).not.toBeNull()
+    expect(why).toContain('page.js')
     expect(why).toContain('client.tsx')
   })
 })

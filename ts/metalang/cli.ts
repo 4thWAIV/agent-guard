@@ -7,9 +7,10 @@
 // Every refusal here is a line the caller can act on, with the usage under it. Nothing falls
 // through to a stack trace, and nothing guesses at a word it did not recognise.
 //
-// Drawing a page builds a browser bundle while it runs, which needs bun. Checking does not, so
-// `check` runs under plain node and `render` says what it needs rather than failing inside the
-// bundler.
+// Drawing a page needs the page's bundle. A kit carries one, built when the kit was, and then
+// drawing needs nothing but node. Inside this repository there is no carried bundle, so one is
+// built on the spot, which needs bun. With neither, `render` says which is missing rather than
+// failing inside the bundler.
 //
 // Usage:  bun run ts/metalang/cli.ts check <file.yaml>
 
@@ -17,17 +18,19 @@ import { existsSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { readFile } from 'node:fs/promises'
+
 import { run } from './check.ts'
-import { outputFor, outputPathFor, render } from './render.ts'
+import {
+  builtPageBundle,
+  outputFor,
+  outputPathFor,
+  PAGE_BUNDLE,
+  PAGE_SOURCE,
+  renderWith,
+} from './render.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
-
-/**
- * The file a page is built from. render.ts bundles it as the page is written, so drawing a page
- * needs this source beside the module asking for it — which the kit, being one built file, does
- * not have.
- */
-const PAGE_SOURCE = 'client.tsx'
 
 export const USAGE = [
   'usage:  evolang check <file.yaml>',
@@ -84,20 +87,24 @@ export function parse(argv: readonly string[]): Checking | Drawing | Refused {
  * the kit says which is missing rather than failing inside the bundler.
  */
 export function whyRenderCannotRun(runtime: {
+  readonly hasPageBundle: boolean
   readonly hasBun: boolean
   readonly hasPageSource: boolean
 }): string | null {
+  // A bundle already built asks nothing of the runtime: the document travels in the page rather
+  // than inside the bundle, so there is nothing left to build.
+  if (runtime.hasPageBundle) return null
+
   if (!runtime.hasPageSource) {
     return (
-      `render builds a page from ${PAGE_SOURCE} and React as it writes it, and this kit is one` +
-      ' built file, so it does not carry them. check works here; drawing a page is a command in' +
-      ' the repository the kit was built from.'
+      `render needs either ${PAGE_BUNDLE}, built when a kit is built, or ${PAGE_SOURCE} to build` +
+      ' one from. Neither is beside this command, so it cannot draw a page; check works here.'
     )
   }
   if (!runtime.hasBun) {
     return (
-      'render draws a page by building a browser bundle, which needs bun on the path.' +
-      ' check needs only node, so checking a document works here and drawing one does not.'
+      `render has ${PAGE_SOURCE} but no ${PAGE_BUNDLE}, so it would have to build one, and that` +
+      ' needs bun on the path. check needs only node, so checking works here and drawing does not.'
     )
   }
   return null
@@ -116,7 +123,11 @@ export async function main(argv: readonly string[]): Promise<number> {
 
   if (asked.name === 'check') return run(asked.file)
 
+  const carried = join(here, PAGE_BUNDLE)
+  const hasPageBundle = existsSync(carried)
+
   const why = whyRenderCannotRun({
+    hasPageBundle,
     hasBun: typeof Bun !== 'undefined',
     hasPageSource: existsSync(join(here, PAGE_SOURCE)),
   })
@@ -124,7 +135,9 @@ export async function main(argv: readonly string[]): Promise<number> {
     console.error(why)
     return 2
   }
-  return render(asked.file, asked.out)
+
+  const bundle = hasPageBundle ? () => readFile(carried, 'utf8') : builtPageBundle
+  return renderWith(asked.file, asked.out, bundle)
 }
 
 if (import.meta.main) process.exit(await main(process.argv.slice(2)))

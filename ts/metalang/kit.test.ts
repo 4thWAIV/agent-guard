@@ -127,27 +127,30 @@ describe('building the kit into a folder', () => {
 })
 
 describe('drawing a page from the built kit', () => {
-  test('is refused with the reason, under bun, rather than throwing inside the bundler', async () => {
-    const out = join(dir, 'kit-render')
-    await buildKit(out)
-    const ran = Bun.spawnSync(
-      ['bun', join(out, 'kit.js'), 'render', join(out, 'metalang.yaml'), join(out, 'p.html')],
-      CAPTURED,
-    )
-    expect(said(ran)).toContain('one built file')
-    expect(said(ran)).not.toContain('at bundlePage')
-    expect(ran.exitCode).toBe(2)
-  })
-
-  test('is refused the same way under node', async () => {
+  test('draws one under plain node, from the bundle the kit carries', async () => {
     const out = join(dir, 'kit-render-node')
     await buildKit(out)
+    const page = join(out, 'drawn.html')
     const ran = Bun.spawnSync(
-      ['node', join(out, 'kit.js'), 'render', join(out, 'metalang.yaml'), join(out, 'p.html')],
+      ['node', join(out, 'kit.js'), 'render', join(out, 'metalang.yaml'), page],
       CAPTURED,
     )
-    expect(said(ran)).toContain('one built file')
-    expect(ran.exitCode).toBe(2)
+    expect(ran.exitCode).toBe(0)
+    const html = await readFile(page, 'utf8')
+    expect(html.startsWith('<!doctype html>')).toBe(true)
+    expect(html).toContain('id="page-data"')
+    // The document is in the page, not in the bundle the kit carries.
+    expect(html).toContain('MetaLang')
+  })
+
+  test('carries the page bundle, built when the kit was', async () => {
+    const out = join(dir, 'kit-page-bundle')
+    await buildKit(out)
+    expect(await readdir(out)).toContain('page.js')
+    const bundle = await readFile(join(out, 'page.js'), 'utf8')
+    // One bundle for any document: the document is not inside it.
+    expect(bundle).not.toContain('the approved vocabulary of the language')
+    expect(bundle.length).toBeGreaterThan(10_000)
   })
 })
 
