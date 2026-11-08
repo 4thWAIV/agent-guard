@@ -1,0 +1,43 @@
+# A language written in MetaLang.
+#
+# This is the id — a namespaced name whose parts are written between dots, where the same
+# part may appear twice, as in a.b.b. It is the thing the rebuild got stuck on, so it is the
+# honest test of whether the metalanguage can say what we needed it to say.
+#
+# Checked with:  node metalang-check.mjs example-id.yaml
+# The checker reads metalang.yaml as the vocabulary and this file as the thing being checked.
+
+$id: agent-guard/id
+title: Id
+description: A namespaced name, written in MetaLang.
+
+segment:
+  $anchor: segment
+  is: scalar
+  title: One part of a name.
+  description: >
+    Lower case, digits and underscore, starting with a letter. A segment never contains a
+    dot — that is what separates segments, so it cannot appear inside one.
+  of: string
+  pattern: '^[a-z][a-z0-9_]*$'
+  min_length: 1
+
+id:
+  $anchor: id
+  is: entity
+  title: A namespaced name.
+  description: >
+    Its parts are ordered and duplicates are allowed, so a.b.b is a legal name with three
+    parts, the second and third being the same word. That makes it a List rather than a
+    Roster.
+  identified_by: '#id.parts'
+  properties:
+    parts:
+      $anchor: id.parts
+      is: field
+      title: The parts of the name, in the order written.
+      type: '#segment'
+      required: yes
+      order: significant
+      unique: no
+      min_items: 1

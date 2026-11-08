@@ -1,0 +1,1091 @@
+# The workflow model. One source of truth for phases, documents, gates and levels.
+# workflow-model.html is generated from this file by render-model.mjs. Never edit the HTML.
+#
+# Status: proposal. Nothing here is approved.
+# Defined so far: the Conversation phase. Later phases are added one at a time.
+#
+# Vocabularies the renderer validates. A value outside one fails the render.
+#   origin  - guard | external
+#   form    - yaml | github | conversation
+#   actor   - main | subagent        (who initiates the step)
+#   spawned_by - main | workflow      (on a subagent step: what launched it)
+#   via     - a Guard operation id, or none
+#   presence - true when the human must be present for the Guard call
+#   status  - defined | stub          (on a phase; a stub renders greyed with no body)
+#
+# Level values: required | when-needed | absent | not-needed | undefined
+#   required    - the phase, section or step must be present
+#   required-unless-excepted - required unless the human approves the omission
+#   when-needed - present only when the work needs it; the human decides at the Scope gate
+#   absent      - does not run at this level
+#   not-needed  - the phase runs, but this section or input is not required at this level
+#   undefined   - no decision recorded yet. Never guess one.
+
+version: 1
+
+levels:
+  - id: l1
+    name: L1
+    title: Full process
+    note: The default. Any mutation with design consequence.
+  - id: l2
+    name: L2
+    title: Delegated
+    note: Only when a SOLID violation is impossible.
+  - id: l3
+    name: L3
+    title: Direct work
+    note: Reads, probes, and edits a contract would not have constrained.
+
+# Instruction sources a phase loads before it does anything. A load is a step, not an
+# input document: the phase cannot proceed until the instructions are in hand.
+#   kind   - skill | file | other
+#   status - exists | proposed | undefined
+# Who can call what. Derived from execution-reality.md; nothing in this model may assume
+# a call that is not listed here.
+actors:
+  - id: main
+    name: Main agent
+    note: The session the human is in. The only place presence can be taken.
+  - id: subagent
+    name: Subagent
+    note: Spawned with its own context. Has tools, so it can call Guard itself.
+  - id: workflow
+    name: Workflow script
+    note: >
+      Sandboxed JavaScript. No filesystem, no process, no module import, so it cannot
+      call Guard. It spawns agents and returns a value.
+  - id: guard
+    name: Guard
+    note: CLI or MCP. Validates and records. Never initiates anything.
+
+calls:
+  - from: main
+    to: workflow
+    how: the Workflow tool
+    allowed: true
+  - from: main
+    to: subagent
+    how: a single Agent call
+    allowed: true
+  - from: main
+    to: guard
+    how: CLI or MCP
+    allowed: true
+  - from: workflow
+    to: subagent
+    how: agent()
+    allowed: true
+  - from: subagent
+    to: guard
+    how: CLI or MCP
+    allowed: true
+  - from: workflow
+    to: guard
+    how: nothing — the script is sandboxed
+    allowed: false
+  - from: subagent
+    to: subagent
+    how: nothing — agent() does not nest
+    allowed: false
+  - from: guard
+    to: main
+    how: nothing — Guard never initiates
+    allowed: false
+
+# How Guard receives the write. Every operation is available as a CLI verb and as an MCP
+# tool, over the same validation: the edit names the document section, and Guard checks it
+# against the document structure, the workflow state and the required approval before
+# recording it. No operation exists yet — the shipped CLI is hook/install/init/remove/
+# doctor/version.
+#   surface - cli+mcp | hook | none
+operations:
+  - id: workflow-open
+    target: workflow
+    name: guard workflow open
+    surface: cli+mcp
+    status: proposed
+    writes: Workflow, Conversation, the work folder, and the GitHub issue when none exists
+    note: >
+      Creates the identity and the empty documents. Refuses a second folder for the same
+      work item.
+  - id: conversation-set
+    target: conversation
+    name: guard conversation set
+    surface: cli+mcp
+    status: proposed
+    writes: One named Conversation section
+    note: >
+      Section-scoped. Neither editing style grants whole-file writes, and a section the
+      current phase may not touch is refused.
+  - id: gate-request
+    target: checkpoint
+    name: guard gate request
+    surface: cli+mcp
+    status: proposed
+    writes: Nothing. Returns the rendered request and its hash
+    note: >
+      Guard renders the content from the saved sections and hashes those exact bytes with
+      their source versions. No agent composes it.
+  - id: gate-sign
+    target: checkpoint
+    name: guard gate sign
+    surface: cli+mcp
+    status: proposed
+    writes: Checkpoint, and the fields that gate locks
+    note: >
+      Takes the signed outcome against the request hash, with the presence result. A
+      checkpoint is written only for Approve.
+  - id: observation-write
+    target: change-record
+    name: guard observation write
+    surface: cli+mcp
+    status: proposed
+    writes: Any change-record field
+    note: >
+      Guard computes or runs the thing itself and keeps the result — the diff from the
+      repository, or a command with its output and exit code. No agent supplies an
+      observation.
+  - id: result-submit
+    target: verdict
+    name: guard result submit
+    surface: cli+mcp
+    status: proposed
+    writes: The agent result file, and its reference in Workflow
+    note: >
+      Validates the submitted result's structure and references before storing it. An
+      invalid submission is not marked completed.
+  - id: tool-hook
+    name: the PreToolUse and PostToolUse hook
+    surface: hook
+    status: exists
+    writes: Nothing in the workflow. Guards ordinary file edits
+    note: >
+      The shipped guard. An ordinary working-tree edit goes through it, not through a
+      workflow operation.
+  - id: no-write
+    name: no write
+    surface: none
+    status: exists
+    writes: Nothing
+    note: A read-only or presentation step.
+
+# Skills a step loads before it acts. The step cannot proceed without it.
+#   status - exists | proposed | undefined
+skills:
+  - id: rails-start-workflow
+    name: rails-start-workflow
+    status: proposed
+    owns: >
+      How to open a workflow. Intake from an issue or an impromptu request, settling
+      scope and exclusions, recording a decision in the approved wording, and choosing
+      the level.
+  - id: rails-decisions
+    name: rails-decisions
+    status: exists
+    owns: >
+      What needs the human's explicit yes, and what an agent decides alone. Also the
+      Lie-catcher's checklist.
+
+  - id: rails-dry-code
+    name: rails-dry-code
+    status: exists
+    owns: >
+      Duplication, and the DRY adversary's checklist. Measures against the rest of the
+      tree, so it needs no contract.
+  - id: direct-work-skill
+    name: not yet chosen
+    status: undefined
+    owns: >
+      No skill is chosen for direct work. rails-run-a-workflow covers stage
+      execution generally; whether L3 needs its own is undecided.
+  - id: gate-skill
+    name: not yet chosen
+    status: undefined
+    owns: >
+      No skill is chosen for the acceptance decision. rails-run-a-workflow owns the
+      gate criteria today; whether that is where it stays is undecided.
+
+documents:
+  - id: github-issue
+    name: GitHub Issue
+    origin: external
+    form: github
+    purpose: The filed work item, when the work started from one.
+    sections: []
+
+  - id: human-request
+    name: Human request
+    origin: external
+    form: conversation
+    purpose: An impromptu request, when no issue exists. Guard files the issue from it.
+    sections: []
+
+  - id: conversation
+    name: Conversation
+    origin: guard
+    form: yaml
+    purpose: >
+      The predecessor of the Contract, and the only document that exists at every level.
+      Where both hold the same concept, Conversation carries the proposal and the
+      Contract carries the proven version with the extra L1 and L2 sections on top. At
+      L3 there is no Contract, so these fields are the governing requirement. Holds the
+      wording the human approved, never a transcript of the human.
+    sections:
+      - id: description
+        type: markdown
+        contract_section: "4 — the standard"
+        purpose: The target end state, stated plainly. Proposes contract section 4.
+        l1: required
+        l2: required
+        l3: required
+      - id: scope
+        type: markdown
+        contract_section: "13 — scope"
+        purpose: >
+          The portion of the issue this workflow covers. Its lock is the Scope
+          checkpoint: scope changes only by a new signed Scope gate, which is this
+          level's form of contract section 13.
+        l1: required
+        l2: required
+        l3: required
+      - id: exclusions
+        type: markdown
+        contract_section: "10 — what the agent MUST NOT do"
+        purpose: Work outside this workflow. The hard boundary. Proposes section 10.
+        l1: required
+        l2: required
+        l3: required
+      - id: issues
+        type: list of Issue
+        purpose: The issue being resolved and its status.
+        l1: required
+        l2: required
+        l3: required
+      - id: proposed-decisions
+        type: list of ProposedDecision
+        contract_section: "2 — decisions"
+        purpose: >
+          Each decision in the wording the human approved, with its state. A decision
+          the human has not accepted is not in force.
+        l1: required
+        l2: required
+        l3: required
+      - id: target-platforms
+        type: list of TargetPlatform
+        purpose: One workflow-wide platform selection, shared by all capability research.
+        l1: required
+        l2: required
+        l3: not-needed
+      - id: investigation-areas
+        type: list of InvestigationArea
+        purpose: The exploration assignments GROUND will register.
+        l1: required
+        l2: required
+        l3: absent
+      - id: capabilities
+        type: list of Capability
+        purpose: The capabilities GROUND will search prior art for.
+        l1: required
+        l2: required
+        l3: absent
+      - id: surfaces
+        type: list of path patterns
+        contract_section: "6 — surfaces"
+        purpose: >
+          Every file or store the change may touch, enumerated. Guard compares the
+          observed diff against this list, so it is the only boundary that is
+          mechanically checkable without a contract.
+        l1: required
+        l2: required
+        l3: required
+      - id: success-definition
+        type: markdown
+        contract_section: "5 — success definition"
+        purpose: >
+          The end state that counts as done, in one statement. The gate rules against
+          this. At L1 and L2 the contract adds the standing definition verbatim on top;
+          at L3 this is the whole of it.
+        l1: required
+        l2: required
+        l3: required
+      - id: acceptance
+        type: list of AcceptanceCheck
+        contract_section: "11 — acceptance"
+        purpose: >
+          Each check with the command or proof that settles it. Two are mechanical at
+          every level and already produced: the build and test captures Guard ran, and
+          the observed diff falling inside the declared surfaces. The agent's own word
+          is never one of them.
+        l1: required
+        l2: required
+        l3: required
+      - id: workflow-path
+        type: path
+        purpose: Locates the Workflow document.
+        l1: required
+        l2: required
+        l3: required
+
+  - id: workflow
+    name: Workflow
+    origin: guard
+    form: yaml
+    purpose: >
+      Execution state. Holds the identity, the level, and every stage's attempts,
+      assignments and agent runs. Guard writes it; no agent edits it.
+    sections:
+      - id: issue-reference
+        type: int or markdown
+        purpose: IssueId when the work came from an issue, IssueText when Guard must file one. Never both.
+        l1: required
+        l2: required
+        l3: required
+      - id: workflow-id
+        type: Guid
+        purpose: Assigned by Guard and retained in server persistent state.
+        l1: required
+        l2: required
+        l3: required
+      - id: project-path
+        type: path
+        purpose: The repository this workflow acts on.
+        l1: required
+        l2: required
+        l3: required
+      - id: working-folder
+        type: path
+        purpose: >
+          The one work folder for this item, at .dev/inprocess/<issue>-<slug>/. Every
+          workflow runs its files from one, at every level.
+        l1: required
+        l2: required
+        l3: required
+      - id: conversation-path
+        type: path
+        purpose: Locates the Conversation document.
+        l1: required
+        l2: required
+        l3: required
+      - id: level
+        type: WorkflowLevel
+        purpose: Fixes which phases run. Set once, at the Scope gate.
+        l1: required
+        l2: required
+        l3: required
+      - id: stages
+        type: map of StageExecution
+        purpose: Attempts, assignments and agent runs per stage.
+        l1: required
+        l2: required
+        l3: required
+
+  - id: change-record
+    name: Change record
+    origin: guard
+    form: yaml
+    purpose: >
+      What actually happened, observed rather than reported. Guard computes the diff and
+      runs the verification itself, so nothing here is the working thread describing its
+      own work.
+    sections:
+      - id: changed-files
+        type: list of VersionedFileReference
+        purpose: The observed diff against the opening state, computed by Guard from git.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: build-capture
+        type: ExecutedCommand and result
+        purpose: The build command Guard ran, with its output and exit code.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: test-capture
+        type: ExecutedCommand and result
+        purpose: The test command Guard ran, with its output and exit code.
+        l1: undefined
+        l2: undefined
+        l3: required
+
+  - id: verdict
+    name: Reviewer verdict
+    origin: guard
+    form: yaml
+    purpose: >
+      One reviewer's ruling and its findings, saved through Guard. One file per reviewer
+      that ran.
+    sections:
+      - id: reviewer
+        type: ReviewerId
+        purpose: Which reviewer produced this, from the closed list.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: ruling
+        type: Pass or Fail
+        purpose: The verdict. A missing verdict is not a pass.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: findings
+        type: list of Finding
+        purpose: Each finding with the evidence supporting it.
+        l1: undefined
+        l2: undefined
+        l3: required
+
+  - id: checkpoint
+    name: Checkpoint
+    origin: guard
+    form: yaml
+    purpose: >
+      An accepted sign request and its signed approval. Records which gate, what was
+      shown, the hash of those exact bytes, the source versions, the outcome and the
+      presence evidence. What it locks needs a new signed approval to change.
+    sections:
+      - id: gate
+        type: GateKind
+        purpose: Which gate this checkpoint belongs to.
+        l1: required
+        l2: required
+        l3: required
+      - id: request-hash
+        type: string
+        purpose: Hash over the exact rendered bytes plus the source version list.
+        l1: required
+        l2: required
+        l3: required
+      - id: sources
+        type: list of VersionedFileReference
+        purpose: Every document version the content was drawn from.
+        l1: required
+        l2: required
+        l3: required
+      - id: outcome
+        type: Approve | Reject | ReturnTo
+        purpose: The decision. A checkpoint exists only for Approve.
+        l1: required
+        l2: required
+        l3: required
+      - id: presence
+        type: PresenceResult
+        purpose: The OS presence check that authorised it.
+        l1: required
+        l2: required
+        l3: required
+      - id: signature
+        type: string
+        purpose: Over the request hash and the outcome.
+        l1: required
+        l2: required
+        l3: required
+
+phases:
+  - id: conversation
+    symbol: CV
+    name: Conversation
+    purpose: Describe the work and resolve the initial scope.
+    l1: required
+    l2: required
+    l3: required
+    close: >
+      The intended work and the required decisions are explicit, and the level is set.
+      A missing answer is not an agent-selected default.
+    inputs:
+      - document: github-issue
+        oneof: request
+        note: One of these two is present, never both. Mirrors IssueId and IssueText.
+        l1: required
+        l2: required
+        l3: required
+      - document: human-request
+        oneof: request
+        note: When no issue exists, Guard files one from this text.
+        l1: required
+        l2: required
+        l3: required
+    outputs:
+      - document: conversation
+        note: Created here. Later phases read it; none of them rewrite it.
+        l1: required
+        l2: required
+        l3: required
+      - document: workflow
+        note: Created here, carrying the identity and the level.
+        l1: required
+        l2: required
+        l3: required
+      - document: checkpoint
+        note: The signed Scope approval.
+        l1: required
+        l2: required
+        l3: required
+    gate:
+      id: scope
+      name: Scope
+      l1: always
+      l2: always
+      l3: always
+      presents:
+        - The work, drawn from the request
+        - The scope and the exclusions
+        - The target platforms
+        - The level, and what it switches off
+        - The surfaces the change may touch
+        - What counts as done, and the checks that settle it
+        - Every decision the request forces that no approved principle settles
+      locks:
+        - conversation.description
+        - conversation.scope
+        - conversation.exclusions
+        - conversation.target-platforms
+        - conversation.surfaces
+        - conversation.success-definition
+        - conversation.acceptance
+        - workflow.level
+      reopen: A new signed Scope gate. Guard marks every result whose sources it invalidates.
+    steps:
+      - id: cv-intake
+        name: Open the workflow
+        via: workflow-open
+        actor: main
+        reads:
+          - The request, as an issue reference or as text
+        writes:
+          - workflow.issue-reference
+          - workflow.workflow-id
+          - workflow.project-path
+          - workflow.conversation-path
+          - conversation.workflow-path
+        note: >
+          Files the GitHub issue when the request was impromptu, and creates the one
+          work folder. Recordkeeping, so it needs no approval.
+        l1: required
+        l2: required
+        l3: required
+      - id: cv-resolve
+        name: Settle the work and the decisions
+        via: conversation-set
+        actor: main
+        loads: [rails-start-workflow, rails-decisions]
+        reads:
+          - The request
+        writes:
+          - conversation.description
+          - conversation.scope
+          - conversation.exclusions
+          - conversation.issues
+          - conversation.proposed-decisions
+          - conversation.target-platforms
+          - conversation.surfaces
+          - conversation.success-definition
+          - conversation.acceptance
+        note: >
+          Identifies the exact missing decision and its effect on the requested work.
+          Researches factual questions before presenting a choice. Writes each decision
+          in plain prose, shows that wording, and records it unchanged once approved.
+        l1: required
+        l2: required
+        l3: required
+      - id: cv-assign
+        name: Name the investigations and capabilities
+        via: conversation-set
+        actor: main
+        reads:
+          - conversation.scope
+          - conversation.exclusions
+        writes:
+          - conversation.investigation-areas
+          - conversation.capabilities
+        note: >
+          What GROUND will explore and which capabilities it will search prior art for.
+          Absent at L3 because GROUND does not run.
+        l1: required
+        l2: required
+        l3: absent
+      - id: cv-sign
+        name: Sign the scope
+        via: gate-sign
+        actor: main
+        presence: true
+        reads:
+          - conversation.description
+          - conversation.scope
+          - conversation.exclusions
+          - conversation.target-platforms
+          - conversation.surfaces
+          - conversation.success-definition
+          - conversation.acceptance
+        writes:
+          - checkpoint
+          - workflow.level
+        note: >
+          Guard renders the sign request from the saved sections, hashes exactly those
+          bytes with their source versions, and takes the signed outcome. No agent
+          composes this page.
+        l1: required
+        l2: required
+        l3: required
+
+  - id: ground
+    symbol: GR
+    name: Ground
+    status: stub
+    purpose: Explore the project, find reusable code and research platform primitives.
+    l1: required
+    l2: required
+    l3: absent
+    note: >
+      Not defined yet. Level states are from the new design's stage table, where GROUND
+      is required at L1 and L2 and absent at L3. Everything else about this phase —
+      its instruction sources, documents, gate and steps — is still open.
+
+  - id: design
+    symbol: DS
+    name: Design
+    status: stub
+    purpose: Choose a design using the original GROUND findings.
+    l1: required
+    l2: when-needed
+    l3: absent
+    note: >
+      Stage table: Required, When needed, Absent.
+
+  - id: contract
+    symbol: CT
+    name: Contract
+    status: stub
+    purpose: Establish the approved instructions and acceptance requirements.
+    l1: required
+    l2: required
+    l3: absent
+    note: >
+      Stage table: Required, Required, Absent. L3 runs without a contract, which is why REFUTE falls back to the Conversation at that level.
+
+  - id: spec
+    symbol: SP
+    name: Spec
+    status: stub
+    purpose: Plan observable BDD scenarios; do not implement tests.
+    l1: undefined
+    l2: undefined
+    l3: undefined
+    note: >
+      No row in the stage table. Whether the TDD row covers this phase is undecided.
+
+  - id: architecture
+    symbol: AR
+    name: Architecture
+    status: stub
+    purpose: Define the approved application signatures, or establish that none change.
+    l1: required
+    l2: when-needed
+    l3: absent
+    note: >
+      Stage table: Required, When needed, Absent.
+
+  - id: rule-plan
+    symbol: RP
+    name: Rule plan
+    status: stub
+    purpose: Plan what the rules must enforce against the architecture.
+    l1: required-unless-excepted
+    l2: absent
+    l3: absent
+    note: >
+      Derived from the single RULE-PHASE row, which covers both this phase and Rule. Whether planning and writing should carry separate states is undecided.
+
+  - id: rule
+    symbol: RL
+    name: Rule
+    status: stub
+    purpose: Write and exercise the planned rules.
+    l1: required-unless-excepted
+    l2: absent
+    l3: absent
+    note: >
+      Derived from the single RULE-PHASE row: Required unless the human approves the omission, Absent, Absent.
+
+  - id: test-plan
+    symbol: TP
+    name: Test plan
+    status: stub
+    purpose: Plan detailed testing against the available signatures and rules.
+    l1: undefined
+    l2: undefined
+    l3: undefined
+    note: >
+      No row in the stage table. Whether the TDD row covers this phase is undecided.
+
+  - id: test
+    symbol: TS
+    name: Test
+    status: stub
+    purpose: Write spec tests and unit tests, then evaluate observed results.
+    l1: required
+    l2: when-needed
+    l3: absent
+    note: >
+      From the TDD row: Required, When needed, Absent.
+
+  - id: implement
+    symbol: IM
+    name: Implement
+    purpose: Implement the approved behavior against the rules, signatures and tests.
+    l1: required
+    l2: required
+    l3: required
+    note: >
+      Defined for L3 only. At L3 the coordinator acts directly on the main thread, so no
+      worker is briefed and nothing is agent-reported: Guard observes the diff and runs
+      the verification itself. L1 and L2 remain undefined here.
+    close: >
+      The directed change is made, Guard has the observed diff and the verification
+      captures, and nothing was touched outside the declared surfaces.
+    inputs:
+      - document: conversation
+        note: The governing requirement at L3 — scope, exclusions and surfaces, as signed.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: checkpoint
+        note: The signed Scope approval. Its hash proves what the scope was when work began.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: workflow
+        note: Execution state, for the attempt and run records.
+        l1: undefined
+        l2: undefined
+        l3: required
+    outputs:
+      - document: change-record
+        note: Guard's observation of what changed and what the verification returned.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: workflow
+        note: Updated with the attempt and its run status.
+        l1: undefined
+        l2: undefined
+        l3: required
+    triggers:
+      - id: edit-outside-scope
+        name: Edit outside scope
+        predicate: a changed file is not matched by conversation.surfaces
+        decides: Extend the surfaces by a new signed Scope gate, or revert the edit.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: wall
+        name: Wall
+        predicate: the thread reports it cannot proceed without something not in scope
+        decides: Widen the scope, or redirect the work.
+        l1: undefined
+        l2: undefined
+        l3: required
+    steps:
+      - id: im-edit
+        name: Make the directed change
+        via: tool-hook
+        actor: main
+        loads: [direct-work-skill]
+        reads:
+          - conversation.scope
+          - conversation.exclusions
+          - conversation.surfaces
+        writes:
+          - Working-tree changes
+        note: >
+          The coordinator edits directly, with the human present turn by turn. It stops
+          rather than widening when a needed change falls outside the declared surfaces.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: im-observe
+        name: Observe what changed
+        via: observation-write
+        actor: main
+        reads:
+          - The repository, against the opening state
+        writes:
+          - change-record.changed-files
+        note: >
+          Guard computes the diff. The thread does not report its own changed files,
+          because at L3 the thread that reports is the thread that acted.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: im-verify
+        name: Run and capture the verification
+        via: observation-write
+        actor: main
+        reads:
+          - The repository
+        writes:
+          - change-record.build-capture
+          - change-record.test-capture
+        note: >
+          Guard runs the build and the tests and keeps the command, output and exit code.
+          No agent-supplied proof strings at this level.
+        l1: undefined
+        l2: undefined
+        l3: required
+
+  - id: readiness
+    symbol: RD
+    name: Readiness
+    status: stub
+    purpose: Check that the review can use the correct inputs and work state.
+    l1: required
+    l2: required
+    l3: absent
+    note: >
+      Stage table: Required, Required, Absent.
+
+  - id: refute
+    symbol: RF
+    name: Refute
+    purpose: Independent reviewers challenge the code, tests, rules and supporting evidence.
+    l1: required
+    l2: required
+    l3: required
+    note: >
+      Defined for L3 only. DRY is the one reviewer required at every level, and it needs
+      no contract because it measures against the rest of the tree. The Lie-catcher joins
+      only when the human asks for it.
+    close: >
+      Every reviewer the level requires has a saved verdict. A missing verdict is not a
+      pass.
+    inputs:
+      - document: conversation
+        note: >
+          The governing requirement at L3, replacing the contract. Signed, versioned and
+          recorded — not a string passed in a tool call.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: change-record
+        note: The observed diff and verification captures the reviewer rules against.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: workflow
+        note: Which reviewers the level requires, and their run status.
+        l1: undefined
+        l2: undefined
+        l3: required
+    outputs:
+      - document: verdict
+        note: One per reviewer that ran.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: workflow
+        note: Updated with each reviewer's run and result reference.
+        l1: undefined
+        l2: undefined
+        l3: required
+    triggers:
+      - id: reviewer-verdict-absent
+        name: Reviewer verdict absent
+        predicate: a reviewer required by the level has no saved verdict
+        decides: Resume the reviewer, or accept the gap explicitly.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: waiver
+        name: Waiver
+        predicate: a confirmed finding is proposed to stand unfixed
+        decides: Whether it stands.
+        l1: undefined
+        l2: undefined
+        l3: required
+    steps:
+      - id: rf-dry
+        name: DRY review
+        via: result-submit
+        actor: subagent
+        spawned_by: workflow
+        loads: [rails-dry-code]
+        reads:
+          - conversation
+          - change-record
+          - The existing tree
+        writes:
+          - verdict
+        note: >
+          Required at every level. Finds what the change duplicates or diverges from in
+          the existing code.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: rf-lie-catcher
+        name: Lie-catcher review
+        via: result-submit
+        actor: subagent
+        spawned_by: workflow
+        loads: [rails-decisions]
+        reads:
+          - conversation
+          - change-record
+        writes:
+          - verdict
+        note: >
+          Runs at L3 only when the human requests it. With no contract its baseline is
+          the signed Conversation, so it rules on whether the change went past the
+          approved scope, not on recorded decision wording.
+        l1: undefined
+        l2: undefined
+        l3: when-needed
+
+  - id: gate
+    symbol: GT
+    name: Gate
+    purpose: Decide acceptance from the requirements, reviewer outputs and verification.
+    l1: required
+    l2: required
+    l3: required
+    note: >
+      Defined for L3 only. With no contract there are no acceptance checks, so the gate
+      rules on three things that do exist: the observed diff against the declared
+      surfaces, the reviewer verdicts, and the human's judgment of the signed scope.
+    close: The outcome is signed. A rejection locks nothing.
+    inputs:
+      - document: conversation
+        note: >
+          The signed scope, exclusions, surfaces, success definition and acceptance
+          checks. At L3 this stands in for the contract.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: change-record
+        note: What actually changed, and what the verification returned.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: verdict
+        note: Every reviewer verdict the level required.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: checkpoint
+        note: The Scope checkpoint, to prove the scope has not moved since it was signed.
+        l1: undefined
+        l2: undefined
+        l3: required
+    outputs:
+      - document: checkpoint
+        note: The signed Accept decision.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: workflow
+        note: Updated with the outcome.
+        l1: undefined
+        l2: undefined
+        l3: required
+    gate:
+      id: accept
+      name: Accept
+      l1: always
+      l2: always
+      l3: always
+      presents:
+        - The success definition, and whether the result meets it
+        - Every acceptance check, with the proof that settles it
+        - Every changed file, marked against the declared surfaces
+        - Every reviewer finding, and its adjudication
+        - The build and test captures, as Guard ran them
+        - Anything required and absent, as a row rather than a gap
+      locks:
+        - The run's outcome
+        - The change record as the accepted work
+      reopen: Nothing. A later change is new work with its own workflow.
+    steps:
+      - id: gt-compare
+        name: Compare the change to the scope
+        via: gate-request
+        actor: main
+        reads:
+          - change-record.changed-files
+          - conversation.surfaces
+          - checkpoint.request-hash
+        writes:
+          - The comparison shown at the gate
+        note: >
+          Mechanical. Also re-checks that the Scope checkpoint still reproduces, so a
+          scope edited after signing is caught rather than assumed.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - id: gt-decide
+        name: Sign the outcome
+        via: gate-sign
+        actor: main
+        presence: true
+        loads: [gate-skill]
+        reads:
+          - The comparison, the verdicts and the captures
+        writes:
+          - checkpoint
+          - workflow
+        note: Guard renders the request and takes the signed outcome. No agent composes it.
+        l1: undefined
+        l2: undefined
+        l3: required
+
+  - id: report
+    symbol: RT
+    name: Report
+    purpose: Present the accepted outcome and any action still required.
+    l1: required
+    l2: required
+    l3: required
+    note: >
+      Defined for L3 only. Presentation of a decision already made at the gate. It
+      produces no file of its own — every fact it shows is already saved.
+    close: The outcome and any remaining action have been stated.
+    inputs:
+      - document: checkpoint
+        note: The signed Accept decision.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: change-record
+        note: What changed, and the verification result.
+        l1: undefined
+        l2: undefined
+        l3: required
+      - document: verdict
+        note: Findings that remain open or were waived.
+        l1: undefined
+        l2: undefined
+        l3: required
+    outputs: []
+    steps:
+      - id: rt-present
+        name: Present the outcome
+        via: no-write
+        actor: main
+        reads:
+          - checkpoint
+          - change-record
+          - verdict
+        writes:
+          - Nothing. No status file is produced.
+        l1: undefined
+        l2: undefined
+        l3: required
+
+  - id: review
+    symbol: RV
+    name: Review
+    status: stub
+    purpose: Recorded terminal state; responsibilities and output are not yet defined.
+    l1: undefined
+    l2: undefined
+    l3: undefined
+    note: >
+      No row in the stage table and no subprocess defined anywhere. The subprocess inventory records it as 'Unknown, not zero required work'.

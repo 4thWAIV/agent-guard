@@ -1,0 +1,28 @@
+# A document written IN the id language — an INSTANCE, not a language.
+#
+# `$language` names the language this document is written in, the way JSON Schema's
+# `$schema` names the schema a document is written against. The checker reads it and
+# validates every entry below against that language.
+#
+# Checked with:  node metalang-check.mjs example-instance.yaml
+
+$id: agent-guard/workflow-ids
+$language: example-id.yaml
+title: Workflow ids
+description: Names used by the issue-82 workflow, written in the id language.
+
+design_exit:
+  $anchor: design_exit
+  is: '#id'
+  parts: [design, exit]
+
+gate_condition:
+  $anchor: gate_condition
+  is: '#id'
+  parts: [gate, condition]
+
+a_b_b:
+  $anchor: a_b_b
+  is: '#id'
+  title: The name that proves duplicates are allowed.
+  parts: [a, b, b]

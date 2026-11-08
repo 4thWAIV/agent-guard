@@ -1,0 +1,8 @@
+# WHAT TO MARK IN THIS RENDER. Not content: nothing here changes a model, and a document
+# renders the same with this file empty.
+#
+# A path names any node at any depth. Each segment is a property name, or a position in a
+# list written as EITHER its index OR the node's own name — the two may be mixed. Which
+# part of a device is its name is declared by `identity:` in language.yaml.
+#
+# A path that matches nothing is reported on the page.

@@ -1,0 +1,324 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stages and gates</title><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet"><style>
+:root{
+  --paper:#fbfaf7; --card:#ffffff; --ink:#1c2230; --soft:#4b5363; --dim:#8a909c; --rule:#e4e1d9;
+  --band:#f3f1ec;
+  --stage:#1f5f5b; --stage-soft:#e6f0ee;
+  --gate:#6b3fa0; --gate-soft:#f1ebf9; --gate-line:#cdb9e6;
+  --trig:#8a5a00; --trig-soft:#fdf0d5; --trig-line:#e8cf9a;
+  --undef:#7a7f87; --undef-soft:#f0f0ee;
+  --serif:"Source Serif 4",Georgia,serif;
+  --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:760px;margin:0 auto;padding:52px 28px 90px}
+
+.mast{display:flex;justify-content:space-between;gap:16px;font-size:11.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:10px}
+h1{font:600 38px/1.15 var(--serif);letter-spacing:-.01em;margin:30px 0 6px}
+.sub{color:var(--soft);margin:0;font-size:15.5px}
+
+/* level switch */
+.levels{display:flex;gap:10px;margin:26px 0 0;flex-wrap:wrap}
+.levels button{appearance:none;cursor:pointer;font:600 14px/1 var(--sans);color:var(--soft);
+  background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:11px 18px;
+  display:flex;flex-direction:column;gap:5px;align-items:flex-start;min-width:150px;text-align:left}
+.levels button small{font:400 11.5px/1.3 var(--sans);color:var(--dim)}
+.levels button:hover{border-color:var(--stage)}
+.levels button[aria-pressed="true"]{background:var(--stage);border-color:var(--stage);color:#fff}
+.levels button[aria-pressed="true"] small{color:rgba(255,255,255,.82)}
+
+.tally{margin:16px 0 0;padding:13px 16px;background:var(--card);border:1px solid var(--rule);
+  border-radius:11px;font-size:14px;color:var(--soft)}
+.tally b{color:var(--ink)}
+
+.key{display:flex;gap:20px;flex-wrap:wrap;margin:14px 0 8px;font-size:12.5px;color:var(--dim)}
+.key span{display:flex;align-items:center;gap:7px}
+.sw{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font:700 10px/1 var(--sans)}
+
+/* spine */
+.spine{position:relative;margin:26px 0 0;padding-left:52px}
+.spine::before{content:"";position:absolute;left:21px;top:8px;bottom:14px;width:2px;background:var(--rule)}
+.row{position:relative;margin:0 0 10px;transition:opacity .15s}
+.mark{position:absolute;left:-52px;top:13px;width:42px;height:42px;display:grid;place-items:center;
+  background:var(--paper);border-radius:12px}
+.mark div{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+  font:700 14px/1 var(--sans);letter-spacing:.06em;background:var(--stage);color:#fff}
+
+.stage{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:13px 18px;
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.stage .txt h3{font:600 17px/1.3 var(--serif);margin:0 0 3px}
+.stage .txt p{margin:0;font-size:13.5px;color:var(--soft)}
+.stage .txt{flex:1 1 300px}
+
+.gate .mark div{background:none;color:var(--gate);font-size:26px}
+.gate .box{background:var(--gate-soft);border:2px solid var(--gate-line);border-radius:12px;
+  padding:12px 18px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.gate b{font:600 15.5px/1.3 var(--sans);color:var(--gate)}
+.gate em{font-style:normal;font-size:12.5px;color:var(--soft);flex:1 1 180px}
+
+/* state pills */
+.st{font:600 10.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;
+  padding:5px 9px;border-radius:20px;white-space:nowrap;margin-left:auto;display:none}
+.st-req{background:var(--stage);color:#fff}
+.gate .st-req{background:var(--gate)}
+.st-opt{background:var(--card);border:1px solid var(--stage);color:var(--stage)}
+.gate .st-opt{border-color:var(--gate);color:var(--gate)}
+.st-none{background:var(--band);color:var(--dim)}
+.st-undef{background:var(--undef-soft);border:1px dashed var(--undef);color:var(--undef)}
+.st-note{background:var(--stage);color:#fff;font-weight:600}
+
+/* which pill shows, per level */
+.lvl-l1 .row[data-l1="req"] .st-req,.lvl-l2 .row[data-l2="req"] .st-req,.lvl-l3 .row[data-l3="req"] .st-req,
+.lvl-l1 .row[data-l1="opt"] .st-opt,.lvl-l2 .row[data-l2="opt"] .st-opt,.lvl-l3 .row[data-l3="opt"] .st-opt,
+.lvl-l1 .row[data-l1="none"] .st-none,.lvl-l2 .row[data-l2="none"] .st-none,.lvl-l3 .row[data-l3="none"] .st-none,
+.lvl-l1 .row[data-l1="undef"] .st-undef,.lvl-l2 .row[data-l2="undef"] .st-undef,.lvl-l3 .row[data-l3="undef"] .st-undef
+{display:inline-block}
+.lvl-l3 .row[data-l3-note] .st-req{display:none}
+.lvl-l3 .row[data-l3-note] .st-note{display:inline-block}
+
+/* absent rows recede */
+.lvl-l1 .row[data-l1="none"],.lvl-l2 .row[data-l2="none"],.lvl-l3 .row[data-l3="none"]{opacity:.42}
+.lvl-l1 .row[data-l1="none"] .mark div,.lvl-l2 .row[data-l2="none"] .mark div,.lvl-l3 .row[data-l3="none"] .mark div
+{background:var(--band);color:var(--dim)}
+.lvl-l1 .row[data-l1="none"].gate .mark div,.lvl-l2 .row[data-l2="none"].gate .mark div,.lvl-l3 .row[data-l3="none"].gate .mark div
+{background:none;color:var(--dim)}
+.lvl-l1 .row[data-l1="none"] .box,.lvl-l2 .row[data-l2="none"] .box,.lvl-l3 .row[data-l3="none"] .box
+{background:var(--band);border-color:var(--rule)}
+.lvl-l1 .row[data-l1="none"] b,.lvl-l2 .row[data-l2="none"] b,.lvl-l3 .row[data-l3="none"] b{color:var(--dim)}
+
+/* undefined rows */
+.row[data-undefined] .stage,.row[data-undefined] .box{border-style:dashed}
+.row[data-undefined] .mark div{background:var(--undef-soft);color:var(--undef)}
+.row[data-undefined].gate .mark div{background:none}
+
+/* triggers */
+.trigs{margin:6px 0 14px;display:flex;flex-direction:column;gap:6px}
+.trig{display:flex;align-items:baseline;gap:9px;font-size:13px;color:var(--soft)}
+.trig i{font-style:normal;color:var(--trig)}
+.trig b{font-weight:600;color:var(--ink)}
+.trig code{font:.86em/1 var(--mono);background:var(--trig-soft);border:1px solid var(--trig-line);
+  padding:2px 6px;border-radius:5px;color:var(--trig)}
+.lvl-l1 .trig[data-l1="no"],.lvl-l2 .trig[data-l2="no"],.lvl-l3 .trig[data-l3="no"]{opacity:.34}
+.lvl-l1 .trig[data-l1="no"] code,.lvl-l2 .trig[data-l2="no"] code,.lvl-l3 .trig[data-l3="no"] code
+{background:var(--band);border-color:var(--rule);color:var(--dim)}
+
+footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);color:var(--dim);font-size:13px}
+footer code{font:.88em/1 var(--mono);background:var(--band);padding:1px 5px;border-radius:4px}
+@media print{html,body{background:#fff}.row{break-inside:avoid}.levels{display:none}}
+</style></head>
+<body>
+<div class="page">
+
+<div class="mast"><span>AgentGuard · Workflow</span><span>Stages and gates</span></div>
+<h1>Stages and gates</h1>
+<p class="sub">Top to bottom. A gate stops for a signed human decision. Everything else runs and records.</p>
+
+<div class="levels" role="group" aria-label="Workflow level">
+  <button type="button" data-lvl="l1" aria-pressed="true">L1 — full process<small>Default. Any mutation with design consequence.</small></button>
+  <button type="button" data-lvl="l2" aria-pressed="false">L2 — delegated<small>Only when a SOLID violation is impossible.</small></button>
+  <button type="button" data-lvl="l3" aria-pressed="false">L3 — direct work<small>Reads, probes, trivial documentation edits.</small></button>
+</div>
+
+<div class="tally" id="tally"></div>
+
+<div class="key">
+  <span><i class="sw st-req" style="display:grid">R</i> Required</span>
+  <span><i class="sw st-opt" style="display:grid">W</i> When needed</span>
+  <span><i class="sw st-none" style="display:grid">—</i> Not present</span>
+  <span><i class="sw st-undef" style="display:grid">?</i> No level definition</span>
+</div>
+
+<div class="spine lvl-l1" id="spine">
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="req" data-undefined>
+    <div class="mark"><div>CV</div></div>
+    <div class="txt"><h3>Conversation</h3><p>Describe the work and resolve the initial scope.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Proposed</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="req" data-l3="req">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Scope</b><em>work, exclusions, platforms, level</em>
+      <span class="st st-req">Always</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="none">
+    <div class="mark"><div>GR</div></div>
+    <div class="txt"><h3>Ground</h3><p>Explore the project, find reusable code and research platform primitives.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+  <div class="trigs">
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="no"><i>◈</i><span><b>Unresolved reuse</b> — <code>Decision is UnresolvedReuseDecision</code></span></div>
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="yes"><i>◈</i><span><b>Required result absent</b> — <code>no Completed run</code></span></div>
+  </div>
+
+  <div class="row stage" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>DS</div></div>
+    <div class="txt"><h3>Design</h3><p>Choose a design using the original GROUND findings.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Approach</b><em>chosen design, and every surfaced decision</em>
+      <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="none">
+    <div class="mark"><div>CT</div></div>
+    <div class="txt"><h3>Contract</h3><p>Establish the approved instructions and acceptance requirements.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">No contract</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="req" data-l3="none">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Contract</b><em>binding scope, edit scope, acceptance checks</em>
+      <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="undef" data-l2="undef" data-l3="none" data-undefined>
+    <div class="mark"><div>SP</div></div>
+    <div class="txt"><h3>Spec</h3><p>Plan observable BDD scenarios; do not implement tests.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">No level definition</span></div>
+
+  <div class="row gate" data-l1="undef" data-l2="undef" data-l3="none" data-undefined>
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Behaviour spec</b><em>the scenarios that define done</em>
+      <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">No level definition</span></div></div>
+
+  <div class="row stage" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>AR</div></div>
+    <div class="txt"><h3>Architecture</h3><p>Define the approved application signatures, or establish that none change.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Surface</b><em>the interface definitions, as code</em>
+      <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="undef" data-l2="none" data-l3="none" data-undefined>
+    <div class="mark"><div>RP</div></div>
+    <div class="txt"><h3>Rule plan</h3><p>Plan what the rules must enforce against the architecture.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">No level definition</span></div>
+
+  <div class="row gate" data-l1="opt" data-l2="none" data-l3="none">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Rule plan</b><em>each rule, and the red it is expected to produce</em>
+      <span class="st st-req">Required</span><span class="st st-opt">Unless exception granted</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="opt" data-l2="none" data-l3="none">
+    <div class="mark"><div>RL</div></div>
+    <div class="txt"><h3>Rule</h3><p>Write and exercise the planned rules.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">Unless exception granted</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+  <div class="trigs">
+    <div class="trig" data-l1="yes" data-l2="no" data-l3="no"><i>◈</i><span><b>Expectation mismatch</b> — <code>actual ≠ locked Expectation</code></span></div>
+  </div>
+
+  <div class="row stage" data-l1="undef" data-l2="undef" data-l3="none" data-undefined>
+    <div class="mark"><div>TP</div></div>
+    <div class="txt"><h3>Test plan</h3><p>Plan detailed testing against the available signatures and rules.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">No level definition</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Test plan</b><em>each case, and its expected Pass / Fail / Unknown</em>
+      <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="req" data-l2="opt" data-l3="none">
+    <div class="mark"><div>TS</div></div>
+    <div class="txt"><h3>Test</h3><p>Write spec tests and unit tests, then evaluate observed results.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+  <div class="trigs">
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="no"><i>◈</i><span><b>Expectation mismatch</b> — <code>actual ≠ locked Expectation</code></span></div>
+  </div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="req" data-l3-note>
+    <div class="mark"><div>IM</div></div>
+    <div class="txt"><h3>Implement</h3><p>Implement the approved behavior against the rules, signatures and tests.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-note">Coordinator acts directly; small changes as directed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+  <div class="trigs">
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="no"><i>◈</i><span><b>Contract change</b> — <code>agent raised a request and stopped</code></span></div>
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="no"><i>◈</i><span><b>Edit outside scope</b> — <code>changed file not in contract edit scope</code></span></div>
+  </div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="none">
+    <div class="mark"><div>RD</div></div>
+    <div class="txt"><h3>Readiness</h3><p>Check that the review can use the correct inputs and work state.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="req">
+    <div class="mark"><div>RF</div></div>
+    <div class="txt"><h3>Refute</h3><p>Independent reviewers challenge the code, tests, rules and supporting evidence.</p>
+      <p id="reviewers" style="margin-top:5px;color:var(--gate)"></p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+  <div class="trigs">
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="yes"><i>◈</i><span><b>Reviewer verdict absent</b> — <code>required reviewer, no verdict</code></span></div>
+    <div class="trig" data-l1="yes" data-l2="yes" data-l3="yes"><i>◈</i><span><b>Waiver</b> — <code>confirmed finding proposed as waived</code></span></div>
+  </div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="req">
+    <div class="mark"><div>GT</div></div>
+    <div class="txt"><h3>Gate</h3><p>Decide acceptance from the requirements, reviewer outputs and verification.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row gate" data-l1="req" data-l2="req" data-l3="req">
+    <div class="mark"><div>◆</div></div>
+    <div class="box"><b>Accept</b><em>findings, mismatches, acceptance checks against actual results</em>
+      <span class="st st-req">Always</span><span class="st st-opt">When needed</span>
+      <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div></div>
+
+  <div class="row stage" data-l1="req" data-l2="req" data-l3="req">
+    <div class="mark"><div>RT</div></div>
+    <div class="txt"><h3>Report</h3><p>Present the accepted outcome and any action still required.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Undefined</span></div>
+
+  <div class="row stage" data-l1="undef" data-l2="undef" data-l3="undef" data-undefined>
+    <div class="mark"><div>RV</div></div>
+    <div class="txt"><h3>Review</h3><p>Recorded terminal state; responsibilities and output are not yet defined.</p></div>
+    <span class="st st-req">Required</span><span class="st st-opt">When needed</span>
+    <span class="st st-none">Not present</span><span class="st st-undef">Nothing defined</span></div>
+
+</div>
+
+<footer>Stage symbols and purposes are quoted from <code>workflow-phase-details.js</code>. Level columns follow the new-workflow table at <code>workflow-inputs-outputs.md:252</code> and its reviewer table at <code>:270</code>; stages those tables do not name carry no level definition. The reviewer options follow <code>additionalAdversaries</code> as approved in the <code>dry-every-level-refute-interface</code> decision. Gate placement and trigger predicates are proposed, not approved.</footer>
+
+<script>
+const data = {
+  l1:{stops:"6 required, 1 unless an omission is approved", absent:"none", reviewers:"All five required — Prove-It, SOLID, DRY, Laziness, Lie-catcher", undef:"Conversation, Spec, Rule plan, Test plan, Review carry no row in the level table", opt:"No optional stages at L1."},
+  l2:{stops:"3 required — Scope, Contract, Accept", absent:"Rule plan, Rule", reviewers:"Prove-It, DRY, Lie-catcher required. Laziness when needed/requested, via additionalAdversaries. SOLID absent.", undef:"Conversation, Spec, Test plan, Review carry no row in the level table", opt:"Optional stages: Design, Architecture, Test — the only When needed cells in the table."},
+  l3:{stops:"2 required — Scope, Accept", absent:"Ground, Design, Contract, Spec, Architecture, Rule plan, Rule, Test plan, Test, Readiness", reviewers:"DRY required. Lie-catcher when Tim requests it, via additionalAdversaries. Prove-It, SOLID and Laziness absent.", undef:"Conversation, Review carry no row in the level table", opt:"No optional stages at L3. Every stage is Absent or Required; the only option is the Lie-catcher reviewer."}
+};
+const spine=document.getElementById('spine'), tally=document.getElementById('tally'), rev=document.getElementById('reviewers');
+function set(l){
+  spine.className='spine lvl-'+l;
+  document.querySelectorAll('.levels button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.lvl===l));
+  const d=data[l];
+  tally.innerHTML='<b>Gates that stop:</b> '+d.stops+'. &nbsp;<b>Stages not present:</b> '+d.absent+'. &nbsp;<b>'+d.opt+'</b> &nbsp;<b>Undefined:</b> '+d.undef+'.';
+  rev.textContent=d.reviewers;
+}
+document.querySelectorAll('.levels button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.lvl)));
+set('l1');
+</script>
+
+</div>
+</body>
+</html>

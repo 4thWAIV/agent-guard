@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Architecture Language Road</title>
+<style>
+:root{
+  --paper:#f7f6f2; --card:#fff; --ink:#15192b; --soft:#454d63; --dim:#848b9c;
+  --rule:#e2dfd6; --band:#f1efe8;
+  --accent:#0d6e68; --accent-soft:#dff2ef; --accent-line:#8fc9c2;
+  --warm:#9a5b00; --warm-soft:#fdf2dd; --warm-line:#e6bd72;
+  --bad:#b3261e; --bad-soft:#fdecea; --bad-line:#eda39c;
+  --yes:#1a7f37; --yes-soft:#e3f4e8; --yes-line:#9ad3ad;
+  --no:#c02d1f; --no-soft:#fdeae7; --no-line:#f0ab9f;
+  --abs:#3f36a8; --abs-soft:#eceafc; --abs-line:#b3abee;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+ font:400 14px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+main{max-width:62rem;margin:0 auto;padding:40px 24px 90px}
+code{font-family:var(--mono)}
+h1{font:600 31px/1.18 var(--sans);margin:0 0 9px;letter-spacing:-.015em}
+h2{font:600 19px/1.3 var(--sans);margin:40px 0 14px;letter-spacing:-.01em}
+h3{font:600 14px/1.4 var(--sans);margin:22px 0 8px}
+p{margin:0 0 .8rem;max-width:74ch}
+.lede{font-size:14.5px;color:var(--soft);max-width:72ch}
+.ident{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 16px}
+.ident i{font:700 9px/1 var(--sans);font-style:normal;letter-spacing:.15em;
+ text-transform:uppercase;color:#fff;background:var(--accent);
+ display:inline-flex;align-items:center;height:28px;padding:0 10px;border-radius:6px}
+.ident b{font:600 14px/1 var(--mono);color:var(--accent);background:var(--accent-soft);
+ border:1px solid var(--accent-line);display:inline-flex;align-items:center;height:28px;
+ padding:0 10px;border-radius:6px}
+
+/* the strip of seven */
+.strip{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin:18px 0 26px}
+.strip div{border:1px solid var(--rule);background:var(--card);border-radius:8px;
+ padding:10px 10px 12px;min-height:74px}
+.strip div.done{background:var(--yes-soft);border-color:var(--yes-line)}
+.strip div.now{background:var(--warm-soft);border-color:var(--warm-line)}
+.strip b{display:block;font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:var(--dim);margin-bottom:7px}
+.strip div.done b{color:var(--yes)} .strip div.now b{color:var(--warm)}
+.strip span{font-size:12.5px;line-height:1.35;color:var(--soft)}
+
+/* the road table */
+table{border-collapse:collapse;width:100%;margin:0 0 10px;font-size:13.5px}
+th{text-align:left;font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:var(--dim);padding:0 12px 9px 0;border-bottom:1px solid var(--rule);white-space:nowrap}
+td{padding:11px 12px 11px 0;border-bottom:1px solid var(--rule);vertical-align:top;color:var(--soft)}
+td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+td.state{white-space:nowrap}
+.pill{display:inline-block;font:600 11px/1 var(--sans);padding:5px 8px;border-radius:5px;
+ border:1px solid var(--rule);background:var(--band);color:var(--soft)}
+.pill.done{background:var(--yes-soft);border-color:var(--yes-line);color:var(--yes)}
+.pill.open{background:var(--warm-soft);border-color:var(--warm-line);color:var(--warm)}
+.pill.meta{background:var(--abs-soft);border-color:var(--abs-line);color:var(--abs)}
+
+/* the eight sentences */
+ol.says{list-style:none;padding:0;margin:0;display:grid;gap:7px}
+ol.says li{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;
+ background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:11px 13px}
+ol.says li.y{background:var(--yes-soft);border-color:var(--yes-line)}
+ol.says li em{font:700 10px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--no)}
+ol.says li.y em{color:var(--yes)}
+ol.says li span{color:var(--ink)}
+ol.says li u{text-decoration:none;font-size:12px;color:var(--dim);white-space:nowrap}
+
+.card{background:var(--card);border:1px solid var(--rule);border-radius:10px;
+ padding:16px 18px;margin:0 0 14px}
+.card h3{margin-top:0}
+pre{margin:10px 0 0;background:var(--band);border:1px solid var(--rule);border-radius:8px;
+ padding:12px 14px;overflow-x:auto;font:400 12.5px/1.6 var(--mono);color:var(--ink)}
+ul{margin:0 0 .8rem;padding-left:1.15rem;max-width:74ch}
+li{margin-bottom:.3rem}
+.foot{margin-top:44px;padding-top:16px;border-top:1px solid var(--rule);
+ font-size:12.5px;color:var(--dim);max-width:76ch}
+.foot p{margin:0 0 .45rem}
+a{color:var(--accent)}
+@media (max-width:760px){
+  .strip{grid-template-columns:repeat(2,1fr)}
+  ol.says li{grid-template-columns:auto 1fr}
+  ol.says li u{grid-column:2}
+}
+</style>
+</head>
+<body>
+<main>
+
+  <div class="ident"><i>road</i><b>.dev/inprocess/82-guard-process-workflow/ROAD.md</b></div>
+  <h1>The architecture language: where it stands</h1>
+  <p class="lede">The architecture language is <code>ts/metalang/arch.yaml</code>, a document written
+  in MetaLang. Its job is to let a project write down what its code is made of, so a person can read
+  it and sign it, and so it can be checked back against the real source in C#, Python, Rust and
+  TypeScript. Each step on the road is one sentence the language gains the power to write. Read
+  against the code on 25 October 2026.</p>
+
+  <div class="strip">
+    <div class="done"><b>1 · done</b><span>Name the kinds</span></div>
+    <div class="done"><b>2 · done</b><span>Name one thing</span></div>
+    <div class="done"><b>3 · done</b><span>What a thing is made of</span></div>
+    <div class="done"><b>4 · done</b><span>Where a thing sits</span></div>
+    <div class="done"><b>5 · done</b><span>How two things relate</span></div>
+    <div class="now"><b>6 · next</b><span>Find it in real code</span></div>
+    <div><b>7</b><span>Must and must not</span></div>
+  </div>
+
+  <h2>The road</h2>
+  <table>
+    <thead><tr><th>Step</th><th>The sentence it buys</th><th>State</th><th>What it needs</th></tr></thead>
+    <tbody>
+      <tr><td>1. Name the kinds</td>
+          <td>There are six kinds of thing an architecture can hold, and in Python an interface is
+              called a Protocol or an ABC.</td>
+          <td class="state"><span class="pill done">done</span></td><td>—</td></tr>
+      <tr><td>2. Name one thing</td>
+          <td><code>IGuard</code> is an interface.</td>
+          <td class="state"><span class="pill done">done</span></td><td>—</td></tr>
+      <tr><td>3. What a thing is made of</td>
+          <td><code>IGuard</code> has a member called <code>PrecheckAsync</code>.</td>
+          <td class="state"><span class="pill done">done</span></td>
+          <td>—</td></tr>
+      <tr><td>4. Where a thing sits</td>
+          <td><code>IGuard</code> sits in the <code>Abstractions</code> assembly, and in no package
+              of its own.</td>
+          <td class="state"><span class="pill done">done</span></td>
+          <td>—</td></tr>
+      <tr><td>5. How two things relate</td>
+          <td><code>FileGuard</code> implements <code>IGuard</code>.</td>
+          <td class="state"><span class="pill done">done</span></td>
+          <td>—</td></tr>
+      <tr><td>6. Find it in real code</td>
+          <td>To find <code>IGuard</code> in the C# source, look for <code>interface IGuard</code>.</td>
+          <td class="state"><span class="pill open">issue 91 · next</span></td>
+          <td>a reader per language</td></tr>
+      <tr><td>7. Must and must not</td>
+          <td>Only when something else holds; never this; proposed or approved; where it came from; a
+              truth worked out rather than written.</td>
+          <td class="state"><span class="pill">issue 92</span></td>
+          <td><span class="pill meta">new words in MetaLang</span></td></tr>
+    </tbody>
+  </table>
+
+  <h2>The eight sentences the road is measured against</h2>
+  <ol class="says">
+    <li class="y"><em>yes</em><span>There are six kinds of thing an architecture can hold.</span><u>step 1</u></li>
+    <li class="y"><em>yes</em><span>In Python, an interface is called a Protocol or an ABC.</span><u>step 1</u></li>
+    <li class="y"><em>yes</em><span><code>IGuard</code> is an interface.</span><u>step 2</u></li>
+    <li class="y"><em>yes</em><span><code>IGuard</code> has a member called <code>PrecheckAsync</code>, and <code>PrecheckAsync</code> is a method.</span><u>step 3</u></li>
+    <li class="y"><em>yes</em><span><code>FileGuard</code> implements <code>IGuard</code>, answers with a <code>Verdict</code>, and <code>Verdict</code> holds a <code>VerdictKind</code>.</span><u>step 5</u></li>
+    <li class="y"><em>yes</em><span><code>IGuard</code> sits in the <code>Abstractions</code> assembly, and in no package of its own.</span><u>step 4</u></li>
+    <li><em>no</em><span>To find <code>IGuard</code> in the C# source, look for <code>interface IGuard</code>.</span><u>step 6</u></li>
+    <li><em>no</em><span>Those six kinds are all the kinds there are.</span><u>step 7</u></li>
+  </ol>
+
+  <h2>What steps 2 to 5 are written as</h2>
+  <div class="card">
+    <h3>Each element is its own declaration</h3>
+    <p>An element of an architecture is written with MetaLang's <code>constant</code>, under the name
+    the thing actually has. The name it is known by is the name it is declared under, so nothing
+    carries two names.</p>
+<pre>  - constant:
+      id: IGuard
+      is: element
+      value:
+        form: interface
+        does: The three behaviours every guard answers a tool call through.</pre>
+    <p style="margin-top:12px">That needed two keywords on <code>constant</code>, which could name a
+    fixed value and say nothing about it: <code>is</code>, the type its value is of, and
+    <code>value</code>, the value itself. Both are required — a constant that does not say what its
+    value is of cannot be checked, and a constant with no value is a name standing for nothing. Two
+    documents are written this way: <code>ts/metalang/parts.yaml</code>, the six parts of the
+    toolchain, and <code>handoff/guard.yaml</code>, the five parts of the guard.</p>
+  </div>
+  <div class="card">
+    <h3>And what it is made of</h3>
+    <p><code>kind</code> and <code>kinds</code> declare the five kinds a member may be — method,
+    constructor, property, field and value — each with the mark it is drawn with, a real example from
+    this repository and one line saying what it is. <code>member</code> is one named piece of an
+    element, and carries its own <code>name</code> because a member is not declared and so has no id
+    to be known by. <code>members</code> holds them as a <code>list</code>, in the order the source
+    declares them.</p>
+<pre>  - constant:
+      id: IGuard
+      is: element
+      value:
+        form: interface
+        does: The three behaviours every guard answers a tool call through.
+        members:
+          - name: PrecheckAsync
+            kind: method
+            does: Judges a tool call before it runs.</pre>
+    <p style="margin-top:12px">A kind that is not one of the five is reported at the kind, with the
+    five listed. A member missing its name or its kind is reported at the member. A word a member does
+    not carry is reported at the word. The same member written twice is reported, because a list's
+    entries are unique. <code>handoff/guard.yaml</code> names the members of all five parts of the
+    guard, each one read out of the source before it was written.</p>
+  </div>
+  <div class="card">
+    <h3>And where it sits</h3>
+    <p>The three kinds of place are a closed vocabulary of this language, beside the six forms and
+    the five kinds of member. Each carries its own mark, a real example, the name it is shown by and
+    one line saying what it is. <code>sits</code> holds one line for each of them, and a level the
+    language has no word for says <code>none</code>.</p>
+<pre>  - constant:
+      id: IGuard
+      is: element
+      value:
+        sits:
+          package: none
+          assembly: AgentGuard.Abstractions
+          namespace: AgentGuard.Abstractions.Contracts
+        form: interface
+        does: The three behaviours every guard answers a tool call through.</pre>
+    <p>Writing it keyed by the vocabulary needed one new word in MetaLang — <code>map</code>, one of
+    a thing for each word of a closed set. Every word that set lists is written, a key it does not
+    list is refused against the words it does, and a word that holds nothing says so with a reserved
+    state. <code>role</code> gained a fourth member, <code>mark</code>, so a page reaches the glyph
+    the way it already reaches the kind, the prose and the name. On a card, each line is drawn in
+    its own colour and stepped in one place from the line above, so the order reads as what contains
+    what.</p>
+  </div>
+  <div class="card">
+    <h3>And what it stands to</h3>
+    <p>The three ways one element can stand to another are a closed vocabulary of this language, as
+    the forms, the kinds of member and the kinds of place are. <code>relates</code> holds one line
+    for each, and each line names the elements it stands to that way.</p>
+<pre>  - constant:
+      id: FileGuard
+      is: element
+      value:
+        relates:
+          implements: [IGuard]
+          answers: [Verdict]
+          holds: none</pre>
+    <p>It is written with MetaLang's <code>link</code>: a value written as the id of a declaration,
+    with <code>to</code> naming the type that declaration must carry a value of. A name nothing the
+    document reaches declares is refused where it is written, so a relation can never point at
+    nothing, and the page draws each name as the same reference chip every other reference uses.</p>
+  </div>
+  <div class="card">
+    <h3>The direction this replaced, and why it was declined</h3>
+    <p>Declaring the six forms as six kinds a document writes was built, measured and declined.
+    Adding the kinds at all required the architecture language to re-declare MetaLang's own
+    <code>declaration</code> choice and replace its list. A kind named <code>enum</code> took
+    MetaLang's <code>enum</code> away from every document written in the language, which left
+    <code>ts/metalang/names.yaml</code> — whose <code>languages</code> and <code>equivalents</code>
+    are enums — unwritable. And it left the file a part lives in and the glyph it is drawn with
+    nowhere to live. Measured against each other: 115 of the tests failing, against 4 for the shape
+    that was taken.</p>
+  </div>
+
+  <h2>What is open, and whose it is</h2>
+  <h3>Waiting on Tim</h3>
+  <ul>
+    <li>Which of the archived design's twenty-four lists are the important components.</li>
+    <li>Which target languages the language has to reach.</li>
+    <li>The levels of a workflow. He said he would come back to it, and not to start it.</li>
+  </ul>
+  <h3>Answered on 25 October, and in</h3>
+  <ul>
+    <li>The proposal language and its renderer now live in <code>ts/metalang</code>, so a proposal is
+        written as YAML the checker reads and drawn as a document.</li>
+    <li>A value naming one member of a closed set is drawn with the name that set gives it where the
+        name says what the id does not, so the dictionary reads <code>csharp C#</code> and a member
+        reads <code>() method</code> rather than <code>method Method</code>.</li>
+    <li><b>members-absence.</b> <code>members</code> is required and accepts <code>none</code> and
+        <code>pending</code>, so an element with none says so and one nobody has written yet says
+        that instead.</li>
+    <li><b>shared-vocabulary-shape.</b> <code>form</code> and <code>kind</code> derive from
+        <code>word</code>, which carries the four properties they shared. The three kinds of place
+        are the third vocabulary to derive from it, written without a third copy.</li>
+    <li>Which part of a thing is its name is now said by the language rather than assumed by the
+        code: <code>role</code> on a property says what that property is to a reader — the kind, the
+        prose, the name or the mark.</li>
+  </ul>
+  <h3>On the list, not attached to a step</h3>
+  <ul>
+    <li>A way for a closed set to claim it is complete.</li>
+    <li><b>Known and unenforced.</b> A role is given to at most one property of a type. The language
+        says so, no checker rule holds it, and the page draws an error naming both properties where
+        it happens. A rule and a test, and the cheapest open item here.</li>
+  </ul>
+
+  <h2>Where this fits</h2>
+  <p>The architecture language is the tool. Issue 82's workflow is the subject: eight phases —
+  Design, Spec, Rule, Test, Implement, Refute, Gate, Report — of which one is designed and seven are
+  names, with nothing in its contract signable because every decision in it is still proposed. The
+  language has to be able to say what a thing is made of and how two things relate before a rule or a
+  test can be written about anything, which is why the road comes first.</p>
+
+  <div class="foot">
+    <p><b>Where the documents are.</b> The road is
+    <code>.dev/inprocess/82-guard-process-workflow/ROAD.md</code>. Orientation is
+    <code>rebuild/RESUME.md</code> beside it, rewritten against the live files. The running log,
+    newest last, is <code>rebuild/STATE.md</code>. The three documents that stopped being true were
+    moved to <code>handoff/archive/2026-10-24/</code> with a note saying what replaced them.</p>
+    <p><b>How to check any of it.</b> <code>bun run check ts/metalang/&lt;file&gt;.yaml</code> reads
+    one document against its language; <code>bun test</code> runs the suite;
+    <code>bun run render</code> writes a page. Every document in <code>ts/metalang</code> checks
+    clean, every page draws with nothing it cannot draw, the suite passes, and the types and the linter
+    are clean.</p>
+  </div>
+
+</main>
+</body>
+</html>

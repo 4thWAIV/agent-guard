@@ -1,0 +1,312 @@
+# The contract for issue 82.
+#
+# This file is an INSTANCE of what the language declares. `Contract` is a record in
+# architecture.yaml with a scope and decisions; a decision is the DecisionBase envelope
+# with a state, a slug and a payload. None of that shape is invented here.
+#
+# A payload names its type because YAML is not typed. A payload that lives in another
+# file says where, so there is one copy of it.
+
+issue: 82
+slug: guard-process-workflow
+
+# Contract.scope — declared, and not yet written.
+scope:
+
+# The bands decisions are read in. `decision_group` is declared in language.yaml and
+# generated as DecisionGroup; these five are this contract's own.
+decision_groups:
+  - id: workflow
+    name: The workflow
+    question: What is the process we are building?
+  - id: record
+    name: What the run keeps
+    question: What does a run write down, and how does it get signed?
+  - id: language
+    name: How it is expressed
+    question: How is a plan written so a human can read and sign it?
+  - id: operation
+    name: How it is worked on
+    question: What does a human or an agent type to change it?
+  - id: enforcement
+    name: What is refused
+    question: What does the system refuse to let through?
+
+# Contract.decisions — each one a Decision with a state, a slug and a typed payload.
+decisions:
+  # A run is a process. Its members are processes, and theirs are steps — the same
+  # drawing at every level, which is where the depth comes from.
+  - slug: the-workflow
+    group: workflow
+    state: Proposed
+    payload:
+      type: Process
+      name: A run
+      takes: [{name: GitHubIssue}, {name: HumanRequest}]
+      produces: [{name: Contract}]
+      gates:
+        - kind: exit
+          conditions:
+            - kind: members-complete
+              over: every phase of the run
+            - kind: decisions-locked
+              over: every decision in the contract
+      members:
+        - name: Design
+          takes: [{name: GitHubIssue}, {name: HumanRequest}]
+          produces: [{name: Contract}]
+          note: >
+            What was Conversation and Design. The gate that split them checked nothing: the
+            discussion already runs until its decisions are locked.
+          research:
+            - kind: code-structure
+              required: true
+            - kind: prior-art
+              required: true
+            - kind: platform
+              required: true
+            - kind: hidden-decisions
+              required: true
+            - kind: runtime
+              required: false
+          members:
+            # The document has to exist before anything can be written into it, and the
+            # work folder is its identity.
+            - actor: guard
+              name: Open the contract on the request
+              takes: [{name: GitHubIssue}, {name: HumanRequest}]
+              produces: [{name: Contract}]
+
+            - name: The discussion
+              takes: [{name: Contract}]
+              produces: [{name: Decision, arguments: [{name: Payload}]}]
+              repeats:
+                until:
+                  - kind: human-finished
+                    over: the discussion
+              members:
+                - actor: main-agent
+                  name: Propose the scope, and every choice the request forces
+                  takes: [{name: Contract}]
+                  produces: [{name: Decision, arguments: [{name: Payload}]}]
+                  note: state Proposed — an agent may write no other
+                - actor: human
+                  name: Accept, change or reject each proposal
+                  takes: [{name: Decision, arguments: [{name: Payload}]}]
+                  produces: []
+                  note: >
+                    Decides. Writes nothing: only Guard sets a decision to Locked, and only
+                    because the human said so.
+
+            # What used to be its own phase. It had an entry gate wanting the scope and the
+            # discussion's decisions locked — which is exactly what the discussion repeats
+            # until. A gate restating the condition that just ended the step before it is
+            # not a gate, so it is gone.
+            - name: The architecture
+              takes: [{name: Contract}]
+              produces: [{name: Decision, arguments: [{name: Architecture}]}]
+              research:
+                - kind: code-structure
+                  required: true
+                - kind: prior-art
+                  required: true
+                - kind: platform
+                  required: true
+                - kind: hidden-decisions
+                  required: true
+                - kind: runtime
+                  required: false
+              questions:
+                - id: connects
+                  text: Where the change connects, and what currently calls it.
+                  answered_by: [code-structure]
+                - id: already-does-this
+                  text: What in the tree already owns this responsibility.
+                  answered_by: [prior-art]
+                - id: constraints
+                  text: What makes an otherwise reasonable approach invalid.
+                  answered_by: [code-structure, platform, runtime]
+                - id: unsettled
+                  text: Which forks the scope and decisions do not answer.
+                  answered_by: [hidden-decisions]
+                - id: shape
+                  text: What interfaces and signatures the approach implies.
+                  answered_by: [code-structure, platform]
+                - id: lands
+                  text: Which files and stores the change will touch.
+                  answered_by: [code-structure]
+              gates:
+                - kind: entry
+                  conditions:
+                    - kind: human-finished
+                      over: the discussion
+                - kind: exit
+                  conditions:
+                    - kind: research-complete
+                      over: every required research kind this process declares
+                    - kind: decisions-locked
+                      over: the Architecture decision
+              repeats:
+                until:
+                  - kind: decisions-locked
+                    over: the Architecture decision
+              members:
+                - actor: subagent
+                  name: Run each required research
+                  fans_out: one per required research kind
+                  takes: [{name: Contract}]
+                  produces: []
+                - actor: subagent
+                  name: Propose an approach and the rules it would add
+                  fans_out: one per angle
+                  takes: [{name: Contract}]
+                  produces: [{name: Architecture}]
+                - actor: subagent
+                  name: Score the proposals and synthesize the winner
+                  takes: [{name: Architecture}]
+                  produces: [{name: Architecture}]
+                - actor: main-agent
+                  name: Write the winner as a proposed decision
+                  takes: [{name: Architecture}]
+                  produces: [{name: Decision, arguments: [{name: Architecture}]}]
+                  note: state Proposed — an agent may write no other
+                - actor: human
+                  name: Accept it, or send it back with what to change
+                  takes: [{name: Decision, arguments: [{name: Architecture}]}]
+                  produces: []
+                  note: >
+                    Decides. Writes nothing: only Guard sets a decision to Locked, and only
+                    because the human said so.
+
+            - actor: guard
+              name: Show the exact text, lock what was accepted, and sign it
+              takes: [{name: Decision, arguments: [{name: Payload}]}]
+              produces: [{name: Decision, arguments: [{name: Payload}]}, {name: Contract}]
+
+          gates:
+            - kind: exit
+              conditions:
+                - kind: field-written
+                  over: the contract's scope
+                - kind: members-complete
+                  over: the discussion and the architecture
+                - kind: decisions-locked
+                  over: every decision this phase raised
+                - kind: presence-signed
+                  over: the contract as the human settled it
+                  by: IPresenceCheck through the approval gate
+
+        - name: Spec
+        - name: Rule
+        - name: Test
+        - name: Implement
+        - name: Refute
+        - name: Gate
+        - name: Report
+
+  - slug: the-architecture
+    group: workflow
+    state: Proposed
+    payload:
+      type: Architecture
+
+  - slug: claude-workflow-compatible
+    group: workflow
+    state: Proposed
+    payload:
+      type: Sentence
+      text: >
+        Stay Claude-Workflow compatible and do not design for Codex beyond that.
+      needs:
+        name: Runtime
+        question: Which runtime does a workflow target, and what can that runtime do?
+        shape: [runtime, can, cannot]
+        example: the Claude Workflow runtime fires no hook on agent(), so Guard never sees a launch
+        why: >
+          There is nowhere to record what a runtime can do, so the one fact every
+          unsourceable field came from ignoring has to be written as prose.
+
+  - slug: one-document-the-contract
+    group: record
+    state: Proposed
+    payload:
+      type: Sentence
+      text: >
+        One document per run. It opens as the Conversation and becomes the Contract as
+        the run progresses; the work folder is its identity.
+      needs:
+        name: Location
+        question: Where does a thing live on disk, and what owns that place?
+        shape: [owner, path, identity]
+        example: the contract is owned by its run, lives at the run's folder, and IS its identity
+        why: >
+          The language can say what a record holds and how it is stored, but not where it
+          lives or what owns that place.
+
+  # One command set carries every payload kind. `add` takes a Payload, and which types
+  # are payloads is declared by the architecture, never listed again here.
+  - slug: the-command-set
+    group: operation
+    state: Proposed
+    payload:
+      type: CommandSet
+      over: {name: Contract, arguments: [{name: Decision, arguments: [{name: Payload}]}]}
+      prefix: guard contract decision
+      verbs:
+        - id: add
+          takes: the payload type, then that payload's own fields
+          returns: the slug it was given
+        - id: remove
+          takes: a slug
+          returns: nothing
+        - id: update
+          takes: a slug, then the fields that change
+          returns: nothing
+        - id: list
+          takes: an optional payload type, to list one kind
+          returns: each decision's slug and its primary field
+        - id: get
+          takes: a slug
+          returns: everything that decision holds
+
+  # ── PROPOSED BY THE AGENT, nothing locked ──────────────────────────────────────
+  # Prior art is standing project setup, not something this run owns. The contract
+  # REFERENCES it; the setup holds it. Withdrawn: the earlier proposal copied the whole
+  # process in here, which would have given every run its own divergent copy.
+  - slug: prior-art
+    group: workflow
+    state: Proposed
+    payload:
+      type: Process
+      from: research.prior-art
+
+  - slug: no-process-without-members
+    group: enforcement
+    state: Proposed
+    payload:
+      type: Constraint
+      id: no-process-without-members
+      kind: forbidden-combination
+      subject: a workflow
+      each: process
+      where: it is declared with an empty member list
+      forbid: completing the gate
+      text: >
+        A phase defined as having no steps is not a phase. An undefined box is fine; an
+        empty one claims there is nothing to do.
+
+  - slug: the-constraints
+    group: enforcement
+    state: Proposed
+    payload:
+      type: Constraint
+      from: constraints
+
+  # Built code, not something a judge has to watch for. The judge is handed the build and
+  # these results before being asked to judge anything.
+  - slug: the-rules
+    group: enforcement
+    state: Proposed
+    payload:
+      type: Rule
+      from: rules

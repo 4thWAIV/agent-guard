@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Guard — full process and artifact flow</title>
+<style>
+:root{color-scheme:light;--ink:#20364b;--muted:#53677a;--line:#ccd8e3;--paper:#edf7f0;--paper-line:#689b7b;--process:#eaf2fc;--process-line:#779bbe;--pending:#80549c;--human:#fff2d5}
+*{box-sizing:border-box}body{margin:0;background:#fbfcfe;color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1450px;margin:auto;padding:32px}h1{font-size:30px;line-height:1.2;margin:0 0 12px}h2{font-size:22px;margin:0}h3{font-size:18px;margin:0 0 8px}p{margin:8px 0}a{color:#265f91}header{padding-bottom:24px;border-bottom:1px solid var(--line)}.lead{font-size:18px}.note{color:var(--muted);font-size:14px}.proposal{border-left:4px solid var(--pending);padding:8px 16px;margin-top:18px}.legend{display:flex;gap:20px;flex-wrap:wrap;margin:20px 0 12px}.legend span{display:flex;gap:8px;align-items:center}.mini{width:20px;height:26px;border:1px solid var(--paper-line);background:var(--paper);clip-path:polygon(0 0,70% 0,100% 25%,100% 100%,0 100%)}.mini.process{height:20px;border-radius:6px;background:var(--process);border-color:var(--process-line);clip-path:none}.mini.pending{height:20px;border:2px dashed var(--pending);background:none;clip-path:none}.shared{background:#f1f4f8;padding:15px 20px;margin-top:20px}.nav{display:flex;gap:8px 16px;flex-wrap:wrap;margin-top:16px;font-size:14px}.toolbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:20px 0}button{font:inherit;padding:7px 12px;background:white;color:var(--ink);border:1px solid #8b9bae;border-radius:5px;cursor:pointer}button:hover{background:#eaf2fc}a:focus-visible,button:focus-visible,summary:focus-visible{outline:3px solid #996ac0;outline-offset:3px}.stage{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:36px;padding-top:28px;scroll-margin-top:20px}.stage-flow{min-width:0}.caption{font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-align:center;margin-bottom:9px}.artifacts{display:flex;justify-content:center;gap:12px;flex-wrap:wrap}.artifact{position:relative;display:block;min-width:150px;max-width:270px;flex:1 1 190px;border:1px solid var(--paper-line);background:var(--paper);padding:13px 28px 12px 15px;clip-path:polygon(0 0,calc(100% - 19px) 0,100% 19px,100% 100%,0 100%);color:var(--ink);text-decoration:none;scroll-margin-top:30px}.artifact:after{content:"";position:absolute;right:0;top:0;width:19px;height:19px;background:#c5dfce;border-left:1px solid var(--paper-line);border-bottom:1px solid var(--paper-line)}.artifact strong{display:block;font-size:15px;line-height:1.3}.artifact small{display:block;font-size:12px;color:#385b45;margin-top:6px}.artifact.input:hover{filter:brightness(.96);text-decoration:underline}.artifact.source{background:#f2f3f6;border-color:#a5afbc}.artifact.source:after{background:#dbe0e7}.artifact.source small{color:var(--muted)}.artifact:target{background:#fff0b8;outline:3px solid #a77c18}.arrow{height:35px;position:relative;margin:3px auto;width:1px;background:#8194a6}.arrow:after{content:"";position:absolute;bottom:-1px;left:-5px;border:5px solid transparent;border-top:8px solid #8194a6;border-bottom:0}.process-node{border:1px solid var(--process-line);background:var(--process);border-radius:13px;padding:16px 22px;max-width:620px;margin:auto;text-align:center}.process-node small{color:var(--muted);font-size:13px}.persist{font-size:13px;color:#346345;text-align:center;margin:8px 0}.next{height:39px;margin:9px auto 0}.review-note{margin:10px 0 0;text-align:center;color:var(--muted);font-size:13px}.issues{align-self:center;border-left:3px solid #c9b7d5;padding-left:18px;min-width:0}.issues h3{color:#694286;font-size:17px}.issues p{font-size:14px}.issues summary{cursor:pointer;color:#694286;font-weight:650;padding:10px 0}.issues details[open]{padding-bottom:12px}.issues ol{padding-left:21px;margin:8px 0;font-size:14px}.issues li{padding:5px 0}.issues .close{border-top:1px solid var(--line);padding-top:10px;font-size:14px}.human{background:var(--human);padding:9px 12px;border-radius:5px}.pending-text{font-size:13px;color:#694286}.source-bank{margin:18px 0}.source-bank .artifact{max-width:none}.footer{margin-top:30px;border-top:1px solid var(--line);padding-top:20px}.empty{font-size:14px;text-align:center;color:var(--muted)}@media(max-width:950px){main{padding:20px}.stage{grid-template-columns:minmax(0,1fr);gap:14px}.issues{margin:0 15px 12px}.artifact{flex-basis:160px}.next{height:22px}}@media print{button,.nav{display:none}.stage{break-inside:avoid}.issues{font-size:12px}main{padding:0}}
+</style>
+</head>
+<body><main>
+<header>
+<h1>Guard — full process and artifact flow</h1>
+<p><a href="workflow-exit-flow.html">Full workflow with internal work, blocked dependencies and stage exit checks</a></p>
+<p class="lead">Inputs ↓ process ↓ saved outputs. Reused inputs link back to the exact output that supplies them.</p>
+<div class="proposal"><strong>High-level design review, not an implemented workflow.</strong> The stage order is recorded. File roles below map the proposed full flow; most downstream C# result and input types remain undefined. Resolution subflows are proposals, not new permissions.</div>
+<div class="legend"><span><i class="mini" aria-hidden="true"></i>Structured file / retained evidence</span><span><i class="mini process" aria-hidden="true"></i>Process</span><span><i class="mini pending" aria-hidden="true"></i>Unresolved route to examine</span></div>
+<p class="note">An input uses the same name as its producing output and identifies that producer. Clicking it jumps to the original output. Repeated file shapes are references, not copies. Code files change through the workflow; their state must be identified for each execution, not treated as immutable initial code.</p>
+<div class="shared"><strong>Reads are listed for their actual purpose, not assumed for every stage.</strong> Guard reads and updates Workflow for registered agent execution. Conversation initially creates Workflow and Conversation; neither is its input. <a href="workflow-artifact-usage.html">The stage-by-stage audit</a> names every mapped reader, selected information, purpose and unresolved binding.</div>
+<nav class="nav" id="nav" aria-label="Workflow stages"></nav>
+</header>
+<section class="source-bank" aria-label="Inputs originating outside the stages"><h3>Existing inputs</h3><div class="artifacts" id="sources"></div></section>
+<div class="toolbar"><button type="button" id="expand">Show all resolution subflows</button><button type="button" id="collapse">Collapse resolution subflows</button><span class="note">Existing human approval is still required for transitions. No automatic-transition exception is introduced here.</span></div>
+<div id="stages"></div>
+<footer class="footer">
+<h3>Completion is not a label</h3>
+<p>A factual answer closes against evidence. A code defect closes against corrected behavior and relevant verification. A human decision closes the choice; any resulting work stays assigned until verified. Rejected exceptions leave the original requirement in force.</p>
+<p>Missing agents resume only their unfinished work. Successful results remain reusable. A new result does not erase the original input or earlier verdict.</p>
+<p class="note">The routing and closure links still need typed definitions. This view adds no issue tracker, approval waiver, stage result schema or “unknown means pass” route.</p>
+<p class="note">Design sources: <a href="conversation.md">conversation.md</a>, <a href="StageExecution.cs">StageExecution.cs</a>, <a href="IPlan.cs">IPlan.cs</a>, and <a href="workflow-inputs-outputs.md">the inventory of existing script I/O</a>. Existing script outputs are reference material, not an assertion that their replacement schemas are settled. This view shows the full sequence; level-dependent omissions remain governed by WorkflowLevel.</p>
+</footer>
+</main>
+<script src="workflow-phase-details.js"></script>
+<script src="workflow-artifact-usage.js"></script>
+<script>
+// Diagram data only. These are artifact roles, not additional runtime schemas or filenames.
+const {artifacts,stages} = window.WorkflowPhaseDetails;
+const byId=Object.fromEntries(stages.map(s=>[s.id,s]));
+function el(tag,cls,text){const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;}
+function artifact(key,input=false){const [name,producer,kind,,id]=artifacts[key];const n=el('a','artifact '+(input?'input ':'')+(kind==='source'?'source':''));n.href='workflow-artifact-usage.html#artifact-'+id;n.dataset.artifact=key;n.append(el('strong','',name));n.append(el('small','',id+' · '+(input?'READ':'WRITE / SOURCE')));return n;}
+['request','project','projectConfig','rails'].forEach(k=>document.getElementById('sources').append(artifact(k)));
+for(const s of stages){
+  const link=el('a','',s.name);link.href='#stage-'+s.id;document.getElementById('nav').append(link);
+  const section=el('section','stage');section.id='stage-'+s.id;section.setAttribute('aria-labelledby','heading-'+s.id);
+  const flow=el('div','stage-flow');flow.append(el('div','caption','ENTERING THIS STAGE'));
+  const inputs=el('div','artifacts');s.inputs.forEach(k=>inputs.append(artifact(k,true)));flow.append(inputs);
+  if(s.unresolvedInputs.length)flow.append(el('p','note','Proposed incoming bindings: '+s.unresolvedInputs.map(k=>artifacts[k][4]).join(', ')));
+  flow.append(el('div','arrow'));
+  const node=el('div','process-node'),h=el('h2','',s.name);h.id='heading-'+s.id;node.append(h,el('p','',s.purpose));
+  if(s.internalInputs.length)node.append(el('p','','Produced and read inside this stage: '+s.internalInputs.map(k=>artifacts[k][4]).join(', ')));
+  if(s.correctionInputs.length)node.append(el('p','','Correction only, from a previous attempt: '+s.correctionInputs.map(k=>artifacts[k][4]).join(', ')));
+  const detailLink=el('a','','Show producing and consuming steps →');detailLink.href='workflow-exit-flow.html#detail-'+s.id;node.append(detailLink);
+  flow.append(node,el('div','arrow'),el('div','persist','PRODUCED / UPDATED HERE'));
+  const outputs=el('div','artifacts');s.outputs.forEach(k=>outputs.append(artifact(k)));flow.append(outputs);
+  if(s.unresolvedOutputs.length)flow.append(el('p','note','Proposed output bindings: '+s.unresolvedOutputs.map(k=>artifacts[k][4]).join(', ')));
+  flow.append(el('p','review-note',s.status));if(s.id!=='review')flow.append(el('div','arrow next'));
+  const aside=el('aside','issues');aside.append(el('h3','','What can remain unresolved?'),el('p','',s.issue));
+  const details=el('details');details.append(el('summary','','Trace the resolution subflow'));const list=el('ol');s.steps.forEach(step=>list.append(el('li','',step)));details.append(list,el('p','close','Closure: '+s.close));aside.append(details);section.append(flow,aside);document.getElementById('stages').append(section);
+}
+document.getElementById('expand').addEventListener('click',()=>document.querySelectorAll('details').forEach(d=>d.open=true));
+document.getElementById('collapse').addEventListener('click',()=>document.querySelectorAll('details').forEach(d=>d.open=false));
+</script>
+</body></html>

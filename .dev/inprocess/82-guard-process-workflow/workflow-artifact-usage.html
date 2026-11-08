@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workflow artifact usage — readers and writers</title>
+<style>
+.handoff{display:grid;grid-template-columns:minmax(160px,1fr) 30px minmax(210px,1fr) 30px minmax(160px,1fr);align-items:center;gap:8px;padding:12px 0;border-bottom:1px solid #d2dce5}.handoff .arrow{text-align:center;font-size:24px}.origin{color:#235f91;font-weight:600}.boundary{margin:16px 0}.boundary h4{margin:8px 0}.handoff a{overflow-wrap:anywhere}@media(max-width:700px){.handoff{grid-template-columns:1fr}.handoff .arrow{transform:rotate(90deg)}}
+:root{color-scheme:light;--ink:#20364b;--blue:#235f91;--line:#b8c8d5;--green:#225d3c;--purple:#713e8e;--paper:#fbfcfe}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,sans-serif}header,main,footer{padding:20px 28px}h1{font-size:29px;margin:0 0 12px}h2{font-size:24px}h3{font-size:19px}p{max-width:1200px}a{color:var(--blue)}code{font-size:.92em}nav{display:flex;gap:16px;flex-wrap:wrap;margin:16px 0}button,select{font:inherit;padding:7px 12px;border:1px solid var(--line);background:#edf3fb;color:var(--ink);border-radius:4px}button{cursor:pointer}button[aria-pressed=true]{background:var(--ink);color:white}button:focus-visible,a:focus-visible,select:focus-visible{outline:3px solid #8357a1;outline-offset:2px}.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{padding:8px 10px;border-bottom:1px solid #d2dce5;text-align:left;vertical-align:top}thead th{background:#e8eff5}td.num,th.num{text-align:center;font-variant-numeric:tabular-nums}.matrix{min-width:1500px}.matrix th:first-child,.matrix td:first-child{min-width:260px;max-width:340px}.matrix td:not(:first-child){text-align:center}.matrix th.stage{min-width:35px}.read{color:var(--blue);font-weight:700}.write{color:var(--green);font-weight:700}.unknown{color:var(--purple);font-weight:700}.small{font-size:14px}.note{background:#f2edf7;border-left:4px solid #87609f;padding:12px 18px}.legend{display:flex;gap:20px;flex-wrap:wrap;margin:12px 0}.artifact-button{border:0;background:transparent;padding:0;text-align:left;font-size:16px;text-decoration:underline;color:var(--blue)}.artifact-id{display:block;font:600 13px ui-monospace,monospace;color:var(--ink)}#detail{scroll-margin-top:15px;border-top:2px solid var(--line);margin-top:24px;padding-top:12px}#detail-table{min-width:780px}.stage-flow{margin:24px 0;padding:16px 0;border-top:2px solid var(--line)}.process{margin:20px 0;border-left:3px solid var(--line);padding-left:18px}.files{display:flex;flex-wrap:wrap;gap:8px}.file{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);padding:6px 10px;background:#edf5ff;max-width:340px}.file.output{background:#edf7ef}.file svg{width:25px;height:25px;flex:none}.process-work{font-weight:650;margin:10px 0}.source{font-size:14px;margin:6px 0}summary{cursor:pointer;font-weight:600}.review-list li{margin:10px 0}.muted{color:#4b6072}[hidden]{display:none!important}
+@media(max-width:600px){header,main,footer{padding:16px}h1{font-size:25px}.legend{gap:12px}}
+@media print{button,nav{display:none}header,main{padding:8px}.scroll{overflow:visible}.matrix{font-size:10px;min-width:0}.matrix th:first-child,.matrix td:first-child{min-width:150px}.matrix td,.matrix th{padding:3px}.stage-flow{break-before:page}}
+</style>
+</head>
+<body>
+<header>
+<h1>Stage inputs and outputs: reader, information and purpose</h1>
+<p>Files supplied from outside a stage appear under <strong>Entering this stage</strong>. Results produced and read inside it appear under <strong>Internal handoffs</strong>. Both kinds of reads count in the usage matrix.</p>
+<p><strong>Existing scripts and the replacement design are separate views.</strong> The script view traces named prompts and return objects. The design view shows specified relationships and marks proposed bindings with “?”. Neither is an observed file-access log.</p>
+<p>Identifiers label artifact roles, not invented filenames. A role may produce multiple files per agent run. Source-code rows can select the same physical files at different revisions; they must not be added together to claim a physical-file total.</p>
+<p class="note"><strong>The new file flow is not fully specified.</strong> DESIGN’s assignment does not pin the task requirements; most later stages lack new assignment/result types; REVIEW has no defined work. These gaps stay visible rather than becoming invented inputs. No workflow policy or type is changed by this map.</p>
+<div class="legend" aria-label="Which flow"><button type="button" id="design-view" aria-pressed="true">Replacement design</button><button type="button" id="current-view" aria-pressed="false">Existing scripts</button></div>
+<nav><a href="workflow-exit-flow.html">Full stage flow</a><a href="#matrix">Artifact × stage matrix</a><a href="#processes">Inputs → processes → outputs</a><a href="#questions">Artifacts to question</a><a href="workflow-artifact-usage.svg">Scalable matrix image</a><a href="workflow-artifact-usage.png">PNG image</a></nav>
+<div class="legend"><span class="read">R — consume</span><span class="write">W — produce/update</span><span><b>RW</b> — both</span><span class="unknown">? — proposed or unspecified binding</span><span>— no established use</span></div>
+<p class="small">“Readers” counts all consuming stages. “Later” counts consuming stages after the artifact’s producing stage. Same-stage uses still appear as R. Correction-loop reads can occur before the producer in stage order; they count under Readers, not Later.</p>
+</header>
+<main>
+<section id="processes"><h2>Inputs → substage → outputs</h2><p>Internal arrows name the producing and consuming steps. “Value” means an object transferred in a prompt, not a saved file. A coding agent’s writing, tool execution and result return are shown separately; they are not three agents. Dependency order does not impose serial execution on independent agents.</p><label for="stage-select">Show stage </label><select id="stage-select"></select><div id="process-list"></div></section>
+<section id="runtime"><h2>Shared execution and persistence</h2><div id="runtime-details"></div></section>
+<section id="matrix"><h2>Artifact × stage</h2><div id="stage-key" class="legend small"></div><div class="scroll" id="matrix-table"></div></section>
+<section id="detail" hidden tabindex="-1" aria-labelledby="detail-title"><h2 id="detail-title"></h2><p id="detail-note"></p><p id="detail-counts"></p><div class="scroll"><table id="detail-table"><thead><tr><th>Stage / process</th><th>Use</th><th>When / purpose</th><th>Evidence</th></tr></thead><tbody></tbody></table></div></section>
+<section id="questions"><h2>Artifacts to question—not automatic deletion candidates</h2><ul class="review-list">
+<li><strong>GR-evidence-view:</strong> only a collective label. The saved evidence has its own rows; another umbrella evidence file would duplicate their indexing.</li>
+<li><strong>GR-ledger:</strong> contains references, not findings. It has consumers. The remaining value question is whether its grouping of search/evaluation pairs is needed separately from Workflow’s assignments and results.</li>
+<li><strong>DS-reviews:</strong> the working design calls for separate enabled reviews, but their replacement input/output arrangement is unfinished. The existing DESIGN script already returns a judge verdict. Do not assume the two are interchangeable or create a second verdict summary.</li>
+<li><strong>AR-result:</strong> carries an architecture determination and is used for review/handoff. Its signature description and build proof must not become competing copies of source files and tool captures. The replacement fields are not settled.</li>
+<li><strong>RL-results / TS-results versus captures:</strong> a case/coverage mapping and a captured command response serve different purposes. Their replacement schemas must establish that separation; a second transcript adds no evidence.</li>
+<li><strong>GT-captures:</strong> the existing skill requires closing verification. Whether the replacement can reuse earlier valid evidence is not defined. A copied transcript would not be new evidence.</li>
+<li><strong>RT-report → REVIEW:</strong> the report presents the outcome to the human. REVIEW’s additional responsibility is unresolved; its proposed inputs do not prove that a separate processing step is useful.</li>
+</ul></section>
+</main>
+<footer><p>Artifact names/icons: <a href="workflow-phase-details.js">workflow-phase-details.js</a>. Process reads/writes, identifiers and supporting sources: <a href="workflow-artifact-usage.js">workflow-artifact-usage.js</a>. These are presentation definitions, not Guard schemas or workflow-script changes.</p></footer>
+<script src="workflow-phase-details.js"></script><script src="workflow-artifact-usage.js"></script>
+<script>
+(() => {
+const api=window.WorkflowPhaseDetails,{artifacts,stages,stageSymbols}=api,audit=api.artifactUsage;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stageName=id=>stages.find(s=>s.id===id).name;
+const select=document.getElementById('stage-select');
+let selectedArtifact=null;
+function evidence(p){const [path,location]=audit.sources[p.source];return '<a href="'+esc(path)+'">'+esc(path.split('/').pop())+'</a> · '+esc(location)+(p.basis==='unresolved'?' · <span class="unknown">New binding not settled</span>':'');}
+function file(key,output){const a=artifacts[key];return '<a class="file'+(output?' output':'')+'" href="#artifact-'+audit.ids[key]+'" data-key="'+key+'"><svg aria-hidden="true" viewBox="0 0 64 64"><use href="#file-'+a[3][0]+'"/></svg><span><span class="artifact-id">'+audit.ids[key]+'</span>'+esc(a[0])+'</span></a>';}
+function related(e,output,p){
+  if(!output){
+    const origin=audit.inputSource(p,e);
+    if(origin.kind==='internal')return origin.producers.map(q=>'<a href="#'+q.id+'">'+esc(q.id+' · '+q.name)+'</a>'+(q.basis==='unresolved'?' (?)':'')).join('<br>');
+    return esc(audit.sourceLabel(p,e));
+  }
+  const candidates=audit.activeProcesses().filter(q=>q.id!==p.id&&(output?q.reads:q.writes).includes(e.key));
+  const labels=[...new Set(candidates.map(q=>stageSymbols[q.stage]+' · '+q.name+(q.basis==='unresolved'?' (?)':'')))];
+  if(labels.length)return labels.map(esc).join('<br>');
+  return output?'No named process consumer in this view. Human-facing output or unresolved bindings may still justify it.':'External/existing material, tool response, or producer not defined in this view.';
+}
+function edgeTable(p,direction){
+  const output=direction==='outputs',list=p[direction];
+  if(!list.length)return '<p class="muted">'+(output?'No separate artifact produced by this substep.':'No document input specified for this substep.')+'</p>';
+  return '<div class="scroll"><table><thead><tr><th>Artifact / transfer</th><th>Information</th><th>Used for</th></tr></thead><tbody>'+list.map(e=>'<tr><td>'+file(e.key,output)+'<p class="small">'+esc(e.form)+'</p>'+(output?'':'<p class="small origin">'+esc(audit.sourceLabel(p,e))+'</p>')+'</td><td>'+esc(e.information)+'</td><td>'+esc(e.purpose)+'<details class="small"><summary>'+(output?'Consumers':'Producing step')+'</summary>'+related(e,output,p)+'</details></td></tr>').join('')+'</tbody></table></div>';
+}
+function stageBoundary(flow){
+  const files=(title,keys,output=false)=>'<div class="boundary"><h4>'+title+'</h4><div class="files">'+(keys.length?keys.map(key=>file(key,output)).join(''):'None specified.')+'</div></div>';
+  const actor=p=>'<a href="#'+p.id+'">'+esc(p.id+' · '+p.name)+'</a>'+(p.basis==='unresolved'?' <span class="unknown">?</span>':'');
+  let html=files('Entering this stage',flow.inputs);
+  if(flow.unresolvedInputs.length)html+=files('Proposed incoming bindings — not yet settled',flow.unresolvedInputs);
+  if(flow.corrections.length)html+=files('Correction only — original findings from a previous attempt',[...new Set(flow.corrections.map(link=>link.edge.key))]);
+  html+='<h4>Internal handoffs — produced here, then read here</h4>';
+  html+=flow.internal.length?flow.internal.map(link=>'<div class="handoff"><div>'+link.producers.map(actor).join('<br>')+'</div><span class="arrow" aria-hidden="true">→</span><div>'+file(link.edge.key,true)+'</div><span class="arrow" aria-hidden="true">→</span><div>'+actor(link.reader)+'</div></div>').join(''):'<p>None specified.</p>';
+  html+=files('Produced / updated here',flow.outputs,true);
+  const pending=flow.unresolvedOutputs.filter(key=>!flow.outputs.includes(key));
+  if(pending.length)html+=files('Proposed output bindings — not yet settled',pending,true);
+  return html;
+}
+function renderProcesses(){
+  const shown=audit.stageOrder().filter(id=>select.value==='all'||select.value===id);
+  document.getElementById('process-list').innerHTML=shown.map(id=>{
+    const flow=audit.stageFlow(id),ps=audit.orderedSteps(flow);
+    return '<section class="stage-flow" id="stage-'+id+'"><h3>'+stageSymbols[id]+' · '+esc(stageName(id))+'</h3><p class="note">'+esc(audit.stageFindings[id])+'</p>'+stageBoundary(flow)+'<h4>Step details — information read and why</h4>'+ps.map(p=>'<div class="process" id="'+p.id+'"><h4>'+esc(p.id+' · '+p.name)+(p.basis==='unresolved'?' <span class="unknown">— proposed binding</span>':'')+'</h4><p class="source">'+evidence(p)+'</p>'+edgeTable(p,'inputs')+'<p class="process-work">↓ '+esc(p.name)+' ↓</p>'+edgeTable(p,'outputs')+'<p>'+esc(p.note)+'</p>'+(p.runtime.length?'<p class="small"><strong>Non-file arguments:</strong> '+p.runtime.map(esc).join(' ')+'</p>':'')+'</div>').join('')+'</section>';
+  }).join('');
+}
+function detail(key,scroll=true){
+  selectedArtifact=key;const a=artifacts[key],c=audit.count(key);
+  document.getElementById('detail').hidden=false;
+  document.getElementById('detail-title').textContent=audit.ids[key]+' · '+a[0];
+  document.getElementById('detail-note').textContent=audit.notes[key]||'See each transfer below. An artifact role is not a claim that a separate file already exists.';
+  document.getElementById('detail-counts').textContent=c.readStages.length+' established consuming stages; '+c.laterStages.length+' later-stage consumers. '+(c.unresolvedStages.length?'Proposed/unspecified bindings in: '+c.unresolvedStages.map(stageName).join(', ')+'.':'');
+  document.querySelector('#detail-table tbody').innerHTML=audit.usages(key).map(p=>{
+    const entries=[...p.inputs.filter(e=>e.key===key).map(e=>['Input',e]),...p.outputs.filter(e=>e.key===key).map(e=>['Output',e])];
+    return entries.map(([direction,e])=>'<tr><td><a href="#'+p.id+'">'+esc(stageSymbols[p.stage]+' · '+p.name)+'</a></td><td>'+direction+' · '+esc(e.form)+'</td><td><strong>'+esc(e.information)+'</strong><br>'+esc(e.purpose)+'<p>'+esc(p.note)+'</p></td><td>'+evidence(p)+'</td></tr>').join('');
+  }).join('');
+  if(scroll)document.getElementById('detail').scrollIntoView({block:'start'});
+}
+function renderMatrix(){
+  const order=audit.stageOrder();
+  document.getElementById('stage-key').innerHTML=order.map(id=>'<span><b>'+stageSymbols[id]+'</b> '+esc(stageName(id))+'</span>').join('');
+  let table='<table class="matrix"><thead><tr><th>Artifact identifier / name</th>'+order.map(id=>'<th class="stage" title="'+esc(stageName(id))+'">'+stageSymbols[id]+'</th>').join('')+'<th class="num">Readers</th><th class="num">Later</th></tr></thead><tbody>';
+  for(const key of audit.keys){const c=audit.count(key);table+='<tr><td><button class="artifact-button" data-key="'+key+'"><span class="artifact-id">'+audit.ids[key]+'</span>'+esc(artifacts[key][0])+'</button></td>';for(const id of order){const v=audit.cell(key,id);table+='<td class="'+(v.pending?'unknown':v.read?'read':v.write?'write':'muted')+'">'+v.label+'</td>';}table+='<td class="num">'+c.readStages.length+(c.additionalReaderStages.length?' + ?':'')+'</td><td class="num">'+c.laterStages.length+(c.additionalLaterStages.length?' + ?':'')+'</td></tr>';}
+  document.getElementById('matrix-table').innerHTML=table+'</tbody></table>';
+}
+function render(){
+  const old=select.value;
+  select.innerHTML='<option value="all">All stages</option>'+audit.stageOrder().map(id=>'<option value="'+id+'">'+stageSymbols[id]+' · '+esc(stageName(id))+'</option>').join('');
+  select.value=audit.stageOrder().includes(old)?old:'all';
+  document.getElementById('design-view').setAttribute('aria-pressed',String(audit.profile==='design'));
+  document.getElementById('current-view').setAttribute('aria-pressed',String(audit.profile==='current'));
+  renderProcesses();renderMatrix();
+  const common=audit.commonRuntime;
+  document.getElementById('runtime-details').innerHTML='<p><strong>Existing __requiredAgentRuntime inputs:</strong> '+esc(common.inputs)+'</p><p><strong>Outputs:</strong> '+esc(common.outputs)+'</p><p>'+esc(common.persistence)+'</p><p>'+esc(common.referenceReads)+'</p><p class="source">'+evidence({source:common.source})+'</p>';
+  if(selectedArtifact)detail(selectedArtifact,false);
+}
+document.getElementById('design-view').addEventListener('click',()=>{audit.setProfile('design');render();});
+document.getElementById('current-view').addEventListener('click',()=>{audit.setProfile('current');render();});
+select.addEventListener('change',renderProcesses);
+document.body.addEventListener('click',event=>{const link=event.target.closest('[data-key]');if(link){event.preventDefault();history.replaceState(null,'','#artifact-'+audit.ids[link.dataset.key]);detail(link.dataset.key);}});
+const defs=document.createElement('div');defs.hidden=true;defs.innerHTML='<svg xmlns="http://www.w3.org/2000/svg">'+api.modificationIconDefs+'</svg>';document.body.append(defs);
+render();
+const initial=audit.keys.find(k=>location.hash==='#artifact-'+audit.ids[k]);if(initial)detail(initial,false);
+})();
+</script>
+</body></html>

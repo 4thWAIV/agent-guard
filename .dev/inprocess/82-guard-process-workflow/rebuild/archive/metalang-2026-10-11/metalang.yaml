@@ -1,0 +1,411 @@
+# MetaLang — the language that defines languages.
+#
+# Every definition below is written in MetaLang itself, so this file is its own schema and
+# the checker validates it against itself. `metalang-check.mjs` does that.
+#
+# The vocabulary is a SUPERSET of JSON Schema's concepts, not of its spelling. Where a JSON
+# Schema keyword reads correctly it keeps its meaning under a snake_case name; where it
+# misleads it is renamed. Because of the renaming this file is NOT valid JSON Schema and a
+# standard validator cannot check it — we own the checker.
+
+$id: agent-guard/metalang
+title: MetaLang
+description: The language that defines languages, defined in itself.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# THE BOOTSTRAP
+#
+# `entity` names itself as its own metaclass. Every definition in every layer then has the
+# same shape. This is the move Ecore makes, where EClass is an instance of EClass.
+# ───────────────────────────────────────────────────────────────────────────────
+
+entity:
+  $anchor: entity
+  is: entity
+  title: A definition with named parts.
+  description: >
+    The metaclass of anything that has parts. Ecore calls it EClass. An entity may extend
+    other entities, may be abstract, and names which of its own parts carries an instance's
+    identity.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this definition is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the definition.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the definition.
+    abstract:
+      is: field
+      type: truth
+      default: no
+      title: Whether the entity exists only to be extended.
+    extends:
+      is: link
+      target: '#entity'
+      order: significant
+      unique: yes
+      title: The entities this one is a kind of.
+    identified_by:
+      is: link
+      target: '#part'
+      title: Which part carries an instance's identity.
+    properties:
+      is: link
+      target: '#part'
+      order: significant
+      unique_by: name
+      title: The named parts of the entity.
+    closed:
+      is: field
+      type: truth
+      default: yes
+      title: Whether parts not named here are refused.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# PARTS — split as Ecore splits them, because `owns` and `opposite` mean nothing
+# on a part that holds a value.
+# ───────────────────────────────────────────────────────────────────────────────
+
+part:
+  $anchor: part
+  is: entity
+  abstract: yes
+  title: One named part of an entity.
+  description: >
+    The abstract base of `field` and `link`. Ecore calls it EStructuralFeature. Everything
+    common to both lives here; nothing instantiates it directly.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this part is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the part.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the part.
+    required:
+      is: field
+      type: truth
+      default: no
+      title: Whether the part must be present.
+    order:
+      is: field
+      type: ordering
+      default: not_significant
+      title: Whether the order of members carries meaning.
+    unique:
+      is: field
+      type: truth
+      default: no
+      title: Whether two members may be equal.
+    unique_by:
+      is: field
+      type: text
+      title: The part of a member that makes members distinct, when not the whole value.
+    min_items:
+      is: field
+      type: number
+      minimum: 0
+      title: The fewest members allowed.
+    max_items:
+      is: field
+      type: number
+      minimum: 0
+      title: The most members allowed.
+
+requirement:
+  $anchor: requirement
+  is: entity
+  abstract: yes
+  title: What a value must satisfy.
+  description: >
+    The abstract base of everything that constrains a value. Both `field` and `scalar`
+    extend it, so a constraint can sit on the TYPE, where it holds for every use, or on the
+    PART, where it holds for that one use. XSD puts facets on the type; JSON Schema allows
+    either. Listing the requirements here once keeps the two from drifting.
+  properties:
+    pattern:
+      is: field
+      type: expression
+      title: A regular expression the value must match.
+    one_of:
+      is: field
+      type: text
+      order: significant
+      unique: yes
+      title: The values the value must be one of.
+    minimum:
+      is: field
+      type: number
+      title: The smallest value allowed.
+    maximum:
+      is: field
+      type: number
+      title: The largest value allowed.
+    min_length:
+      is: field
+      type: number
+      minimum: 0
+      title: The fewest characters allowed.
+    max_length:
+      is: field
+      type: number
+      minimum: 0
+      title: The most characters allowed.
+    and:
+      is: link
+      target: '#requirement'
+      order: significant
+      title: Every listed requirement must hold.
+    or:
+      is: link
+      target: '#requirement'
+      order: significant
+      title: At least one listed requirement must hold.
+    exactly_one:
+      is: link
+      target: '#requirement'
+      order: significant
+      title: Exactly one listed requirement must hold.
+    not:
+      is: link
+      target: '#requirement'
+      title: The listed requirement must not hold.
+
+field:
+  $anchor: field
+  is: entity
+  extends: ['#part', '#requirement']
+  title: A part that holds a value.
+  description: >
+    Ecore calls it EAttribute. Its type is a scalar or a choice, never an entity, so `owns`
+    and `opposite` do not apply to it. It extends two entities, which is what Ecore's
+    eSuperTypes being a list allows.
+  properties:
+    type:
+      is: link
+      target: '#entity'
+      required: yes
+      title: The scalar or choice the value must be.
+    default:
+      is: field
+      type: text
+      title: The value used when the part is absent.
+
+link:
+  $anchor: link
+  is: entity
+  extends: ['#part']
+  title: A part that points at an entity.
+  description: >
+    Ecore calls it EReference. `owns` makes the target by-value content whose lifetime
+    belongs to the holder; `opposite` declares the other end of one relationship.
+  properties:
+    target:
+      is: link
+      target: '#entity'
+      required: yes
+      title: The entity pointed at.
+    owns:
+      is: field
+      type: truth
+      default: no
+      title: Whether the target is owned, with exactly one holder.
+    opposite:
+      is: link
+      target: '#link'
+      title: The link that is the other end of this relationship.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# VALUE TYPES
+# ───────────────────────────────────────────────────────────────────────────────
+
+scalar:
+  $anchor: scalar
+  is: entity
+  extends: ['#requirement']
+  title: A primitive value type.
+  description: >
+    Ecore calls it EDataType. The six underlying primitives are the whole set this language
+    has; `shaped_as` narrows one of them to a named shape.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this definition is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the scalar.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the scalar.
+    of:
+      is: field
+      type: text
+      required: yes
+      one_of: ['null', boolean, object, collection, number, string]
+      title: The underlying primitive.
+    shaped_as:
+      is: field
+      type: text
+      one_of: [instant, duration, regex, uuid]
+      title: The shape the value takes.
+
+choice:
+  $anchor: choice
+  is: entity
+  title: A fixed set of named values.
+  description: Ecore calls it EEnum. Its options are owned by it and ordered as written.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this definition is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the choice.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the choice.
+    options:
+      is: link
+      target: '#option'
+      owns: yes
+      order: significant
+      unique_by: name
+      min_items: 1
+      title: The values the choice offers.
+
+option:
+  $anchor: option
+  is: entity
+  title: One named value of a choice.
+  description: Ecore calls it EEnumLiteral. It is owned by exactly one choice.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this definition is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the option.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the option.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# THE FILE ITSELF
+# ───────────────────────────────────────────────────────────────────────────────
+
+document:
+  $anchor: document
+  is: entity
+  title: A file of definitions.
+  description: >
+    Ecore calls it EPackage. It carries the namespace every anchor in the file resolves
+    against, and it owns its definitions.
+  properties:
+    is:
+      is: link
+      target: '#entity'
+      required: yes
+      title: Which metaclass this definition is.
+    title:
+      is: field
+      type: text
+      required: yes
+      title: One line naming the document.
+    description:
+      is: field
+      type: text
+      title: Prose explaining the document.
+    defines:
+      is: link
+      target: '#entity'
+      owns: yes
+      order: significant
+      unique_by: name
+      min_items: 1
+      title: The definitions the file holds.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# THE SCALARS THIS FILE ITSELF USES
+# ───────────────────────────────────────────────────────────────────────────────
+
+text:
+  $anchor: text
+  is: scalar
+  title: A run of characters.
+  of: string
+
+truth:
+  $anchor: truth
+  is: choice
+  title: Yes or no.
+  description: >
+    A CHOICE, not a primitive. YAML 1.2 reads `yes` and `no` as text, never as booleans —
+    only `true` and `false` are booleans. Rather than write `true` in a document a human has
+    to read and sign, the two values are declared as what they actually are: a choice of two
+    named options.
+  options:
+    yes:
+      is: option
+      title: Yes.
+    no:
+      is: option
+      title: No.
+
+number:
+  $anchor: number
+  is: scalar
+  title: A number, whole or not.
+  of: number
+
+expression:
+  $anchor: expression
+  is: scalar
+  title: A regular expression, restricted to the agreed subset.
+  description: >
+    The subset that means the same in .NET and in JavaScript. Literal characters, character
+    classes, the shorthand classes, the quantifiers, the anchors ^ and $, alternation and
+    grouping. Never \A, \z, \Z, \p{...}, class subtraction, balancing groups, atomic groups
+    or possessive quantifiers.
+  of: string
+
+ordering:
+  $anchor: ordering
+  is: choice
+  title: Whether the order of members carries meaning.
+  options:
+    significant:
+      is: option
+      title: The order of members is part of the meaning.
+    not_significant:
+      is: option
+      title: Two collections differing only in order are the same collection.

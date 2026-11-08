@@ -1,0 +1,585 @@
+/* Appearance. One rule per device, and the values are the ones already agreed:
+   hue means who does the work, weight and ground mean structure. */
+:root{
+  --paper:#fbfaf7; --card:#fff; --ink:#1c2230; --soft:#4b5363; --dim:#8a909c;
+  --rule:#e4e1d9; --band:#f4f2ed; --accent:#1f5f5b; --accent-soft:#e6f0ee;
+  --bad:#a12b1f; --bad-soft:#fdeceb; --bad-line:#e9a79f;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 14px/1.6 var(--sans);
+ -webkit-font-smoothing:antialiased}
+main{max-width:1180px;margin:0 auto;padding:34px 26px 90px}
+h1{font:600 30px/1.2 var(--sans);margin:4px 0 10px}
+h2{font:600 20px/1.3 var(--sans);margin:0 0 4px}
+code{font-family:var(--mono)}
+
+.d-top{margin-bottom:26px}
+.d-eyebrow{font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;
+ color:var(--dim);margin:0}
+.d-sub{font-size:14.5px;line-height:1.65;color:var(--soft);max-width:70ch;margin:0}
+.d-foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--rule);
+ font-size:12px;color:var(--dim)}
+
+.d-section{margin:30px 0 0;background:var(--card);border:1px solid var(--rule);
+ border-radius:14px;padding:22px 24px}
+.d-lede{font-size:13.5px;color:var(--soft);margin:0 0 18px}
+.d-count{font:700 9px/1 var(--mono);font-style:normal;color:var(--soft);background:var(--card);
+ border:1px solid var(--rule);padding:4px 7px;border-radius:4px;margin-left:auto}
+
+/* THE ERROR DISPLAY. What you get when nothing describes the data. */
+.d-err{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+ background:var(--bad-soft);border:1px solid var(--bad-line);border-radius:5px;
+ padding:4px 8px;margin:2px 0;max-width:100%}
+.d-err>em{font:800 10px/1 var(--sans);font-style:normal;color:#fff;background:var(--bad);
+ padding:4px 6px;border-radius:3px;flex:none}
+.d-err>b{font:600 12px/1.45 var(--sans);color:var(--bad)}
+.d-err>code{font-size:11px;color:#7a2017;background:#fff;border:1px solid var(--bad-line);
+ padding:3px 6px;border-radius:3px;overflow-wrap:anywhere}
+.d-undesigned{border:2px dashed #d2a765;background:#fffdf7;border-radius:12px;
+ padding:14px 16px;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.d-undesigned-mark{font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:#8a5a12;background:#fdf4e5;border:1px solid #d2a765;padding:5px 9px;border-radius:5px}
+.d-undesigned b{font:600 16px/1.3 var(--sans)}
+.d-undesigned>span:last-child{font-size:13px;color:#7a5a24;flex:1 1 220px}
+
+.d-verdict{border-radius:12px;padding:15px 18px;margin-bottom:8px}
+.d-verdict.is-blocked{background:#fff8f7;border:1px solid var(--bad-line)}
+.d-verdict.is-clear{background:var(--accent-soft);border:1px solid #a9cdc8}
+.d-verdict.is-warn{background:#fffdf7;border:1px solid #d2a765}
+.d-verdict b{font:600 15px/1.4 var(--sans)}
+.d-verdict.is-blocked b{color:var(--bad)}
+.d-verdict-err{margin:8px 0 0;font-size:12.5px;color:var(--bad)}
+
+/* a reference */
+.d-ref{display:inline-flex;align-items:baseline;gap:5px;border-radius:5px;padding:3px 7px;
+ font:600 12px/1.4 var(--mono);border:1px solid transparent;background:none;cursor:default}
+.d-ref-badge{font-style:normal;font-size:10px;opacity:.85}
+.d-ref i{font-style:normal;opacity:.5;font-weight:400}
+.d-generic{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap;
+ border:1px solid var(--rule);border-radius:7px;padding:2px 5px;background:#fcfcfb}
+.d-angle,.d-comma{font:600 12px/1 var(--mono);font-style:normal;color:var(--dim)}
+.d-ref.is-open{outline:2px solid var(--accent);outline-offset:1px}
+.r-defined{color:var(--accent);background:var(--accent-soft);border-color:#a9cdc8;cursor:pointer}
+.r-defined:hover{border-color:var(--accent)}
+.r-primitive{color:#7a4a08;background:#fdf6e8;border-color:#e6c893}
+.r-external{color:var(--soft);background:var(--band);border-color:var(--rule)}
+.r-parameter{color:#6d4aa7;background:#efe9f8;border-color:#cfc0e6}
+.d-io{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:7px}
+.d-io>i{font:700 9px/1.6 var(--sans);font-style:normal;letter-spacing:.13em;
+ text-transform:uppercase;color:var(--dim);width:64px;flex:none;text-align:right}
+.d-io>span{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;min-width:0}
+.d-or{font:600 9px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--dim)}
+.d-io>em{font:italic 11.5px/1.45 var(--sans);color:var(--dim)}
+
+/* a process and its ordered members */
+.d-process{border-radius:13px;overflow:hidden;background:var(--card);margin:12px 0}
+.d-process.lvl-0{border:2px solid #4f46e5}
+.d-process.lvl-0>.d-process-head{background:#eceafc}
+.d-process.lvl-1{border:1px solid #c7c2ea;border-left:4px solid #8e86d8}
+.d-process.lvl-1>.d-process-head{background:#f6f5fd}
+.d-process.lvl-1>.d-process-head b{font-size:15px}
+.d-process.lvl-2{border:1px solid var(--rule);border-left:4px solid var(--rule)}
+.d-process.lvl-2>.d-process-head{background:var(--band)}
+.d-process.lvl-2>.d-process-head b{font-size:14px}
+.d-process-head{display:flex;align-items:center;gap:11px;padding:12px 15px}
+.d-process-head b{font:600 16px/1.3 var(--sans)}
+.d-process>.d-io{padding:10px 15px;margin:0;background:#f6f7f9;border-top:1px solid var(--rule)}
+.d-members{display:grid;gap:13px;padding:15px}
+.d-member{display:grid;grid-template-columns:34px 1fr;gap:11px;align-items:start}
+.d-ord{font:700 12px/1 var(--mono);font-style:normal;color:#4338ca;background:#eceafc;
+ border:1px solid #bfb9f3;border-radius:7px;display:grid;place-items:center;height:30px}
+.d-note{margin:0;padding:10px 15px;border-top:1px solid var(--rule);font-size:12.5px;
+ color:var(--soft)}
+
+/* a step: its actor's colour on the number and the chip, nothing louder */
+.d-step{border:1px solid var(--rule);border-radius:10px;padding:11px 14px;background:var(--card)}
+.d-step-top{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.d-step-top b{font:600 13.5px/1.3 var(--sans)}
+.d-actor{font:700 9px/1 var(--sans);font-style:normal;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--a-ink);background:var(--a-tint);
+ border:1px solid var(--a-line);padding:5px 8px;border-radius:5px}
+.act-unknown{--a-ink:var(--bad);--a-tint:var(--bad-soft);--a-line:var(--bad-line)}
+.d-fanout{font:600 9px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;
+ color:#7c3aed;background:#f3eefe;border:1px solid #d9c9f7;padding:4px 7px;border-radius:4px}
+.d-stepnote{font:italic 11.5px/1.45 var(--sans);color:var(--dim)}
+/* an actor's colour is whatever the actor declares; these were five hand-written rules
+   keyed on an actor's id, so a sixth actor drew with no colour and said nothing */
+.d-step{--a-ink:var(--t-ink,#5b6476);--a-tint:var(--t-tint,#f1f2f5);--a-line:var(--t-ink,#d7dae1)}
+.d-actor{border-color:color-mix(in srgb, var(--a-ink) 35%, #fff)}
+.d-perm-actor{color:var(--t-ink);background:var(--t-tint)!important}
+
+/* the two bands: ground and label, no new hue */
+.d-band{display:grid;grid-template-columns:100px 1fr;gap:13px;align-items:start;
+ padding:11px 15px;border-top:1px solid var(--rule)}
+.d-band-lab{font:700 9.5px/1.5 var(--sans);letter-spacing:.13em;text-transform:uppercase}
+.d-band-body{display:flex;flex-wrap:wrap;gap:6px}
+.b-research{background:#fdfaf4;border-left:3px solid #d2a765}
+.b-research .d-band-lab{color:#96661b}
+.b-questions{background:#f8fafc;border-left:3px solid #8aa4bf}
+.b-questions .d-band-lab{color:#44658a}
+.b-questions .d-band-body{display:grid;gap:7px}
+
+.d-pill{display:inline-flex;align-items:center;gap:8px;background:var(--card);
+ border:1px solid #e2d9ca;border-radius:6px;padding:5px 9px;font:inherit;text-align:left}
+/* the name is what the reader is looking for, so it carries the contrast — a much darker
+   shade of its own colour rather than a different one, and only a touch more type */
+.d-pill b{font:550 12.75px/1.4 var(--sans);color:#332c22}
+.d-pill i{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:#a8977a}
+.p-required{border-color:#d2a765;background:#fdf4e5}
+.p-required b{color:#3d2a0c;font-weight:650}
+.p-required i{color:#96661b}
+button.d-pill{cursor:pointer}
+button.d-pill:hover{border-color:#96661b}
+.d-pill-arrow{font:700 14px/1 var(--sans);font-style:normal;color:#b08a4a}
+/* a research kind with no steps cannot be run, so it is drawn as an error, with the same
+   mark the page uses everywhere else for something it cannot make sense of */
+.d-pill-none{display:inline-flex;align-items:center;gap:6px;font:800 8.5px/1 var(--sans);
+ font-style:normal;letter-spacing:.11em;text-transform:uppercase;color:var(--bad);
+ background:var(--bad-soft);border:1px solid var(--bad-line);padding:3px 7px;border-radius:3px}
+.d-pill-none>b{font:800 10px/1 var(--sans);color:#fff;background:var(--bad);
+ padding:3px 5px;border-radius:2px}
+button.d-pill.is-open{outline:2px solid #96661b;outline-offset:1px}
+
+.d-question{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.d-question-text{font:450 12.5px/1.5 var(--sans);color:#000;flex:1 1 250px}
+.d-question-by{display:flex;flex-wrap:wrap;gap:5px}
+.d-question-by i{font:600 9px/1 var(--sans);font-style:normal;letter-spacing:.05em;
+ color:#44658a;background:#eef3f8;border:1px solid #c9d8e6;padding:4px 7px;border-radius:3px}
+
+/* a gate: a filled chip, because the two ends must read without being read */
+.d-gate{border:1px solid var(--rule);border-radius:9px;overflow:hidden;margin:11px 15px}
+.d-gate-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 13px}
+.d-gate-kind{font:700 9px/1 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;padding:5px 9px;border-radius:4px;color:#fff}
+.d-gate-head>span{font-size:12px;color:var(--soft);flex:1 1 200px}
+.g-entry{border-color:#c3b9e6;border-left-width:3px}
+.g-entry .d-gate-head{background:#f1eefb}
+.g-entry .d-gate-kind{background:#6d5bb5}
+.g-exit{border-color:#b0c6bd;border-left-width:3px}
+.g-exit .d-gate-head{background:#eef5f2}
+.g-exit .d-gate-kind{background:#2d7259}
+.d-gate-body{background:var(--card)}
+/* the icon is the indicator: it sits left, as tall as the two lines beside it */
+.d-cond{display:grid;grid-template-columns:38px 148px 1fr auto;gap:13px;align-items:center;
+ padding:11px 13px;border-top:1px solid var(--rule)}
+.d-icon{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.9;
+ stroke-linecap:round;stroke-linejoin:round;flex:none}
+.d-cond-kind{font:700 9px/1.5 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+ color:var(--soft);align-self:center}
+.d-cond-body b{display:block;font:500 12.5px/1.5 var(--sans)}
+.d-cond-body em{display:block;font:400 11.5px/1.5 var(--sans);font-style:normal;
+ color:var(--dim);margin-top:2px}
+.d-cond-by{font-size:11.5px;color:var(--soft);display:flex;gap:7px;flex-wrap:wrap}
+.d-cond-by i{font:700 7.5px/1 var(--sans);font-style:normal;letter-spacing:.11em;
+ text-transform:uppercase;color:var(--dim);flex:none}
+
+/* an element and its members */
+.d-element{border:1px solid var(--rule);border-radius:11px;overflow:hidden;
+ background:var(--card);margin:10px 0}
+.d-element.is-generated{border-style:dashed}
+.d-element-head{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:10px 14px;
+ background:var(--band)}
+.d-element-head b{font:600 15px/1.3 var(--sans)}
+.d-form-name{font:700 8.5px/1 var(--sans);font-style:normal;letter-spacing:.13em;
+ text-transform:uppercase;color:var(--dim)}
+.d-params{font:600 12px/1 var(--mono);color:var(--soft)}
+.d-store,.d-prec,.d-gen{font:700 8.5px/1 var(--sans);letter-spacing:.1em;
+ text-transform:uppercase;color:var(--soft);background:var(--card);
+ border:1px solid var(--rule);padding:4px 7px;border-radius:4px}
+.d-purpose{margin:0;padding:10px 14px;border-top:1px solid var(--rule);font-size:12.5px;
+ color:var(--soft)}
+.d-mrow{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 14px;
+ border-top:1px solid var(--rule)}
+.d-mname{font:600 12.5px/1.4 var(--mono)}
+.d-mkind{font:700 9px/1 var(--sans);font-style:normal;color:var(--soft)}
+.d-mnote{font:italic 11.5px/1.45 var(--sans);color:var(--dim)}
+.d-chip{font-style:normal;font-size:13px;color:var(--soft)}
+.d-reach{display:inline-flex;gap:2px;align-items:flex-end;height:11px}
+.d-reach i{width:3px;height:4px;background:var(--rule);border-radius:1px}
+.d-reach i:nth-child(2){height:7px}
+.d-reach i:nth-child(3){height:11px}
+.d-reach i.on{background:var(--t-ink,var(--soft))}
+.d-alt{font:700 12px/1 var(--mono);font-style:normal}
+.a-inserted{color:#16a34a}
+.a-edited{color:#b45309}
+.a-deleted{color:var(--bad)}
+
+/* a relation */
+.d-rel{display:inline-flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+ background:var(--card);border:1px solid var(--rule);border-radius:6px;padding:5px 9px;
+ margin:0 6px 6px 0}
+.d-rel-kind{font:600 8.5px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--dim)}
+.d-rel-end b{font:600 12px/1 var(--mono)}
+.d-rel-end i{font:600 11px/1 var(--mono);font-style:normal;color:var(--soft)}
+.d-rel-note{font-size:11.5px;color:var(--dim);flex:1 1 200px}
+
+/* a constraint */
+.d-constraint{border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin:10px 0;
+ background:var(--card)}
+.d-constraint-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+ padding:10px 13px;background:var(--band)}
+.d-constraint-head b{font:600 13px/1.3 var(--sans)}
+.d-constraint-head code{font-size:11px;color:var(--soft)}
+.d-enf{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.11em;
+ text-transform:uppercase;padding:4px 7px;border-radius:3px;margin-left:auto}
+.e-mechanical{color:#14532d;background:#e7f6ec;border:1px solid #a9d3b8}
+.e-sentence{color:#8a5a00;background:#fdf2dc;border:1px solid #e6c893}
+.d-constraint-body{display:grid;gap:0}
+.d-field{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline;
+ padding:9px 13px;border-top:1px solid var(--rule)}
+.d-field i{font:700 8.5px/1.5 var(--sans);font-style:normal;letter-spacing:.11em;
+ text-transform:uppercase;color:var(--dim)}
+.d-field b{font:500 12.5px/1.5 var(--sans)}
+.d-source{margin:0;padding:10px 13px;border-top:1px solid var(--rule);font-size:12px;
+ color:var(--soft)}
+.d-source i{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.11em;
+ text-transform:uppercase;color:var(--dim);margin-right:8px}
+
+/* a sentence, and the structure that would replace it */
+.d-sentence{border:1px solid #e6c893;border-radius:10px;overflow:hidden;background:#fffdf8}
+.d-sentence-text{padding:13px 15px;font:450 14px/1.6 var(--sans)}
+.d-needs{border-top:1px solid #e6c893;padding:12px 15px;background:var(--card)}
+.d-needs-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.d-needs-head span{font:700 8.5px/1 var(--sans);letter-spacing:.13em;text-transform:uppercase;
+ color:#b45309}
+.d-needs-head b{font:600 13px/1.3 var(--sans)}
+.d-needs-why{margin:7px 0;font-size:12.5px;color:#7a4a08}
+.d-needs-q{display:block;font-size:12.5px;color:var(--soft)}
+.d-needs-shape{display:inline-block;margin-top:8px;font-size:11.5px;color:var(--accent);
+ background:var(--accent-soft);border:1px solid #a9cdc8;padding:5px 8px;border-radius:4px}
+.d-needs-ex{margin-top:8px;display:flex;gap:9px;flex-wrap:wrap;font-size:12px;color:var(--soft)}
+.d-needs-ex i{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.11em;
+ text-transform:uppercase;color:var(--dim)}
+
+/* a command set */
+.d-cmd{border:1px solid var(--rule);border-radius:11px;overflow:hidden;background:var(--card)}
+.d-cmd-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:11px 14px;
+ background:var(--band)}
+.d-cmd-head>code{font:600 12.5px/1 var(--mono);color:var(--accent);
+ background:var(--accent-soft);padding:6px 9px;border-radius:5px}
+.d-cmd-head>span{font:700 8.5px/1 var(--sans);letter-spacing:.13em;text-transform:uppercase;
+ color:var(--dim)}
+.d-verb{display:grid;grid-template-columns:minmax(120px,auto) 1fr 1fr;gap:12px;
+ align-items:baseline;padding:10px 14px;border-top:1px solid var(--rule)}
+.d-verb>code{font:600 11.5px/1.4 var(--mono)}
+.d-verb>span{font-size:12px;color:var(--soft);display:flex;gap:7px;align-items:baseline}
+.d-verb i{font:700 8px/1 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--dim);flex:none}
+
+/* decisions */
+.d-group{border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-bottom:16px}
+.d-group.is-empty{border-color:var(--bad-line)}
+.d-group-head{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;padding:11px 14px;
+ background:var(--band)}
+.d-group.is-empty .d-group-head{background:var(--bad-soft)}
+.d-group-head b{font:600 14px/1.3 var(--sans)}
+.d-group-head>span{font-size:12.5px;color:var(--soft);flex:1 1 220px}
+.d-group-empty{margin:0;padding:12px 14px;font-size:12.5px;color:#8a2318}
+.d-decision{border-top:1px solid var(--rule);padding:14px}
+.d-decision-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:10px}
+.d-state{font:700 8.5px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;
+ padding:5px 9px;border-radius:4px;color:#fff;background:var(--accent)}
+.s-proposed .d-state{background:#1d6fb8}
+.d-ptype{font:700 8.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+ color:var(--soft);background:var(--band);border:1px solid var(--rule);
+ padding:4px 8px;border-radius:4px}
+.d-slug{font-size:11.5px;color:var(--dim);margin-left:auto}
+.d-elsewhere{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:12.5px;
+ color:var(--soft);margin-top:9px}
+.d-elsewhere code{font-size:11.5px;color:var(--accent);background:var(--accent-soft);
+ padding:5px 8px;border-radius:5px}
+
+/* the contract's own fields */
+.d-reqrow{display:grid;grid-template-columns:120px 1fr;gap:12px;align-items:baseline;
+ padding:10px 0;border-top:1px solid var(--rule)}
+.d-reqrow:first-child{border-top:none}
+.d-reqrow.is-missing{background:var(--bad-soft);border:1px solid var(--bad-line);
+ border-left:4px solid var(--bad);border-radius:8px;padding:12px 14px;margin:4px 0}
+.d-reqname{font:600 12px/1.4 var(--mono);color:var(--soft)}
+.d-reqval{font-size:13px}
+.d-reqval.is-none{color:var(--bad);font-weight:600}
+.d-reqrow.is-missing .d-reqname{color:var(--bad)}
+
+/* a definition opened in place */
+.d-panel{border:1px solid var(--accent);border-radius:11px;overflow:hidden;margin:11px 0;
+ background:var(--card);flex-basis:100%;width:100%;box-shadow:0 2px 10px rgba(31,95,91,.08)}
+.d-panel-body{padding:2px 10px 10px}
+.d-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;
+ padding:9px 13px;background:var(--accent-soft);font:600 12px/1 var(--mono);
+ color:var(--accent)}
+.d-panel-close{border:1px solid #a9cdc8;background:var(--card);color:var(--accent);
+ border-radius:4px;cursor:pointer;font-size:13px;line-height:1;padding:3px 7px}
+
+@media(max-width:720px){
+  .d-band,.d-cond,.d-field,.d-verb,.d-reqrow{grid-template-columns:1fr}
+  .d-member{grid-template-columns:1fr}
+}
+
+/* ── the generic devices the language document is made of ────────────────────── */
+.d-vgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(265px,1fr));gap:12px;
+ margin-bottom:14px}
+.d-vcard{border:1px solid var(--rule);border-radius:10px;padding:13px 15px;
+ background:var(--card)}
+.d-vcard-head{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:6px}
+.d-vcard-head b{font:600 13.5px/1.3 var(--sans)}
+.d-vmark{font:600 15px/1 var(--mono);font-style:normal;color:var(--soft)}
+.d-vtag{font:700 8.5px/1 var(--sans);font-style:normal;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--dim);background:var(--band);
+ border:1px solid var(--rule);padding:4px 7px;border-radius:4px}
+.d-vtag.is-warn{color:#8a5a12;background:#fdf4e5;border-color:#d2a765}
+.d-vdesc{display:block;font-size:12.5px;line-height:1.55;color:var(--soft)}
+.d-vex{display:inline-block;margin-top:8px;font-size:11.5px;color:var(--accent);
+ background:var(--accent-soft);border:1px solid #a9cdc8;padding:4px 7px;border-radius:4px}
+.d-vrows{margin-top:9px;display:grid;gap:0}
+.d-pair{display:grid;grid-template-columns:62px 1fr;gap:10px;align-items:baseline;
+ padding:7px 0;border-top:1px solid var(--rule)}
+.d-pair code{font:700 8.5px/1.5 var(--sans);letter-spacing:.1em;text-transform:uppercase;
+ color:var(--dim)}
+.d-pair span{font-size:12px;color:var(--soft)}
+
+/* containment drawn as containment */
+.d-nest{margin-bottom:14px}
+.d-nbox{border:1px solid var(--rule);border-radius:11px;padding:13px;background:var(--card)}
+.d-nbox .d-nbox{margin-top:11px}
+.d-nbox.n0{background:#fbfaf7}.d-nbox.n1{background:#f7f6f2}.d-nbox.n2{background:#f3f1ec}
+.d-nhead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.d-nhead b{font:600 13.5px/1.3 var(--sans)}
+.d-nhead code{font-size:11.5px;color:var(--accent);background:var(--accent-soft);
+ padding:3px 6px;border-radius:4px}
+.d-nhead i{font-size:11.5px;color:var(--dim);font-style:normal}
+.d-ndesc{display:block;margin-top:5px;font-size:12.5px;color:var(--soft)}
+
+/* visibility drawn as how far out a thing can be seen */
+.d-rings{margin-bottom:14px}
+.d-ring{border:2px solid var(--rule);border-radius:12px;padding:14px;position:relative}
+.d-ring .d-ring{margin-top:12px}
+.d-ring-lab{font:700 9px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+ color:var(--soft)}
+.d-ring code{margin-left:9px;font-size:11.5px;color:var(--accent)}
+.r-public{border-color:#a9cdc8;background:#f4fbf9}
+.r-internal{border-color:#b8d2ea;background:#f5f9fd}
+.r-private{border-color:#e6c893;background:#fffaf2}
+
+/* an exact record is a byte layout */
+.d-bytes{border:1px solid var(--rule);border-radius:10px;overflow:hidden;background:var(--card)}
+.d-bytes-head{display:flex;align-items:baseline;gap:10px;padding:10px 13px;background:var(--band)}
+.d-byterow{display:grid;grid-template-columns:62px 62px 1fr 1fr;gap:10px;align-items:baseline;
+ padding:8px 13px;border-top:1px solid var(--rule);font-size:12px}
+.d-byterow.is-pad{background:#faf9f6;color:var(--dim)}
+.d-byteat,.d-bytew{font:600 11px/1 var(--mono);color:var(--soft)}
+
+/* who may do what */
+.d-perm{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);
+ border-radius:10px;overflow:hidden;margin-bottom:14px}
+.d-perm>span{background:var(--card);padding:9px 11px}
+.d-perm-verb{font:700 8.5px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;
+ color:var(--dim);background:var(--band)!important}
+.d-perm-actor{font:700 9px/1.4 var(--sans);letter-spacing:.06em;text-transform:uppercase}
+.d-perm-cell{display:flex;flex-direction:column;gap:3px;font-size:11.5px}
+.d-perm-cell b{font:700 8.5px/1 var(--sans);letter-spacing:.1em}
+.d-perm-cell em{font-style:normal;color:var(--soft)}
+.d-perm-cell i{font-style:normal;color:var(--dim);font-size:11px}
+.is-yes b{color:#14532d}.is-no b{color:var(--bad)}
+.d-perm-cell.is-none{color:var(--rule);text-align:center}
+
+/* a worked example */
+.d-figure{border:1px dashed var(--rule);border-radius:10px;padding:13px 15px;
+ background:#fcfcfa;margin-bottom:14px}
+.d-figcap{display:block;font:700 8.5px/1 var(--sans);letter-spacing:.13em;
+ text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.d-figbody{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+
+/* a highlighted addition */
+.d-hl{border:3px solid #f0c000;border-radius:14px;background:#fffdf0;margin:18px 0;
+ overflow:hidden}
+.d-hl-flag{display:flex;align-items:baseline;gap:10px;padding:9px 14px;background:#ffeeb0}
+.d-hl-flag b{font:800 9px/1 var(--sans);letter-spacing:.15em;color:#6b4a00}
+.d-hl-flag code{font-size:11.5px;color:#6b4a00}
+.d-hl-body>.d-section{margin:0;border:none;border-radius:0;background:transparent}
+
+/* held in the setup, drawn here — a reference, not a link */
+.d-from{border:1px solid #b8d2ea;border-left:4px solid #1d6fb8;border-radius:10px;
+ overflow:hidden;background:var(--card)}
+.d-from-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 13px;
+ background:#f0f6fc}
+.d-from-head>span{font:700 8.5px/1 var(--sans);letter-spacing:.13em;text-transform:uppercase;
+ color:#1d6fb8}
+.d-from-head>code{font:600 12px/1 var(--mono);color:#14507f}
+.d-from-body{padding:4px 12px 12px}
+.d-field.is-optional i{color:var(--dim);font-style:italic;text-transform:none;letter-spacing:0}
+.d-field.is-optional b{color:var(--soft)}
+
+/* every problem, as something you can click */
+.d-problems{display:grid;gap:10px;margin-top:12px}
+.d-pgroup{background:var(--card);border:1px solid var(--p-line);border-radius:8px;
+ overflow:hidden}
+.d-pgroup-head{display:flex;align-items:baseline;gap:9px;padding:7px 11px;background:var(--p-tint)}
+.d-pgroup-head span{font:700 9px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;
+ color:var(--p-ink)}
+/* a fault, and a thing correctly waiting on the human, are not the same colour */
+.t-bad{--p-ink:#a12b1f;--p-tint:#fff4f3;--p-line:#e9a79f}
+.t-waiting{--p-ink:#8a5a12;--p-tint:#fdf7ec;--p-line:#d2a765}
+.d-pgroup-head i{font:700 9px/1 var(--mono);font-style:normal;color:var(--soft);
+ margin-left:auto}
+.d-pitems{display:flex;flex-wrap:wrap;gap:6px;padding:9px 11px}
+.d-pitem{font:600 11.5px/1 var(--mono);color:var(--p-ink);background:var(--p-tint);
+ border:1px solid var(--p-line);padding:5px 8px;border-radius:4px;text-decoration:none}
+.d-pitem:hover{background:#fff;border-color:var(--p-ink)}
+.d-pitem.is-flat{font-family:var(--sans);font-weight:500;cursor:default}
+:target{scroll-margin-top:16px;outline:3px solid #f0c000;outline-offset:4px;border-radius:10px}
+
+/* a node named by highlight.yaml, at whatever depth it sits */
+.d-mark{border:3px solid #f0c000;border-radius:11px;background:#fffdf0;margin:8px 0;
+ overflow:hidden}
+.d-mark-flag{display:flex;align-items:baseline;gap:10px;padding:7px 12px;background:#ffeeb0}
+.d-mark-flag b{font:800 8.5px/1 var(--sans);letter-spacing:.15em;color:#6b4a00;flex:none}
+.d-mark-flag span{font-size:12px;color:#6b4a00}
+.d-mark-body{padding:8px 10px 10px}
+
+/* a part nobody has stated yet — a gap, not a fault */
+/* the heaviest mark on the page: something nobody has written at all */
+.d-notstated{display:inline-flex;align-items:baseline;gap:8px;background:#fdeaea;
+ border:1px solid #7f1d1d;border-left:4px solid #7f1d1d;border-radius:5px;
+ padding:5px 9px;margin:3px 4px 3px 0}
+.d-notstated em{font:800 8.5px/1 var(--sans);font-style:normal;letter-spacing:.12em;
+ text-transform:uppercase;color:#fff;background:#7f1d1d;padding:4px 6px;border-radius:3px;
+ flex:none}
+.d-notstated b{font:700 11.5px/1.4 var(--mono);color:#5c1414}
+.d-notstated i{font-style:normal;font-size:11px;color:#8a4a44}
+.t-never{--p-ink:#7f1d1d;--p-tint:#fdeaea;--p-line:#7f1d1d}
+
+/* what makes something run again */
+.d-repeat{border:1px solid #8aa4bf;border-left:4px solid #44658a;border-radius:9px;
+ overflow:hidden;margin:11px 15px;background:var(--card)}
+.d-repeat-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:9px 13px;
+ background:#eef3f8}
+.d-repeat-mark{font:700 9px/1 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;color:#fff;background:#44658a;padding:5px 9px;border-radius:4px}
+.d-repeat-head>span{font-size:12px;color:#2f5476;flex:1 1 200px}
+.d-step .d-repeat{margin:9px 0 0}
+
+/* a gate condition, by what sort of claim it is */
+.d-cond-kind{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.d-cond-after{font:600 9px/1 var(--sans);font-style:normal;letter-spacing:.06em;
+ text-transform:none;color:var(--dim);background:var(--band);border:1px solid var(--rule);
+ padding:3px 6px;border-radius:3px}
+.cat-work{border-left:3px solid #8aa4bf}
+.cat-work .d-icon{color:#44658a}
+.cat-agreement{border-left:3px solid #d2a765}
+.cat-agreement .d-icon{color:#96661b}
+.cat-signature{border-left:3px solid #2d7259}
+.cat-signature .d-icon{color:#1f5f4a}
+@media(max-width:720px){.d-cond{grid-template-columns:38px 1fr}}
+.cat-signature .d-cond-body b{font-weight:600}
+
+
+/* a rule is built code; a constraint is something a judge must watch for */
+.d-rule{border:1px solid #a9cdc8;border-left:4px solid #1f5f4a;border-radius:10px;
+ overflow:hidden;background:var(--card);margin:10px 0}
+.d-rule-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 13px;
+ background:#eef5f2}
+.d-rule-mark{font:800 8.5px/1 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;color:#fff;background:#1f5f4a;padding:4px 7px;border-radius:3px}
+.d-rule-head>code{font:600 12px/1 var(--mono);color:#14503f}
+.d-rule-was{font:600 10px/1 var(--sans);font-style:italic;color:var(--dim)}
+.d-rule-forbids{margin:0;padding:11px 13px;font:450 13px/1.55 var(--sans);color:var(--ink)}
+.d-rule-rows{display:grid;border-top:1px solid var(--rule)}
+.d-spec,.d-utest{border:1px solid var(--rule);border-left:4px solid #44658a;border-radius:10px;
+ overflow:hidden;background:var(--card);margin:10px 0}
+.d-utest{border-left-color:#6d4aa7}
+.d-spec-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:10px 13px;
+ background:#f4f7fb}
+.d-utest .d-spec-head{background:#f6f3fb}
+.d-spec-mark,.d-utest-mark{font:800 8.5px/1 var(--sans);font-style:normal;letter-spacing:.14em;
+ text-transform:uppercase;color:#fff;background:#44658a;padding:4px 7px;border-radius:3px}
+.d-utest-mark{background:#6d4aa7}
+.d-spec-head>code{font:600 12px/1 var(--mono);color:var(--soft)}
+.d-spec-proves{margin:0;padding:11px 13px;font:450 13px/1.55 var(--sans);color:#000}
+.d-subfields{display:grid;gap:5px}
+.d-subfield{display:grid;grid-template-columns:96px 1fr;gap:10px;align-items:baseline}
+.d-subfield>i{font:700 8px/1.5 var(--sans);font-style:normal;letter-spacing:.1em;
+ text-transform:uppercase;color:var(--dim)}
+.d-subfield b{font:450 12.5px/1.5 var(--sans);color:var(--ink)}
+
+/* THE METALANGUAGE. Every colour here comes in as --t-ink and --t-tint from the tone the
+   file declared. Nothing below picks a colour from an id. */
+.d-mglyph{display:inline-flex;align-items:center;justify-content:center;flex:none;
+ font:700 15px/1 var(--mono);font-style:normal;width:26px;height:26px;border-radius:7px;
+ color:var(--t-ink,var(--soft));background:var(--t-tint,var(--band));
+ border:1px solid color-mix(in srgb,var(--t-ink,var(--rule)) 32%,transparent)}
+
+/* the strip of every device, and the key that teaches the marks */
+.d-mindex{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 18px}
+.d-mindex-item{display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+ background:var(--card);border:1px solid var(--rule);border-radius:999px;padding:5px 7px 5px 13px}
+.d-mindex-item:hover{border-color:var(--accent)}
+.d-mindex-item>code{font:600 13.5px/1 var(--mono);color:var(--ink)}
+
+.d-mkey{background:var(--card);border:1px solid var(--rule);border-radius:12px;
+ padding:14px 16px;margin:0 0 10px}
+.d-mkey-head{display:flex;align-items:baseline;gap:11px;margin-bottom:11px}
+.d-mkey-head>code{font:700 13px/1.3 var(--mono)}
+.d-mkey-head>span{font-size:12.5px;color:var(--dim)}
+.d-mkey-items{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.d-mkey-item{display:grid;grid-template-columns:26px auto;gap:5px 11px;align-items:center}
+.d-mkey-name{font:700 13px/1.3 var(--sans);color:var(--t-ink,var(--ink))}
+.d-mkey-desc{grid-column:2;font-style:normal;font-size:12px;line-height:1.5;color:var(--soft)}
+
+/* a device */
+.d-mdev{background:var(--card);border:1px solid var(--rule);border-radius:14px;
+ padding:22px 24px 20px;margin:26px 0 0}
+.d-mdev-head{display:flex;align-items:center;gap:11px;flex-wrap:wrap;
+ padding-bottom:12px;border-bottom:2px solid var(--ink)}
+.d-mdev-head b{font:650 23px/1.15 var(--mono);letter-spacing:-.015em}
+.d-mbadge{display:inline-flex;align-items:center;gap:6px;font-style:normal;
+ border-radius:999px;padding:4px 9px;background:var(--band);border:1px solid var(--rule)}
+.d-mbadge>code{font:700 10px/1 var(--mono);letter-spacing:.04em;color:var(--soft)}
+.d-mbadge>b{font:700 10px/1 var(--sans);color:var(--dim)}
+.d-mbadge.b-one_of{background:#f2ecfe;border-color:#c9b6f3}
+.d-mbadge.b-one_of>code{color:#7c3aed}
+.d-mbadge.b-value{background:#f1efe9;border-color:#d8d2c4}
+.d-mbadge.b-instances{background:#e6f0ee;border-color:#a9cdc8}
+.d-mbadge.b-instances>code{color:#1f5f5b}
+.d-mdev-desc{font-size:14px;line-height:1.6;color:var(--ink);max-width:80ch;margin:13px 0 0}
+.d-mdev-rows{margin-top:11px;max-width:460px}
+
+/* a choice, drawn as the choice */
+.d-malts{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:15px;
+ background:#f8f4ff;border:1px solid #d6c6f5;border-radius:10px;padding:14px 16px}
+.d-malt{display:inline-flex;align-items:baseline;gap:9px}
+.d-malt-or{font:700 10px/1 var(--sans);letter-spacing:.16em;text-transform:uppercase;color:#7c3aed}
+.d-malt>a{font:650 16px/1.3 var(--mono)}
+.d-malt.is-missing>a{color:var(--bad)}
+
+/* a part, as a row. the mark at the left says whether it has to be written. */
+.d-mparts{margin-top:18px}
+.d-mpart{display:grid;grid-template-columns:72px 136px minmax(240px,340px) 1fr;gap:16px;
+ align-items:baseline;padding:11px 0;border-top:1px solid var(--rule)}
+.d-mpart.is-head{padding:0 0 7px;border-top:0}
+.d-mpart.is-head>*{font:700 9px/1.4 var(--sans)!important;letter-spacing:.13em;
+ text-transform:uppercase;color:var(--dim)}
+.d-mpart-id{font:700 14px/1.5 var(--mono);color:var(--ink)}
+.d-mpart-rel{display:inline-flex;align-items:center;gap:9px;flex-wrap:wrap;
+ font:600 14px/1.5 var(--mono)}
+.d-mabs,.d-mverb{align-self:center}
+.d-mlink{color:var(--accent);text-decoration:none;border-bottom:1px solid #bcd8d4}
+.d-mlink:hover{border-bottom-color:var(--accent)}
+.d-mflag{font:600 10px/1 var(--sans);font-style:normal;letter-spacing:.02em;
+ color:var(--dim);background:var(--band);border:1px solid var(--rule);padding:4px 6px;border-radius:4px}
+.d-mscope{display:inline-flex;align-items:center;gap:5px;font:600 10.5px/1.3 var(--sans);
+ font-style:normal;padding:4px 8px;border-radius:5px;white-space:nowrap;
+ color:var(--t-ink,var(--soft));background:var(--t-tint,var(--band));
+ border:1px solid color-mix(in srgb,var(--t-ink,var(--rule)) 30%,transparent)}
+.d-mpart-desc{font-size:13px;line-height:1.6;color:var(--soft)}
+
+/* the instances a closed device lists, written where it is declared */
+.d-minsts{margin-top:18px;display:grid;gap:11px;
+ grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.d-minst{border:1px solid var(--rule);border-radius:10px;background:var(--band);padding:13px 15px}
+.d-minst>b{font:650 14px/1.3 var(--mono)}
+.d-mrows{margin-top:8px}

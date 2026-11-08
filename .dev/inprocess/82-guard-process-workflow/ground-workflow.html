@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GROUND · Full step flow</title><link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light;--ink:#20364b;--line:#bfceda;--blue:#235f91;--green:#225d3c;--purple:#713e8e}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fbfcfe;color:var(--ink);font:16px/1.45 system-ui,sans-serif}header,main,footer{max-width:1500px;margin:auto;padding:22px 30px}h1{font-size:32px;margin:0 0 8px}h2{font-size:25px;margin:0}h3{font-size:21px;margin:5px 0 10px}p{margin:7px 0}a{color:var(--blue)}a:focus-visible{outline:3px solid var(--purple);outline-offset:3px}nav{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0 8px}.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:14px}.legend span{padding:5px 9px;border:1px solid var(--line)}.pending{color:var(--purple)}.notice{border-left:4px solid var(--purple);padding:10px 14px;background:#f3edf7;margin:14px 0}.muted{color:#4b6072}.item{margin:25px 0 35px}.item-head{padding:20px;background:#e8eff5;border-radius:7px;margin-bottom:14px}.item-head p{max-width:1050px}.item-id,.step-id{font:650 14px ui-monospace,monospace}.item-id{display:block;margin-bottom:6px}.row{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(300px,1.12fr) 26px minmax(0,1fr);gap:10px;align-items:stretch;margin-top:20px;scroll-margin-top:20px}.edge-list{min-width:0}.caption{font-size:12px;font-weight:700;letter-spacing:.09em;margin-bottom:8px}.edge{border:1px solid var(--line);background:#edf5ff;padding:10px 12px;margin-bottom:8px;border-radius:4px;overflow-wrap:anywhere}.edge.output{background:#edf7ef}.edge.value{border-style:dashed;background:#fff}.edge-title{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:650}.edge-title svg{width:24px;height:24px;flex:none}.edge small{display:block;font-size:13px;margin:6px 0 0;color:#385267}.edge a{font-weight:600}.arrow{align-self:center;text-align:center;font-size:24px;color:#637d92}.action{border:1px solid var(--line);border-top:5px solid #708da6;border-radius:6px;padding:16px 18px;background:#fff;align-self:start}.action.agent{border-top-color:#2b699e}.action.judge{border-top-color:#755194}.action.human{border-top-color:#9c6732}.actor{display:block;font-size:13px;font-weight:650;margin:9px 0;color:#405970}.action p{font-size:15px}.purpose{border-top:1px solid #d9e2e9;padding-top:9px;margin-top:12px!important}.route{grid-column:3;position:relative;margin:0 0 4px;padding:8px 12px 8px 25px;font-size:14px;border-left:2px solid #9babba;overflow-wrap:anywhere}.route strong{font-weight:650}.route:before{content:'↓';position:absolute;left:-9px;bottom:-17px;color:#637d92;background:#fbfcfe;font-size:23px}.route.last:before{display:none}.routes{display:grid;grid-template-columns:minmax(0,1fr) 26px minmax(300px,1.12fr) 26px minmax(0,1fr);gap:10px}.finished{padding:16px;border:1px solid #b8d5c0;background:#edf7ef;margin-top:20px;font-size:17px}#defs{position:absolute;width:0;height:0;overflow:hidden}.item-end{margin-top:22px;border-top:2px solid var(--line);padding-top:10px}.step-id{color:#3b556c}footer{font-size:14px}.schema-gap{margin-top:12px;color:var(--purple);font-size:14px}#fail{color:#a12731} @media(max-width:950px){header,main,footer{padding:18px}.row{grid-template-columns:1fr;gap:0;margin-top:30px}.arrow{transform:rotate(90deg);padding:4px}.action{margin:8px 0}.routes{display:block}.route{margin:8px 0 24px}.item-head{padding:15px}h1{font-size:27px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{.row{break-inside:avoid}nav{display:none}header,main,footer{padding:10px}}
+</style>
+</head>
+<body>
+<header>
+<h1>GROUND · All steps unfolded</h1>
+<p><strong>Find what we already have. Determine how to reuse it. Establish the platform primitives we need.</strong></p>
+<div class="notice"><strong>Revised design proposal:</strong> code behavior, dependencies and change impact are investigated inside Prior Art. There is no separate Exploration agent here. Existing C# types and runtime scripts have not been changed.</div>
+<nav><a href="#GR-START">Register work</a><a href="#GR-PA">Prior Art</a><a href="#GR-API">Platform/API Research</a><a href="#GR-END">Resolve and hand off</a><a href="ground-workflow.png">Full image</a></nav>
+<div class="legend"><span>Blue document = input</span><span>Green document = saved output / update</span><span>Dashed box = in-memory transfer, not another file</span><span class="pending">Purple note = definition still needed</span></div>
+<p class="muted">Rows show inputs → action → outputs. Links name the exact producing and consuming Steps. File names identify roles, not newly assigned storage paths.</p>
+</header>
+<main id="flow"><p id="fail" role="alert"></p></main>
+<footer><p>Prior Art and Platform/API Research both start from registered work. Their display order does not decide serial versus parallel scheduling. Human approval remains required for workflow transitions; no automatic-transition exception is introduced.</p><p>The named tool operations, agent-result persistence and Workflow updates are explicit below. Shared Guard operations do not become separate agent calls. Agent start/end times and result references belong in Workflow; no separate completion report is added.</p><p><a href="PriorArt.cs">Prior-art types</a> · <a href="PlatformResearch.cs">Platform/API types</a> · <a href="StageExecution.cs">Assignment and handoff types</a> · <a href="workflow-drilldown.html">Earlier whole-workflow drill-down</a></p></footer>
+<script src="workflow-phase-details.js"></script><script src="workflow-artifact-usage.js"></script>
+<script>
+(() => {
+'use strict';
+const api=window.WorkflowPhaseDetails;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// This page owns the revised GROUND proposal only. Artifact names/icons remain shared.
+// An edge owns the producing Step(s), information and persisted/value distinction.
+const e=(key,info,from=[],value=false,label=null)=>({key,info,from,value,label});
+const items=[
+ {id:'GR-START',name:'Execution state · Register the work',result:'Workflow contains the work to dispatch.',steps:[
+  {id:'GR-START-01',title:'Register the investigations and their inputs',actor:'Guard',kind:'guard',purpose:'Make missing work detectable without a second checklist.',
+   inputs:[e('conversation','Approved capability descriptions, investigation scope, exclusions and selected platforms.',['external']),e('workflow','Project location, current stage/attempt and existing runs.',['external'])],
+   outputs:[e('workflow','Register prior-art search, reuse-judge and platform-research assignments; retain original Conversation references.')],
+   next:[['GR-PA-01','Prior-art assignments'],['GR-API-01','Platform-research assignments']],
+   gap:'The assignment binding for investigation areas absorbed from Exploration is not defined. Do not drop those questions or invent fake capabilities when the capability list is empty.'}
+ ]},
+ {id:'GR-PA',name:'Prior Art · Find existing code and decide how to use it',result:'Prior-art ledger → original search findings + independent reuse evaluation.',steps:[
+  {id:'GR-PA-01',title:'Start the code investigation',actor:'Guard starts the prior-art search agent',kind:'guard',purpose:'Give the agent the actual instructions, not a rewritten brief.',
+   inputs:[e('workflow','Registered search assignment and authorized execution; follow-up state when resuming.',['GR-START-01','GR-END-02']),e('conversation','Selected capability and relevant investigation questions; scope and exclusions.',['external'])],
+   outputs:[e('workflow','Record agent start, Running status and the exact input references.'),e('workflow','Agent receives the registered assignment reference.',['GR-PA-01'],true,'Search assignment supplied')],next:[['GR-PA-02','Investigate']]},
+  {id:'GR-PA-02',title:'Ask a specific code question',actor:'Prior-art search agent · same run',kind:'agent',purpose:'Find implementations and establish their callers, behavior and constraints.',
+   inputs:[e('workflow','Assigned work and original input references.',['GR-PA-01']),e('searchCapture','Previously returned evidence, if this is a follow-up query.',['GR-PA-03'])],
+   outputs:[e('searchRequest','Structural query or text pattern; assignment reference. No captured output is written by the agent.',[],true)],next:[['GR-PA-03','Execute the request']],
+   gap:'Typed source-read/probe requests still need definition. Structural/text search alone must not be presented as every kind of inspection.'},
+  {id:'GR-PA-03',title:'Run the tool and save what it returned',actor:'Guard · search/capture tool',kind:'guard',purpose:'Keep requested work and actual evidence distinguishable from agent claims.',
+   inputs:[e('searchRequest','Request supplied by the search agent; or authorized follow-up from the reuse judge.',['GR-PA-02','GR-PA-06'],true),e('workflow','Resolve project and allowed scope from the registered assignment.',['GR-START-01']),e('project','Existing source, callers, configuration and relevant tests.',['external'])],
+   outputs:[e('searchRequest','Save the original request once.'),e('searchCapture','Save request reference, actual executable/arguments, stdout/stderr, exit and outcome.'),e('searchCapture','Return the saved capture reference after persistence.',[],true,'Capture receipt')],
+   next:[['GR-PA-02','More evidence needed → repeat within the same investigation'],['GR-PA-04','Enough evidence → produce findings'],['GR-PA-06','Judge-requested capture → return to the judge']],
+   note:'A failed tool call remains a failed capture, not an empty successful search.'},
+  {id:'GR-PA-04',title:'Describe candidates and the affected behavior',actor:'Prior-art search agent · same run',kind:'agent',purpose:'Give the reuse judge evidence-linked candidates and DESIGN the context needed to use them.',
+   inputs:[e('searchCapture','Original code evidence and execution outcomes.',['GR-PA-03']),e('conversation','The capability and change being investigated.',['external'])],
+   outputs:[e('search','Candidate identities, evidence links, relevant dependencies/constraints and unanswered assigned questions.',[],true,'Structured search findings')],next:[['GR-PA-05','Submit the result']],
+   gap:'PriorArtSearchResult currently carries candidates and searches only. Change-impact findings and unresolved investigation questions need their agreed typed representation.'},
+  {id:'GR-PA-05',title:'Save the original search result',actor:'Guard · result persistence',kind:'guard',purpose:'Give the judge the exact agent result; no coordinator summary in between.',
+   inputs:[e('search','Structured result submitted by the search agent.',['GR-PA-04'],true),e('workflow','Assignment and run identity.',['GR-PA-01']),e('searchCapture','Referenced captures exist and belong to the investigation.',['GR-PA-03'])],
+   outputs:[e('search','Persist the original structured findings and their references.'),e('workflow','Record result reference, end time and completion; bind the judge input to this saved version.')],next:[['GR-PA-06','Valid result → judge reuse']],
+   note:'Invalid shape/reference → return to the submitting agent. A stopped run remains incomplete. Saving a valid result does not prove its claims true.'},
+  {id:'GR-PA-06',title:'Decide whether and how the code can be reused',actor:'Guard dispatches an independent reuse judge',kind:'judge',purpose:'Check that the candidates and search coverage justify the reuse determination.',
+   inputs:[e('search','Exact saved candidate result.',['GR-PA-05']),e('searchCapture','Original evidence, not reconstructed search prose.',['GR-PA-03']),e('conversation','The original capability, scope and exclusions.',['external']),e('workflow','Registered judge assignment bound to this search result; authorized follow-up when applicable.',['GR-PA-05','GR-END-02'])],
+   outputs:[e('evaluation','Reuse / Extend / Extract / New / Unresolved; candidate evaluations and evidence references.',[],true,'Structured reuse determination'),e('workflow','Record judge start and input references.'),e('searchRequest','Only if evidence is insufficient: a scoped follow-up tool request.',[],true,'Conditional inspection request')],
+   next:[['GR-PA-03','Need additional source evidence → capture it'],['GR-PA-07','Determination ready → save it']],
+   note:'This is the reuse judge inside Prior Art, not an extra GROUND-wide panel. An unresolved determination is saved honestly.'},
+  {id:'GR-PA-07',title:'Save the original reuse evaluation',actor:'Guard · same result-persistence operation',kind:'guard',purpose:'Preserve the independent judgment without rewriting either agent’s result.',
+   inputs:[e('evaluation','Structured determination from the judge.',['GR-PA-06'],true),e('search','The exact search result evaluated.',['GR-PA-05']),e('workflow','Judge assignment and active run identity.',['GR-PA-06'])],
+   outputs:[e('evaluation','Persist the original evaluation with its source references.'),e('workflow','Record judge result reference, end time and completion.')],next:[['GR-PA-08','Pair the results']]},
+  {id:'GR-PA-08',title:'Generate the prior-art ledger',actor:'Guard · no agent call',kind:'guard',purpose:'Give DESIGN the matching search and evaluation for each capability.',
+   inputs:[e('search','Saved search-result path and Git blob ID.',['GR-PA-05']),e('evaluation','Saved evaluation-result path and Git blob ID.',['GR-PA-07']),e('workflow','Assignments and selected results for this attempt.',['GR-START-01','GR-PA-05','GR-PA-07'])],
+   outputs:[e('ledger','Write reference pairs. No copied findings or rewritten decisions.'),e('workflow','Record the ledger location for the stage handoff.')],next:[['GR-END-01','Check stage completion']],
+   note:'The ledger may retain an Unresolved evaluation. Its existence alone does not make GROUND complete.'}
+ ]},
+ {id:'GR-API',name:'Platform/API Research · Find usable platform primitives',result:'Evidence-linked findings for each assigned capability across the selected platforms.',steps:[
+  {id:'GR-API-01',title:'Start the platform investigation',actor:'Guard starts the platform-research agent',kind:'guard',purpose:'Cover the selected platforms without separate agents for each search channel.',
+   inputs:[e('workflow','Registered platform-research assignment; authorized follow-up when resuming.',['GR-START-01','GR-END-02']),e('conversation','Capability, selected platforms/versions, scope and exclusions.',['external'])],
+   outputs:[e('workflow','Record agent start, Running status and exact input references.'),e('workflow','Supply the original assignment reference.',[],true,'Research assignment supplied')],next:[['GR-API-02','Investigate']]},
+  {id:'GR-API-02',title:'Ask a platform or API question',actor:'Platform-research agent · same run',kind:'agent',purpose:'Find supported primitives and establish their behavior and limitations.',
+   inputs:[e('workflow','Assigned capability and selected platform references.',['GR-API-01']),e('researchCapture','Previous tool outcomes, when continuing research.',['GR-API-03']),e('researchResponse','Previous original source material, when available.',['GR-API-03'])],
+   outputs:[e('researchRequest','Documentation query, SDK search, corpus listing/search or source-read request.',[],true)],next:[['GR-API-03','Execute the request']]},
+  {id:'GR-API-03',title:'Run the research tool and retain the source',actor:'Guard · research/capture tool',kind:'guard',purpose:'Preserve what the external source actually returned, including failed/partial responses.',
+   inputs:[e('researchRequest','Typed request supplied by the agent.',['GR-API-02'],true),e('workflow','Registered research scope and input versions.',['GR-START-01']),e('externalApi','Official documentation, local SDK/library source or RefLib.',['external'])],
+   outputs:[e('researchRequest','Save the original requested operation.'),e('researchExecuted','Retain the actual backend request.'),e('researchResponse','Retain original returned content, if any.'),e('researchCapture','Link request, executed request, response and outcome; return its reference.')],
+   next:[['GR-API-02','More evidence needed → repeat within the same investigation'],['GR-API-04','Enough evidence → produce findings']],
+   note:'Available operations: SearchDocumentationAsync; SearchSdkAsync; ListCorporaAsync; SearchReferenceLibraryAsync; ReadSourceAsync. These are tool calls, not five agent tasks.',
+   gap:'The four saved roles shown are the current draft. Combining the executed request into the capture is a proposed simplification, not yet applied.'},
+  {id:'GR-API-04',title:'Explain what each platform supports',actor:'Platform-research agent · same run',kind:'agent',purpose:'Supply DESIGN with supported options and constraints, not an invented API choice.',
+   inputs:[e('researchResponse','Original retrieved content.',['GR-API-03']),e('researchCapture','Source identity and execution outcome.',['GR-API-03']),e('conversation','Capability and all selected platforms/versions.',['external'])],
+   outputs:[e('research','Per-platform primitive candidates, applicability, limitations, evidence and unanswered factual questions.',[],true,'Structured platform findings')],next:[['GR-API-05','Submit findings']],
+   gap:'The platform-findings C# result type is not defined. Failed retrieval is not proof that a platform lacks support.'},
+  {id:'GR-API-05',title:'Save the original platform findings',actor:'Guard · same result-persistence operation',kind:'guard',purpose:'Hand the findings to DESIGN with original evidence still reachable.',
+   inputs:[e('research','Agent’s submitted findings.',['GR-API-04'],true),e('researchCapture','Referenced original evidence.',['GR-API-03']),e('workflow','Assignment and required platform coverage.',['GR-API-01'])],
+   outputs:[e('research','Persist the structured research result without a coordinator rewrite.'),e('workflow','Record result reference, end time and completion.')],next:[['GR-END-01','Check stage completion']],
+   note:'Validate shape, assignment and explicit platform coverage. That does not certify the factual findings as true. No extra research judge is introduced here.'}
+ ]},
+ {id:'GR-END',name:'Execution state · Resolve unfinished work and hand off',result:'Original ledger and research references supplied to DESIGN; no new handoff report.',steps:[
+  {id:'GR-END-01',title:'Identify what still blocks DESIGN',actor:'Guard checks registered work and original results',kind:'guard',purpose:'Do not advance because files exist while required investigation is unfinished.',
+   inputs:[e('workflow','Required assignments, completed runs, ledger reference and selected results.',['GR-START-01','GR-PA-05','GR-PA-07','GR-PA-08','GR-API-05','GR-END-02']),e('ledger','Capability coverage and linked reuse determinations.',['GR-PA-08']),e('search','Unanswered assigned source-code questions.',['GR-PA-05']),e('evaluation','Resolved or Unresolved determination.',['GR-PA-07']),e('research','Per-platform findings and unanswered factual questions.',['GR-API-05'])],
+   outputs:[e('workflow','Record the blocked/completable state and references to the original missing work or unresolved result.')],next:[['GR-END-02','Unfinished obligation → resolve it'],['GR-END-03','Required work complete → request approval']],
+   gap:'Exit/resolution fields are not yet defined. Guard can check explicit states and references; it cannot mechanically prove research sufficient.'},
+  {id:'GR-END-02',title:'Resolve only the unfinished obligation',actor:'Human authorizes follow-up; Guard dispatches the responsible agent',kind:'human',purpose:'Preserve successful work rather than restart every investigation.',
+   inputs:[e('workflow','Specific unfinished assignment/result identified at exit.',['GR-END-01']),e('evaluation','Original unresolved reuse question, when applicable.',['GR-PA-07']),e('research','Original unresolved platform question, when applicable.',['GR-API-05']),e('search','Original unresolved code question, when applicable.',['GR-PA-05'])],
+   outputs:[e('workflow','Record the approved follow-up and references to unchanged successful results. Resolution stays linked to its original question.')],next:[['GR-PA-01','Missing/interrupted code investigation'],['GR-PA-06','Reuse determination needing follow-up'],['GR-API-01','Missing/interrupted platform investigation'],['GR-END-01','Completed follow-up → recheck obligations']],
+   note:'New agent execution for interrupted work; correction attempt for reviewed work needing correction. The registered assignment supplies the retained evidence. A human decision follows the existing approval path, not an agent-authored substitute.'},
+  {id:'GR-END-03',title:'Approve the transition to DESIGN',actor:'Human decision, recorded by Guard',kind:'human',purpose:'Keep transition authority explicit; no inferred approval.',
+   inputs:[e('workflow','Completion state and original result references.',['GR-END-01']),e('ledger','Original prior-art results available for inspection.',['GR-PA-08']),e('research','Original platform findings available for inspection.',['GR-API-05'])],
+   outputs:[e('workflow','Record approval, or remain in GROUND if approval is withheld.')],next:[['GR-END-04','Approved → prepare the handoff']],
+   note:'This final approval is not an exemption for earlier human-gated transitions. No blanket automatic-transition permission is implied.'},
+  {id:'GR-END-04',title:'Bind DESIGN to the saved results',actor:'Guard · no agent call',kind:'guard',purpose:'Make the next stage read the exact outputs, not a retelling.',
+   inputs:[e('workflow','Approved transition and selected result versions.',['GR-END-03']),e('ledger','Ledger with original search/evaluation reference pairs.',['GR-PA-08']),e('research','Original platform-result references.',['GR-API-05'])],
+   outputs:[e('workflow','Register DESIGN input references. DESIGN follows the ledger to the code findings and reuse evaluation.')],next:[['DESIGN','DESIGN reads the original results']],
+   gap:'DesignAssignment still has ExplorationResults. Absorbing Exploration requires updating that handoff and the search-result schema; neither C# change is made by this diagram.'}
+ ]}
+];
+const all=items.flatMap(i=>i.steps),byId=new Map(all.map(s=>[s.id,s]));
+const transfers=[];
+for(const s of all){
+ for(const edge of s.inputs)for(const from of edge.from){if(from==='external')continue;if(!byId.has(from))throw Error('Missing producer '+from);if(!byId.get(from).outputs.some(o=>o.key===edge.key))throw Error('Producer '+from+' does not write '+edge.key);transfers.push({from,to:s.id,key:edge.key});}
+ for(const [to] of s.next)if(to!=='DESIGN'&&!byId.has(to))throw Error('Missing next step '+to);
+}
+function ref(id){return id==='external'?'Existing / approved input':id==='DESIGN'?'<a href="#DESIGN">DESIGN</a>':'<a href="#'+id+'">'+id+'</a>';}
+function edgeHtml(edge,s,out){
+ const a=api.artifacts[edge.key];if(!a)throw Error('Missing artifact '+edge.key);
+ const related=out?[...new Set(transfers.filter(t=>t.from===s.id&&t.key===edge.key).map(t=>t.to))]:edge.from;
+ const provenance=related.length?related.map(ref).join(' · '):edge.value?'Returned within this assignment.':'Retained evidence; follow the linked capture/result.';
+ return '<div class="edge'+(out?' output':'')+(edge.value?' value':'')+'"><div class="edge-title"><svg aria-hidden="true" viewBox="0 0 64 64"><use href="#file-'+a[3][0]+'"/></svg><span>'+esc(edge.label||a[0])+'</span></div><small>'+esc(edge.info)+'</small><small><strong>'+(out?'To: ':'From: ')+'</strong>'+provenance+'</small>'+(edge.value?'<small>In-memory value — not another saved file.</small>':'')+'</div>';
+}
+function row(s){return '<article class="row" id="'+s.id+'"><div class="edge-list"><div class="caption">INPUTS</div>'+s.inputs.map(e=>edgeHtml(e,s,false)).join('')+'</div><div class="arrow" aria-hidden="true">→</div><div class="action '+s.kind+'"><span class="step-id">'+s.id+'</span><h3>'+esc(s.title)+'</h3><span class="actor">'+esc(s.actor)+'</span><p class="purpose">'+esc(s.purpose)+'</p>'+(s.note?'<p>'+esc(s.note)+'</p>':'')+(s.gap?'<p class="schema-gap"><strong>Definition needed:</strong> '+esc(s.gap)+'</p>':'')+'</div><div class="arrow" aria-hidden="true">→</div><div class="edge-list"><div class="caption">OUTPUTS / UPDATES</div>'+s.outputs.map(e=>edgeHtml(e,s,true)).join('')+'</div></article><div class="routes"><div class="route'+(s.id==='GR-END-04'?' last':'')+'"><strong>Next</strong><br>'+s.next.map(([id,label])=>ref(id)+' · '+esc(label)).join('<br>')+'</div></div>';}
+document.getElementById('flow').innerHTML='<svg id="defs" aria-hidden="true"><defs>'+api.modificationIconDefs+'</defs></svg>'+items.map(i=>'<section class="item" id="'+i.id+'"><div class="item-head"><span class="item-id">GROUND / '+i.id+'</span><h2>'+esc(i.name)+'</h2><p><strong>Output:</strong> '+esc(i.result)+'</p></div>'+i.steps.map(row).join('')+'</section>').join('')+'<section class="finished" id="DESIGN"><strong>DESIGN receives:</strong> the prior-art ledger, its original search/evaluation results, platform findings and their retained evidence. Workflow holds references; there is no new GROUND summary.</section>';
+window.GroundWorkflow={items,steps:all,transfers};
+})();
+</script>
+</body></html>

@@ -1,0 +1,188 @@
+# THE SETUP — what this project stands up ONCE, that many runs reference.
+#
+# language.yaml says what a research kind, a constraint and a rule ARE. This file says
+# which ones THIS project has. A contract references them with `from:`.
+#
+# CONSTRAINTS are what a judge must watch for, because no rule enforces them.
+# RULES are built code; the judge is handed the build and the test results before judging.
+#
+# PROPOSED 2026-10-06, nothing locked.
+
+research:
+  - id: code-structure
+    name: Code structure
+    added: 2026-10-06T00:00:00.000Z
+    where: this repository
+    description: What calls what, what implements what, where a symbol lives.
+  - id: prior-art
+    name: Prior art
+    added: 2026-10-06T00:00:00.000Z
+    where: this repository
+    description: >
+      Whether something here already owns the responsibility, searched by behaviour rather
+      than by name.
+    must_run:
+      - codegraph
+      - grep
+    process:
+      name: Prior art
+      takes:
+        - name: IReadOnlyList
+          arguments:
+            - name: Capability
+      produces:
+        - name: PriorArtLedger
+      note: >
+        Run by `.agents/workflows/prior-art-ledger.js`, so the search is never done by hand
+        and no lens is ever skipped.
+      members:
+        - actor: subagent
+          name: Search every lens for the capability
+          fans_out: one per capability, per lens
+          produces:
+            - name: PriorArtSearch
+        - actor: subagent
+          name: Rule reuse, extract or new
+          fans_out: one per capability
+          produces:
+            - name: ReuseDecision
+        - actor: main-agent
+          name: Carry the ruling into the contract as the reuse ledger
+          takes:
+            - name: IReadOnlyList
+              arguments:
+                - name: ReuseDecision
+          produces:
+            - name: PriorArtLedger
+      gates:
+        - kind: exit
+          conditions:
+            - kind: members-complete
+              over: every capability the job needs
+            - kind: decisions-locked
+              over: the ledger carried in the contract
+  - id: platform
+    name: Platform and API
+    added: 2026-10-06T00:00:00.000Z
+    where: outside the repository
+    description: What the framework, OS or SDK supports, and its limits.
+  - id: hidden-decisions
+    name: Hidden decisions
+    added: 2026-10-06T00:00:00.000Z
+    where: the work against the decisions
+    description: >
+      Hunts every choice the work forces that no decision already settles, so none is
+      silently defaulted.
+  - id: runtime
+    name: Runtime behaviour
+    added: 2026-10-06T00:00:00.000Z
+    where: a run
+    description: >
+      Running something to see what it does rather than reading it. The only kind that
+      produces evidence rather than a reading.
+constraints:
+  - id: guard-alone-locks
+    kind: permission
+    actor: guard
+    verb: write
+    object: the Locked state of a decision
+    allowed: true
+    only_when: the human asks for it
+    text: Only Guard sets a decision to Locked, and only the human tells it to.
+  - id: agents-never-lock
+    kind: permission
+    actor: main-agent
+    verb: write
+    object: the Locked state of a decision
+    allowed: false
+    text: An agent may only ever write Proposed.
+  - id: script-writes-nothing-guard-owns
+    kind: permission
+    actor: workflow
+    verb: write
+    object: anything Guard owns
+    allowed: false
+    text: No step run by the workflow script may produce anything Guard owns.
+    source: >
+      The script is sandboxed with no filesystem, no process and no module import, so it
+      cannot call Guard. Every unsourceable field in the abandoned model ignored this.
+  - id: human-is-main-thread-only
+    kind: permission
+    actor: human
+    verb: run-inside
+    object: a subagent
+    allowed: false
+    text: No step whose actor is the human may run inside a subagent.
+  - id: typescript-annotations-agree
+    kind: agreement
+    over:
+      level: element
+    left: a class decorator
+    right: its interface's JSDoc tag
+    must_match: layer, concept and role
+    text: >
+      A TypeScript class decorator and its interface's JSDoc tag must agree on layer,
+      concept and role.
+  - id: vermilion-is-pwp-only
+    kind: forbidden-combination
+    over:
+      level: element
+    subject: the notation
+    each: colour
+    where: it is vermilion
+    forbid: being used by anything that is not a Proteus Wire Protocol structure
+    text: Vermilion is reserved for PwP structures and used for nothing else.
+  - id: annotation-never-restates-source
+    kind: forbidden-combination
+    over:
+      level: element
+    subject: an annotation
+    each: value
+    where: the compiler can already derive it from source
+    forbid: carrying it
+    text: >
+      The code owns everything derivable from source; the annotation owns only layer,
+      concept and role. A restatement can disagree with the compiler.
+  - id: no-invented-capability
+    kind: forbidden-combination
+    over:
+      level: element
+    subject: a prior-art ledger
+    each: capability
+    where: the change introduces no new capability
+    forbid: naming one anyway to satisfy the workflow
+    text: >
+      An empty capability list is recorded as "None — this change introduces no new
+      capability". A fake capability is worse than none.
+  - id: one-folder-per-run
+    kind: sentence
+    text: |
+      A run keeps one work folder, and that folder is the contract's identity.
+    needs:
+      name: Location
+      question: Where does a thing live on disk, and what owns that place?
+      shape:
+        - owner
+        - path
+        - identity
+      example: the contract is owned by its run, lives at the run's folder, and IS its identity
+      why: >
+        The language can say what a record holds and where it is stored as a format, but not
+        where it lives or what owns that place. Three constraints will want this.
+rules:
+  - id: generated-types-agree
+    forbids: A payload type that disagrees with the language it is generated from.
+    built_as: language-types.mjs, which derives every type from language.yaml
+    proven_by: the render fails when a declared part has no type in the generator
+  - id: undefined-reference-is-an-error
+    forbids: A reference that resolves to nothing rendering as ordinary text.
+    built_as: typeRef in notation, whose last branch is the error
+    proven_by: a reference to a name nothing declares draws in red and is counted
+  - id: prose-stays-in-budget
+    forbids: A declared string longer than the budget for its field.
+    built_as: the budget check in view/build.mjs, which fails the build
+    proven_by: a 36-word description fails with the slot and the count
+  - id: every-lens-ran
+    forbids: Ruling on a capability when a lens did not run or returned an error.
+    built_as: the schema in .agents/workflows/prior-art-ledger.js
+    proven_by: lensesRun must include codegraph and grep, and lensErrors must be empty

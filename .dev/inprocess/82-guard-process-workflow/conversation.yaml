@@ -1,0 +1,19 @@
+# The one document. It opens as the Conversation and becomes the Contract as the run
+# progresses. There is no second file for identity, location or signatures: the work
+# folder is the identity, and the signatures live here.
+#
+# Rebuilt from nothing, one field at a time. Nothing enters without an explicit yes.
+
+# ── field 1 ───────────────────────────────────────────────────────────────────────
+# goal — what done looks like, in one statement.
+#
+# Why first: a worker runs in its own context with no memory of the conversation, so
+# something has to tell it what the job is, and that something cannot be written by the
+# worker. The same sentence is what the gate rules against at the end. One field serves
+# both, which is why it is one field and not two.
+#
+# Type: markdown, one statement.
+# Written by: the main agent, from what the human asked, in wording the human approved.
+# Read by: every worker, and the gate.
+
+goal:

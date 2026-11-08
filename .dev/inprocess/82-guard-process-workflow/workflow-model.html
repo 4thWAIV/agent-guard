@@ -1,0 +1,1164 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Workflow model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#fbfaf7;--card:#fff;--ink:#1c2230;--soft:#4b5363;--dim:#8a909c;--rule:#e4e1d9;--band:#f3f1ec;
+ --stage:#1f5f5b;--stage-soft:#e6f0ee;--gate:#6b3fa0;--gate-soft:#f1ebf9;--gate-line:#cdb9e6;
+ --opt:#9c5c00;--opt-bg:#fce6bd;--undef:#7a7f87;--undef-bg:#f0f0ee;
+ --inst:#2f5d8a;--inst-soft:#e8f0f8;--skill:#1d6fb8;--skill-soft:#e3eff9;--wf:#a0397c;
+ --serif:"Source Serif 4",Georgia,serif;--sans:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+ --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+*{box-sizing:border-box}html{background:var(--paper)}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased}
+.page{max-width:900px;margin:0 auto;padding:52px 28px 90px}
+.mast{display:flex;justify-content:space-between;gap:16px;font-size:11.5px;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--rule);padding-bottom:10px}
+h1{font:600 38px/1.15 var(--serif);margin:28px 0 6px;letter-spacing:-.01em}
+.sub{color:var(--soft);margin:0;font-size:15.5px}
+h2{font:600 24px/1.25 var(--serif);margin:48px 0 10px}
+h4{font:600 11.5px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin:20px 0 8px}
+h5{font:600 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+.levels{display:flex;gap:10px;margin:24px 0 0;flex-wrap:wrap}
+.levels button{appearance:none;cursor:pointer;font:600 14px/1 var(--sans);color:var(--soft);background:var(--card);
+ border:1px solid var(--rule);border-radius:10px;padding:11px 16px;display:flex;flex-direction:column;gap:5px;
+ align-items:flex-start;min-width:170px;text-align:left}
+.levels button small{font:400 11.5px/1.3 var(--sans);color:var(--dim)}
+.levels button[aria-pressed="true"]{background:var(--stage);border-color:var(--stage);color:#fff}
+.levels button[aria-pressed="true"] small{color:rgba(255,255,255,.82)}
+.key{display:flex;gap:18px;flex-wrap:wrap;margin:16px 0 0;font-size:12.5px;color:var(--dim)}
+.key span{display:flex;align-items:center;gap:7px}
+
+/* pills: only the active level's pill shows */
+.st{display:none;font:600 10.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;
+ padding:5px 9px;border-radius:20px;white-space:nowrap}
+.s-required,.s-always{background:var(--stage);color:#fff}
+.gatepill.s-always,.gatepill.s-required{background:var(--gate)}
+.s-when-needed,.s-required-unless-excepted{background:var(--opt-bg);color:var(--opt)}
+.s-not-needed{background:var(--band);color:var(--dim)}
+.s-absent{background:var(--band);color:var(--dim)}
+.s-undefined{background:var(--undef-bg);border:1px dashed var(--undef);color:var(--undef)}
+.lvl-l1 .for-l1{display:inline-block}
+.lvl-l2 .for-l2{display:inline-block}
+.lvl-l3 .for-l3{display:inline-block}
+.lvl-l1 [data-l1="absent"],.lvl-l1 [data-l1="not-needed"]{opacity:.45}
+.lvl-l2 [data-l2="absent"],.lvl-l2 [data-l2="not-needed"]{opacity:.45}
+.lvl-l3 [data-l3="absent"],.lvl-l3 [data-l3="not-needed"]{opacity:.45}
+
+details{background:var(--card);border:1px solid var(--rule);border-radius:12px;margin:0 0 10px}
+details[open]{box-shadow:0 1px 0 rgba(0,0,0,.02)}
+summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:13px;padding:14px 18px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"▸";margin-left:auto;color:var(--dim);font-size:13px;transition:transform .15s}
+details[open]>summary::after{transform:rotate(90deg)}
+.phase.stub{border:1px dashed var(--rule);background:var(--band);border-radius:12px;margin:0 0 10px;opacity:.75}
+.phase.stub .shell{display:flex;align-items:flex-start;gap:13px;padding:14px 18px}
+.phase.stub .sym{background:var(--undef-bg);color:var(--undef)}
+.phase.stub .stat{margin-left:auto;flex:none;align-self:center}
+.phase.stub .st{align-self:center}
+
+/* vertical flow */
+
+.flow{display:block;margin:18px 0 0}
+.frow h5{margin:0 0 7px}
+.fset{display:flex;flex-wrap:wrap;gap:9px}
+.fset .fc{flex:0 1 190px;margin:0}
+.cdown{text-align:center;color:var(--rule);font-size:16px;line-height:1;padding:5px 0}
+.cdown.big{color:var(--dim)}
+.chain{display:block}
+details.cs{display:block;background:var(--card);border:1px solid var(--rule);border-left:4px solid var(--rule);
+ border-radius:10px;margin:0}
+details.cs>summary{display:flex;align-items:center;gap:10px;padding:11px 14px;flex-wrap:wrap}
+.cs.lead-main{border-left-color:#8e9aa8}
+.cs.lead-subagent{border-left-color:var(--skill)}
+.cs.lead-guard{border-left-color:var(--stage)}
+.cs.lead-workflow{border-left-color:var(--wf)}
+details.cs.framed{box-shadow:inset 3px 0 0 var(--wf),0 0 0 2px #f7e6f1;margin-left:16px;position:relative}
+details.cs.framed::before{content:"\229E workflow";position:absolute;left:-16px;top:50%;transform:translateY(-50%) rotate(-90deg);
+ transform-origin:center;font:700 8.5px/1 var(--sans);letter-spacing:.1em;color:var(--wf);white-space:nowrap}
+.csbody{padding:0 14px 14px}
+.mini{display:block;background:var(--band);border-radius:9px;padding:13px}
+.mrow h6{font:600 9.5px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin:0 0 7px}
+.mset{display:flex;flex-wrap:wrap;gap:0}
+.mact{display:block}
+.mact .ic{margin:0 auto 4px}
+.mwho{display:block;font:600 9.5px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--dim);margin-top:5px}
+.rc{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--rule);
+ border-radius:7px;padding:5px 8px;margin:0 5px 5px 0;font-size:12px}
+.rc code{background:none;padding:0;font-size:11.5px}
+.rc .mk{width:16px;height:16px;font-size:10px;margin:0;vertical-align:0}
+.rc-none{color:var(--dim);font-style:italic}
+.marr{color:var(--dim);font-size:14px}
+.mact{background:var(--card);border:1px solid var(--rule);border-radius:9px;padding:12px 14px;text-align:center}
+.mact b{display:block;font:600 13px/1.35 var(--sans);margin-top:5px}
+.mload{margin-top:7px}
+
+
+.fcol h5{margin:0 0 7px}
+.fcol h5+.fc{margin-top:0}
+.fc{position:relative;background:var(--card);border:1px solid var(--rule);padding:10px 11px 9px;margin:0 0 8px;
+ clip-path:polygon(0 0,calc(100% - 11px) 0,100% 11px,100% 100%,0 100%)}
+.fc::after{content:"";position:absolute;top:0;right:0;width:11px;height:11px;background:var(--band);
+ border-left:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.fc.d-in{border-left:3px solid var(--inst)}
+.fc.d-out{border-left:3px solid var(--stage)}
+.fc.d-both{border-left:3px solid var(--opt)}
+.fc b{display:block;font:600 13.5px/1.3 var(--sans);margin:4px 0 0}
+.fcmk{display:block;line-height:1}
+.fcboth{display:block;font:600 9.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--opt);margin-top:4px}
+.fcst{display:block;margin-top:6px}
+.mid{min-width:0}
+.tstrip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 0;padding:9px 11px;
+ background:var(--opt-bg);border-radius:9px}
+.tlab{font:600 9.5px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--opt)}
+.tchip{display:inline-flex;align-items:center;gap:6px;font:600 11.5px/1.4 var(--sans);color:var(--ink)}
+.tchip code{font-size:10px;background:#fff8e8;border:1px solid var(--trig-line);color:var(--opt)}
+.gband{display:flex;align-items:center;gap:11px;margin:10px 0 0;padding:12px 15px;background:var(--gate-soft);
+ border:2px solid var(--gate-line);border-radius:10px}
+.gband .gdia{color:var(--gate);font-size:19px;line-height:1}
+.gband b{font:600 15px/1.3 var(--sans);color:var(--gate)}
+.gband .gsub{font-size:12px;color:var(--soft);flex:1 1 auto}
+.gdetail{border-top:1px solid var(--rule);padding-top:14px;margin-top:6px}
+@media(max-width:820px){.flow{grid-template-columns:1fr}.carr{display:none}.cs{flex:1 1 100%}}
+.pnote{margin:18px 0 0;font-size:13.5px;color:var(--soft);padding:11px 14px;background:var(--band);border-left:3px solid var(--rule);border-radius:0 8px 8px 0}
+.mk.m-trig{background:var(--opt-bg);color:var(--opt)}
+.stubnote{display:block;font-size:12.5px;color:var(--dim);margin-top:6px;max-width:56ch}
+.sym{flex:none;width:42px;height:42px;border-radius:11px;display:grid;place-items:center;
+ background:var(--stage);color:#fff;font:700 14px/1 var(--sans);letter-spacing:.06em}
+.ptitle{display:flex;flex-direction:column;gap:2px;flex:1 1 auto}
+.ptitle b{font:600 17px/1.3 var(--serif)}
+.purpose{font-size:13.5px;color:var(--soft)}
+.pbody{padding:0 18px 18px}
+.meta{font:400 12.5px/1.4 var(--sans);color:var(--dim)}
+.oneof{display:block;font:600 11px/1 var(--sans);letter-spacing:.08em;text-transform:uppercase;
+ color:var(--gate);margin-top:5px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+tr:last-child td{border-bottom:none}
+th{font:600 10.5px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);background:var(--band);padding:9px 12px}
+td.p{width:120px;text-align:right}
+code{font:.88em/1.3 var(--mono);background:var(--band);padding:1px 5px;border-radius:4px}
+.mk{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;
+ font-size:13px;line-height:1;margin-right:5px;vertical-align:-5px;background:var(--band);color:var(--soft)}
+.mk.m-kind{margin-right:8px}
+.v-skill{background:var(--skill-soft)!important;color:var(--skill)!important}
+.m-kind.v-other{border:1px dashed var(--undef);color:var(--undef)!important}
+.m-origin.v-guard,.m-actor.v-guard{background:var(--stage-soft)!important;color:var(--stage)!important}
+.m-actor.v-main{background:#e9edf2!important;color:#3b4a5c!important}
+.m-actor.v-subagent{background:var(--skill-soft)!important;color:var(--skill)!important}
+.m-actor.v-workflow{background:#f7e6f1!important;color:var(--wf)!important}
+.runs{display:inline-flex;align-items:center;gap:3px;flex-wrap:wrap}
+.rl{font:600 10.5px/1 var(--sans);letter-spacing:.07em;text-transform:uppercase;padding:4px 8px;
+ border-radius:20px;margin-right:9px;background:#e9edf2;color:#3b4a5c}
+.rl.r-subagent{background:var(--skill-soft);color:var(--skill)}
+.rl.r-guard{background:var(--stage-soft);color:var(--stage)}
+.rl.r-workflow{background:#f7e6f1;color:var(--wf)}
+.rl.r-presence{background:var(--gate-soft);color:var(--gate)}
+.loads{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:9px 0 0;padding:9px 12px;
+ background:var(--band);border-radius:9px}
+.op{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--rule);border-radius:7px;
+ padding:4px 7px;background:var(--card)}
+.op code{font-size:10.5px;background:none;padding:0}
+.op .stat{padding:3px 6px;font-size:9px}
+.opsf{font:600 8.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--inst);
+ background:var(--inst-soft);padding:3px 5px;border-radius:4px}
+.op.sf-hook .opsf{color:var(--stage);background:var(--stage-soft)}
+.op.sf-none .opsf{color:var(--dim);background:var(--band)}
+.op.big{margin-top:2px}
+.mvia{margin-top:9px;border-top:1px solid var(--rule);padding-top:9px}
+.mvia h6{font:600 9.5px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--dim);margin:0 0 6px}
+.topo{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:16px 18px}
+.tnodes{display:flex;gap:11px;flex-wrap:wrap;margin-bottom:16px}
+.tn{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--rule);border-radius:10px;padding:10px 12px;flex:1 1 200px}
+.tn b{font:600 13px/1.3 var(--sans)}
+.tng{font-size:16px;line-height:1}
+.tn.n-main{border-left:3px solid #8e9aa8}.tn.n-main .tng{color:#3b4a5c}
+.tn.n-subagent{border-left:3px solid var(--skill)}.tn.n-subagent .tng{color:var(--skill)}
+.tn.n-workflow{border-left:3px solid var(--wf)}.tn.n-workflow .tng{color:var(--wf)}
+.tn.n-guard{border-left:3px solid var(--stage)}.tn.n-guard .tng{color:var(--stage)}
+.tcalls{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px}
+.tc{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:9px 11px;border-radius:9px;background:var(--band)}
+.tc.no{background:#f6f2f2;color:var(--dim)}
+.tarr{font-size:14px;color:var(--stage);font-weight:700}
+.tc.no .tarr{color:#b2544f}
+.thow{color:var(--soft);font-size:11.5px}
+.tc.no .thow{font-style:italic}
+.ic{display:block;flex:none}
+.a-main{color:#3b4a5c}.a-subagent{color:var(--skill)}.a-workflow{color:var(--wf)}.a-guard{color:var(--stage)}
+.key span .ic,.ab .ic{display:inline-block;vertical-align:-4px}
+.ab{display:inline-flex;align-items:center;gap:6px;font:600 10.5px/1 var(--sans);letter-spacing:.08em;
+ text-transform:uppercase;padding:4px 9px 4px 6px;border-radius:20px;background:var(--band)}
+.ab.a-main{background:#e9edf2;color:#3b4a5c}
+.ab.a-subagent{background:var(--skill-soft);color:var(--skill)}
+.ab.a-workflow{background:#f7e6f1;color:var(--wf)}
+.ab.a-guard{background:var(--stage-soft);color:var(--stage)}
+.tn>.ic{flex:none}
+.tnn{display:block;font-size:11.5px;line-height:1.45;color:var(--dim);margin-top:3px}
+.cc{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:6px}
+.cca{font-style:normal;color:var(--dim);font-size:13px;line-height:1}
+.cc-op{font-size:11px;background:var(--stage-soft);color:var(--stage);border-radius:5px;padding:3px 7px}
+.cc-none{font:italic 11.5px/1 var(--sans);color:var(--dim)}
+.csmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:7px}
+.mchain{display:flex;justify-content:center;margin:8px 0 2px}
+.mchain .cc-op{font-size:12px}
+.cc-call{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+.cc-args{display:inline-flex;gap:4px;flex-wrap:wrap}
+.cc-arg{font-size:10.5px;background:var(--card);border:1px solid var(--stage);color:var(--stage);
+ border-radius:5px;padding:2px 6px}
+.fcf{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px}
+.fcf code{font-size:9.5px;background:var(--band);color:var(--soft);padding:2px 5px;border-radius:4px}
+.gband .gsub{display:flex;flex-wrap:wrap;gap:4px}
+.gband .gsub code{font-size:10.5px;background:#fff;color:var(--gate);border:1px solid var(--gate-line);
+ border-radius:5px;padding:3px 6px}
+.s-undefined{background:repeating-linear-gradient(135deg,#fdf0d5 0 7px,#f8e2b4 7px 14px)!important;
+ border:1px solid #d8a93f!important;color:#7a5200!important;font-weight:700!important}
+.lvl-l1 .row[data-l1="undefined"],.lvl-l2 .row[data-l2="undefined"],.lvl-l3 .row[data-l3="undefined"],
+.lvl-l1 details.cs[data-l1="undefined"],.lvl-l2 details.cs[data-l2="undefined"],.lvl-l3 details.cs[data-l3="undefined"],
+.lvl-l1 .fc[data-l1="undefined"],.lvl-l2 .fc[data-l2="undefined"],.lvl-l3 .fc[data-l3="undefined"]
+{box-shadow:inset 0 0 0 2px #d8a93f}
+.ow{margin:0 0 16px}
+.owl{display:none;align-items:center;gap:9px;background:#fdf7e8;border:1px solid #e8cf9a;
+ border-radius:10px;padding:11px 14px;font-size:13.5px;color:var(--soft)}
+.owl b{font:700 17px/1 var(--serif);color:#9a6a00}
+.ohere{display:none;align-items:flex-start;gap:10px;margin:14px 0 0;padding:12px 14px;
+ background:repeating-linear-gradient(135deg,#fdf6e6 0 10px,#fbefd6 10px 20px);
+ border:2px solid #d8a93f;border-radius:10px;color:#7a5200}
+.lvl-l1 .ohere.for-l1{display:flex}
+.lvl-l2 .ohere.for-l2{display:flex}
+.lvl-l3 .ohere.for-l3{display:flex}
+.ohlab{font:700 10.5px/1.6 var(--sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.ohset{display:flex;flex-wrap:wrap;gap:5px}
+.ohi{font-size:12px;background:#fff;border:1px solid #e3cfa0;border-radius:6px;padding:4px 8px;color:var(--ink)}
+.ohi.k-phase{border-color:#b2544f;color:#8d3b36;font-weight:600}
+.ocnt{display:none;align-items:center;gap:4px;font:700 12px/1 var(--sans);color:#9a6a00;
+ background:#fdf0d5;border:1px solid #d8a93f;border-radius:20px;padding:4px 9px 4px 6px}
+.lvl-l1 .ocnt.for-l1{display:inline-flex}
+.lvl-l2 .ocnt.for-l2{display:inline-flex}
+.lvl-l3 .ocnt.for-l3{display:inline-flex}
+.lvl-l1 .owl.for-l1{display:block}
+.lvl-l2 .owl.for-l2{display:block}
+.lvl-l3 .owl.for-l3{display:block}
+.owhead{display:flex;align-items:center;gap:10px;color:#9a6a00}
+.owhead b{font:700 26px/1 var(--serif)}
+.owhead span{font-size:14px;color:var(--soft)}
+.csec{display:block;font:600 9.5px/1.4 var(--sans);letter-spacing:.06em;text-transform:uppercase;
+ color:var(--wf);margin-top:4px}
+.llab{font:600 10px/1 var(--sans);letter-spacing:.11em;text-transform:uppercase;color:var(--dim)}
+.ld{display:inline-flex;align-items:center;gap:7px}
+.stat{font:600 10.5px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;padding:5px 9px;border-radius:20px}
+.stat.s-exists{background:var(--stage);color:#fff}
+.stat.s-proposed{background:var(--skill-soft);color:var(--skill)}
+.stat.s-undefined{background:var(--undef-bg);border:1px dashed var(--undef);color:var(--undef)}
+
+.gate{background:var(--gate-soft);border:2px solid var(--gate-line);border-radius:12px;padding:14px 16px}
+.ghead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ghead .dia{color:var(--gate);font-size:22px;line-height:1}
+.ghead b{font:600 16px/1.3 var(--sans);color:var(--gate)}
+.ghead .st{margin-left:auto}
+.gcols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.gcols ul,.rw ul{margin:0;padding-left:18px}
+.gcols li,.rw li{margin-bottom:4px;font-size:13.5px}
+.reopen{margin:12px 0 0;font-size:13px;color:var(--soft)}
+.close{margin:16px 0 0;font-size:13.5px;color:var(--soft);padding:11px 14px;background:var(--band);border-radius:9px}
+
+details.deep{margin:18px 0 0;border-style:dashed;background:transparent}
+details.deep>summary{font:600 12px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;color:var(--dim);padding:12px 16px}
+.dbody{padding:0 16px 16px}
+.step{border-top:1px solid var(--rule);padding:14px 0 4px}
+.step:first-child{border-top:none;padding-top:4px}
+.shead{display:flex;align-items:center;gap:11px;flex-wrap:wrap}
+.shead b{font:600 15px/1.3 var(--sans)}
+.actor{font:600 11px/1 var(--sans);letter-spacing:.07em;text-transform:uppercase;color:var(--stage);
+ background:var(--stage-soft);padding:4px 8px;border-radius:20px}
+.shead .st{margin-left:auto}
+.snote{margin:8px 0 10px;font-size:13.5px;color:var(--soft)}
+.rw{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:6px}
+details.doc>summary{gap:11px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--rule);color:var(--dim);font-size:13px}
+@media(max-width:700px){.gcols,.rw{grid-template-columns:1fr}}
+@media print{html,body{background:#fff}.levels{display:none}details{break-inside:avoid}}
+</style></head><body><div class="page">
+
+<div class="mast"><span>AgentGuard · Workflow model</span><span>Generated from workflow-model.yaml</span></div>
+<h1>Workflow model</h1>
+<p class="sub">5 of 16 phases defined. Expand a phase for its documents and gate; expand again for its steps and the fields they write.</p>
+
+<div class="levels" role="group" aria-label="Level"><button type="button" data-lvl="l1" aria-pressed="true">L1 — Full process<small>The default. Any mutation with design consequence.</small></button><button type="button" data-lvl="l2" aria-pressed="false">L2 — Delegated<small>Only when a SOLID violation is impossible.</small></button><button type="button" data-lvl="l3" aria-pressed="false">L3 — Direct work<small>Reads, probes, and edits a contract would not have constrained.</small></button></div>
+<div class="key">
+  <span><i class="st s-required" style="display:inline-block">required</i></span>
+  <span><i class="st s-when-needed" style="display:inline-block">when needed</i></span>
+  <span><i class="st s-not-needed" style="display:inline-block">not needed</i></span>
+  <span><i class="st s-absent" style="display:inline-block">absent</i></span>
+  <span><i class="st s-undefined" style="display:inline-block">undefined</i></span>
+</div>
+<div class="key"><span class="a-main"><svg class="ic ic-main" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg> Main agent</span><span class="a-subagent"><svg class="ic ic-subagent" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg> Subagent</span><span class="a-workflow"><svg class="ic ic-workflow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg> Workflow script</span><span class="a-guard"><svg class="ic ic-guard" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg> Guard</span><span><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span> written by Guard</span><span><span class="mk m-origin v-external" title="arrives from outside"><svg class="ic ic-origin:external" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12h11.6"/><path d="M10.8 8.2 14.8 12l-4 3.8"/><path d="M18.4 3.6h2.2v16.8h-2.2" stroke-dasharray="2.4 2.2"/></svg></span> arrives from outside</span><span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span> YAML file</span><span><span class="mk m-form v-github" title="GitHub record"><svg class="ic ic-form:github" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5.4" r="2.3"/><circle cx="7" cy="18.6" r="2.3"/><circle cx="17" cy="12" r="2.3"/><path d="M7 7.7v8.6"/><path d="M7 12h7.7"/></svg></span> GitHub record</span><span><span class="mk m-form v-conversation" title="conversation only"><svg class="ic ic-form:conversation" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 5.2h17.2v10.2H9.8l-4.6 3.6v-3.6H3.4z"/><path d="M8 10.3h8"/></svg></span> conversation only</span><span><svg class="ic ic-kind:skill" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg> skill</span></div>
+
+<h2>The four processes, and the calls that are possible</h2>
+<div class="topo">
+  <div class="tnodes"><div class="tn n-main">
+    <svg class="ic ic-main" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg><div><b>Main agent</b><span class="tnn">The session the human is in. The only place presence can be taken.</span></div></div><div class="tn n-subagent">
+    <svg class="ic ic-subagent" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg><div><b>Subagent</b><span class="tnn">Spawned with its own context. Has tools, so it can call Guard itself.</span></div></div><div class="tn n-workflow">
+    <svg class="ic ic-workflow" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg><div><b>Workflow script</b><span class="tnn">Sandboxed JavaScript. No filesystem, no process, no module import, so it cannot call Guard. It spawns agents and returns a value.</span></div></div><div class="tn n-guard">
+    <svg class="ic ic-guard" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg><div><b>Guard</b><span class="tnn">CLI or MCP. Validates and records. Never initiates anything.</span></div></div></div>
+  <div class="tcalls"><div class="tc ok">
+    <span class="a-main"><svg class="ic ic-main" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span>
+    <span class="tarr">→</span>
+    <span class="a-workflow"><svg class="ic ic-workflow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span>
+    <span class="thow">the Workflow tool</span></div><div class="tc ok">
+    <span class="a-main"><svg class="ic ic-main" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span>
+    <span class="tarr">→</span>
+    <span class="a-subagent"><svg class="ic ic-subagent" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span>
+    <span class="thow">a single Agent call</span></div><div class="tc ok">
+    <span class="a-main"><svg class="ic ic-main" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span>
+    <span class="tarr">→</span>
+    <span class="a-guard"><svg class="ic ic-guard" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span>
+    <span class="thow">CLI or MCP</span></div><div class="tc ok">
+    <span class="a-workflow"><svg class="ic ic-workflow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span>
+    <span class="tarr">→</span>
+    <span class="a-subagent"><svg class="ic ic-subagent" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span>
+    <span class="thow">agent()</span></div><div class="tc ok">
+    <span class="a-subagent"><svg class="ic ic-subagent" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span>
+    <span class="tarr">→</span>
+    <span class="a-guard"><svg class="ic ic-guard" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span>
+    <span class="thow">CLI or MCP</span></div><div class="tc no">
+    <span class="a-workflow"><svg class="ic ic-workflow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span>
+    <span class="tarr">✕</span>
+    <span class="a-guard"><svg class="ic ic-guard" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span>
+    <span class="thow">nothing — the script is sandboxed</span></div><div class="tc no">
+    <span class="a-subagent"><svg class="ic ic-subagent" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span>
+    <span class="tarr">✕</span>
+    <span class="a-subagent"><svg class="ic ic-subagent" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span>
+    <span class="thow">nothing — agent() does not nest</span></div><div class="tc no">
+    <span class="a-guard"><svg class="ic ic-guard" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span>
+    <span class="tarr">✕</span>
+    <span class="a-main"><svg class="ic ic-main" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span>
+    <span class="thow">nothing — Guard never initiates</span></div></div>
+</div>
+
+<h2>Phases</h2>
+<div class="ow"><div class="owl for-l1"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+      <b>50</b> <span>things still undefined at L1,
+      marked in place as you walk down the flow.</span></div><div class="owl for-l2"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+      <b>48</b> <span>things still undefined at L2,
+      marked in place as you walk down the flow.</span></div><div class="owl for-l3"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+      <b>5</b> <span>things still undefined at L3,
+      marked in place as you walk down the flow.</span></div></div>
+<div id="phases"><details class="phase" data-l1="required" data-l2="required" data-l3="required" open>
+    <summary>
+      <span class="sym">CV</span>
+      <span class="ptitle"><b>Conversation</b><span class="purpose">Describe the work and resolve the initial scope.</span></span>
+      <span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="pbody">
+      <div class="flow">
+        <div class="frow"><h5>In</h5><div class="fset">
+          <div class="fc d-in" data-l1="required" data-l2="required" data-l3="required" title="One of these two is present, never both. Mirrors IssueId and IssueText.">
+    <span class="fcmk"><span class="mk m-origin v-external" title="arrives from outside"><svg class="ic ic-origin:external" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12h11.6"/><path d="M10.8 8.2 14.8 12l-4 3.8"/><path d="M18.4 3.6h2.2v16.8h-2.2" stroke-dasharray="2.4 2.2"/></svg></span><span class="mk m-form v-github" title="GitHub record"><svg class="ic ic-form:github" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5.4" r="2.3"/><circle cx="7" cy="18.6" r="2.3"/><circle cx="17" cy="12" r="2.3"/><path d="M7 7.7v8.6"/><path d="M7 12h7.7"/></svg></span></span>
+    <b>GitHub Issue</b>
+    
+    <span class="fcst"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="required" data-l2="required" data-l3="required" title="When no issue exists, Guard files one from this text.">
+    <span class="fcmk"><span class="mk m-origin v-external" title="arrives from outside"><svg class="ic ic-origin:external" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12h11.6"/><path d="M10.8 8.2 14.8 12l-4 3.8"/><path d="M18.4 3.6h2.2v16.8h-2.2" stroke-dasharray="2.4 2.2"/></svg></span><span class="mk m-form v-conversation" title="conversation only"><svg class="ic ic-form:conversation" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 5.2h17.2v10.2H9.8l-4.6 3.6v-3.6H3.4z"/><path d="M8 10.3h8"/></svg></span></span>
+    <b>Human request</b>
+    
+    <span class="fcst"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></span></div>
+        </div></div><div class="cdown big">▾</div>
+        <div class="chain"><details class="cs lead-main" data-l1="required" data-l2="required" data-l3="required">
+    <summary>
+      <span class="csnum">1</span>
+      <span class="cstxt"><b>Open the workflow</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard workflow open</code><span class="cc-args"><code class="cc-arg">issue-reference</code><code class="cc-arg">workflow-id</code><code class="cc-arg">project-path</code><code class="cc-arg">conversation-path</code></span></span></span>
+        </span>
+      <span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">The request, as an issue reference or as text</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Open the workflow</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard workflow open</code><span class="cc-args"><code class="cc-arg">issue-reference</code><code class="cc-arg">workflow-id</code><code class="cc-arg">project-path</code><code class="cc-arg">conversation-path</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Creates the identity and the empty documents. Refuses a second folder for the same work item.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard workflow open</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>workflow.issue-reference</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>workflow.workflow-id</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>workflow.project-path</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>workflow.conversation-path</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.workflow-path</code></span></div></div>
+      </div>
+      <p class="snote">Files the GitHub issue when the request was impromptu, and creates the one work folder. Recordkeeping, so it needs no approval.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="required" data-l2="required" data-l3="required">
+    <summary>
+      <span class="csnum">2</span>
+      <span class="cstxt"><b>Settle the work and the decisions</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard conversation set</code><span class="cc-args"><code class="cc-arg">description</code><code class="cc-arg">scope</code><code class="cc-arg">exclusions</code><code class="cc-arg">issues</code><code class="cc-arg">proposed-decisions</code><code class="cc-arg">target-platforms</code><code class="cc-arg">surfaces</code><code class="cc-arg">success-definition</code><code class="cc-arg">acceptance</code></span></span></span>
+        <span class="csmeta"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-start-workflow</code><span class="stat s-proposed">proposed</span></span><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-decisions</code><span class="stat s-exists">exists</span></span></span></span>
+      <span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">The request</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Settle the work and the decisions</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard conversation set</code><span class="cc-args"><code class="cc-arg">description</code><code class="cc-arg">scope</code><code class="cc-arg">exclusions</code><code class="cc-arg">issues</code><code class="cc-arg">proposed-decisions</code><code class="cc-arg">target-platforms</code><code class="cc-arg">surfaces</code><code class="cc-arg">success-definition</code><code class="cc-arg">acceptance</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          <div class="mload"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-start-workflow</code><span class="stat s-proposed">proposed</span></span><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-decisions</code><span class="stat s-exists">exists</span></span></div>
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Section-scoped. Neither editing style grants whole-file writes, and a section the current phase may not touch is refused.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard conversation set</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.description</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.scope</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.exclusions</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.issues</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.proposed-decisions</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.target-platforms</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.surfaces</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.success-definition</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.acceptance</code></span></div></div>
+      </div>
+      <p class="snote">Identifies the exact missing decision and its effect on the requested work. Researches factual questions before presenting a choice. Writes each decision in plain prose, shows that wording, and records it unchanged once approved.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="required" data-l2="required" data-l3="absent">
+    <summary>
+      <span class="csnum">3</span>
+      <span class="cstxt"><b>Name the investigations and capabilities</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard conversation set</code><span class="cc-args"><code class="cc-arg">investigation-areas</code><code class="cc-arg">capabilities</code></span></span></span>
+        </span>
+      <span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.scope</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.exclusions</code></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Name the investigations and capabilities</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard conversation set</code><span class="cc-args"><code class="cc-arg">investigation-areas</code><code class="cc-arg">capabilities</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Section-scoped. Neither editing style grants whole-file writes, and a section the current phase may not touch is refused.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard conversation set</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.investigation-areas</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.capabilities</code></span></div></div>
+      </div>
+      <p class="snote">What GROUND will explore and which capabilities it will search prior art for. Absent at L3 because GROUND does not run.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="required" data-l2="required" data-l3="required">
+    <summary>
+      <span class="csnum">4</span>
+      <span class="cstxt"><b>Sign the scope</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate sign</code><span class="cc-args"><code class="cc-arg">scope</code></span></span></span>
+        <span class="csmeta"><span class="rl r-presence">presence required</span></span></span>
+      <span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.description</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.scope</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.exclusions</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.target-platforms</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.surfaces</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.success-definition</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.acceptance</code></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Sign the scope</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate sign</code><span class="cc-args"><code class="cc-arg">scope</code></span></span></span></div>
+          <span class="mwho">main agent · presence required</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Takes the signed outcome against the request hash, with the presence result. A checkpoint is written only for Approve.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard gate sign</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">checkpoint</span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>workflow.level</code></span></div></div>
+      </div>
+      <p class="snote">Guard renders the sign request from the saved sections, hashes exactly those bytes with their source versions, and takes the signed outcome. No agent composes this page.</p>
+    </div></details></div>
+        
+        <div class="gband" data-l1="always" data-l2="always" data-l3="always">
+    <span class="gdia"><svg class="ic ic-gate" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.2 6 14l9.2-9.2a2.3 2.3 0 0 1 3.3 3.3L9.2 17.4z"/><path d="M14.2 5.6 17.6 9"/><path d="M4 20.2 9.2 17.4"/></svg></span><b>Scope</b>
+    <span class="gsub"><code>conversation.description</code><code>conversation.scope</code><code>conversation.exclusions</code><code>conversation.target-platforms</code><code>conversation.surfaces</code><code>conversation.success-definition</code><code>conversation.acceptance</code><code>workflow.level</code></span>
+    <span class="st s-always for-l1 gatepill">always</span><span class="st s-always for-l2 gatepill">always</span><span class="st s-always for-l3 gatepill">always</span></div>
+        <div class="cdown big">▾</div><div class="frow"><h5>Out</h5><div class="fset">
+          <div class="fc d-out" data-l1="required" data-l2="required" data-l3="required" title="Created here. Later phases read it; none of them rewrite it.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Conversation</b>
+    <span class="fcf"><code>workflow-path</code><code>description</code><code>scope</code><code>exclusions</code><code>issues</code><code>proposed-decisions</code><code>target-platforms</code><code>surfaces</code><code>success-definition</code><code>acceptance</code><code>investigation-areas</code><code>capabilities</code></span>
+    <span class="fcst"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-out" data-l1="required" data-l2="required" data-l3="required" title="Created here, carrying the identity and the level.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Workflow</b>
+    <span class="fcf"><code>issue-reference</code><code>workflow-id</code><code>project-path</code><code>conversation-path</code><code>level</code></span>
+    <span class="fcst"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-out" data-l1="required" data-l2="required" data-l3="required" title="The signed Scope approval.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Checkpoint</b>
+    
+    <span class="fcst"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></span></div></div></div>
+      </div>
+      
+      
+      <p class="close"><b>Closes when:</b> The intended work and the required decisions are explicit, and the level is set. A missing answer is not an agent-selected default.</p>
+      <details class="deep"><summary>What the gate presents and locks</summary>
+        <div class="dbody">
+          <div class="gdetail"><h5>Presents</h5><ul><li>The work, drawn from the request</li><li>The scope and the exclusions</li><li>The target platforms</li><li>The level, and what it switches off</li><li>The surfaces the change may touch</li><li>What counts as done, and the checks that settle it</li><li>Every decision the request forces that no approved principle settles</li></ul>
+            <h5>Locks</h5><ul><li>conversation.description</li><li>conversation.scope</li><li>conversation.exclusions</li><li>conversation.target-platforms</li><li>conversation.surfaces</li><li>conversation.success-definition</li><li>conversation.acceptance</li><li>workflow.level</li></ul>
+          <p class="reopen"><b>To change later:</b> A new signed Scope gate. Guard marks every result whose sources it invalidates.</p></div>
+        </div></details>
+    </div></details><div class="phase stub" data-l1="required" data-l2="required" data-l3="absent">
+    <div class="shell">
+      <span class="sym">GR</span>
+      <span class="ptitle"><b>Ground</b><span class="purpose">Explore the project, find reusable code and research platform primitives.</span>
+        <span class="stubnote">Not defined yet. Level states are from the new design's stage table, where GROUND is required at L1 and L2 and absent at L3. Everything else about this phase — its instruction sources, documents, gate and steps — is still open.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="required" data-l2="when-needed" data-l3="absent">
+    <div class="shell">
+      <span class="sym">DS</span>
+      <span class="ptitle"><b>Design</b><span class="purpose">Choose a design using the original GROUND findings.</span>
+        <span class="stubnote">Stage table: Required, When needed, Absent.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-when-needed for-l2">when needed</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="required" data-l2="required" data-l3="absent">
+    <div class="shell">
+      <span class="sym">CT</span>
+      <span class="ptitle"><b>Contract</b><span class="purpose">Establish the approved instructions and acceptance requirements.</span>
+        <span class="stubnote">Stage table: Required, Required, Absent. L3 runs without a contract, which is why REFUTE falls back to the Conversation at that level.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="undefined" data-l2="undefined" data-l3="undefined">
+    <div class="shell">
+      <span class="sym">SP</span>
+      <span class="ptitle"><b>Spec</b><span class="purpose">Plan observable BDD scenarios; do not implement tests.</span>
+        <span class="stubnote">No row in the stage table. Whether the TDD row covers this phase is undecided.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l3"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-undefined for-l3">undefined</span>
+    </div></div><div class="phase stub" data-l1="required" data-l2="when-needed" data-l3="absent">
+    <div class="shell">
+      <span class="sym">AR</span>
+      <span class="ptitle"><b>Architecture</b><span class="purpose">Define the approved application signatures, or establish that none change.</span>
+        <span class="stubnote">Stage table: Required, When needed, Absent.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-when-needed for-l2">when needed</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="required-unless-excepted" data-l2="absent" data-l3="absent">
+    <div class="shell">
+      <span class="sym">RP</span>
+      <span class="ptitle"><b>Rule plan</b><span class="purpose">Plan what the rules must enforce against the architecture.</span>
+        <span class="stubnote">Derived from the single RULE-PHASE row, which covers both this phase and Rule. Whether planning and writing should carry separate states is undecided.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required-unless-excepted for-l1">required unless-excepted</span><span class="st s-absent for-l2">absent</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="required-unless-excepted" data-l2="absent" data-l3="absent">
+    <div class="shell">
+      <span class="sym">RL</span>
+      <span class="ptitle"><b>Rule</b><span class="purpose">Write and exercise the planned rules.</span>
+        <span class="stubnote">Derived from the single RULE-PHASE row: Required unless the human approves the omission, Absent, Absent.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required-unless-excepted for-l1">required unless-excepted</span><span class="st s-absent for-l2">absent</span><span class="st s-absent for-l3">absent</span>
+    </div></div><div class="phase stub" data-l1="undefined" data-l2="undefined" data-l3="undefined">
+    <div class="shell">
+      <span class="sym">TP</span>
+      <span class="ptitle"><b>Test plan</b><span class="purpose">Plan detailed testing against the available signatures and rules.</span>
+        <span class="stubnote">No row in the stage table. Whether the TDD row covers this phase is undecided.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l3"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-undefined for-l3">undefined</span>
+    </div></div><div class="phase stub" data-l1="required" data-l2="when-needed" data-l3="absent">
+    <div class="shell">
+      <span class="sym">TS</span>
+      <span class="ptitle"><b>Test</b><span class="purpose">Write spec tests and unit tests, then evaluate observed results.</span>
+        <span class="stubnote">From the TDD row: Required, When needed, Absent.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-when-needed for-l2">when needed</span><span class="st s-absent for-l3">absent</span>
+    </div></div><details class="phase" data-l1="required" data-l2="required" data-l3="required" open>
+    <summary>
+      <span class="sym">IM</span>
+      <span class="ptitle"><b>Implement</b><span class="purpose">Implement the approved behavior against the rules, signatures and tests.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>14</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>14</span><span class="ocnt for-l3"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="pbody">
+      <div class="flow">
+        <div class="frow"><h5>In</h5><div class="fset">
+          <div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The governing requirement at L3 — scope, exclusions and surfaces, as signed.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Conversation</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The signed Scope approval. Its hash proves what the scope was when work began.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Checkpoint</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-both" data-l1="undefined" data-l2="undefined" data-l3="required" title="Execution state, for the attempt and run records.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Workflow</b><span class="fcboth">in · updated</span>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div>
+        </div></div><div class="cdown big">▾</div>
+        <div class="chain"><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">1</span>
+      <span class="cstxt"><b>Make the directed change</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><span class="cc-none">guarded by the tool hook</span></span>
+        <span class="csmeta"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code><span class="stat s-undefined">undefined</span></span></span></span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.scope</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.exclusions</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.surfaces</code></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Make the directed change</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><span class="cc-none">guarded by the tool hook</span></span></div>
+          <span class="mwho">main agent</span>
+          <div class="mload"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code><span class="stat s-undefined">undefined</span></span></div>
+          </div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">Working-tree changes</span></div></div>
+      </div>
+      <p class="snote">The coordinator edits directly, with the human present turn by turn. It stops rather than widening when a needed change falls outside the declared surfaces.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">2</span>
+      <span class="cstxt"><b>Observe what changed</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard observation write</code><span class="cc-args"><code class="cc-arg">changed-files</code></span></span></span>
+        </span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">The repository, against the opening state</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Observe what changed</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard observation write</code><span class="cc-args"><code class="cc-arg">changed-files</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Guard computes or runs the thing itself and keeps the result — the diff from the repository, or a command with its output and exit code. No agent supplies an observation.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard observation write</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>change-record.changed-files</code></span></div></div>
+      </div>
+      <p class="snote">Guard computes the diff. The thread does not report its own changed files, because at L3 the thread that reports is the thread that acted.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">3</span>
+      <span class="cstxt"><b>Run and capture the verification</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard observation write</code><span class="cc-args"><code class="cc-arg">build-capture</code><code class="cc-arg">test-capture</code></span></span></span>
+        </span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">The repository</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Run and capture the verification</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard observation write</code><span class="cc-args"><code class="cc-arg">build-capture</code><code class="cc-arg">test-capture</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Guard computes or runs the thing itself and keeps the result — the diff from the repository, or a command with its output and exit code. No agent supplies an observation.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard observation write</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>change-record.build-capture</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>change-record.test-capture</code></span></div></div>
+      </div>
+      <p class="snote">Guard runs the build and the tests and keeps the command, output and exit code. No agent-supplied proof strings at this level.</p>
+    </div></details></div>
+        <div class="tstrip"><span class="tlab">can interrupt</span>
+    <span class="tchip" data-l1="undefined" data-l2="undefined" data-l3="required" title="Extend the surfaces by a new signed Scope gate, or revert the edit.">
+      <svg class="ic ic-trigger" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2.4 5.6 13.6h5.2l-1.2 8 7.8-11.2h-5.2z"/></svg>Edit outside scope<code>a changed file is not matched by conversation.surfaces</code></span><span class="tchip" data-l1="undefined" data-l2="undefined" data-l3="required" title="Widen the scope, or redirect the work.">
+      <svg class="ic ic-trigger" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2.4 5.6 13.6h5.2l-1.2 8 7.8-11.2h-5.2z"/></svg>Wall<code>the thread reports it cannot proceed without something not in scope</code></span></div>
+        
+        <div class="cdown big">▾</div><div class="frow"><h5>Out</h5><div class="fset">
+          <div class="fc d-out" data-l1="undefined" data-l2="undefined" data-l3="required" title="Guard's observation of what changed and what the verification returned.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Change record</b>
+    <span class="fcf"><code>changed-files</code><code>build-capture</code><code>test-capture</code></span>
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div></div></div>
+      </div>
+      <div class="ohere for-l1"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">14 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-inputs">input: workflow</span><span class="ohi k-outputs">output: change-record</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-triggers">trigger: edit-outside-scope</span><span class="ohi k-triggers">trigger: wall</span><span class="ohi k-steps">step im-edit</span><span class="ohi k-skill">im-edit has no skill chosen</span><span class="ohi k-steps">step im-observe</span><span class="ohi k-steps">step im-verify</span><span class="ohi k-fields">change-record.changed-files has no state</span><span class="ohi k-fields">change-record.build-capture has no state</span><span class="ohi k-fields">change-record.test-capture has no state</span></span></div><div class="ohere for-l2"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">14 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-inputs">input: workflow</span><span class="ohi k-outputs">output: change-record</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-triggers">trigger: edit-outside-scope</span><span class="ohi k-triggers">trigger: wall</span><span class="ohi k-steps">step im-edit</span><span class="ohi k-skill">im-edit has no skill chosen</span><span class="ohi k-steps">step im-observe</span><span class="ohi k-steps">step im-verify</span><span class="ohi k-fields">change-record.changed-files has no state</span><span class="ohi k-fields">change-record.build-capture has no state</span><span class="ohi k-fields">change-record.test-capture has no state</span></span></div><div class="ohere for-l3"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">1 open here</span>
+    <span class="ohset"><span class="ohi k-skill">im-edit has no skill chosen</span></span></div>
+      <p class="pnote">Defined for L3 only. At L3 the coordinator acts directly on the main thread, so no worker is briefed and nothing is agent-reported: Guard observes the diff and runs the verification itself. L1 and L2 remain undefined here.</p>
+      <p class="close"><b>Closes when:</b> The directed change is made, Guard has the observed diff and the verification captures, and nothing was touched outside the declared surfaces.</p>
+      
+    </div></details><div class="phase stub" data-l1="required" data-l2="required" data-l3="absent">
+    <div class="shell">
+      <span class="sym">RD</span>
+      <span class="ptitle"><b>Readiness</b><span class="purpose">Check that the review can use the correct inputs and work state.</span>
+        <span class="stubnote">Stage table: Required, Required, Absent.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span>
+    </div></div><details class="phase" data-l1="required" data-l2="required" data-l3="required" open>
+    <summary>
+      <span class="sym">RF</span>
+      <span class="ptitle"><b>Refute</b><span class="purpose">Independent reviewers challenge the code, tests, rules and supporting evidence.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>9</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>9</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="pbody">
+      <div class="flow">
+        <div class="frow"><h5>In</h5><div class="fset">
+          <div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The governing requirement at L3, replacing the contract. Signed, versioned and recorded — not a string passed in a tool call.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Conversation</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The observed diff and verification captures the reviewer rules against.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Change record</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-both" data-l1="undefined" data-l2="undefined" data-l3="required" title="Which reviewers the level requires, and their run status.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Workflow</b><span class="fcboth">in · updated</span>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div>
+        </div></div><div class="cdown big">▾</div>
+        <div class="chain"><details class="cs lead-subagent framed" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">1</span>
+      <span class="cstxt"><b>DRY review</b>
+        <span class="cc"><span class="a-workflow" title="workflow"><svg class="ic ic-workflow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span><i class="cca">→</i><span class="a-subagent" title="subagent"><svg class="ic ic-subagent" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard result submit</code></span></span>
+        <span class="csmeta"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-dry-code</code><span class="stat s-exists">exists</span></span></span></span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">conversation</span><span class="rc">change-record</span><span class="rc">The existing tree</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>DRY review</b>
+          <div class="mchain"><span class="cc"><span class="a-workflow" title="workflow"><svg class="ic ic-workflow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span><i class="cca">→</i><span class="a-subagent" title="subagent"><svg class="ic ic-subagent" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard result submit</code></span></span></div>
+          <span class="mwho">subagent · launched by the workflow script</span>
+          <div class="mload"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-dry-code</code><span class="stat s-exists">exists</span></span></div>
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Validates the submitted result's structure and references before storing it. An invalid submission is not marked completed.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard result submit</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">verdict</span></div></div>
+      </div>
+      <p class="snote">Required at every level. Finds what the change duplicates or diverges from in the existing code.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-subagent framed" data-l1="undefined" data-l2="undefined" data-l3="when-needed">
+    <summary>
+      <span class="csnum">2</span>
+      <span class="cstxt"><b>Lie-catcher review</b>
+        <span class="cc"><span class="a-workflow" title="workflow"><svg class="ic ic-workflow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span><i class="cca">→</i><span class="a-subagent" title="subagent"><svg class="ic ic-subagent" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard result submit</code></span></span>
+        <span class="csmeta"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-decisions</code><span class="stat s-exists">exists</span></span></span></span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-when-needed for-l3">when needed</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">conversation</span><span class="rc">change-record</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Lie-catcher review</b>
+          <div class="mchain"><span class="cc"><span class="a-workflow" title="workflow"><svg class="ic ic-workflow" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8.4" y="2.4" width="7.2" height="4.8" rx="1.5"/><rect x="1.8" y="16.8" width="7.2" height="4.8" rx="1.5"/><rect x="15" y="16.8" width="7.2" height="4.8" rx="1.5"/><path d="M12 7.2v4.4M5.4 16.8v-2.6h13.2v2.6M5.4 14.2h13.2"/></svg></span><i class="cca">→</i><span class="a-subagent" title="subagent"><svg class="ic ic-subagent" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7.4" y="6.6" width="14" height="10.4" rx="2.8"/><path d="M11 17v3.6l4.4-3.6"/><path d="M2.6 3.2v4.1c0 2.2 1.8 4 4 4h1.1" stroke-dasharray="2.6 2"/><path d="M6.1 9.1 8.2 11.3 6.1 13.4"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard result submit</code></span></span></div>
+          <span class="mwho">subagent · launched by the workflow script</span>
+          <div class="mload"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-decisions</code><span class="stat s-exists">exists</span></span></div>
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Validates the submitted result's structure and references before storing it. An invalid submission is not marked completed.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard result submit</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">verdict</span></div></div>
+      </div>
+      <p class="snote">Runs at L3 only when the human requests it. With no contract its baseline is the signed Conversation, so it rules on whether the change went past the approved scope, not on recorded decision wording.</p>
+    </div></details></div>
+        <div class="tstrip"><span class="tlab">can interrupt</span>
+    <span class="tchip" data-l1="undefined" data-l2="undefined" data-l3="required" title="Resume the reviewer, or accept the gap explicitly.">
+      <svg class="ic ic-trigger" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2.4 5.6 13.6h5.2l-1.2 8 7.8-11.2h-5.2z"/></svg>Reviewer verdict absent<code>a reviewer required by the level has no saved verdict</code></span><span class="tchip" data-l1="undefined" data-l2="undefined" data-l3="required" title="Whether it stands.">
+      <svg class="ic ic-trigger" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13.4 2.4 5.6 13.6h5.2l-1.2 8 7.8-11.2h-5.2z"/></svg>Waiver<code>a confirmed finding is proposed to stand unfixed</code></span></div>
+        
+        <div class="cdown big">▾</div><div class="frow"><h5>Out</h5><div class="fset">
+          <div class="fc d-out" data-l1="undefined" data-l2="undefined" data-l3="required" title="One per reviewer that ran.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Reviewer verdict</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div></div></div>
+      </div>
+      <div class="ohere for-l1"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">9 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: workflow</span><span class="ohi k-outputs">output: verdict</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-triggers">trigger: reviewer-verdict-absent</span><span class="ohi k-triggers">trigger: waiver</span><span class="ohi k-steps">step rf-dry</span><span class="ohi k-steps">step rf-lie-catcher</span></span></div><div class="ohere for-l2"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">9 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: workflow</span><span class="ohi k-outputs">output: verdict</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-triggers">trigger: reviewer-verdict-absent</span><span class="ohi k-triggers">trigger: waiver</span><span class="ohi k-steps">step rf-dry</span><span class="ohi k-steps">step rf-lie-catcher</span></span></div>
+      <p class="pnote">Defined for L3 only. DRY is the one reviewer required at every level, and it needs no contract because it measures against the rest of the tree. The Lie-catcher joins only when the human asks for it.</p>
+      <p class="close"><b>Closes when:</b> Every reviewer the level requires has a saved verdict. A missing verdict is not a pass.</p>
+      
+    </div></details><details class="phase" data-l1="required" data-l2="required" data-l3="required" open>
+    <summary>
+      <span class="sym">GT</span>
+      <span class="ptitle"><b>Gate</b><span class="purpose">Decide acceptance from the requirements, reviewer outputs and verification.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>9</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>9</span><span class="ocnt for-l3"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="pbody">
+      <div class="flow">
+        <div class="frow"><h5>In</h5><div class="fset">
+          <div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The signed scope, exclusions, surfaces, success definition and acceptance checks. At L3 this stands in for the contract.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Conversation</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="What actually changed, and what the verification returned.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Change record</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="Every reviewer verdict the level required.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Reviewer verdict</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-both" data-l1="undefined" data-l2="undefined" data-l3="required" title="The Scope checkpoint, to prove the scope has not moved since it was signed.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Checkpoint</b><span class="fcboth">in · updated</span>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div>
+        </div></div><div class="cdown big">▾</div>
+        <div class="chain"><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">1</span>
+      <span class="cstxt"><b>Compare the change to the scope</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate request</code><span class="cc-args"><code class="cc-arg">accept</code></span></span></span>
+        </span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>change-record.changed-files</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>conversation.surfaces</code></span><span class="rc is-ref"><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span><code>checkpoint.request-hash</code></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Compare the change to the scope</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate request</code><span class="cc-args"><code class="cc-arg">accept</code></span></span></span></div>
+          <span class="mwho">main agent</span>
+          
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Guard renders the content from the saved sections and hashes those exact bytes with their source versions. No agent composes it.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard gate request</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">The comparison shown at the gate</span></div></div>
+      </div>
+      <p class="snote">Mechanical. Also re-checks that the Scope checkpoint still reproduces, so a scope edited after signing is caught rather than assumed.</p>
+    </div></details><div class="cdown">▾</div><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">2</span>
+      <span class="cstxt"><b>Sign the outcome</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate sign</code><span class="cc-args"><code class="cc-arg">accept</code></span></span></span>
+        <span class="csmeta"><span class="rl r-presence">presence required</span><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code><span class="stat s-undefined">undefined</span></span></span></span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">The comparison, the verdicts and the captures</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Sign the outcome</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><i class="cca">→</i><span class="a-guard" title="Guard"><svg class="ic ic-guard" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="cc-call"><code class="cc-op">guard gate sign</code><span class="cc-args"><code class="cc-arg">accept</code></span></span></span></div>
+          <span class="mwho">main agent · presence required</span>
+          <div class="mload"><span class="ld"><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code><span class="stat s-undefined">undefined</span></span></div>
+          <div class="mvia"><h6>operation</h6><span class="op sf-cli+mcp big" title="Takes the signed outcome against the request hash, with the presence result. A checkpoint is written only for Approve.">
+    <span class="opsf">cli &middot; mcp</span>
+    <code>guard gate sign</code>
+    <span class="stat s-proposed">proposed</span></span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">checkpoint</span><span class="rc">workflow</span></div></div>
+      </div>
+      <p class="snote">Guard renders the request and takes the signed outcome. No agent composes it.</p>
+    </div></details></div>
+        
+        <div class="gband" data-l1="always" data-l2="always" data-l3="always">
+    <span class="gdia"><svg class="ic ic-gate" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20.2 6 14l9.2-9.2a2.3 2.3 0 0 1 3.3 3.3L9.2 17.4z"/><path d="M14.2 5.6 17.6 9"/><path d="M4 20.2 9.2 17.4"/></svg></span><b>Accept</b>
+    <span class="gsub"><code>The run's outcome</code><code>The change record as the accepted work</code></span>
+    <span class="st s-always for-l1 gatepill">always</span><span class="st s-always for-l2 gatepill">always</span><span class="st s-always for-l3 gatepill">always</span></div>
+        <div class="cdown big">▾</div><div class="frow"><h5>Out</h5><div class="fset">
+          <div class="fc d-out" data-l1="undefined" data-l2="undefined" data-l3="required" title="Updated with the outcome.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Workflow</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div></div></div>
+      </div>
+      <div class="ohere for-l1"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">9 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: verdict</span><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-outputs">output: checkpoint</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-steps">step gt-compare</span><span class="ohi k-steps">step gt-decide</span><span class="ohi k-skill">gt-decide has no skill chosen</span></span></div><div class="ohere for-l2"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">9 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: conversation</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: verdict</span><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-outputs">output: checkpoint</span><span class="ohi k-outputs">output: workflow</span><span class="ohi k-steps">step gt-compare</span><span class="ohi k-steps">step gt-decide</span><span class="ohi k-skill">gt-decide has no skill chosen</span></span></div><div class="ohere for-l3"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">1 open here</span>
+    <span class="ohset"><span class="ohi k-skill">gt-decide has no skill chosen</span></span></div>
+      <p class="pnote">Defined for L3 only. With no contract there are no acceptance checks, so the gate rules on three things that do exist: the observed diff against the declared surfaces, the reviewer verdicts, and the human's judgment of the signed scope.</p>
+      <p class="close"><b>Closes when:</b> The outcome is signed. A rejection locks nothing.</p>
+      <details class="deep"><summary>What the gate presents and locks</summary>
+        <div class="dbody">
+          <div class="gdetail"><h5>Presents</h5><ul><li>The success definition, and whether the result meets it</li><li>Every acceptance check, with the proof that settles it</li><li>Every changed file, marked against the declared surfaces</li><li>Every reviewer finding, and its adjudication</li><li>The build and test captures, as Guard ran them</li><li>Anything required and absent, as a row rather than a gap</li></ul>
+            <h5>Locks</h5><ul><li>The run's outcome</li><li>The change record as the accepted work</li></ul>
+          <p class="reopen"><b>To change later:</b> Nothing. A later change is new work with its own workflow.</p></div>
+        </div></details>
+    </div></details><details class="phase" data-l1="required" data-l2="required" data-l3="required" open>
+    <summary>
+      <span class="sym">RT</span>
+      <span class="ptitle"><b>Report</b><span class="purpose">Present the accepted outcome and any action still required.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>4</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>4</span><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="pbody">
+      <div class="flow">
+        <div class="frow"><h5>In</h5><div class="fset">
+          <div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="The signed Accept decision.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Checkpoint</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="What changed, and the verification result.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Change record</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div><div class="fc d-in" data-l1="undefined" data-l2="undefined" data-l3="required" title="Findings that remain open or were waived.">
+    <span class="fcmk"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span>
+    <b>Reviewer verdict</b>
+    
+    <span class="fcst"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></span></div>
+        </div></div><div class="cdown big">▾</div>
+        <div class="chain"><details class="cs lead-main" data-l1="undefined" data-l2="undefined" data-l3="required">
+    <summary>
+      <span class="csnum">1</span>
+      <span class="cstxt"><b>Present the outcome</b>
+        <span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><span class="cc-none">writes nothing</span></span>
+        </span>
+      <span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span>
+    </summary>
+    <div class="csbody">
+      <div class="mini">
+        <div class="mrow"><h6>reads</h6><div class="mset"><span class="rc">checkpoint</span><span class="rc">change-record</span><span class="rc">verdict</span></div></div>
+        <div class="cdown">▾</div>
+        <div class="mact">
+          <b>Present the outcome</b>
+          <div class="mchain"><span class="cc"><span class="a-main" title="main agent"><svg class="ic ic-main" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.6" y="3.4" width="18.8" height="12.6" rx="3.2"/><path d="M7.6 16v4.4L13 16"/><path d="M9.4 7.9 12.1 10.6 9.4 13.3"/></svg></span><span class="cc-none">writes nothing</span></span></div>
+          <span class="mwho">main agent</span>
+          
+          </div>
+        <div class="cdown">▾</div>
+        <div class="mrow"><h6>writes</h6><div class="mset"><span class="rc">Nothing. No status file is produced.</span></div></div>
+      </div>
+      
+    </div></details></div>
+        
+        
+        <div class="frow"><h5>Out</h5><p class="meta">No file. Everything shown is already saved.</p></div>
+      </div>
+      <div class="ohere for-l1"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">4 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: verdict</span><span class="ohi k-steps">step rt-present</span></span></div><div class="ohere for-l2"><svg class="ic ic-undefined" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>
+    <span class="ohlab">4 open here</span>
+    <span class="ohset"><span class="ohi k-inputs">input: checkpoint</span><span class="ohi k-inputs">input: change-record</span><span class="ohi k-inputs">input: verdict</span><span class="ohi k-steps">step rt-present</span></span></div>
+      <p class="pnote">Defined for L3 only. Presentation of a decision already made at the gate. It produces no file of its own — every fact it shows is already saved.</p>
+      <p class="close"><b>Closes when:</b> The outcome and any remaining action have been stated.</p>
+      
+    </div></details><div class="phase stub" data-l1="undefined" data-l2="undefined" data-l3="undefined">
+    <div class="shell">
+      <span class="sym">RV</span>
+      <span class="ptitle"><b>Review</b><span class="purpose">Recorded terminal state; responsibilities and output are not yet defined.</span>
+        <span class="stubnote">No row in the stage table and no subprocess defined anywhere. The subprocess inventory records it as 'Unknown, not zero required work'.</span></span>
+      <span class="ocnt for-l1"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l2"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="ocnt for-l3"><svg class="ic ic-undefined" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.4v6.2"/><path d="M12 16.8h.01" stroke-width="2.6"/></svg>1</span><span class="stat s-undefined">not defined</span><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-undefined for-l3">undefined</span>
+    </div></div></div>
+
+<h2>Guard operations</h2>
+<table><thead><tr><th>Operation</th><th>Surface</th><th>Status</th><th>Writes</th></tr></thead><tbody>
+<tr><td><code>guard workflow open</code>
+  <span class="meta">Creates the identity and the empty documents. Refuses a second folder for the same work item.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>Workflow, Conversation, the work folder, and the GitHub issue when none exists</td></tr><tr><td><code>guard conversation set</code>
+  <span class="meta">Section-scoped. Neither editing style grants whole-file writes, and a section the current phase may not touch is refused.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>One named Conversation section</td></tr><tr><td><code>guard gate request</code>
+  <span class="meta">Guard renders the content from the saved sections and hashes those exact bytes with their source versions. No agent composes it.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>Nothing. Returns the rendered request and its hash</td></tr><tr><td><code>guard gate sign</code>
+  <span class="meta">Takes the signed outcome against the request hash, with the presence result. A checkpoint is written only for Approve.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>Checkpoint, and the fields that gate locks</td></tr><tr><td><code>guard observation write</code>
+  <span class="meta">Guard computes or runs the thing itself and keeps the result — the diff from the repository, or a command with its output and exit code. No agent supplies an observation.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>Any change-record field</td></tr><tr><td><code>guard result submit</code>
+  <span class="meta">Validates the submitted result's structure and references before storing it. An invalid submission is not marked completed.</span></td>
+  <td class="meta">CLI &amp; MCP</td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>The agent result file, and its reference in Workflow</td></tr><tr><td><code>the PreToolUse and PostToolUse hook</code>
+  <span class="meta">The shipped guard. An ordinary working-tree edit goes through it, not through a workflow operation.</span></td>
+  <td class="meta">hook</td>
+  <td><span class="stat s-exists">exists</span></td>
+  <td>Nothing in the workflow. Guards ordinary file edits</td></tr><tr><td><code>no write</code>
+  <span class="meta">A read-only or presentation step.</span></td>
+  <td class="meta">none</td>
+  <td><span class="stat s-exists">exists</span></td>
+  <td>Nothing</td></tr>
+</tbody></table>
+
+<h2>Skills</h2>
+<table><thead><tr><th>Source</th><th>Status</th><th>What it owns</th></tr></thead><tbody>
+<tr><td><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-start-workflow</code>
+  </td>
+  <td><span class="stat s-proposed">proposed</span></td>
+  <td>How to open a workflow. Intake from an issue or an impromptu request, settling scope and exclusions, recording a decision in the approved wording, and choosing the level.</td></tr><tr><td><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-decisions</code>
+  </td>
+  <td><span class="stat s-exists">exists</span></td>
+  <td>What needs the human's explicit yes, and what an agent decides alone. Also the Lie-catcher's checklist.</td></tr><tr><td><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>rails-dry-code</code>
+  </td>
+  <td><span class="stat s-exists">exists</span></td>
+  <td>Duplication, and the DRY adversary's checklist. Measures against the rest of the tree, so it needs no contract.</td></tr><tr><td><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code>
+  </td>
+  <td><span class="stat s-undefined">undefined</span></td>
+  <td>No skill is chosen for direct work. rails-run-a-workflow covers stage execution generally; whether L3 needs its own is undecided.</td></tr><tr><td><span class="mk m-kind v-skill"><svg class="ic ic-kind:skill" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.6 14 9l6.4 2-6.4 2-2 6.4-2-6.4L3.6 11 10 9z"/></svg></span><code>not yet chosen</code>
+  </td>
+  <td><span class="stat s-undefined">undefined</span></td>
+  <td>No skill is chosen for the acceptance decision. rails-run-a-workflow owns the gate criteria today; whether that is where it stays is undecided.</td></tr>
+</tbody></table>
+
+<h2>Documents</h2>
+<div><details class="doc"><summary><b>GitHub Issue</b>
+      <span class="meta"><span class="mk m-origin v-external" title="arrives from outside"><svg class="ic ic-origin:external" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12h11.6"/><path d="M10.8 8.2 14.8 12l-4 3.8"/><path d="M18.4 3.6h2.2v16.8h-2.2" stroke-dasharray="2.4 2.2"/></svg></span><span class="mk m-form v-github" title="GitHub record"><svg class="ic ic-form:github" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="5.4" r="2.3"/><circle cx="7" cy="18.6" r="2.3"/><circle cx="17" cy="12" r="2.3"/><path d="M7 7.7v8.6"/><path d="M7 12h7.7"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">The filed work item, when the work started from one.</p>
+      <p class="meta">No fields defined — external input.</p>
+    </div></details><details class="doc"><summary><b>Human request</b>
+      <span class="meta"><span class="mk m-origin v-external" title="arrives from outside"><svg class="ic ic-origin:external" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.2 12h11.6"/><path d="M10.8 8.2 14.8 12l-4 3.8"/><path d="M18.4 3.6h2.2v16.8h-2.2" stroke-dasharray="2.4 2.2"/></svg></span><span class="mk m-form v-conversation" title="conversation only"><svg class="ic ic-form:conversation" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.4 5.2h17.2v10.2H9.8l-4.6 3.6v-3.6H3.4z"/><path d="M8 10.3h8"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">An impromptu request, when no issue exists. Guard files the issue from it.</p>
+      <p class="meta">No fields defined — external input.</p>
+    </div></details><details class="doc"><summary><b>Conversation</b>
+      <span class="meta"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">The predecessor of the Contract, and the only document that exists at every level. Where both hold the same concept, Conversation carries the proposal and the Contract carries the proven version with the extra L1 and L2 sections on top. At L3 there is no Contract, so these fields are the governing requirement. Holds the wording the human approved, never a transcript of the human.</p>
+      <table><thead><tr><th>Field</th><th>Type</th><th>Purpose</th><th>State</th></tr></thead>
+        <tbody><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.description</code><span class="csec">contract §4 — the standard</span></td>
+      <td class="meta">markdown</td>
+      <td>The target end state, stated plainly. Proposes contract section 4.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.scope</code><span class="csec">contract §13 — scope</span></td>
+      <td class="meta">markdown</td>
+      <td>The portion of the issue this workflow covers. Its lock is the Scope checkpoint: scope changes only by a new signed Scope gate, which is this level's form of contract section 13.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.exclusions</code><span class="csec">contract §10 — what the agent MUST NOT do</span></td>
+      <td class="meta">markdown</td>
+      <td>Work outside this workflow. The hard boundary. Proposes section 10.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.issues</code></td>
+      <td class="meta">list of Issue</td>
+      <td>The issue being resolved and its status.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.proposed-decisions</code><span class="csec">contract §2 — decisions</span></td>
+      <td class="meta">list of ProposedDecision</td>
+      <td>Each decision in the wording the human approved, with its state. A decision the human has not accepted is not in force.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="not-needed">
+      <td><code>conversation.target-platforms</code></td>
+      <td class="meta">list of TargetPlatform</td>
+      <td>One workflow-wide platform selection, shared by all capability research.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-not-needed for-l3">not needed</span></td></tr><tr data-l1="required" data-l2="required" data-l3="absent">
+      <td><code>conversation.investigation-areas</code></td>
+      <td class="meta">list of InvestigationArea</td>
+      <td>The exploration assignments GROUND will register.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span></td></tr><tr data-l1="required" data-l2="required" data-l3="absent">
+      <td><code>conversation.capabilities</code></td>
+      <td class="meta">list of Capability</td>
+      <td>The capabilities GROUND will search prior art for.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-absent for-l3">absent</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.surfaces</code><span class="csec">contract §6 — surfaces</span></td>
+      <td class="meta">list of path patterns</td>
+      <td>Every file or store the change may touch, enumerated. Guard compares the observed diff against this list, so it is the only boundary that is mechanically checkable without a contract.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.success-definition</code><span class="csec">contract §5 — success definition</span></td>
+      <td class="meta">markdown</td>
+      <td>The end state that counts as done, in one statement. The gate rules against this. At L1 and L2 the contract adds the standing definition verbatim on top; at L3 this is the whole of it.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.acceptance</code><span class="csec">contract §11 — acceptance</span></td>
+      <td class="meta">list of AcceptanceCheck</td>
+      <td>Each check with the command or proof that settles it. Two are mechanical at every level and already produced: the build and test captures Guard ran, and the observed diff falling inside the declared surfaces. The agent's own word is never one of them.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>conversation.workflow-path</code></td>
+      <td class="meta">path</td>
+      <td>Locates the Workflow document.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr></tbody></table>
+    </div></details><details class="doc"><summary><b>Workflow</b>
+      <span class="meta"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">Execution state. Holds the identity, the level, and every stage's attempts, assignments and agent runs. Guard writes it; no agent edits it.</p>
+      <table><thead><tr><th>Field</th><th>Type</th><th>Purpose</th><th>State</th></tr></thead>
+        <tbody><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.issue-reference</code></td>
+      <td class="meta">int or markdown</td>
+      <td>IssueId when the work came from an issue, IssueText when Guard must file one. Never both.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.workflow-id</code></td>
+      <td class="meta">Guid</td>
+      <td>Assigned by Guard and retained in server persistent state.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.project-path</code></td>
+      <td class="meta">path</td>
+      <td>The repository this workflow acts on.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.working-folder</code></td>
+      <td class="meta">path</td>
+      <td>The one work folder for this item, at .dev/inprocess/&lt;issue&gt;-&lt;slug&gt;/. Every workflow runs its files from one, at every level.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.conversation-path</code></td>
+      <td class="meta">path</td>
+      <td>Locates the Conversation document.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.level</code></td>
+      <td class="meta">WorkflowLevel</td>
+      <td>Fixes which phases run. Set once, at the Scope gate.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>workflow.stages</code></td>
+      <td class="meta">map of StageExecution</td>
+      <td>Attempts, assignments and agent runs per stage.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr></tbody></table>
+    </div></details><details class="doc"><summary><b>Change record</b>
+      <span class="meta"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">What actually happened, observed rather than reported. Guard computes the diff and runs the verification itself, so nothing here is the working thread describing its own work.</p>
+      <table><thead><tr><th>Field</th><th>Type</th><th>Purpose</th><th>State</th></tr></thead>
+        <tbody><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>change-record.changed-files</code></td>
+      <td class="meta">list of VersionedFileReference</td>
+      <td>The observed diff against the opening state, computed by Guard from git.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>change-record.build-capture</code></td>
+      <td class="meta">ExecutedCommand and result</td>
+      <td>The build command Guard ran, with its output and exit code.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>change-record.test-capture</code></td>
+      <td class="meta">ExecutedCommand and result</td>
+      <td>The test command Guard ran, with its output and exit code.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr></tbody></table>
+    </div></details><details class="doc"><summary><b>Reviewer verdict</b>
+      <span class="meta"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">One reviewer's ruling and its findings, saved through Guard. One file per reviewer that ran.</p>
+      <table><thead><tr><th>Field</th><th>Type</th><th>Purpose</th><th>State</th></tr></thead>
+        <tbody><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>verdict.reviewer</code></td>
+      <td class="meta">ReviewerId</td>
+      <td>Which reviewer produced this, from the closed list.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>verdict.ruling</code></td>
+      <td class="meta">Pass or Fail</td>
+      <td>The verdict. A missing verdict is not a pass.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="undefined" data-l2="undefined" data-l3="required">
+      <td><code>verdict.findings</code></td>
+      <td class="meta">list of Finding</td>
+      <td>Each finding with the evidence supporting it.</td>
+      <td class="p"><span class="st s-undefined for-l1">undefined</span><span class="st s-undefined for-l2">undefined</span><span class="st s-required for-l3">required</span></td></tr></tbody></table>
+    </div></details><details class="doc"><summary><b>Checkpoint</b>
+      <span class="meta"><span class="mk m-origin v-guard" title="written by Guard"><svg class="ic ic-origin:guard" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.4 20 5.5v6.1c0 4.6-3.3 7.9-8 10-4.7-2.1-8-5.4-8-10V5.5z"/><path d="M8.7 11.9 11.2 14.4 15.6 9.9"/></svg></span><span class="mk m-form v-yaml" title="YAML file"><svg class="ic ic-form:yaml" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.4 2.8h8.2l5 5v13.4H5.4z"/><path d="M13.6 2.8v5h5"/><path d="M8.2 12.4h7.6M8.2 15.6h7.6M8.2 18h4.6"/></svg></span></span></summary>
+    <div class="dbody"><p class="purpose">An accepted sign request and its signed approval. Records which gate, what was shown, the hash of those exact bytes, the source versions, the outcome and the presence evidence. What it locks needs a new signed approval to change.</p>
+      <table><thead><tr><th>Field</th><th>Type</th><th>Purpose</th><th>State</th></tr></thead>
+        <tbody><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.gate</code></td>
+      <td class="meta">GateKind</td>
+      <td>Which gate this checkpoint belongs to.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.request-hash</code></td>
+      <td class="meta">string</td>
+      <td>Hash over the exact rendered bytes plus the source version list.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.sources</code></td>
+      <td class="meta">list of VersionedFileReference</td>
+      <td>Every document version the content was drawn from.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.outcome</code></td>
+      <td class="meta">Approve | Reject | ReturnTo</td>
+      <td>The decision. A checkpoint exists only for Approve.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.presence</code></td>
+      <td class="meta">PresenceResult</td>
+      <td>The OS presence check that authorised it.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr><tr data-l1="required" data-l2="required" data-l3="required">
+      <td><code>checkpoint.signature</code></td>
+      <td class="meta">string</td>
+      <td>Over the request hash and the outcome.</td>
+      <td class="p"><span class="st s-required for-l1">required</span><span class="st s-required for-l2">required</span><span class="st s-required for-l3">required</span></td></tr></tbody></table>
+    </div></details></div>
+
+<footer>Generated from <code>workflow-model.yaml</code> by <code>render-model.mjs</code>. Edit the YAML, then <code>npm run render</code>. Nothing here is approved.</footer>
+
+<script>
+const root=document.documentElement;
+function set(l){root.className='lvl-'+l;
+ document.querySelectorAll('.levels button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lvl===l));}
+document.querySelectorAll('.levels button').forEach(b=>b.addEventListener('click',()=>set(b.dataset.lvl)));
+set('l1');
+</script>
+</div></body></html>

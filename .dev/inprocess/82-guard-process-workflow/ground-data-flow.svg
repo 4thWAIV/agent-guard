@@ -1,0 +1,148 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1740" viewBox="0 0 1440 1740" role="img" aria-labelledby="title description">
+<title id="title">GROUND process and file flow</title>
+<desc id="description">Inputs enter exploration, prior-art search, reuse evaluation and platform research. Guard saves each output unchanged. The saved search result becomes the reuse judge's input. Guard links search and evaluation results in the prior-art ledger. DESIGN reads original saved outputs. Undefined structures are dashed. Platform research's position in the sequence remains undecided.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#536b80" stroke-width="1.8"/></marker>
+<marker id="handoff" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#795099" stroke-width="1.8"/></marker>
+<style>
+text {font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#20364b}
+.title {font-size:22px;font-weight:650}.body {font-size:18px}.small {font-size:16px;fill:#52677a}
+.column {font-size:16px;font-weight:700;letter-spacing:1.3px}
+.file {fill:#eaf5ee;stroke:#67977a;stroke-width:1.5}
+.process {fill:#eaf2fc;stroke:#7298c0;stroke-width:1.5}
+.guard {fill:#fff4dd;stroke:#b99548;stroke-width:1.5}
+.open {stroke-dasharray:7 5}
+.flow {fill:none;stroke:#536b80;stroke-width:2;marker-end:url(#arrow);stroke-linecap:round;stroke-linejoin:round}
+.handoff {fill:none;stroke:#795099;stroke-width:2.8;marker-end:url(#handoff);stroke-linecap:round;stroke-linejoin:round}
+.line {stroke:#d7e0e9}
+</style></defs><rect width="1440" height="1740" fill="#fbfcfe"/>
+<text x="45" y="53" font-size="33" font-weight="700">GROUND — process and file flow</text>
+<text x="45" y="86" class="body">Matching file names identify the same saved artifact. Each reused input names the process that produced it.</text>
+<rect x="45" y="114" width="1350" height="91" rx="12" class="file"/>
+<text x="65" y="148" class="title">Workflow file: stage → attempt → assignments → agent runs</text>
+<text x="65" y="182" class="small">Guard dispatches registered work and records result references. Conversation remains the instruction owner.</text>
+<text x="45" y="242" class="column">INPUT FILES / SOURCES</text>
+<text x="475" y="242" class="column">GROUND PROCESS</text>
+<text x="940" y="242" class="column">PERSISTED OUTPUT FILES</text>
+<line x1="45" y1="260" x2="1395" y2="260" class="line"/>
+<rect x="45" y="290" width="350" height="150" rx="12" class="file"/>
+<text x="65" y="324" class="title">Conversation + project files</text>
+<text x="65" y="358" class="body">Selected investigation area</text>
+<text x="65" y="386" class="body">Scope and exclusions</text>
+<text x="65" y="414" class="small">Actual working-tree code</text>
+<rect x="475" y="290" width="315" height="150" rx="12" class="process"/>
+<text x="495" y="324" class="title">Exploration agent</text>
+<text x="495" y="358" class="body">Investigates its assigned area</text>
+<text x="495" y="386" class="body">Returns facts and evidence</text>
+<text x="495" y="414" class="small">One result per assignment</text>
+<rect x="940" y="290" width="400" height="150" rx="12" class="file open"/>
+<text x="960" y="324" class="title">Exploration-result file</text>
+<text x="960" y="358" class="body">Facts, evidence, open questions</text>
+<text x="960" y="386" class="body">Affected files and stores</text>
+<text x="960" y="414" class="small">Exact structure still undefined</text>
+<path d="M395 365 H465" class="flow"/>
+<path d="M790 365 H930" class="flow"/>
+<text x="808" y="341" class="small">Guard saves</text>
+<text x="808" y="393" class="small">unchanged</text>
+<path d="M632 440 V510" class="flow"/>
+<text x="650" y="481" class="small">Next in the recorded sequence</text>
+<rect x="45" y="520" width="350" height="170" rx="12" class="file"/>
+<text x="65" y="554" class="title">Conversation + project files</text>
+<text x="65" y="588" class="body">Selected capability</text>
+<text x="65" y="616" class="body">Scope and exclusions</text>
+<text x="65" y="644" class="body">Conversation path + blob ID</text>
+<text x="65" y="672" class="small">Our code, not external libraries</text>
+<rect x="475" y="520" width="315" height="170" rx="12" class="process"/>
+<text x="495" y="554" class="title">Prior-art search agent</text>
+<text x="495" y="584" class="body">Guard search → saved captures</text>
+<text x="495" y="612" class="small">Reads Prior-art search captures</text>
+<text x="495" y="640" class="body">Agent → structured search result</text>
+<text x="495" y="672" class="small">CodeGraph and text-search sub-steps</text>
+<rect x="940" y="520" width="400" height="80" rx="12" class="file" data-artifact="prior-art-search-captures"/>
+<text x="960" y="550" class="title">Prior-art search captures</text>
+<text x="960" y="579" class="small">From Guard search within prior-art search</text>
+<rect x="940" y="610" width="400" height="80" rx="12" class="file" data-artifact="search-result"/>
+<text x="960" y="640" class="title">Search-result file</text>
+<text x="960" y="669" class="small">Produced by the prior-art search agent</text>
+<path d="M395 605 H465" class="flow"/>
+<path d="M790 605 H895 Q910 605 910 590 V575 Q910 560 925 560 H930" class="flow"/>
+<path d="M895 605 Q910 605 910 620 V635 Q910 650 925 650 H930" class="flow"/>
+<text x="808" y="581" class="small">Guard saves</text>
+<text x="808" y="633" class="small">unchanged</text>
+<path d="M1140 690 V720 Q1140 755 1105 755 H245 Q220 755 220 780 V805" class="handoff"/>
+<text x="435" y="735" class="title">Saved search result + its links to saved captures</text>
+<rect x="45" y="815" width="350" height="150" rx="12" class="file"/>
+<text x="65" y="841" class="small">FROM PRIOR-ART SEARCH ABOVE</text>
+<text x="65" y="875" class="title" data-artifact="search-result">Search-result file</text>
+<text x="65" y="907" class="title" data-artifact="prior-art-search-captures">Prior-art search captures</text>
+<text x="65" y="939" class="small">Read the same saved files, not copies</text>
+<rect x="475" y="815" width="315" height="150" rx="12" class="process"/>
+<text x="495" y="849" class="title">Reuse judge</text>
+<text x="495" y="883" class="body">Evaluates saved candidates</text>
+<text x="495" y="911" class="body">Against the referenced requirement</text>
+<text x="495" y="939" class="small">Does not edit the search result</text>
+<rect x="940" y="815" width="400" height="150" rx="12" class="file"/>
+<text x="960" y="849" class="title">Evaluation-result file</text>
+<text x="960" y="883" class="body">PriorArtEvaluationResult</text>
+<text x="960" y="911" class="body">Reuse / extend / extract / new</text>
+<text x="960" y="939" class="small">Or unresolved, with its questions</text>
+<path d="M395 890 H465" class="flow"/>
+<path d="M790 890 H930" class="flow"/>
+<text x="808" y="866" class="small">Guard saves</text>
+<text x="808" y="918" class="small">unchanged</text>
+<line x1="45" y1="1005" x2="1340" y2="1005" class="line"/>
+<text x="45" y="1038" class="small">Platform/API research: placement relative to the sequence above remains to be decided.</text>
+<rect x="45" y="1065" width="350" height="170" rx="12" class="file"/>
+<text x="65" y="1099" class="title">Conversation + sources</text>
+<text x="65" y="1133" class="body">Selected capability + TargetPlatforms</text>
+<text x="65" y="1161" class="body">Conversation path + blob ID</text>
+<text x="65" y="1189" class="small">Docs · SDK/library files · RefLib</text>
+<rect x="475" y="1065" width="315" height="170" rx="12" class="process"/>
+<text x="495" y="1099" class="title">Platform/API research</text>
+<text x="495" y="1129" class="body">Guard search/read → captures</text>
+<text x="495" y="1157" class="small">Reads Platform/API research captures</text>
+<text x="495" y="1185" class="body">Agent → structured findings</text>
+<text x="495" y="1217" class="small">Docs / SDK / RefLib sub-steps</text>
+<rect x="940" y="1065" width="400" height="80" rx="12" class="file" data-artifact="research-captures"/>
+<text x="960" y="1095" class="title">Platform/API research captures</text>
+<text x="960" y="1124" class="small">Produced by Guard search/read sub-steps</text>
+<rect x="940" y="1155" width="400" height="80" rx="12" class="file open" data-artifact="research-result"/>
+<text x="960" y="1185" class="title">Research-result file</text>
+<text x="960" y="1214" class="small">Research agent output; structure undefined</text>
+<path d="M395 1150 H465" class="flow"/>
+<path d="M790 1150 H895 Q910 1150 910 1135 V1120 Q910 1105 925 1105 H930" class="flow"/>
+<path d="M895 1150 Q910 1150 910 1165 V1180 Q910 1195 925 1195 H930" class="flow"/>
+<text x="808" y="1126" class="small">Guard saves</text>
+<text x="808" y="1178" class="small">unchanged</text>
+<rect x="45" y="1280" width="350" height="155" rx="12" class="file"/>
+<text x="65" y="1310" class="title" data-artifact="search-result">Search-result file</text>
+<text x="65" y="1334" class="small">FROM PRIOR-ART SEARCH</text>
+<text x="65" y="1374" class="title" data-artifact="evaluation-result">Evaluation-result file</text>
+<text x="65" y="1398" class="small">FROM REUSE JUDGE</text>
+<text x="65" y="1422" class="small">References to those outputs, not copies</text>
+<rect x="475" y="1300" width="315" height="110" rx="12" class="guard"/>
+<text x="495" y="1334" class="title">Guard links results</text>
+<text x="495" y="1368" class="body">Links both agent outputs</text>
+<text x="495" y="1396" class="small">No agent-written synthesis</text>
+<path d="M395 1355 H465" class="flow"/>
+<path d="M790 1355 H930" class="flow"/>
+<rect x="940" y="1300" width="400" height="110" rx="12" class="file"/>
+<text x="960" y="1334" class="title">Prior-art ledger file</text>
+<text x="960" y="1368" class="body">Search and evaluation: path + blob ID</text>
+<text x="960" y="1396" class="small">Links to the original results</text>
+<path d="M1340 365 H1365 Q1390 365 1390 390 V1460 Q1390 1490 1360 1490 H800 V1515" class="flow"/>
+<path d="M1340 1195 H1390" fill="none" stroke="#536b80" stroke-width="2"/>
+<path d="M1340 1355 H1390" fill="none" stroke="#536b80" stroke-width="2"/>
+<text x="910" y="1471" class="body">Saved files feed the next stage.</text>
+<rect x="475" y="1525" width="865" height="150" rx="12" class="process"/>
+<text x="495" y="1559" class="title">DESIGN reads the original GROUND outputs</text>
+<text x="495" y="1590" class="body">Exploration-result file · Prior-art ledger file · Research-result file</text>
+<text x="495" y="1617" class="body">DesignAssignment in Workflow references each by path + blob ID.</text>
+<text x="495" y="1642" class="small">The ledger supplies Search-result file and Evaluation-result file references.</text>
+<text x="495" y="1665" class="small">Capture files are read through the results’ references. No separate handoff file.</text>
+<text x="45" y="1549" class="small">Green = saved file</text>
+<text x="45" y="1576" class="small">Blue = agent process</text>
+<text x="45" y="1603" class="small">Dashed = structure still undefined</text>
+<text x="45" y="1696" class="small">Design view, not implemented functionality. File labels are roles, not new filenames. Transition approvals are unchanged.</text>
+<text x="45" y="1723" class="small">Sources: conversation.md · PriorArt.cs · PlatformResearch.cs · StageExecution.cs · AgentRun.cs</text>
+</svg>

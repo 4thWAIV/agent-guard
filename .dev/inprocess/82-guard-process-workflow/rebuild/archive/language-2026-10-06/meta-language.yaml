@@ -1,0 +1,438 @@
+# THE METALANGUAGE — what a language may contain.
+#
+# PROPOSED 2026-10-07. Nothing here is agreed.
+#
+# Four layers, and this file is the top one. It is written in itself.
+#
+#   meta-language.yaml   what a language may contain      checked against ITSELF
+#   language.yaml        what a model may contain         checked against this
+#   contract.yaml        what this run decided            checked against language.yaml
+#   the code, and a run  what actually happened           checked against the model
+#
+# Self-description is the requirement, not a trick. A schema checked by a higher schema
+# needs a higher one again, and it never ends. Here `device` is an instance of `device`
+# and `part` is an instance of `device`, so running the checker with this file as both
+# the schema and the instance is the acceptance test.
+#
+# Prior art, all four self-describing for this reason: MOF's M3 layer, JSON Schema's
+# meta-schema, Ecore in Eclipse EMF, and descriptor.proto.
+#
+# ── ONE CONCEPT, NOT THREE ───────────────────────────────────────────────────────
+# language.yaml has 48 top-level sections in three ad-hoc shapes: 18 devices with parts,
+# a pile of vocabularies, and a few things that are neither. They are all one shape.
+#
+# A VOCABULARY IS A DEVICE WHOSE INSTANCES ARE WRITTEN IN THE LANGUAGE instead of in a
+# model. `tones` is a device with parts id, name and hex, and N instances listed inline.
+# `process` is a device whose instances are written in a contract. Same device, different
+# place for the instances.
+#
+# So `device` and `part` cover everything, and `holds` is the word that makes a part
+# checkable rather than prose. Every unchecked name in the system today — a gate
+# condition's `over`, `presence-signed`'s `by`, a rule's `built_as`, a question's
+# `answered_by` — is a part with no `holds`.
+
+description: >
+  What a language may contain. The top layer, written in itself.
+
+devices:
+
+  # ── language ───────────────────────────────────────────────────────────────────
+  # The root, so that a language file is itself an instance of something. Without this
+  # the top-level keys of every language file would be the one thing nothing describes —
+  # which is the hole this file exists to close.
+  - id: language
+    description: A set of devices. One language, in one file.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        absence: fine
+        description: What another document names it by, when it is depended upon.
+      - id: description
+        holds: prose
+        by: value
+        description: What the language is for, in one sentence.
+      - id: devices
+        holds: device
+        by: containment
+        many: true
+        description: Everything the language declares, in reading order.
+
+  # ── device ─────────────────────────────────────────────────────────────────────
+  # The only concept. A named thing with parts.
+  - id: device
+    description: A named thing with parts. Everything a language declares is one.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What other declarations refer to it by.
+      - id: description
+        holds: prose
+        by: value
+        description: What it is, in one sentence.
+      - id: identity
+        holds: name
+        by: value
+        absence: fine
+        description: Which of its parts carries the name an instance answers to.
+      - id: value
+        holds: primitive
+        by: reference
+        within: declared
+        absence: fine
+        description: >
+          How an instance is written down, when it has no parts. This is what makes a
+          leaf a leaf, and nothing else may carry it.
+      - id: parts
+        holds: part
+        by: containment
+        many: true
+        absence: fine
+        description: Its named slots, in the order a reader meets them.
+      - id: one_of
+        holds: device
+        by: reference
+        within: document
+        many: true
+        absence: fine
+        description: >
+          The devices an instance may be one of. A device with these declares no parts and
+          no instances of its own: it names a choice between others.
+      - id: instances
+        holds: self
+        by: containment
+        many: true
+        absence: fine
+        description: >
+          Its instances, written here rather than in a model. A closed vocabulary is a
+          device that has these; an open one is a device that does not.
+      - id: ordered
+        holds: boolean
+        by: value
+        absence: fine
+        description: >
+          True when the order of an instance's members carries meaning, as a process's
+          steps do. Absent means a list is a set that happens to be written down.
+      - id: added
+        holds: date
+        by: value
+        absence: fine
+        description: When it entered the language.
+      - id: note
+        holds: prose
+        by: value
+        absence: fine
+        description: The one thing about it a reader would otherwise get wrong.
+
+  # ── part ───────────────────────────────────────────────────────────────────────
+  - id: part
+    description: One named slot on a device, and what may be written in it.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What the slot is called where an instance writes it.
+      - id: holds
+        holds: holdable
+        by: reference
+        within: document
+        description: >
+          What may be written in the slot: a device, or a primitive. It is a choice, so it
+          is declared as one rather than known by the checker.
+      - id: description
+        holds: prose
+        by: value
+        description: What belongs in the slot.
+      - id: by
+        holds: holding
+        by: reference
+        within: declared
+        description: How the slot relates to what it holds.
+      - id: within
+        holds: scope
+        by: reference
+        within: declared
+        absence: fine
+        description: >
+          Where the id is looked up, when the slot names one rather than holding it.
+          Absent on anything but a reference.
+      - id: many
+        holds: boolean
+        by: value
+        absence: fine
+        description: True when the slot carries a list. Absent means exactly one.
+      - id: absence
+        holds: part_absence
+        by: reference
+        within: declared
+        absence: fine
+        description: What it means when the slot is not written. Absent means an error.
+      - id: added
+        holds: date
+        by: value
+        absence: fine
+        description: When the slot entered the device.
+
+  # ── what a missing part means ──────────────────────────────────────────────────
+  # Moved up out of language.yaml. It governs what an unwritten PART means, and a part
+  # is a metalanguage concept, so this is where it belongs.
+  #
+  # A part was once either required or optional and nothing else, which collapsed two
+  # different things: a part that is legitimately absent, and one nobody has stated yet.
+  - id: part_absence
+    description: What it means that a slot was not written.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What a part names it by.
+      - id: name
+        holds: prose
+        by: value
+        description: What it is called on the page.
+      - id: description
+        holds: prose
+        by: value
+        description: What the absence means.
+      - id: glyph
+        holds: glyph
+        by: value
+        description: The mark it carries, so a required slot is seen before it is read.
+      - id: tone
+        holds: tone
+        by: reference
+        within: declared
+        description: The colour it is drawn in, from the palette.
+    instances:
+      - id: error
+        name: An error
+        glyph: '!'
+        tone: red
+        description: >
+          The instance is malformed without it. This is what a part says when it says
+          nothing.
+      - id: fine
+        name: Fine
+        glyph: '·'
+        tone: quiet
+        description: Absence is a correct, finished state.
+      - id: undesigned
+        name: Not stated
+        glyph: '?'
+        tone: rust
+        description: >
+          Nobody has said what this is yet. The work is undesigned here, not the drawing
+          of it, and it is drawn where it sits.
+
+  # ── what may be written in a slot ──────────────────────────────────────────────
+  # The first union in the file, and it was already there — the checker knew that `holds`
+  # meant "a device, or else a primitive" and nothing said so. A union declares no parts
+  # and no instances; it names a choice, and an instance is whichever one it matches.
+  - id: holdable
+    description: What may be written in a slot. A device, or a primitive.
+    one_of:
+      - device
+      - primitive
+
+  # ── where a named id is looked up ──────────────────────────────────────────────
+  # `by: reference` said "the id of one declared somewhere else" and never said where, so
+  # the checker decided. Each scope says which set of instances the id is found in.
+  - id: scope
+    description: Where the id in a slot is looked up.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What a part names it by.
+      - id: name
+        holds: prose
+        by: value
+        description: What it is called on the page.
+      - id: description
+        holds: prose
+        by: value
+        description: Which instances the id is found among.
+      - id: glyph
+        holds: glyph
+        by: value
+        description: The mark a scope carries, so where a name is looked up reads at a glance.
+      - id: tone
+        holds: tone
+        by: reference
+        within: declared
+        description: The colour it is drawn in, from the palette.
+    instances:
+      - id: declared
+        name: Declared
+        glyph: '◆'
+        tone: teal
+        description: >
+          Among the instances written on the held device itself. This is how a closed
+          vocabulary is named.
+      - id: document
+        name: This document
+        glyph: '◇'
+        tone: slate
+        description: >
+          Among every instance of the held device anywhere in this document, wherever it
+          was written.
+      - id: elsewhere
+        name: Another document
+        glyph: '◌'
+        tone: red
+        description: >
+          In a document this one depends on. Nothing resolves one yet, and the page says
+          so rather than letting it pass.
+
+  # ── the palette ────────────────────────────────────────────────────────────────
+  # Every layer gets drawn, so a colour has to mean one thing at all of them. A vocabulary
+  # that tells its instances apart names one of these; nothing anywhere carries a colour of
+  # its own, and nothing is keyed off an id in a stylesheet.
+  - id: tone
+    description: A colour a vocabulary may name, so that like is drawn like.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What a vocabulary names it by.
+      - id: description
+        holds: prose
+        by: value
+        description: What it is for.
+      - id: ink
+        holds: glyph
+        by: value
+        description: The colour the mark and the word are drawn in.
+      - id: tint
+        holds: glyph
+        by: value
+        description: The colour behind them.
+    instances:
+      - id: quiet
+        description: Nothing to follow and nothing wrong. The resting state.
+        ink: "#5b6476"
+        tint: "#f1f2f5"
+      - id: teal
+        description: Something settled, or somewhere a name is certain to be found.
+        ink: "#1f5f5b"
+        tint: "#e6f0ee"
+      - id: violet
+        description: Something written out here, inside the thing that uses it.
+        ink: "#7c3aed"
+        tint: "#f2ecfe"
+      - id: slate
+        description: Something found by looking, which may be anywhere.
+        ink: "#2563eb"
+        tint: "#e8f0fe"
+      - id: red
+        description: Wrong, or missing when it had to be there.
+        ink: "#dc2626"
+        tint: "#feebeb"
+      - id: rust
+        description: Not wrong. Not written either, by anybody, yet.
+        ink: "#7f1d1d"
+        tint: "#fdeaea"
+
+  # ── how a slot relates to what it holds ────────────────────────────────────────
+  # This was `contained: true` and a default, so the page had to choose the English for
+  # both cases and for the third one nobody had written down. Each word now carries what
+  # it READS AS, so a row on the page is the word out of this file.
+  - id: holding
+    description: How a slot relates to what it holds.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What a part names it by.
+      - id: reads
+        holds: prose
+        by: value
+        description: The word a row is read with.
+      - id: description
+        holds: prose
+        by: value
+        description: What the relationship is.
+      - id: glyph
+        holds: glyph
+        by: value
+        description: The mark a row carries, so the sort of thing it is reads first.
+      - id: tone
+        holds: tone
+        by: reference
+        within: declared
+        description: The colour it is drawn in, from the palette.
+    instances:
+      - id: value
+        reads: is
+        glyph: '='
+        tone: quiet
+        description: >
+          The value is written directly as that thing. Only a leaf or a primitive can be
+          held this way, because nothing else has a way of being written down.
+      - id: containment
+        reads: holds
+        glyph: '>'
+        tone: violet
+        description: The instance is written out in the slot, here, where it is used.
+      - id: reference
+        reads: names
+        glyph: '→'
+        tone: teal
+        description: The slot carries the id of one declared somewhere else.
+
+  # ── how a value is written down ────────────────────────────────────────────────
+  # The bottom. Three ways, and nothing beneath them. A part may name one of these in
+  # place of a device, which is the same split as JSON Schema's `type` against `$ref`
+  # and Ecore's EDataType against EClass.
+  - id: primitive
+    description: How a value is written down, when nothing structures it further.
+    identity: id
+    parts:
+      - id: id
+        holds: name
+        by: value
+        description: What a device names it by.
+      - id: description
+        holds: prose
+        by: value
+        description: What it is.
+    instances:
+      - id: text
+        description: Characters.
+      - id: number
+        description: A number.
+      - id: boolean
+        description: True or false.
+
+  # ── the leaves ─────────────────────────────────────────────────────────────────
+  # A leaf is a device with a `value` and no parts. They exist because `text` alone does
+  # not say what the text IS, and the three of these that hold text are checked three
+  # different ways: a name must be referable, prose has a word budget, a glyph is one
+  # character.
+  - id: name
+    description: An identifier other declarations refer to it by.
+    value: text
+  - id: prose
+    description: Text a human reads, and nothing refers to.
+    value: text
+  - id: glyph
+    description: One character the notation draws.
+    value: text
+  - id: date
+    description: A day.
+    value: text
+
+  # ── the one reflexive word ─────────────────────────────────────────────────────
+  # `instances` has to hold instances of the device it sits on, not of `device`. That is
+  # the M2 and M1 layers meeting inside one file, which is what a closed vocabulary is.
+  # One word says it, explicitly, rather than the checker knowing by magic.
+  - id: self
+    description: An instance of the device whose part this is. What makes a vocabulary sayable.

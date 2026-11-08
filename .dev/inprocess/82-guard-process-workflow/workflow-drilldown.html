@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Workflow · Stage → Item → Step</title>
+<link rel="icon" href="data:,">
+<style>
+:root{color-scheme:light;--ink:#20364b;--line:#c4d1db;--blue:#235f91;--green:#225d3c;--purple:#713e8e;--paper:#fbfcfe}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,sans-serif}main,header,footer{max-width:1180px;margin:auto;padding:24px}h1{font-size:30px;margin:0 0 8px}h2{font-size:23px;margin:6px 0}h3{font-size:19px}p{margin:8px 0}a{color:var(--blue)}summary{cursor:pointer;padding:15px 18px}summary:focus-visible,a:focus-visible{outline:3px solid var(--purple);outline-offset:3px}.stage{border:1px solid var(--line);border-radius:9px;background:#fff;margin:0 0 20px}.stage>summary{font-size:20px;font-weight:650;background:#edf2f7;border-radius:9px}.stage-content{padding:12px 20px 20px}.item{border-left:3px solid var(--blue);margin:18px 0;padding-left:12px}.item>summary{font-size:18px;font-weight:600}.step{margin:12px 0;border:1px solid var(--line);border-radius:5px}.step>summary{font-weight:600}.step-body{padding:0 18px 18px}.tag{font:600 13px ui-monospace,monospace;margin-right:10px}.muted{color:#4b6072}.pending{color:var(--purple);font-weight:600}.files{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.file{display:flex;align-items:center;gap:8px;background:#edf5ff;padding:8px 11px;border:1px solid #cedbe6;border-radius:4px;max-width:100%;overflow-wrap:anywhere;text-decoration:none}.file.out{background:#edf7ef;border-color:#c4d9c9}.file svg{width:25px;height:25px;flex:none}.file .tag{display:block;font-size:12px}.caption{font-size:14px;font-weight:650;letter-spacing:.03em;margin-top:14px}.flow-arrow{text-align:center;font-size:23px;color:#637d92;margin:4px}.action{text-align:center;background:#e8eff8;padding:12px}.edge{padding:8px 0;border-bottom:1px solid #e3e9ee}.edge:last-child{border:0}.edge p{margin:5px 0;font-size:14px}.evidence{font-size:14px;margin-top:15px}.summary-output{display:block;font-size:15px;font-weight:400;margin:4px 0 0 24px}.note{padding:10px 14px;border-left:3px solid var(--purple);background:#f5f0f9}.support{margin:12px 0}.support summary{padding:8px 0;font-weight:500}.anchor-flash{outline:3px solid var(--purple)}.stage-arrow{text-align:center;margin:-13px 0 7px;color:#637d92}#error{color:#9b2436;font-weight:650}footer{font-size:14px}.stage-count{font-size:14px;font-weight:400;margin-left:10px}#defs{position:absolute;width:0;height:0;overflow:hidden}@media(max-width:650px){main,header,footer{padding:16px}.stage-content{padding:8px 10px}.item{padding-left:6px}summary{padding:12px 9px}.step-body{padding:0 10px 12px}.tag{display:block}.file .tag{display:block}h1{font-size:25px}}@media print{summary{break-after:avoid}.step{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header><h1>Workflow → Stage → Item → Step</h1>
+<p>Open a Stage, then an Item, then a Step. File links show where each input comes from and where each output goes.</p>
+<p class="note"><strong>GROUND has a revised proposal:</strong> <a href="ground-workflow.html">open the full GROUND flow with every step unfolded</a>. Its code investigation is inside Prior Art. The GROUND grouping below is the earlier version, retained for comparison.</p>
+<p class="muted">Replacement-design view. Item grouping is for review; it does not change execution policy. Purple marks an undefined binding or responsibility. Display order is not permission to run steps serially or in parallel.</p>
+</header>
+<main id="workflow"><p id="error" role="alert"></p></main>
+<footer>Input/output definitions: <a href="workflow-artifact-usage.js">existing process inventory</a> · <a href="workflow-subprocess-inventory.md">subprocess audit</a>. No new result or handoff files are introduced by this view.</footer>
+<script src="workflow-phase-details.js"></script><script src="workflow-artifact-usage.js"></script>
+<script>
+(() => {
+'use strict';
+const api=window.WorkflowPhaseDetails,audit=api.artifactUsage;
+audit.setProfile('design');
+const {artifacts,stages,stageSymbols}=api;
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Presentation grouping only. Original steps and their I/O remain owned by the inventory.
+// Numbers select existing step records; each is assigned exactly once below.
+const layout={
+ conversation:[['INTAKE','Conversation','conversation',[1]]],
+ ground:[['EX','Exploration','exploration',[1,10]],['PA','Prior Art','ledger',[2,3,4,5,6]],['API','Platform/API research','research',[7,8,9]]],
+ design:[['PROPOSALS','Design proposals','proposals',[1]],['SELECTION','Selected design','design',[2,4,5]]],
+ contract:[['CONTRACT','Contract','contract',[1,2,3,4,5]]],
+ spec:[['PLAN','Spec plan','specPlan',[1,2]]],
+ architecture:[['SURFACE','Architecture result','architecture',[1,2,3,4,5,7,8]]],
+ 'rule-plan':[['PLAN','Rule plan','rulePlan',[1,2]]],
+ rule:[['RULES','Rules and their result','ruleResults',[1,2,3,4,6,7]]],
+ 'test-plan':[['PLAN','Detailed test plan','testPlan',[1,2,3]]],
+ test:[['TESTS','Tests and their result','testResults',[1,2,3,4,5,7,8]]],
+ implement:[['IMPLEMENTATION','Implementation result','implResult',[1,2,3,4,6]]],
+ readiness:[['READINESS','Readiness result','readiness',[1,2]]],
+ refute:[['VERDICTS','Independent verdicts','verdicts',[1,2]]],
+ gate:[['DECISION','Acceptance decision','gate',[2,1]]],
+ report:[['REPORT','Outcome report','report',[1]]],
+ review:[['UNDEFINED','REVIEW responsibility not defined',null,[1]]]
+};
+const processes=audit.activeProcesses(),byId=new Map(processes.map(p=>[p.id,p]));
+const groups=[],membership=new Map(),labels=new Map();
+for(const stage of stages){
+ const prefix=stageSymbols[stage.id];
+ for(const [slug,name,output,numbers] of layout[stage.id]){
+  const steps=numbers.map(n=>{const p=byId.get(prefix+'-design-'+n);if(!p)throw Error('Missing step '+prefix+' '+n);return p;});
+  groups.push({id:prefix+'-'+slug,stage:stage.id,name,output,steps});
+ }
+ const tracking=processes.filter(p=>p.stage===stage.id&&p.name==='Guard — register, dispatch and retain agent-run results');
+ if(tracking.length)groups.push({id:prefix+'-RUN',stage:stage.id,name:'Execution state',output:'workflow',steps:tracking,shared:true});
+}
+for(const group of groups)group.steps.forEach((p,i)=>{
+ if(membership.has(p.id))throw Error('Step assigned twice: '+p.id);
+ membership.set(p.id,group);labels.set(p.id,group.id+'-'+String(i+1).padStart(2,'0'));
+});
+for(const p of processes)if(!membership.has(p.id))throw Error('Unmapped process: '+p.id);
+const unique=values=>[...new Set(values)];
+const name=key=>artifacts[key][0];
+function file(key,output=false){const f=artifacts[key];return '<span class="file'+(output?' out':'')+'"><svg aria-hidden="true" viewBox="0 0 64 64"><use href="#file-'+f[3][0]+'"/></svg><span><span class="tag">'+esc(audit.ids[key])+'</span>'+esc(f[0])+'</span></span>';}
+const chips=(keys,output=false)=>'<div class="files">'+(keys.length?keys.map(k=>file(k,output)).join(''):'<span class="muted">None specified.</span>')+'</div>';
+function link(p){return '<a href="#'+labels.get(p.id)+'"><span class="tag">'+labels.get(p.id)+'</span>'+esc(p.name)+'</a>';}
+function origins(p,e){
+ if(e.origin==='previous-attempt')return 'Previous attempt’s original findings; correction only.';
+ // Workflow is live mutable state. Do not pretend every read is supplied only by CV.
+ if(e.key==='workflow')return 'Live Workflow · '+groups.filter(g=>g.output==='workflow').map(g=>'<a href="#'+g.id+'">'+g.id+'</a>').join(' · ');
+ const source=audit.inputSource(p,e);
+ if(source.kind==='internal')return source.producers.map(link).join('<br>');
+ if(source.kind==='unresolved')return '<span class="pending">Producer not defined.</span>';
+ if(source.stage==='external')return 'Existing / external source.';
+ const writers=processes.filter(q=>q.stage===source.stage&&q.writes.includes(e.key));
+ return writers.length?writers.map(link).join('<br>'):'<span class="pending">Producing step not defined.</span>';
+}
+function destinations(p,e){
+ const readers=processes.filter(q=>q.id!==p.id&&q.reads.includes(e.key));
+ return readers.length?readers.map(link).join('<br>'):'<span class="pending">No consuming process is specified.</span>';
+}
+function edge(p,e,out){return '<div class="edge">'+file(e.key,out)+'<p>'+esc(e.form)+' · '+esc(e.information)+'</p><p>'+esc(e.purpose)+'</p><details class="support"><summary>'+(out?'Consumed by':'Produced by / supplied from')+'</summary>'+ (out?destinations(p,e):origins(p,e))+'</details></div>';}
+function step(p){const [path,where]=audit.sources[p.source];return '<details class="step" id="'+labels.get(p.id)+'"><summary><span class="tag">'+labels.get(p.id)+'</span>'+esc(p.name)+(p.basis==='unresolved'?' <span class="pending">· ?</span>':'')+'</summary><div class="step-body"><div class="caption">INPUTS</div>'+ (p.inputs.length?p.inputs.map(e=>edge(p,e,false)).join(''):'<p class="pending">No document inputs specified.</p>')+'<div class="flow-arrow" aria-hidden="true">↓</div><div class="action">'+esc(p.name)+'</div><div class="flow-arrow" aria-hidden="true">↓</div><div class="caption">OUTPUTS / UPDATES</div>'+(p.outputs.length?p.outputs.map(e=>edge(p,e,true)).join(''):'<p class="pending">No file output or state update specified for this action.</p>')+(p.note?'<p class="note">'+esc(p.note)+'</p>':'')+'<p class="evidence"><a href="'+esc(path)+'">'+esc(path.split('/').pop())+'</a> · '+esc(where)+'</p></div></details>';}
+function boundary(steps){
+ const ids=new Set(steps.map(p=>p.id));
+ const writes=unique(steps.flatMap(p=>p.writes));
+ const inputs=unique(steps.flatMap(p=>p.inputs.filter(e=>e.origin!=='previous-attempt'&&(!writes.includes(e.key)||e.key==='workflow'||artifacts[e.key][1]!==p.stage)).map(e=>e.key)));
+ const corrections=unique(steps.flatMap(p=>p.inputs.filter(e=>e.origin==='previous-attempt').map(e=>e.key)));
+ const outward=writes.filter(k=>processes.some(p=>!ids.has(p.id)&&p.reads.includes(k)));
+ return {inputs,corrections,writes,outward};
+}
+function item(g){
+ const b=boundary(g.steps),outputs=unique([...(g.output?[g.output]:[]),...b.outward]);
+ const internal=b.writes.filter(k=>!outputs.includes(k));
+ return '<details class="item" id="'+g.id+'"><summary><span class="tag">'+g.id+'</span>'+esc(g.name)+'<span class="summary-output">→ '+(g.output?esc(name(g.output)):'Output not defined')+'</span></summary>'+(g.shared?'<p class="muted">Shared Guard operation. Updates the existing Workflow document; not another agent or file.</p>':'')+'<div class="caption">INPUTS TO ITEM</div>'+chips(b.inputs)+(b.corrections.length?'<div class="caption">CORRECTION INPUTS ONLY</div>'+chips(b.corrections):'')+'<div class="caption">STEPS</div>'+g.steps.map(step).join('')+'<div class="caption">OUTPUTS TO OTHER ITEMS / STAGES</div>'+chips(outputs,true)+(internal.length?'<details class="support"><summary>Intermediate outputs retained inside this Item</summary>'+chips(internal,true)+'</details>':'')+'</details>';
+}
+function stage(stage,index){
+ const own=groups.filter(g=>g.stage===stage.id),steps=own.flatMap(g=>g.steps),b=boundary(steps);
+ const outputs=unique([...own.map(g=>g.output).filter(Boolean),...b.outward]);
+ return (index?'<div class="stage-arrow" aria-hidden="true">↓</div>':'')+'<details class="stage" id="stage-'+stage.id+'"'+(stage.id==='ground'?' open':'')+'><summary><span class="tag">'+stageSymbols[stage.id]+'</span>'+esc(stage.name)+'<span class="stage-count">'+own.length+' item'+(own.length===1?'':'s')+'</span></summary><div class="stage-content"><div class="caption">INPUTS TO STAGE</div>'+chips(b.inputs)+(b.corrections.length?'<details class="support"><summary>Correction inputs from an earlier attempt</summary>'+chips(b.corrections)+'</details>':'')+own.map(item).join('')+'<div class="caption">STAGE OUTPUTS / UPDATES</div>'+chips(outputs,true)+'</div></details>';
+}
+const host=document.getElementById('workflow');
+host.innerHTML='<svg id="defs" aria-hidden="true"><defs>'+api.modificationIconDefs+'</defs></svg>'+stages.map(stage).join('');
+function reveal(){if(!location.hash)return;const target=document.getElementById(decodeURIComponent(location.hash.slice(1)));if(!target)return;let n=target;while(n){if(n.tagName==='DETAILS')n.open=true;n=n.parentElement;}target.scrollIntoView({block:'start'});}
+window.addEventListener('hashchange',reveal);reveal();
+// Exposed only for presentation validation, not persisted workflow data.
+window.WorkflowDrilldown={groups,labels,membership,boundary};
+})();
+</script>
+</body></html>

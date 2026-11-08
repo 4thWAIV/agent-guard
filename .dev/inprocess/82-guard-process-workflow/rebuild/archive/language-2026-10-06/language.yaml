@@ -1,0 +1,1462 @@
+# The architecture language.
+#
+# A project describes its structure in this language so the human can read, accept and
+# sign it. Rendering is a consequence of that, not the purpose.
+#
+# Two halves:
+#   CORE      — fixed. What a structural statement can be about at all.
+#   DICTIONARY — per project. Which kinds it has, and what it calls them.
+#
+# Round-trip rule: the code owns everything derivable from the source. The annotation
+# owns only what the source cannot say — layer, concept and role. An annotation never
+# restates something the compiler already knows, because a restatement can disagree.
+#
+# Primary languages: C#, Python, Rust, TypeScript.
+
+core:
+  - id: element
+    name: Element
+    description: A named thing that exists. Has an id and a kind.
+  - id: kind
+    name: Kind
+    description: >
+      What sort of element it is, drawn from the project's dictionary. The renderer
+      draws by kind.
+  - id: containment
+    name: Containment
+    description: An element lives inside another. Each element has exactly one location.
+  - id: relation
+    name: Relation
+    description: A directed link from one element to another, with its own kind.
+  - id: constraint
+    name: Constraint
+    description: >
+      A statement over relations or containment that either holds or does not. This is
+      the sentence the human signs; the Rule phase makes it mechanical.
+
+# ── levels ───────────────────────────────────────────────────────────────────────
+# The containment ladder, outermost first. Everything structural sits on exactly one
+# rung, and a relation constrains its ends by naming rungs. Derived from source.
+# A rung that has kinds names the list that declares them.
+levels:
+  - id: unit
+    example: AgentGuard.Engine
+    name: Unit
+    description: >
+      A separately built thing that other things reference, and the level at which
+      dependency direction is enforced. Covers a library and an executable.
+    equivalents:
+      csharp: assembly — .dll or .exe
+      python: distribution package — a wheel
+      rust: crate
+      typescript: npm package
+  - id: scope
+    example: AgentGuard.Engine.Setup
+    name: Scope
+    description: >
+      A named grouping inside a unit that organises its contents and has no build
+      identity of its own.
+    equivalents:
+      csharp: namespace
+      python: module or sub-package
+      rust: mod
+      typescript: module — a file, or a folder with an index
+  - id: element
+    example: FileGuard
+    name: Element
+    kinds: forms
+    description: A type. The rung a form sits on.
+  - id: member
+    example: FileGuard.PrecheckAsync
+    name: Member
+    kinds: members
+    description: What a type declares. The rung below an element.
+
+# ── forms ────────────────────────────────────────────────────────────────────────
+# What the construct is. Each form carries a MARK, and that mark rides in a chip at the
+# head of an otherwise neutral box. The list is open-ended on purpose: adding a form
+# costs one mark and collides with nothing, where the four shape channels it replaced
+# were spent at five and had nothing left for a sixth.
+forms:
+  - id: interface
+    mark: "◇"
+    example: IGuard
+    name: Interface
+    description: A declaration of surface with no implementation.
+    equivalents:
+      csharp: interface
+      python: Protocol or ABC
+      rust: trait
+      typescript: interface
+    code:
+      csharp: |
+        public interface IGuard
+        {
+            Task<Verdict> PrecheckAsync(ToolCall call);
+        }
+      python: |
+        class Guard(Protocol):
+            def precheck(self, call: ToolCall) -> Verdict: ...
+      rust: |
+        trait Guard {
+            fn precheck(&self, call: &ToolCall) -> Verdict;
+        }
+      typescript: |
+        interface Guard {
+          precheck(call: ToolCall): Promise<Verdict>
+        }
+  - id: class
+    mark: "■"
+    example: FileGuard
+    name: Class
+    description: An implementation satisfying an interface.
+    equivalents:
+      csharp: class
+      python: class
+      rust: impl Trait for Type
+      typescript: class
+    code:
+      csharp: |
+        internal sealed class FileGuard : IGuard
+        {
+            private readonly IVerifier _verifier;
+            public Task<Verdict> PrecheckAsync(ToolCall call) => ...;
+        }
+      python: |
+        class FileGuard(Guard):
+            def __init__(self, verifier: Verifier) -> None:
+                self._verifier = verifier
+            def precheck(self, call: ToolCall) -> Verdict: ...
+      rust: |
+        // the data
+        struct FileGuard { verifier: Box<dyn Verifier> }
+
+        // the behaviour, declared separately
+        impl Guard for FileGuard {
+            fn precheck(&self, call: &ToolCall) -> Verdict { ... }
+        }
+      typescript: |
+        class FileGuard implements Guard {
+          readonly #verifier: Verifier
+          precheck(call: ToolCall): Promise<Verdict> { ... }
+        }
+  - id: record
+    mark: "≡"
+    example: Verdict
+    name: Record
+    description: Data only. No behaviour.
+    equivalents:
+      csharp: record or struct
+      python: dataclass or NamedTuple
+      rust: struct
+      typescript: type alias or interface over data
+    code:
+      csharp: |
+        public sealed record Verdict(VerdictKind Kind, string Reason);
+      python: |
+        @dataclass(frozen=True)
+        class Verdict:
+            kind: VerdictKind
+            reason: str
+      rust: |
+        struct Verdict {
+            kind: VerdictKind,
+            reason: String,
+        }
+      typescript: |
+        type Verdict = {
+          readonly kind: VerdictKind
+          readonly reason: string
+        }
+  - id: enum
+    mark: "◈"
+    example: VerdictKind
+    name: Enum
+    description: A closed set of values.
+    added: 2026-10-05
+    equivalents:
+      csharp: enum
+      python: Enum
+      rust: enum — a sum type, so not the same thing
+      typescript: enum, or a union of literals
+    code:
+      csharp: |
+        public enum VerdictKind { Allow, Deny }
+
+        // the reason has to ride alongside, in the record
+      python: |
+        class VerdictKind(Enum):
+            ALLOW = auto()
+            DENY = auto()
+      rust: |
+        // a variant may carry its own data, so this is a sum type
+        enum Verdict {
+            Allow,
+            Deny(String),
+        }
+      typescript: |
+        // the closest analogue is a union, not an enum
+        type Verdict =
+          | { kind: 'allow' }
+          | { kind: 'deny'; reason: string }
+  - id: function
+    mark: "ƒ"
+    example: none in this repository
+    name: Function
+    description: A callable belonging to no type.
+    added: 2026-10-05
+    equivalents:
+      csharp: none — a static method on a class is the workaround
+      python: module-level def
+      rust: fn at module level
+      typescript: exported function
+    code:
+      csharp: |
+        // no free function; a static method on a class is the workaround
+        internal static class Paths
+        {
+            internal static string Canonical(string path) => ...;
+        }
+      python: |
+        def canonical(path: str) -> str:
+            ...
+      rust: |
+        pub fn canonical(path: &str) -> String {
+            ...
+        }
+      typescript: |
+        export function canonical(path: string): string {
+          ...
+        }
+  - id: process
+    mark: "▷"
+    example: the Conversation phase
+    name: Process
+    added: 2026-10-05
+    derived: false
+    description: >
+      A named run of ordered steps. Declared rather than derived — no source file says
+      what a phase is, which is why it has to be written and signed.
+    equivalents:
+      csharp: none — a process is not a type
+      python: none
+      rust: none
+      typescript: none
+
+# ── tones ────────────────────────────────────────────────────────────────────────
+# The colour tokens the notation draws with. Declared here so a colour means one
+# thing everywhere and the renderer can refuse an undeclared one.
+# The palette. Every vocabulary that has a colour names one of these; no entry carries a
+# hex, and no renderer decides a colour from an id. Added 2026-10-07: teal, sand and indigo,
+# which the renderer had been using without the language knowing.
+tones:
+  - id: teal
+    ink: "#1f5f5b"
+    tint: "#e6f0ee"
+    added: 2026-10-07
+  - id: sand
+    ink: "#8a5a00"
+    tint: "#fdf2dc"
+    added: 2026-10-07
+  - id: indigo
+    ink: "#4f46e5"
+    tint: "#eceafc"
+    added: 2026-10-07
+  - id: steel
+    ink: "#5b6476"
+    tint: "#f1f2f5"
+    added: 2026-10-07
+  - id: violet
+    ink: "#7c3aed"
+    tint: "#f2ecfe"
+  - id: cyan
+    ink: "#0891b2"
+    tint: "#e0f5fa"
+  - id: plum
+    ink: "#c026d3"
+    tint: "#fdeafe"
+  - id: slate
+    ink: "#2563eb"
+    tint: "#e8f0fe"
+  - id: olive
+    ink: "#65a30d"
+    tint: "#f0f9e0"
+  - id: green
+    ink: "#16a34a"
+    tint: "#e6f8ee"
+  - id: amber
+    ink: "#d97706"
+    tint: "#fef2e0"
+  - id: red
+    ink: "#dc2626"
+    tint: "#feebeb"
+
+# ── alteration ───────────────────────────────────────────────────────────────────
+# What the architecture says about an element against the code as it stands. The code
+# is the current state; this is the shift being proposed. Every element carries one.
+# Drawn as a coloured left edge and tone, plus the mark every diff already uses: + for
+# inserted, ~ for edited, − for deleted. Unchanged has no mark, because it is not a change.
+alteration:
+  - id: unchanged
+    tone: slate
+    name: Unchanged
+    description: Context. Shown so the shift can be read, not part of the proposal.
+  - id: inserted
+    mark: "+"
+    tone: green
+    name: Inserted
+    description: Does not exist in the code yet.
+  - id: edited
+    mark: "~"
+    tone: amber
+    name: Edited
+    description: Exists, and this proposes it differently.
+  - id: deleted
+    mark: "−"
+    tone: red
+    name: Deleted
+    description: Exists, and this proposes taking it away.
+
+# ── members ──────────────────────────────────────────────────────────────────────
+# The layer below a type. Tests are written against these, and so are several rules,
+# so the language cannot produce something testable without them. Derived.
+# Each member kind carries a TONE as well as a mark, so what sort of member a row is
+# reads from colour before the glyph is read.
+members:
+  - id: method
+    mark: "()"
+    tone: violet
+    example: IGuard.PrecheckAsync
+    name: Method
+    description: A callable on a type. Carries a signature.
+    equivalents:
+      csharp: method
+      python: method
+      rust: fn inside an impl
+      typescript: method
+  - id: constructor
+    mark: new
+    tone: cyan
+    example: FileGuard.Create
+    name: Constructor
+    description: How an instance comes into being.
+    equivalents:
+      csharp: constructor
+      python: __init__
+      rust: an associated fn, by convention new()
+      typescript: constructor
+  - id: property
+    mark: get/set
+    tone: slate
+    example: Verdict.Kind
+    name: Property
+    description: Accessed as data, computed as behaviour.
+    equivalents:
+      csharp: property
+      python: "@property"
+      rust: none — a getter fn is the workaround
+      typescript: get and set accessors
+  - id: field
+    mark: "▪"
+    tone: plum
+    example: FileGuard._defaultVerifier
+    name: Field
+    description: Stored data on a type.
+    equivalents:
+      csharp: field
+      python: attribute
+      rust: struct field
+      typescript: property
+  - id: value
+    mark: "◆"
+    tone: olive
+    example: VerdictKind.Deny
+    name: Value
+    added: 2026-10-05
+    description: One of the closed set an enum declares. Not stored data on a type.
+    equivalents:
+      csharp: enum member
+      python: Enum member
+      rust: enum variant — carries data, so not the same thing
+      typescript: enum member, or one literal of a union
+
+signature:
+  description: What a member carries, and what a test is written against.
+  parts:
+    - id: parameters
+      description: Ordered, each a name and a type reference.
+    - id: returns
+      description: A type reference, or none.
+
+# ── type reference ───────────────────────────────────────────────────────────────
+# Wherever the language names a type it names it as a reference, never as text. A
+# reference may carry arguments, and each argument is itself a reference. This is what
+# makes Decision<Sentence> checkable instead of a name with angle brackets in it.
+type_reference:
+  identity: name
+  description: How one element names another, anywhere a type appears.
+  added: 2026-10-05
+  parts:
+    - id: name
+      description: >
+        The element referred to, or a type the project does not own, such as string.
+    - id: arguments
+      absence: fine
+      description: >
+        Ordered, each itself a type reference. One per type parameter the referred
+        element declares — which is the thing that can now be checked.
+  note: >
+    A collection needs no vocabulary of its own. IReadOnlyList<Decision<Sentence>> is an
+    ordinary reference with an argument, so a second way to say "many of" would say
+    nothing new.
+
+# ── type parameter ───────────────────────────────────────────────────────────────
+# What an element leaves open for a reference to fill. Derived from source.
+type_parameter:
+  description: >
+    A name an element declares for its own members to use as a type. ICertifiedResult
+    declares T; Decision<Sentence> fills it with Sentence.
+  added: 2026-10-05
+  equivalents:
+    csharp: type parameter
+    python: TypeVar
+    rust: generic parameter
+    typescript: type parameter
+
+# ── actors ───────────────────────────────────────────────────────────────────────
+# Who runs a step. This list is fixed by what can actually run in this project, and a
+# step that claims an actor cannot do a thing is the error the old model made over and
+# over. Declared, never derived — nothing in the source says who runs what.
+actors:
+  - id: human
+    tone: sand
+    name: The human
+    added: 2026-10-05
+    description: >
+      Present on the main thread and nowhere else. Decides, approves and signs. No
+      step that needs the human can run inside a subagent.
+  - id: main-agent
+    tone: slate
+    name: Main agent
+    added: 2026-10-05
+    description: The session the human is in. May call Guard.
+  - id: subagent
+    tone: violet
+    name: Subagent
+    added: 2026-10-05
+    description: >
+      Launched by the main agent. May call Guard. The human is not present, so a
+      subagent can propose and never approve.
+  - id: workflow
+    tone: steel
+    name: Workflow script
+    added: 2026-10-05
+    description: >
+      The script that routes a run. Sandboxed — no filesystem, no process, no module
+      import — so it cannot call Guard. A router, never a writer.
+  - id: guard
+    tone: teal
+    name: Guard
+    added: 2026-10-05
+    description: >
+      The tool itself. Writes the contract, shows the exact text, and signs it. Only
+      Guard sets a decision to Locked.
+
+# ── processes ────────────────────────────────────────────────────────────────────
+# A named run of steps that turns inputs into outputs. A phase of the workflow is one.
+# Unlike every other kind here, a process is declared rather than derived — no source
+# file says what a phase is, which is why it has to be written and signed.
+process:
+  identity: name
+  description: >
+    A named sequence whose members are ORDERED — order is the process. A member is a step
+    when one actor does it, a process when it has its own members.
+  note: >
+    The one device in this language where the order of members carries meaning. Everywhere
+    else a list is a set that happens to be written down in some order.
+  added: 2026-10-05
+  ordered_members: true
+  derived: false
+  members: steps, or processes
+  parts:
+    - id: name
+      description: What the process is called.
+    - id: members
+      absence: undesigned
+      description: Its ordered members. A step when one actor does it, a process otherwise.
+    - id: note
+      absence: fine
+      description: The one thing about it a reader would otherwise get wrong.
+    - id: takes
+      absence: undesigned
+      description: What must exist before the process can start, as type references.
+    - id: produces
+      absence: undesigned
+      description: What exists afterwards that did not before, as type references.
+    - id: research
+      absence: undesigned
+      description: >
+        What must be found out before it can run, each kind named from the research list
+        and marked required or optional.
+      added: 2026-10-06
+    - id: questions
+      absence: undesigned
+      description: >
+        What it must answer before it is finished, each naming the research that answers
+        it. A question with no research behind it cannot be answered.
+      added: 2026-10-06
+    - id: gates
+      absence: undesigned
+      description: >
+        What must hold before it may start, and before it may finish. One gate of each
+        kind at most. A gate is a device of its own, not a sentence.
+      added: 2026-10-06
+    - id: repeats
+      absence: fine
+      description: What makes it run again, and what stops it. Absent means it runs once.
+      added: 2026-10-06
+
+# ── steps ────────────────────────────────────────────────────────────────────────
+# What a process is made of. A step is to a process what a member is to a type.
+step:
+  identity: name
+  description: One unit of work inside a process, run by exactly one actor.
+  added: 2026-10-05
+  parts:
+    - id: name
+      description: What the step is called.
+    - id: note
+      absence: fine
+      description: The one thing about it a reader would otherwise get wrong.
+    - id: actor
+      description: Who runs it, named from the actors list. Exactly one.
+    - id: takes
+      absence: undesigned
+      description: What it reads, as type references.
+    - id: produces
+      absence: undesigned
+      description: What it writes, as type references.
+    - id: fans_out
+      absence: fine
+      description: >
+        What the step runs one of. A step with it runs many times over in parallel, one
+        per thing named here, and every run must finish before the next step.
+    - id: repeats
+      absence: fine
+      description: What makes it run again, and what stops it. Absent means it runs once.
+      added: 2026-10-06
+
+# ── what a contract must carry ───────────────────────────────────────────────────
+# A contract is not finished merely because every decision in it is agreed. Some decisions
+# have to EXIST. Declared here rather than checked in code, so adding a requirement is an
+# edit to the language and not to a renderer.
+contract_must_carry:
+  - payload: Acceptance
+    added: 2026-10-06
+    why: >
+      Without one, nothing in the contract says what finishing the work means, and the
+      run has no condition it could ever meet.
+
+# ── what a missing part means ────────────────────────────────────────────────────
+# A part was either required or optional, and nothing else. That collapsed two different
+# things: a part that is legitimately absent, and one nobody has stated yet. Once `takes`
+# on a step was called optional, a step with no declared input looked finished.
+part_absence:
+  - id: error
+    name: An error
+    added: 2026-10-06
+    description: The thing is malformed without it. This is the default when a part says nothing.
+  - id: fine
+    name: Fine
+    added: 2026-10-06
+    description: Absence is a correct, finished state. An unconditional permission has no only_when.
+  - id: undesigned
+    name: Not stated
+    added: 2026-10-06
+    description: >
+      Nobody has said what this part is. The work is undesigned here, not the drawing of it.
+      Drawn where it sits, in the darkest mark the page has.
+
+# ── rules, specs and tests ───────────────────────────────────────────────────────
+# A CONSTRAINT is something a judge must watch for, BECAUSE THERE IS NO RULE. It is read
+# and judged by a person.
+#
+# A RULE is code. It is built, it has a test proving it fires, and the judge is handed the
+# build, the rule and the test results BEFORE being asked to judge anything. A judge
+# verifies a rule — is it on, does its test prove it works, did it fire — and is never
+# responsible for proving what the rule already proves.
+#
+# That is why a constraint no longer carries `enforcement`: a constraint that something
+# enforces is a rule, and the two are different things.
+rule:
+  identity: id
+  description: Built code that refuses something, with a test proving it fires.
+  added: 2026-10-07
+  parts:
+    - id: id
+      description: What it is referred to by, and what the build reports it as.
+    - id: forbids
+      description: What the rule refuses. Written so a reader can tell whether it fired fairly.
+    - id: built_as
+      description: Where the rule lives once built — the analyzer or the check that carries it.
+    - id: proven_by
+      description: The test that proves it fires when it should, and not when it should not.
+    - id: mechanises
+      absence: fine
+      description: >
+        The constraint this replaces. A constraint with a rule is no longer a constraint,
+        so naming it here is how one stops being something a judge must watch for.
+
+spec:
+  identity: id
+  description: What a behaviour-level test must prove. Agreed with the human, not written by an agent.
+  added: 2026-10-07
+  parts:
+    - id: id
+      description: What it is referred to by.
+    - id: proves
+      description: The behaviour claimed, in the wording the human approved.
+    - id: over
+      description: What the behaviour is about, as a type reference.
+    - id: when
+      absence: fine
+      description: The situation it holds in, when it does not hold always.
+
+unit_test:
+  identity: id
+  description: What one test asserts about one piece of the architecture.
+  added: 2026-10-07
+  parts:
+    - id: id
+      description: What it is referred to by.
+    - id: proves
+      description: What it asserts.
+    - id: over
+      description: The element or member under test, as a type reference.
+    - id: from_spec
+      absence: fine
+      description: The spec it serves, when it serves one.
+
+# ── what each device is made of ──────────────────────────────────────────────────
+# The language declared its VOCABULARIES — forms, actors, lenses, gate kinds, constraint
+# kinds — and almost never declared what its own devices are MADE OF. Where it did, the
+# renderer read the declaration; where it did not, the renderer knew the field list by
+# heart and said nothing. Every one of them is declared here now, so a field the language
+# does not declare is an error rather than something a renderer quietly understands.
+
+element:
+  identity: name
+  description: One named thing in an architecture — a type, a process, a function.
+  added: 2026-10-06
+  parts:
+    - id: id
+      description: What a relation names it by.
+    - id: name
+      description: What it is called where it is used.
+    - id: form
+      description: What sort of construct it is, named from the forms.
+    - id: visibility
+      description: How far out it can be seen.
+    - id: alteration
+      description: What this proposal does to it.
+    - id: members
+      absence: undesigned
+      description: What it declares.
+    - id: parameters
+      absence: fine
+      description: The type parameters it leaves open.
+    - id: purpose
+      absence: undesigned
+      description: What it is for, so a reader can judge whether it belongs.
+    - id: storage
+      absence: fine
+      description: Where it is kept, when it is kept anywhere.
+    - id: precision
+      absence: fine
+      description: How exactly it pins its types.
+    - id: generated
+      absence: fine
+      description: Whether it is derived from the language rather than designed.
+
+member:
+  identity: name
+  description: One thing a type declares.
+  added: 2026-10-06
+  parts:
+    - id: name
+      description: What it is called.
+    - id: kind
+      description: Which sort of member it is, named from the members list.
+    - id: visibility
+      description: How far out it can be seen.
+    - id: type
+      absence: fine
+      description: What it is, as a type reference. A value has none.
+    - id: note
+      absence: fine
+      description: What it means, when there is no type to say it.
+    - id: alteration
+      absence: fine
+      description: What this proposal does to it, when it differs from its element.
+
+relation:
+  identity: kind
+  description: A directed link between two elements, or between their members.
+  added: 2026-10-06
+  parts:
+    - id: kind
+      description: Which relation it is, named from the relations list.
+    - id: from
+      description: The tail, as an element or one of its members.
+    - id: to
+      description: The head, the same way.
+    - id: alteration
+      absence: fine
+      description: What this proposal does to the link itself.
+    - id: to_arguments
+      absence: fine
+      description: The arguments the tail passes into the head, in the tail's own scope.
+    - id: note
+      absence: fine
+      description: The one thing about the link a reader would otherwise get wrong.
+
+decision:
+  identity: slug
+  description: One signable statement, and where it stands.
+  added: 2026-10-06
+  parts:
+    - id: slug
+      description: What it is referred to by, in words.
+    - id: group
+      description: The band it is read in.
+    - id: state
+      description: Proposed or Locked. An agent may only ever write Proposed.
+    - id: payload
+      description: What the decision is about. Its kind decides how it is drawn.
+
+payload:
+  identity: type
+  description: What a decision carries.
+  added: 2026-10-06
+  parts:
+    - id: type
+      description: Which payload kind it is, from what the architecture declares.
+    - id: from
+      absence: fine
+      description: Where it is stood up, when it is referenced rather than held here.
+
+question:
+  identity: id
+  description: Something a process must answer, and what answers it.
+  added: 2026-10-06
+  parts:
+    - id: id
+      description: What it is referred to by.
+    - id: text
+      description: The question itself.
+    - id: answered_by
+      description: The research kinds that answer it. A question with none cannot be answered.
+
+research_need:
+  identity: kind
+  description: One kind of research a process needs, and whether it may be skipped.
+  added: 2026-10-06
+  parts:
+    - id: kind
+      description: Which research kind, named from the setup.
+    - id: required
+      description: Whether the process may run without it.
+
+constraint:
+  identity: id
+  description: >
+    A statement about the work that holds or does not. Its kind decides the rest of its
+    parts.
+  added: 2026-10-06
+  parts:
+    - id: id
+      description: What it is referred to by.
+    - id: kind
+      description: Which shape it has, named from the constraint kinds.
+    - id: text
+      absence: fine
+      description: The statement in the wording the human approved.
+    - id: over
+      absence: fine
+      description: The level it is checked at.
+    - id: source
+      absence: fine
+      description: What the claim rests on, when it rests on something checkable.
+
+verb:
+  identity: id
+  description: One operation in a command set.
+  added: 2026-10-06
+  parts:
+    - id: id
+      description: The word that follows the prefix.
+    - id: takes
+      description: What it needs from whoever runs it.
+    - id: returns
+      description: What they get back. A verb that returns nothing changes something.
+
+needs:
+  description: >
+    The structure that would replace a sentence. Required of every sentence, so the
+    language cannot fill with prose nobody has to answer for.
+  added: 2026-10-06
+  parts:
+    - id: name
+      description: What the structure would be called.
+    - id: question
+      description: The question it would answer.
+    - id: shape
+      description: The parts it would carry.
+    - id: example
+      description: How one would read, written out.
+    - id: why
+      description: What the language cannot say today, which is why this is still prose.
+
+# ── repetition ───────────────────────────────────────────────────────────────────
+# A step or a process that runs again until something holds. A discussion is not one round:
+# the agent proposes, the human answers, the agent proposes again. `fans_out` says a step
+# runs many times AT ONCE; this says it runs many times IN ORDER, and what stops it.
+#
+# The condition is the same device a gate uses, because "what must hold" is already
+# declared and a loop's end is exactly that.
+repeat:
+  identity: until
+  description: What makes a step or a process run again, and what stops it.
+  added: 2026-10-06
+  parts:
+    - id: until
+      description: The conditions that end it. It runs again while any of them does not hold.
+    - id: at_most
+      absence: fine
+      description: >
+        How many rounds before the run gives up rather than looping forever. Absent means
+        the condition is trusted to be reachable.
+
+# ── gates ────────────────────────────────────────────────────────────────────────
+# What must hold before a process may start, and before it may finish. This was a
+# sentence on the process until 2026-10-06; a sentence cannot be pointed at, so an unmet
+# gate could not be shown. Each condition names what it is over and what satisfies it.
+gate:
+  identity: kind
+  description: >
+    What must hold before a process may start, or before it may finish. A process may
+    declare one gate of each kind. Every condition in a gate must hold.
+  added: 2026-10-06
+  parts:
+    - id: kind
+      description: Entry or exit.
+    - id: conditions
+      description: >
+        Every one must hold. Each names its kind, what it is over, and what satisfies
+        it, so an unmet condition is a row a reader can point at.
+
+gate_kinds:
+  - id: entry
+    tone: violet
+    name: Entry
+    added: 2026-10-06
+    description: Checked before the process may start. Nothing inside it has run yet.
+  - id: exit
+    tone: green
+    name: Exit
+    added: 2026-10-06
+    description: >
+      Checked before the process may finish. Its work exists, and this is what judges
+      it.
+
+# The kinds of condition a gate can carry. Each has a shape, the way a constraint kind
+# does, so the drawing is decided by the kind rather than written out each time.
+# What a gate condition is about. Two conditions in the same category are the same sort of
+# claim; two in different ones are not, and the drawing should not make them look alike.
+gate_condition_categories:
+  - id: work
+    name: Work finished
+    added: 2026-10-07
+    description: Something that had to be done has been done.
+  - id: agreement
+    name: Human agreement
+    added: 2026-10-07
+    description: The human has settled it. No agent can satisfy one of these.
+  - id: signature
+    name: Signed with presence
+    added: 2026-10-07
+    description: >
+      A human was at the keyboard and signed. The strongest claim the system makes, and the
+      only one that cannot be reconstructed afterwards.
+
+# Each kind has its own parts, so its drawing is decided by the kind; a category and an
+# ICON, so like is drawn like and the sort of claim reads before the words do; and what it
+# DEPENDS ON, because some cannot be signalled until another holds first.
+#
+# `icon` names one of the shapes the notation can draw. The language says which, never how —
+# the same way a `mark` says which character and the font says what it looks like. An icon
+# the notation cannot draw fails the render.
+gate_condition_icons:
+  - id: magnifier
+    name: Magnifier
+    added: 2026-10-07
+    description: Looking for something that may or may not be there.
+  - id: grid
+    name: Filled grid
+    added: 2026-10-07
+    description: A set of things, all of them done.
+  - id: check
+    name: Check
+    added: 2026-10-07
+    description: Settled by a person.
+  - id: fingerprint
+    name: Fingerprint
+    added: 2026-10-07
+    description: A particular human was here. Nothing else in the system claims this.
+  - id: speech
+    name: Speech
+    added: 2026-10-07
+    description: A human said something. The only evidence is that they said it.
+  - id: pen
+    name: Pen
+    added: 2026-10-07
+    description: Something has been written down and can be read back.
+
+gate_condition_kinds:
+  - id: research-complete
+    name: Research complete
+    icon: magnifier
+    category: work
+    added: 2026-10-06
+    question: Has everything the process must find out been found out?
+    note: >
+      Research is a set of tasks, each required or available. This holds when every required
+      one has run, not when someone says it has.
+    parts:
+      - id: over
+        description: What the condition is over.
+
+  - id: members-complete
+    name: Members complete
+    icon: grid
+    category: work
+    added: 2026-10-06
+    question: Has every member of the process finished?
+    parts:
+      - id: over
+        description: What the condition is over.
+
+  - id: decisions-locked
+    name: Decisions locked
+    icon: check
+    category: agreement
+    added: 2026-10-06
+    question: Has the human locked every decision in scope, through the lock process?
+    parts:
+      - id: over
+        description: What the condition is over.
+
+  - id: human-finished
+    name: Human finished
+    icon: speech
+    category: agreement
+    added: 2026-10-07
+    question: Has the human said there is nothing more to raise?
+    note: >
+      A human signal with no artifact behind it. No agent can satisfy it, and nothing but
+      the human saying so makes it true.
+    parts:
+      - id: over
+        description: What the condition is over.
+
+  - id: field-written
+    name: Field written
+    icon: pen
+    category: work
+    added: 2026-10-07
+    question: Does the field have a value?
+    note: >
+      Written, not agreed. A field can hold something nobody has signed, which is why this
+      is not decisions-locked.
+    parts:
+      - id: over
+        description: The field, named.
+
+  - id: presence-signed
+    name: Presence signed
+    icon: fingerprint
+    category: signature
+    added: 2026-10-06
+    depends_on: [decisions-locked]
+    question: Was a human present when it was signed?
+    note: >
+      IPresenceCheck.Check, which only AgentGuard.Setup.ApprovalGate may call in production
+      so the timeout and the reason are never bypassed. Fenced by AG0108.
+    parts:
+      - id: over
+        description: What the condition is over.
+      - id: by
+        description: What satisfies it.
+
+lenses:
+  - id: codegraph
+    tone: slate
+    name: CodeGraph
+    added: 2026-10-06
+    description: The indexed graph of symbols and edges, asked by name or by question.
+  - id: grep
+    tone: steel
+    name: Grep
+    added: 2026-10-06
+    description: Literal text across the searchable trees, which finds what no index knows.
+
+# ── research ─────────────────────────────────────────────────────────────────────
+# What a process must find out before it can run. A process names these by id and marks
+# each required or optional; a question names the ones that answer it. Declared here, as
+# actors are, because a project that adopts this language will have its own list.
+# `research` moved to setup.yaml on 2026-10-06 — PROPOSED, nothing locked. This file declares
+# what a research kind and a constraint ARE; the setup says which ones this project has.
+
+command_set:
+  description: >
+    The commands that read and change one part of a record. One prefix, one verb per
+    operation, and the part of the record they act on.
+  added: 2026-10-06
+  parts:
+    - id: over
+      description: The record and the field the commands act on, as a type reference.
+    - id: prefix
+      description: The words every verb in the set shares.
+    - id: verb
+      description: >
+        One operation, with what it takes and what it returns. A verb that returns
+        nothing changes something; a verb that returns something reads.
+
+# ── storage ──────────────────────────────────────────────────────────────────────
+# Where a record is kept. Every one is structured; the FAMILY says whether a person can
+# open it, whether it is a stream, or whether it is binary, and that is what the colour
+# carries. Vermilion is RESERVED for the Proteus Wire Protocol and used for nothing else.
+storage:
+  - id: memory
+    tone: steel
+    family: none
+    name: In memory
+    description: Not a file. The default, and a record says nothing about storage unless it is written.
+  - id: yaml
+    tone: slate
+    family: text
+    name: YAML
+    description: >
+      What the contract is. A value may itself be prose, and that is a field typed
+      markdown, not a second kind of storage.
+  - id: json
+    tone: slate
+    family: text
+    name: JSON
+    description: The same shape over a wire or on disk.
+  - id: toml
+    tone: slate
+    family: text
+    name: TOML
+    description: Configuration, same shape again.
+  - id: jsonl
+    tone: violet
+    family: stream
+    name: JSON Lines
+    description: One record per line, appended. Read a record at a time and never whole.
+  - id: bson
+    tone: plum
+    family: binary
+    name: BSON
+    description: Binary JSON. A person cannot open it and read it.
+  - id: pwp
+    tone: red
+    family: pwp
+    name: Proteus Wire Protocol
+    description: >
+      RESERVED. Vermilion belongs to PwP and to nothing else, so a PwP structure is
+      recognisable anywhere it appears without reading a word of it.
+
+# ── precision ────────────────────────────────────────────────────────────────────
+# How exactly a record pins its types. The record's own, never the format's.
+precision:
+  - id: loose
+    tone: steel
+    name: Loose
+    description: >
+      Types are named as the format gives them — string, number, bool, markdown. The
+      default, and what nearly everything should be.
+  - id: exact
+    tone: indigo
+    name: Exact
+    description: >
+      Every field names a primitive with a determined size and layout, and the record is
+      drawn as a byte layout with its offsets, widths, total size and any padding.
+
+# ── primitives ───────────────────────────────────────────────────────────────────
+# What an exact record may use, and nothing else may. Common to every language we
+# target. The last three are concepts rather than widths.
+primitives:
+  - id: int8
+  - id: int16
+  - id: int32
+  - id: int64
+  - id: uint8
+  - id: uint16
+  - id: uint32
+  - id: uint64
+  - id: fp32
+  - id: fp64
+  - id: decimal128
+  - id: bool
+  - id: bytes
+  - id: utf8
+  - id: uuid
+    concept: true
+  - id: instant
+    concept: true
+  - id: duration
+    concept: true
+
+# ── external types ───────────────────────────────────────────────────────────────
+# Names a project uses but does not own. A reference resolves if it names something
+# defined in the document, a primitive, or one of these. A reference to anything else
+# is an ERROR and is drawn as one.
+external:
+  - id: string
+  - id: number
+  - id: bool
+  - id: markdown
+    note: Prose a person writes and reads. Loose by definition.
+  - id: IReadOnlyList
+  - id: Task
+  - id: CancellationToken
+  - id: GitHubIssue
+    note: The filed work item. We do not own its structure.
+  - id: HumanRequest
+    note: What the human asked, when no issue exists yet.
+
+# ── prose ────────────────────────────────────────────────────────────────────────
+# Every piece of text in a rendered document sits in a declared SLOT. A slot exists only
+# if it speeds a decision, so each one says what it is for, what belongs in it, and what
+# must never go in it. Text over budget fails the render.
+prose:
+  - id: lede
+    words: 25
+    purpose: Name the question this section answers, so a reader can skip it.
+    holds: One sentence naming the question.
+    never: Reasoning, history, or why a choice was made.
+  - id: note
+    words: 30
+    purpose: Say the one thing about a figure a reader would otherwise get wrong.
+    holds: A fact about what is drawn.
+    never: Justification, or a restatement of the figure in words.
+  - id: purpose
+    words: 25
+    purpose: Say what an element is for, so a reader can judge whether it belongs.
+    holds: What it does and why it exists.
+    never: How it works.
+  - id: verdict
+    words: 45
+    purpose: State what blocks signing, so a reader knows the status without reading on.
+    holds: The count, and what has to happen next.
+    never: Explanation of the mechanism that found it.
+  - id: definition
+    words: 35
+    purpose: Define a term of the language itself, once, where it is declared.
+    holds: What the term means.
+    never: An example, which is drawn instead.
+  # The slots above are the renderer's own editorial text. The slots below belong to the
+  # DECLARED content — every description, note and statement in a model file. They were
+  # unbudgeted until 2026-10-06 because only text passed through `prose` was checked, and
+  # declared text goes through `txt`, which checked nothing at all.
+  - id: description
+    words: 30
+    added: 2026-10-06
+    purpose: Say what a declared thing is, so a reader can tell it from its siblings.
+    holds: What it is, and what distinguishes it.
+    never: How it is drawn, or why it was added.
+  - id: aside
+    words: 35
+    added: 2026-10-06
+    purpose: Record the one fact about a declaration a reader would otherwise get wrong.
+    holds: A fact, or the source a decision rests on.
+    never: Restating the declaration in other words.
+  - id: statement
+    words: 45
+    added: 2026-10-06
+    purpose: Say what a whole proposal is, so a reader knows what they are judging.
+    holds: What changes, and what rests on it.
+    never: A list of the parts, which are drawn below it.
+  - id: assertion
+    words: 25
+    added: 2026-10-06
+    purpose: State a constraint or a decision in the wording the human approved.
+    holds: The claim itself.
+    never: Its justification, which the structure carries.
+  - id: question
+    words: 20
+    added: 2026-10-06
+    purpose: Ask the one thing a reader has answered by the end of a band.
+    holds: A single question.
+    never: A preamble to the question.
+  - id: reason
+    words: 35
+    added: 2026-10-06
+    purpose: Say why something has no structure yet, so a gap is a decision and not a habit.
+    holds: What the language cannot say.
+    never: An apology, or a promise to fix it later.
+  - id: label
+    words: 20
+    added: 2026-10-06
+    purpose: The default for any declared text with no slot of its own.
+    holds: A short phrase.
+    never: A sentence that belongs in a slot above.
+
+# ── views ────────────────────────────────────────────────────────────────────────
+# One architecture, arranged several ways. A view is the same elements laid out to
+# answer ONE question fast. A view that answers two is two views run together.
+views:
+  - id: structure
+    name: Structure
+    question: What exists, and what is inside it?
+    shows: Every element with its members, in declaration order.
+    built: true
+  - id: change
+    name: Change
+    question: What is this proposal actually changing?
+    shows: Only what is not unchanged, grouped by alteration.
+    built: true
+  - id: relationships
+    name: Relationships
+    question: What does this reach, and what reaches it?
+    shows: Each element's relations in both directions, opened on demand.
+    built: true
+  - id: surface
+    name: Surface
+    question: What does this expose to anyone outside it?
+    shows: Public members only.
+    built: false
+  - id: layering
+    name: Layering
+    question: Does anything point the wrong way?
+    shows: Elements banked by Layer with every depends-on drawn between the banks.
+    built: false
+
+# ── decision groups ──────────────────────────────────────────────────────────────
+# Decisions are read in groups, ordered so a reader understands each before the next one
+# makes sense. The groups themselves are per contract; the concept is not.
+decision_group:
+  identity: id
+  description: An ordered band of decisions, named by the question it answers.
+  added: 2026-10-06
+  parts:
+    - id: id
+      description: The slug a decision names.
+    - id: name
+      description: What the band is called.
+    - id: question
+      description: The question a reader has answered by the end of it.
+
+# ── constraints ──────────────────────────────────────────────────────────────────
+# A constraint is a DECISION PAYLOAD, not a thing of its own. Everything about approval
+# comes from the Decision envelope: the state, the slug, the signature, the rule that an
+# agent may only ever write Proposed, and the gate that a stage cannot complete while any
+# decision is still Proposed. None of it is restated here.
+#
+# What is the constraint's own is its KIND and its enforcement. A kind has a fixed shape
+# and its own drawing, because a permission and an agreement are not read the same way.
+constraint_kinds:
+  - id: permission
+    tone: slate
+    name: Permission
+    question: Who may do what?
+    parts:
+      - id: actor
+        description: Who the permission is about.
+      - id: verb
+        description: What they may or may not do.
+      - id: object
+        description: What they may or may not do it to.
+      - id: allowed
+        description: Whether they may.
+      - id: only_when
+        absence: fine
+        description: The condition under which it holds. Absent means it always holds.
+    drawn: A grid of actor against verb, so a whole policy reads in one look.
+  - id: forbidden-combination
+    tone: red
+    name: Forbidden combination
+    question: Which pairing is not allowed?
+    parts:
+      - id: subject
+        description: What the rule is about.
+      - id: each
+        description: The thing it is checked once per.
+      - id: where
+        description: The situation in which the pairing arises.
+      - id: forbid
+        description: What is not allowed in it.
+    drawn: The rejected case, drawn in the notation and struck through.
+  - id: agreement
+    tone: cyan
+    name: Agreement
+    question: Which two things must say the same?
+    parts:
+      - id: left
+        description: One of the two that must agree.
+      - id: right
+        description: The other.
+      - id: must_match
+        description: What the two must say the same about.
+    drawn: The two sides level with an equals between them.
+  - id: sentence
+    tone: amber
+    name: Sentence
+    question: What could not be expressed yet?
+    parts:
+      - id: text
+        description: The statement, in the wording the human approved.
+      - id: needs
+        description: The structure that would replace it.
+    requires: needs
+    drawn: The sentence, and under it the structure that would replace it.
+    note: >
+      The fallback, and the only kind with a duty attached: it MUST say what structure
+      would replace it. Without that the language fills with prose; with it, a sentence
+      carries its own replacement.
+
+permission_verbs:
+  - id: write
+    description: Produce a thing, or change its value.
+  - id: run-inside
+    description: Execute within another actor's context.
+
+# `constraints` moved to setup.yaml on 2026-10-06 — PROPOSED, nothing locked. This file declares
+# what a research kind and a constraint ARE; the setup says which ones this project has.
+
+visibility:
+  - id: public
+    reach: 3
+    tone: teal
+    example: IGuard
+    name: Public
+    description: Visible to anything that can see the unit it lives in.
+    equivalents:
+      csharp: public
+      python: a plain name
+      rust: pub
+      typescript: public, or the default
+  - id: internal
+    reach: 2
+    tone: slate
+    example: GuardRegistry
+    name: Internal
+    description: Visible inside its own unit and nowhere else.
+    equivalents:
+      csharp: internal
+      python: a leading underscore — convention, not enforcement
+      rust: pub(crate)
+      typescript: not exported from the module
+  - id: private
+    reach: 1
+    tone: sand
+    example: "FileGuard's constructor"
+    name: Private
+    description: Visible only inside the type that declares it.
+    equivalents:
+      csharp: private
+      python: a leading double underscore — name mangling, not enforcement
+      rust: the default
+      typescript: private, or a # prefix
+    note: >
+      Python's visibility is convention and TypeScript's private is compile-time only.
+      A rule over visibility is enforceable in C# and Rust and advisory in the other two.
+
+# ── relations ────────────────────────────────────────────────────────────────────
+relations:
+  - id: implements
+    tone: violet
+    line:
+      stroke: dashed
+      head: hollow
+    name: Implements
+    # Each end says what it accepts and in which terms — a form, or a level. The two
+    # sets never share a word, and the renderer refuses anything outside the named one.
+    from: {form: class}
+    to: {form: interface}
+    derived: true
+    description: A class satisfies an interface.
+    carries:
+      - id: unit
+        optional: true
+        description: >
+          Only when the implementation lives somewhere other than the type, as a Rust
+          impl may. Absent means the same unit.
+  - id: depends-on
+    tone: steel
+    line:
+      stroke: solid
+      head: open
+    name: Depends on
+    # A dependency runs between types, or between their members — which is what lets an
+    # opened member show what it reaches rather than only what its type reaches.
+    from: {level: [element, member]}
+    to: {level: [element, member]}
+    derived: true
+    added: 2026-10-05
+    description: >
+      One element uses another. The relation Layer order exists to constrain — without
+      it there is no "up" for dependencies to point away from.
+    read_from:
+      csharp: using directives, constructor parameters, field and member types
+      python: imports and annotations
+      rust: use statements and signatures
+      typescript: imports and type positions
+
+# ── dimensions ───────────────────────────────────────────────────────────────────
+# Ways of slicing the same elements. An element may sit in several. Membership is
+# declared ON THE ELEMENT, never as a list under the dimension. Annotated, not derived.
+dimensions:
+  - id: layer
+    name: Layer
+    ordered: true
+    description: >
+      What may depend on what. The order is what makes dependency direction checkable.
+    project_slices: [abstractions, engine, boundaries, crossplatform, per-os]
+  - id: concept
+    name: Concept
+    ordered: false
+    description: A subject area. Groups elements wherever they live, crossing units.
+    project_slices: [presence, setup, context, guard]
+  - id: role
+    name: Role
+    ordered: false
+    description: What a type is for, as distinct from what it is.
+    project_slices: [service, owner, port, door, container]
+
+# ── the annotation device ────────────────────────────────────────────────────────
+# Each language gets the best device it has. Not a lowest common denominator.
+# Only the three dimensions are ever annotated.
+device:
+  - language: csharp
+    device: attributes
+    example: '[Layer("engine")] [Role("owner")] [Concept("guard")]'
+    applies_to: everything, interfaces included
+    note: Survives to metadata, so a Roslyn analyzer reads it without re-parsing.
+  - language: python
+    device: decorators
+    example: '@layer("engine")'
+    applies_to: classes and Protocols
+    note: Introspectable at runtime.
+  - language: rust
+    device: proc-macro attributes
+    example: '#[layer("engine")]'
+    applies_to: everything
+    note: Requires a proc-macro crate, which we will build. Chosen over a doc tag.
+  - language: typescript
+    device: decorators on classes, JSDoc tags on interfaces and type aliases
+    example: "@Layer('engine')  /** @layer engine */"
+    applies_to: everything, by two devices
+    note: >
+      Decorators do not apply to interfaces or type aliases, so TypeScript needs both.

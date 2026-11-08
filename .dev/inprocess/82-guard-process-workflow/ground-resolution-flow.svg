@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="2060" viewBox="0 0 1500 2060" role="img" aria-labelledby="title desc">
+<title id="title">GROUND: track work through resolution and handoff</title><desc id="desc">Proposed resolution flow. Approved scope produces registered assignments, persisted research and evidence, targeted factual follow-up, design work, or prepared human decisions. Questions are not closed by relabeling, by a failed search, or by accepting a proposal whose required work remains undone. Completion checks original evidence and routes unresolved work to its responsible stage without dropping it. Existing human transition approvals remain required. The lower matrix identifies each tracked item's owner and closure evidence. C sharp resolution links are not yet defined.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1 L9 5 L1 9" fill="none" stroke="#526477" stroke-width="1.8"/></marker>
+<style>text{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;fill:#20364b}.title{font-size:22px;font-weight:650}.body{font-size:18px}.small{font-size:16px;fill:#52677a}.file{fill:#eaf5ee;stroke:#67977a;stroke-width:1.5}.process{fill:#eaf2fc;stroke:#7298c0;stroke-width:1.5}.human{fill:#fff4dd;stroke:#b99548;stroke-width:1.5}.pending{fill:#f6f0fa;stroke:#92769f;stroke-width:1.5;stroke-dasharray:7 5}.flow{fill:none;stroke:#526477;stroke-width:2;marker-end:url(#arrow);stroke-linecap:round;stroke-linejoin:round}.line{stroke:#d7e0e9}</style></defs>
+<rect width="1500" height="2060" fill="#fbfcfe"/>
+<text x="45" y="54" font-size="33" font-weight="700">GROUND — every open item has a path to closure</text>
+<text x="45" y="86" class="small">PROPOSAL FOR REVIEW · Existing structures are reused. New closure relationships are not yet approved or implemented.</text>
+<rect x="45" y="120" width="425" height="142" rx="12" class="file"/>
+<text x="65" y="152" class="title">Conversation: approved work</text>
+<text x="65" y="184" class="body">Capabilities, platforms, scope, exclusions</text>
+<text x="65" y="211" class="body">Human decisions remain here.</text>
+<text x="65" y="238" class="body">One source of requirements.</text>
+<rect x="535" y="120" width="410" height="142" rx="12" class="file"/>
+<text x="555" y="152" class="title">Workflow: registered assignments</text>
+<text x="555" y="184" class="body">Stage → attempt → agent runs</text>
+<text x="555" y="211" class="body">Inputs and outputs are references.</text>
+<text x="555" y="238" class="body">No second work checklist.</text>
+<rect x="1010" y="120" width="445" height="142" rx="12" class="process"/>
+<text x="1030" y="152" class="title">Agents execute assigned work</text>
+<text x="1030" y="184" class="body">Investigate before escalating.</text>
+<text x="1030" y="211" class="body">Guard saves tool captures and exact results.</text>
+<text x="1030" y="238" class="body">Successful work remains reusable.</text>
+<path d="M470 191 H525" class="flow"/>
+<path d="M945 191 H1000" class="flow"/>
+<path d="M1233 262 V292 Q1233 312 1213 312 H770 Q750 312 750 332 V352" class="flow"/>
+<rect x="390" y="362" width="720" height="117" rx="12" class="process"/>
+<text x="410" y="394" class="title">Evaluate findings against the assigned requirement</text>
+<text x="410" y="426" class="body">Use original structured results and evidence, not a narrative report.</text>
+<text x="410" y="453" class="body">Supported answer → closure check. Missing answer → the responsible work.</text>
+<path d="M750 479 V510 H263 V540" class="flow"/>
+<path d="M750 510 V540" class="flow"/>
+<path d="M750 510 H1238 V540" class="flow"/>
+<rect x="45" y="550" width="435" height="193" rx="12" class="process"/>
+<text x="65" y="582" class="title">Missing fact / conflicting evidence</text>
+<text x="65" y="614" class="body">Research agent investigates the question.</text>
+<text x="65" y="641" class="body">Use docs, SDK/source, RefLib or a probe</text>
+<text x="65" y="668" class="body">within the authorized scope.</text>
+<text x="65" y="695" class="body">Persist follow-up results and evidence.</text>
+<text x="65" y="722" class="body">Inconclusive evidence leaves it open.</text>
+<rect x="535" y="550" width="430" height="193" rx="12" class="process"/>
+<text x="555" y="582" class="title">Design or implementation work</text>
+<text x="555" y="614" class="body">Route to the stage that owns the work.</text>
+<text x="555" y="641" class="body">Give it the original findings by reference.</text>
+<text x="555" y="668" class="body">Name the question it must resolve.</text>
+<text x="555" y="695" class="body">A handoff is not a closure.</text>
+<text x="555" y="722" class="body">Do not force a design choice into GROUND.</text>
+<rect x="1020" y="550" width="435" height="193" rx="12" class="human"/>
+<text x="1040" y="582" class="title">A decision reserved for the human</text>
+<text x="1040" y="614" class="body">Agent prepares the exact question, options,</text>
+<text x="1040" y="641" class="body">recommendation, evidence and impact.</text>
+<text x="1040" y="668" class="body">Human resolves the decision.</text>
+<text x="1040" y="695" class="body">Record it once in Conversation.</text>
+<text x="1040" y="722" class="body">Approval does not perform required work.</text>
+<path d="M263 743 V778 H750 V813" class="flow"/>
+<path d="M750 743 V813" class="flow"/>
+<path d="M1238 743 V778 H750" class="flow"/>
+<rect x="390" y="823" width="720" height="145" rx="12" class="process"/>
+<text x="410" y="855" class="title">Close only against the question and its evidence</text>
+<text x="410" y="887" class="body">Does the result answer the original question for the affected platforms?</text>
+<text x="410" y="914" class="body">Is required follow-through complete, with supporting results?</text>
+<text x="410" y="941" class="body">If not: keep it open and route only the unfinished work.</text>
+<path d="M390 894 H35 Q15 894 15 874 V450 Q15 430 35 430 H380" class="flow"/>
+<text x="60" y="848" class="small">Unfinished work only</text>
+<text x="60" y="875" class="small">No full-stage restart</text>
+<rect x="1150" y="823" width="305" height="145" rx="12" class="pending"/>
+<text x="1170" y="855" class="title">Closure checks</text>
+<text x="1170" y="887" class="body">Guard checks references</text>
+<text x="1170" y="914" class="body">and required structure.</text>
+<text x="1170" y="941" class="body">Stage review checks claims.</text>
+<path d="M1110 894 H1140" class="flow"/>
+<path d="M750 968 V1003" class="flow"/>
+<rect x="390" y="1013" width="720" height="145" rx="12" class="file"/>
+<text x="410" y="1045" class="title">GROUND handoff: original results + linked resolutions</text>
+<text x="410" y="1077" class="body">Research needed for the next decision is resolved, or the dependency stays blocked.</text>
+<text x="410" y="1104" class="body">Later-stage work has an explicit destination; it remains open until done.</text>
+<text x="410" y="1131" class="body">DESIGN receives the existing versioned result references.</text>
+<text x="45" y="1200" class="body">Human time goes to prepared decisions and required approvals—not agent-readable facts or reconstructed reports.</text>
+<text x="45" y="1228" class="small">All transition approvals still apply. Grouping related questions does not waive any approval or grant an exception.</text>
+<line x1="45" y1="1250" x2="1455" y2="1250" class="line"/>
+<text x="45" y="1290" class="title">What is tracked, where it lives, and what actually closes it</text>
+<text x="60" y="1330" class="small">ITEM</text>
+<text x="385" y="1330" class="small">EXISTING OWNER / FOLLOW-UP</text>
+<text x="760" y="1330" class="small">CLOSURE — NOT JUST A STATUS CHANGE</text>
+<rect x="45" y="1346" width="1410" height="76" fill="#fbfcfe"/>
+<text x="60" y="1375" class="body">Capability × selected platform</text>
+<text x="385" y="1375" class="body">Conversation + Workflow assignment</text>
+<text x="760" y="1375" class="small">An evidenced finding for that platform; or a human-approved scope change.</text>
+<text x="760" y="1399" class="small">A failed search or empty list does not prove the platform is unsupported.</text>
+<rect x="45" y="1422" width="1410" height="76" fill="#f1f5f9"/>
+<text x="60" y="1451" class="body">Search / read / probe</text>
+<text x="385" y="1451" class="body">Tool capture + agent-run result</text>
+<text x="760" y="1451" class="small">Actual response and outcome are retained. Failure remains visible.</text>
+<text x="760" y="1475" class="small">Retry unfinished work; do not turn an error into “nothing found.”</text>
+<rect x="45" y="1498" width="1410" height="76" fill="#fbfcfe"/>
+<text x="60" y="1527" class="body">Factual question / contradiction</text>
+<text x="385" y="1527" class="body">Conversation.Issues → assigned follow-up</text>
+<text x="760" y="1527" class="small">A resolving result answers the question and cites the original evidence.</text>
+<text x="760" y="1551" class="small">If still unknown, it stays open; no Unsupported/default substitution.</text>
+<rect x="45" y="1574" width="1410" height="76" fill="#f1f5f9"/>
+<text x="60" y="1603" class="body">Design question</text>
+<text x="385" y="1603" class="body">Issue → DESIGN or responsible later stage</text>
+<text x="760" y="1603" class="small">The required decision and resulting work satisfy the original requirement.</text>
+<text x="760" y="1627" class="small">Routing the item forward is not evidence that it has been resolved.</text>
+<rect x="45" y="1650" width="1410" height="76" fill="#fbfcfe"/>
+<text x="60" y="1679" class="body">Exception / scope-change proposal</text>
+<text x="385" y="1679" class="body">Conversation.ProposedDecisions</text>
+<text x="760" y="1679" class="small">Rejected: original requirement still applies. Accepted: exact change is recorded.</text>
+<text x="760" y="1703" class="small">Any implementation and verification obligations remain tracked until done.</text>
+<rect x="45" y="1726" width="1410" height="76" fill="#f1f5f9"/>
+<text x="60" y="1755" class="body">Interrupted or missing agent result</text>
+<text x="385" y="1755" class="body">Workflow assignment → another agent run</text>
+<text x="760" y="1755" class="small">A usable result for that assignment. Preserve other successful results.</text>
+<text x="760" y="1779" class="small">A missing agent cannot vanish from the expected work.</text>
+<rect x="45" y="1802" width="1410" height="76" fill="#fbfcfe"/>
+<text x="60" y="1831" class="body">Defect exposed by follow-up</text>
+<text x="385" y="1831" class="body">Issue → owning code/test/rule stage</text>
+<text x="760" y="1831" class="small">Correct the affected work and verify the behavior. Do not weaken expectations.</text>
+<text x="760" y="1855" class="small">Correcting report prose alone does not repair a code or evidence defect.</text>
+<text x="45" y="1922" class="title">No bypass: “unknown,” “deferred,” “not applicable,” and “approved” cannot silently satisfy an unmet requirement.</text>
+<text x="45" y="1960" class="body">Still to define in C#: item identity, original-result reference, follow-up assignment reference and resolution evidence reference.</text>
+<text x="45" y="1991" class="body">Issue and ProposedDecision currently lack those links. Extend their existing ownership; do not add another issue ledger.</text>
+<text x="45" y="2033" class="small">This diagram proposes routing and closure criteria. It does not approve new automation, reviewers, exceptions or transition permissions.</text>
+</svg>

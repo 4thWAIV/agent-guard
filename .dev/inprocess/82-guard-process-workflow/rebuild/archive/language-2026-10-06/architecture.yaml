@@ -1,0 +1,411 @@
+# An architecture, written in the language that `language.yaml` defines.
+#
+# This is the first real use of it. The subject is issue 82's own types — what the
+# workflow needs in code before a contract can be written, signed and checked.
+#
+# The code is the current state; this file is the shift being proposed against it.
+# None of these types exist in the repository today, which is why almost everything
+# here is `inserted`. Nothing below has been built.
+
+proposal:
+  slug: contract-decisions-and-signing
+  issue: 82
+  statement: >
+    One document per run. It opens as the Conversation and becomes the Contract, carrying
+    each choice the work rests on as a decision signed on its own, so unapproving one
+    leaves the rest valid. An agent may only propose; the human locks.
+  unit: AgentGuard.Abstractions
+  scope: AgentGuard.Abstractions.Contracts
+
+elements:
+  - id: ICertifiedResult
+    name: ICertifiedResult
+    parameters: [T]
+    form: interface
+    visibility: public
+    alteration: inserted
+    purpose: A value carried with a signature over it. The envelope everything signed uses.
+    members:
+      - name: Results
+        kind: property
+        visibility: public
+        type: T
+        alteration: inserted
+      - name: Hash
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: Signature
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+
+  - id: DecisionState
+    name: DecisionState
+    form: enum
+    visibility: public
+    alteration: inserted
+    purpose: >
+      Where a decision stands. An agent may only write Proposed; touching a Locked one
+      returns it to Proposed.
+    members:
+      - name: Proposed
+        kind: value
+        visibility: public
+        note: written by an agent or the human
+        alteration: inserted
+      - name: Locked
+        kind: value
+        visibility: public
+        note: written only by the human, through Guard
+        alteration: inserted
+
+  - id: DecisionBase
+    name: DecisionBase
+    parameters: [TPayload]
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: One signable statement and where it stands. Identical for every payload.
+    members:
+      - name: State
+        kind: property
+        visibility: public
+        type: DecisionState
+        alteration: inserted
+      - name: Slug
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: Payload
+        kind: property
+        visibility: public
+        type: TPayload
+        alteration: inserted
+
+  - id: Decision
+    name: Decision
+    parameters: [TPayload]
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: >
+      A signable statement, signed on its own, so unapproving one leaves the others
+      valid.
+    members:
+      - name: Results
+        kind: property
+        visibility: public
+        type: {name: DecisionBase, arguments: [{name: TPayload}]}
+        alteration: inserted
+      - name: Hash
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: Signature
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+
+  - id: Payload
+    name: Payload
+    form: interface
+    visibility: public
+    alteration: inserted
+    purpose: What a Decision carries. Every payload kind implements it.
+    members: []
+
+  - id: Architecture
+    name: Architecture
+    form: record
+    visibility: public
+    alteration: inserted
+    storage: yaml
+    precision: loose
+    purpose: >
+      The second decision payload: what the work will look like when it is done,
+      written so the human can sign it.
+    members:
+      - name: elements
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Element}]}
+        alteration: inserted
+      - name: relations
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Relation}]}
+        alteration: inserted
+      - name: constraints
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Constraint}]}
+        alteration: inserted
+
+  - id: Contract
+    name: Contract
+    form: record
+    visibility: public
+    alteration: inserted
+    storage: yaml
+    precision: loose
+    purpose: >
+      The one document a run keeps. It opens as the Conversation and becomes the
+      Contract; the work folder is its identity.
+    members:
+      - name: scope
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: decisions
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Decision, arguments: [{name: Payload}]}]}
+        alteration: inserted
+
+  - id: Sentence
+    name: Sentence
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: The first payload. A plain statement in the wording the human approved.
+    members:
+      - name: Text
+        kind: property
+        visibility: public
+        type: string
+        alteration: inserted
+
+  # ── what prior art works with ──────────────────────────────────────────────────
+  # The shapes the shipped prior-art-ledger.js already uses. Taken from its own schemas,
+  # not invented: a search returns candidates per lens with the lenses it ran, and a
+  # judge returns one ruling per capability.
+  - id: Capability
+    name: Capability
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: One thing the work must be able to do, named so it can be searched for.
+    members:
+      - name: id
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: name
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+
+  - id: Ruling
+    name: Ruling
+    form: enum
+    visibility: public
+    alteration: inserted
+    purpose: What to do about a capability something here may already own.
+    members:
+      - name: reuse
+        kind: value
+        visibility: public
+        note: an existing owner already does it; route through it
+        alteration: inserted
+      - name: extract
+        kind: value
+        visibility: public
+        note: the behaviour exists in more than one place; make one owner
+        alteration: inserted
+      - name: new
+        kind: value
+        visibility: public
+        note: nothing here owns it
+        alteration: inserted
+
+  - id: Candidate
+    name: Candidate
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: Something a lens found that might already own the capability.
+    members:
+      - name: lens
+        kind: field
+        visibility: public
+        type: {name: Lens}
+        alteration: inserted
+      - name: file
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: symbol
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: snippet
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+
+  - id: PriorArtSearch
+    name: PriorArtSearch
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: What every lens found for one capability, and which lenses actually ran.
+    members:
+      - name: capability
+        kind: field
+        visibility: public
+        type: {name: Capability}
+        alteration: inserted
+      - name: candidates
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Candidate}]}
+        alteration: inserted
+      - name: lensesRun
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Lens}]}
+        alteration: inserted
+      - name: lensesEmpty
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: Lens}]}
+        alteration: inserted
+      - name: lensErrors
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: string}]}
+        alteration: inserted
+        note: must be empty, or no ruling may be made
+
+  - id: ReuseDecision
+    name: ReuseDecision
+    form: record
+    visibility: public
+    alteration: inserted
+    purpose: One capability's ruling, with what it stands on.
+    members:
+      - name: capability
+        kind: field
+        visibility: public
+        type: {name: Capability}
+        alteration: inserted
+      - name: decision
+        kind: field
+        visibility: public
+        type: {name: Ruling}
+        alteration: inserted
+      - name: evidence
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+      - name: confidence
+        kind: field
+        visibility: public
+        type: string
+        alteration: inserted
+
+  - id: PriorArtLedger
+    name: PriorArtLedger
+    form: record
+    visibility: public
+    alteration: inserted
+    storage: yaml
+    precision: loose
+    purpose: One ruling per capability, carried in the contract so a reviewer can check it.
+    members:
+      - name: rows
+        kind: field
+        visibility: public
+        type: {name: IReadOnlyList, arguments: [{name: ReuseDecision}]}
+        alteration: inserted
+
+relations:
+  # What a Decision can carry. This list IS the set of payload kinds — the command set's
+  # `add` takes a Payload, and these are the ones that exist. Nothing holds a second copy.
+  - kind: implements
+    from: Sentence
+    to: Payload
+    alteration: inserted
+  - kind: implements
+    from: Architecture
+    to: Payload
+    alteration: inserted
+  - kind: implements
+    from: Process
+    to: Payload
+    alteration: inserted
+    note: >
+      A workflow is a process, so there is no separate Workflow type. The same drawing
+      serves a run and any phase inside it, which is where the depth comes from.
+  - kind: implements
+    from: Constraint
+    to: Payload
+    alteration: inserted
+    note: A permission is a Constraint whose kind is permission, not a payload of its own.
+  - kind: implements
+    from: CommandSet
+    to: Payload
+    alteration: inserted
+  - kind: implements
+    from: Rule
+    to: Payload
+    alteration: inserted
+    note: >
+      Built code. The judge is handed the build, the rule and its test results before being
+      asked to judge, and verifies the rule rather than proving what it proves.
+  - kind: implements
+    from: Spec
+    to: Payload
+    alteration: inserted
+  - kind: implements
+    from: UnitTest
+    to: Payload
+    alteration: inserted
+
+  # A process's members are ordered, and a member is either kind.
+  - kind: implements
+    from: Step
+    to: ProcessMember
+    alteration: inserted
+  - kind: implements
+    from: Process
+    to: ProcessMember
+    alteration: inserted
+
+  - kind: implements
+    from: Decision
+    to: ICertifiedResult
+    to_arguments: [{name: DecisionBase, arguments: [{name: TPayload}]}]
+    alteration: inserted
+    note: >
+      Decision passes the parameter it declares straight through into the one
+      ICertifiedResult declares. The language can now check that, rather than take it
+      on trust from a name with angle brackets in it.
+  - kind: depends-on
+    from: Decision.Results
+    to: DecisionBase
+    alteration: inserted
+  - kind: depends-on
+    from: DecisionBase.State
+    to: DecisionState
+    alteration: inserted
+
+# What the language could not say. The test is not whether these types can be drawn — it
+# is whether everything the contract has to hold can be said in the language. That test
+# failed until 2026-10-06: research, a phase's questions and the command set lived in a
+# hand-rolled file with no vocabulary behind them, while this list said there were no
+# gaps. `research`, `questions` on a process, and `command_set` closed it.
+gaps: []
