@@ -180,3 +180,6 @@ JARVIS-REPLY.md
 # committed language file, view and bundler. Never an input to anything.
 ts/metalang/*.html
 
+# The EvoLang build kit: output of ts/metalang/kit.ts, assembled from the committed source and
+# the committed language files. Never an input to anything.
+dist/evolang-kit/

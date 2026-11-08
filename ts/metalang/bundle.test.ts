@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
 import {
+  bundleCommand,
   bundlePage,
   bundleWorkflowScript,
   workflowBanner,
@@ -152,5 +153,28 @@ describe('building the browser page', () => {
 
   test('fails loudly when the entry point does not exist', () => {
     expect(bundlePage(join(dir, 'missing.ts'), {})).rejects.toThrow('did not build')
+  })
+})
+
+describe('building the kit command', () => {
+  test('inlines what the entry point imports, so the kit is one file', async () => {
+    await write('shared-cmd.ts', 'export const greet = (n: string): string => `hi ${n}`\n')
+    const entry = await write(
+      'cmd.ts',
+      "import { greet } from './shared-cmd.ts'\n" + 'globalThis.console.log(greet("kit"))\n',
+    )
+    const { code } = await bundleCommand(entry)
+    expect(code).toContain('hi ${')
+    expect(code).not.toContain("from './shared-cmd.ts'")
+  })
+
+  test('is readable rather than minified, because a consumer may read it', async () => {
+    const entry = await write('plain.ts', 'const aLongNameWorthKeeping = 1\nglobalThis.console.log(aLongNameWorthKeeping)\n')
+    const { code } = await bundleCommand(entry)
+    expect(code).toContain('aLongNameWorthKeeping')
+  })
+
+  test('fails loudly when the entry point does not exist', () => {
+    expect(bundleCommand(join(dir, 'missing.ts'))).rejects.toThrow('did not build')
   })
 })

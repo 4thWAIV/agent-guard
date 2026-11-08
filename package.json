@@ -2,7 +2,7 @@
   "name": "agent-guard-ts",
   "private": true,
   "type": "module",
-  "description": "The TypeScript side of agent-guard. Holds MetaLang — the language that defines languages — and the build that will later emit the workflow scripts.",
+  "description": "The TypeScript side of agent-guard. Holds MetaLang \u2014 the language that defines languages \u2014 and the build that will later emit the workflow scripts.",
   "scripts": {
     "check": "bun run ts/metalang/check.ts",
     "render": "bun run ts/metalang/render.ts",
@@ -11,7 +11,8 @@
     "lint": "eslint ts",
     "test": "bun test",
     "coverage": "bun test --coverage",
-    "verify": "bun run typecheck && bun run lint && bun test --coverage"
+    "verify": "bun run typecheck && bun run lint && bun test --coverage",
+    "kit": "bun run ts/metalang/kit.ts"
   },
   "dependencies": {
     "js-yaml": "4.1.0",

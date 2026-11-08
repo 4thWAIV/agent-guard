@@ -110,6 +110,29 @@ export async function bundleWorkflowScript(
 }
 
 /**
+ * Builds a command into ONE file that node can run: everything the entry point imports is
+ * inlined, including js-yaml, so the file stands on its own beside the data it reads.
+ *
+ * Not minified, unlike the page bundle, because whoever takes the kit may read it.
+ */
+export async function bundleCommand(entrypoint: string): Promise<BundleResult> {
+  const built = await Bun.build({
+    ...SHARED,
+    entrypoints: [entrypoint],
+    target: 'node',
+  })
+
+  if (!built.success) {
+    throw new Error(`${entrypoint} did not build:\n${built.logs.map(String).join('\n')}`)
+  }
+
+  const output = built.outputs[0]
+  if (output === undefined) throw new Error(`${entrypoint} built no output`)
+
+  return { code: await output.text() }
+}
+
+/**
  * Builds the browser bundle for the language page. The vocabulary and the document are
  * replaced at build time, so nothing in the bundle reaches the filesystem.
  */
