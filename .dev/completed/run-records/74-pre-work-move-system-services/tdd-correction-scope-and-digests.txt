@@ -1,0 +1,52 @@
+# L3 correction — scope confirmation and delivered-file digests
+captured: 2026-09-16T16:07:12Z
+HEAD: c1c2a1875c14b1a2fb76bf1affc04b386769dccb
+
+$ git status --short -- src tests
+EXIT=0 (no output above means no file under src/ or tests/ changed)
+
+$ git status --short -- analyzers
+ D analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs
+ D analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+ M analyzers/AgentGuard.Analyzers.Tests/TimeMustUseTimeProviderAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md
+ M analyzers/AgentGuard.Analyzers/AttributeIdentity.cs
+ D analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs
+ D analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs
+ M analyzers/AgentGuard.Analyzers/CompositionPoint.cs
+ M analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs
+ M analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs
+ M analyzers/AgentGuard.Analyzers/PlatformFactory.cs
+ M analyzers/AgentGuard.Analyzers/TypeTree.cs
+?? analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/SymbolResolutionTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/TypeTreeTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/WrittenNameScannerTests.cs
+?? analyzers/AgentGuard.Analyzers/BoundaryAdapterFactories.cs
+?? analyzers/AgentGuard.Analyzers/DeclaredTypeScanner.cs
+?? analyzers/AgentGuard.Analyzers/EngineAssembly.cs
+?? analyzers/AgentGuard.Analyzers/EngineInternalsOneDoorAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/EngineToBoundariesOneDoorAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorIntoCrossPlatformAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorIntoPerOsAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorRule.cs
+?? analyzers/AgentGuard.Analyzers/SymbolResolution.cs
+?? analyzers/AgentGuard.Analyzers/WrittenNameScanner.cs
+
+$ shasum -a 256 <the ten delivered test files>
+d932e45dfe2cc40988c4de97662aea350e8ea5e9ef3b0ae3ed1ad02bd4241efe  analyzers/AgentGuard.Analyzers.Tests/SymbolResolutionTests.cs
+79b90407a40d144d189eb5586d97791305cb9b443479d8d92eedd0adfa713785  analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+1e25b6e31c859afbc429aca52b4139edaedf614702d8dce2b0a4b9dbd669701f  analyzers/AgentGuard.Analyzers.Tests/TypeTreeTests.cs
+147f8e923a4fe325685e2a77720e23a892b6683b4ca439260326d89039443b2f  analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+8b51eb1936570d7cb283f9d4f3c8e8cb4c445e823ff975aefad01058b0861db9  analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+85ad324824b8158a17f1f1f3373b40f25cb5fddaaaa5d9cace858e5bb13da443  analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+d219794e6df9424c93eb6a2e0a7e33636a7f85e2bb1f48abea858ac994000ce4  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+2de4f13291dd0af9904d1e22ee08c85353d0ef7088a780e8d0123ade2143a774  analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+845745de4f71cb0b0a80e9e117f87885632e96d8be2891c1d6fada07b135fbb2  analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs
+12f1c04bcd3cf42cfb82bc174ebd71f72e2dd4391c52600e65e523a8ec990e49  analyzers/AgentGuard.Analyzers.Tests/WrittenNameScannerTests.cs

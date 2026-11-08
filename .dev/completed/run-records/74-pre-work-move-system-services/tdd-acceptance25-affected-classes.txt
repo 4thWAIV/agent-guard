@@ -1,0 +1,112 @@
+# Acceptance 25 round — the three affected one-door test classes plus DeclaredTypeScannerTests
+captured: 2026-09-16T18:58:41Z
+HEAD: a12e58b305c5315bc175332066e90a2d693b1769
+This run is over the DELIVERED files, whose digests are recorded in tdd-acceptance25-scope-and-digests.txt.
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter 'FullyQualifiedName~EngineToBoundariesOneDoorAnalyzerTests|FullyQualifiedName~OneDoorIntoCrossPlatformAnalyzerTests|FullyQualifiedName~OneDoorIntoPerOsAnalyzerTests|FullyQualifiedName~DeclaredTypeScannerTests' --logger 'console;verbosity=detailed'
+  Determining projects to restore...
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj (in 301 ms).
+  Restored /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (in 301 ms).
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+/Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v2.5.7+8f2703126a (64-bit .NET 10.0.11)
+[xUnit.net 00:00:00.12]   Discovering: AgentGuard.Analyzers.Tests
+[xUnit.net 00:00:00.23]   Discovered:  AgentGuard.Analyzers.Tests
+[xUnit.net 00:00:00.24]   Starting:    AgentGuard.Analyzers.Tests
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorTypeReference_InsideContainerFactory_IsNotReported [1 s]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromContainerFactory_IsNotReported(call: "EnvironmentAdapter.Create()") [1 s]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromContainerFactory_IsNotReported(call: "Ed25519SignatureService.Create()") [7 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromContainerFactory_IsNotReported(call: "BuildInfoReader.Create()") [6 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromContainerFactory_IsNotReported(call: "ConsoleAdapter.Create()") [5 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.ContainerFactoryIdentity_IsTheStaticCreateInTheEngineAssembly [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static PosixFileSystem Property ="···) [64 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static string Named() => nameof(P"···) [19 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Local() { PosixFile"···) [32 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromLambdaInsideContainerFactory_IsReported [91 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromSameNamedContainerInAnotherNamespace_IsReported [16 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Cast(object value) "···) [17 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.ContainerFactoryIdentity_RejectsTheSameNamedMethodInAnotherAssembly [2 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromAnotherContainerMethod_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.SameNamedFactoryInAnotherAssembly_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.SameNamedFactoryInAnotherNamespace_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.NonFactoryMemberOnAPermittedType_FromContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Nested() { System.C"···) [31 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.AnyBoundariesCall_FromAnotherAssembly_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Attributed() => typ"···) [10 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromAnotherEngineClass_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.PermittedFactory_FromLocalFunctionInsideContainerFactory_IsReported [32 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Argument() => new S"···) [36 ms]
+  Passed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.FifthFactoryReturningAServiceInterface_FromContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        private static readonly PosixFileSystem Fi"···) [41 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static T Constrained<T>() where T"···) [29 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Inferred() { var va"···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Typed() => typeof(P"···) [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static PosixFileSystem Returned()"···) [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Parameter(PosixFile"···) [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static bool Pattern(object value)"···) [13 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.SameNamedDoorTypeReferenceInAnotherAssembly_InsideContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.AbstractionsTypeReference_FromEngine_IsNotReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.CallOldPlatformDoor_FromBoundaries_IsReported [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromLambdaInsideContainerFactory_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.CallOtherPerOsMember_FromBoundaries_IsReported [17 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.SameNamedDoorInAnotherAssembly_FromContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromContainerFactory_IsNotReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeInBaseList_FromEngine_IsReported [10 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DocumentationReferenceToGuardedType_FromEngine_IsNotReported [48 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.NonDoorCall_FromContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromAnotherEngineClass_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.CallOtherPerOsMember_FromEngine_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromLocalFunctionInsideContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.ReferenceToOtherPerOsType_FromBoundaries_IsNotReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorCall_FromAnotherContainerMethod_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DoorTypeReference_InAnotherEngineMethod_IsReported [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.SameNamedDoorInAnotherNamespace_FromContainerFactory_IsReported [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.CallPlatformServicesCreate_FromBoundaries_IsNotReported [5 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.GuardedTypeThroughUsingAlias_FromEngine_IsReported [19 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Nested() { System.C"···) [2 s]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static bool Pattern(object value)"···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Cast(object value) "···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static string Named() => nameof(F"···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static FileReader Returned() => n"···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Attributed() => typ"···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        private static readonly FileReader Field ="···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Inferred() { var va"···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Parameter(FileReade"···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Argument() => new S"···) [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Local() { FileReade"···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static FileReader Property => nul"···) [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static T Constrained<T>() where T"···) [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeReference_FromEngine_IsReported(declaration: "        internal static object Typed() => typeof(F"···) [6 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorLocalDeclaration_InsideContainerFactory_IsNotReported [11 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.NonDoorCall_FromContainerFactory_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromContainerFactory_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.AbstractionsTypeReference_FromEngine_IsNotReported [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromAnotherEngineClass_IsReported [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorLocalDeclaration_InAnotherEngineMethod_IsReported [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.PerOsDoorCall_FromContainerFactory_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeThroughUsingAlias_FromEngine_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [8 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.GuardedTypeInBaseList_FromEngine_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.CallIntoOtherCrossPlatformType_FromEngine_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.CallIntoAdapterFactory_FromBoundaries_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.ReferenceToOtherCrossPlatformType_FromBoundaries_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromLocalFunctionInsideContainerFactory_IsReported [8 ms]
+[xUnit.net 00:00:03.44]   Finished:    AgentGuard.Analyzers.Tests
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DocumentationReferenceToGuardedType_FromEngine_IsNotReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.CallIntoOtherCrossPlatformType_FromBoundaries_IsReported [11 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.SameNamedDoorInAnotherAssembly_FromContainerFactory_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromAnotherContainerMethod_IsReported [7 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromLambdaInsideContainerFactory_IsReported [9 ms]
+  Passed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.SameNamedDoorInAnotherNamespace_FromContainerFactory_IsReported [8 ms]
+  Passed AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests.TheGatedEntryPoint_ScansTheReturnTypeOfAnInvokedMember [3 s]
+  Passed AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests.TheDeclarationEntryPoint_DoesNotScanTheReturnTypeOfAnInvokedMember [12 ms]
+
+Test Run Successful.
+Total tests: 87
+     Passed: 87
+ Total time: 4.1108 Seconds
+EXIT=0

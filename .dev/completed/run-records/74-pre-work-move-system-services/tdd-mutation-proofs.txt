@@ -1,0 +1,106 @@
+MUTATION PROOFS for the DELIVERED tree
+Isolated copy: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/c96ea1f7-6b0a-4cef-b29f-2fca152f05fe/scratchpad/mutation-copy — an rsync of the working tree including the uncommitted and untracked delivered files
+(.git, bin, obj and .dev excluded). The shared checkout was never mutated; the copy was verified byte-identical
+to the delivered analyzers tree before and after this run.
+Each mutation is applied, the affected tests are run, and the mutation is reverted before the next.
+STARTED: 2026-09-16T04:59:14Z
+
+#### M1 — TypeTree.Any: delete the IPointerTypeSymbol branch ####
+MUTATED analyzers/AgentGuard.Analyzers/TypeTree.cs
+
+======== M1 — TypeTreeTests ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~AgentGuard.Analyzers.Tests.TypeTreeTests"
+  Failed AgentGuard.Analyzers.Tests.TypeTreeTests.APointerToAnotherType_IsWalkedToItsTargetAndDoesNotMatch [775 ms]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+Expected: string[]     ["Sample.Other"]
+Actual:   List<string> []
+  Failed AgentGuard.Analyzers.Tests.TypeTreeTests.APointerToTheSoughtType_ReachesItsTarget [15 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Failed AgentGuard.Analyzers.Tests.TypeTreeTests.AnArrayOfPointers_ReachesTheTargetThroughItsElementType [10 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Failed AgentGuard.Analyzers.Tests.TypeTreeTests.AGenericCarryingAPointerArray_ReachesTheTargetThroughItsTypeArgument [14 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+Failed!  - Failed:     4, Passed:     0, Skipped:     0, Total:     4, Duration: 811 ms - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+#### M2 — DeclaredTypeScanner.RegisterForAssembly: disable the invoked-return registration ####
+MUTATED analyzers/AgentGuard.Analyzers/DeclaredTypeScanner.cs
+
+======== M2 — DeclaredTypeScannerTests ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests"
+  Failed AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests.TheGatedEntryPoint_ScansTheReturnTypeOfAnInvokedMember [1 s]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+Expected: ["Declared", "Declared()", "EngineInternal"]
+Actual:   ["Declared", "EngineInternal"]
+Failed!  - Failed:     1, Passed:     1, Skipped:     0, Total:     2, Duration: 1 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+#### M3 — DeclaredTypeScanner.RegisterDeclarations: ADD the invoked-return registration (would change AG0006) ####
+MUTATED analyzers/AgentGuard.Analyzers/DeclaredTypeScanner.cs
+
+======== M3 — DeclaredTypeScannerTests AND AG0006's seven existing tests ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests|FullyQualifiedName~AgentGuard.Analyzers.Tests.ContractConcreteTypeMustNotBeReferencedAnalyzerTests"
+  Failed AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests.TheGatedEntryPoint_ScansTheReturnTypeOfAnInvokedMember [1 s]
+  Error Message:
+   Assert.Equal() Failure: Collections differ
+Expected: ["Declared", "Declared()", "EngineInternal"]
+Actual:   ["Declared", "Declared()", "Declared()", "EngineInternal"]
+  Failed AgentGuard.Analyzers.Tests.DeclaredTypeScannerTests.TheDeclarationEntryPoint_DoesNotScanTheReturnTypeOfAnInvokedMember [22 ms]
+  Error Message:
+   Assert.Single() Failure: The collection contained 2 items
+Failed!  - Failed:     2, Passed:     7, Skipped:     0, Total:     9, Duration: 1 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+#### M4 — CompositionPoint: drop the ASSEMBLY from the container-factory identity conjunction ####
+MUTATED analyzers/AgentGuard.Analyzers/CompositionPoint.cs
+
+======== M4 — every AG0040 test, including the two direct CompositionPoint caller-identity tests ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests"
+  Failed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.ContainerFactoryIdentity_RejectsTheSameNamedMethodInAnotherAssembly [7 ms]
+  Error Message:
+   Assert.False() Failure
+Expected: False
+Actual:   True
+Failed!  - Failed:     1, Passed:    14, Skipped:     0, Total:    15, Duration: 1 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+#### M5 — SharedAnalyzerSources.DocumentedMember: demote /// to // so the text 'cref' survives but no CrefSyntax node is parsed ####
+MUTATED analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+
+======== M5 — the four behavioral documentation cases (this is the hole the node assertion closes: Assert.Contains("cref", source) still passes here) ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~DocumentationReference"
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DocumentationReferenceToGuardedType_FromEngine_IsNotReported [119 ms]
+  Error Message:
+   Assert.Contains() Failure: Filter not matched in collection
+  Failed AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.DocumentationReferenceToEngineInternal_IsNotReported(assemblyName: "AgentGuard.TestHelpers") [119 ms]
+  Error Message:
+   Assert.Contains() Failure: Filter not matched in collection
+  Failed AgentGuard.Analyzers.Tests.OneDoorIntoPerOsAnalyzerTests.DocumentationReferenceToGuardedType_FromEngine_IsNotReported [119 ms]
+  Error Message:
+   Assert.Contains() Failure: Filter not matched in collection
+  Failed AgentGuard.Analyzers.Tests.EngineInternalsOneDoorAnalyzerTests.DocumentationReferenceToEngineInternal_IsNotReported(assemblyName: "guard") [< 1 ms]
+  Error Message:
+   Assert.Contains() Failure: Filter not matched in collection
+Failed!  - Failed:     4, Passed:     3, Skipped:     0, Total:     7, Duration: 844 ms - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+#### M6 — SymbolResolution.NamedType: delete tier one (the bound method's containing type) ####
+MUTATED analyzers/AgentGuard.Analyzers/SymbolResolution.cs
+
+======== M6 — SymbolResolutionTests AND the two existing malformed-attribute test classes ========
+COMMAND: dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter "FullyQualifiedName~AgentGuard.Analyzers.Tests.SymbolResolutionTests|FullyQualifiedName~AgentGuard.Analyzers.Tests.InteropOnlyInCrossPlatformLibrariesAnalyzerTests|FullyQualifiedName~AgentGuard.Analyzers.Tests.NativeCallbackBodyMustBeGuardedAnalyzerTests"
+  Failed AgentGuard.Analyzers.Tests.SymbolResolutionTests.NamedType_OnAnInvocation_StopsAtTheBoundMethodAndNeverReachesTheTypeInfoTier [5 ms]
+  Error Message:
+   Assert.Equal() Failure: Strings differ
+Expected: "Sample.Holder"
+Actual:   "Sample.Guarded"
+Failed!  - Failed:     1, Passed:    40, Skipped:     0, Total:    41, Duration: 2 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+
+FINISHED: 2026-09-16T04:59:47Z
+ISOLATED COPY RESTORED — identical to the delivered tree

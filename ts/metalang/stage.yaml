@@ -1,0 +1,27 @@
+# A sample second document, written to show that a file other than the language file can be
+# written and checked. It declares one entity and reaches `string`, `boolean` and `byte` by
+# importing the scope that declares them.
+
+scope: [guard, process]
+import:
+  - [metalang]
+title: A stage of the process
+description: One stage of the workflow a piece of work runs through.
+declare:
+  - entity:
+      id: stage
+      title: One stage of the workflow.
+      description: What it produces is the input of the stage after it.
+      properties:
+        name:
+          is: string
+          title: The name the stage is known by.
+        optional:
+          is: boolean
+          optional: true
+          title: Whether the work may skip this stage.
+          description: Left out, the stage runs every time.
+        tries:
+          is: byte
+          value: 3
+          title: How many times the stage is attempted before it stops the work.

@@ -3,7 +3,7 @@
 using System;
 using System.Runtime.InteropServices;
 using AgentGuard.Abstractions.Contracts;
-using AgentGuard.Boundaries;
+using AgentGuard.Engine;
 using Microsoft.Extensions.Time.Testing;
 
 namespace AgentGuard.TestHelpers;
@@ -24,7 +24,7 @@ public sealed class SystemServicesBuilder
 {
     // The real host VALUES — process + OS architecture, home directory, temp root, filesystem case-sensitivity, and the
     // OS directory separator —
-    // read ONCE through the single sanctioned Boundaries entrypoint (SystemServices.Create(), the same door Real() uses)
+    // read ONCE through the single sanctioned Engine entrypoint (SystemServices.Create(), the same door Real() uses)
     // and cached as plain VALUES (two enums, two strings, a bool) — never the container or a service, so there is no
     // per-build reconstruction and no AG0024 static service holder. The Fake() default environment reports these true
     // host values instead of hardcoded roots: because the simulator is copy-on-write over a real read-only base and never
@@ -297,8 +297,9 @@ public sealed class SystemServicesBuilder
         bool caseSensitive) =>
         new(baseReader, baseEnumerator, basePlatform, comparer: null, tempRoot: tempRoot, caseSensitive: caseSensitive);
 
-    // Reads the real host VALUES ONCE through the one sanctioned Boundaries door (SystemServices.Create(), the same
-    // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017), then discards
+    // Reads the real host VALUES ONCE through the one sanctioned Engine door (SystemServices.Create(), the same
+    // entrypoint Real() calls — legal here because SystemServicesBuilder is a composition caller, AG0017; it is also
+    // the one Engine internal this assembly may reach through Engine's grant, AG0041), then discards
     // the container and keeps only plain VALUES: the two architectures, the home directory, the temp root, the host
     // filesystem's case-sensitivity (read through the case-sensitivity detection the platform already carries, keyed on
     // the real home), and the OS directory separator (the owned IPlatformFileSystem.DirectorySeparator, off the same

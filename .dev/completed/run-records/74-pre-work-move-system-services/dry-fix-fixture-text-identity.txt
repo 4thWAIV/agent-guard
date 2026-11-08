@@ -1,0 +1,56 @@
+# DRY-fix round — proof that fix 3 leaves every generated fixture text byte-identical
+captured: 2026-09-16T19:44:36Z
+
+Fix 3 turned SharedAnalyzerSources.EngineAssemblySource into an interpolated raw string ($$""") whose
+namespace hole is {{WrongContainerNamespace}}, and rebuilt EngineInternalsOneDoorAnalyzerTests'
+DecoyContainerType, DecoyContainerCreate and the SameNamedContainerInTheWrongNamespace fixture body from
+that owner. The compiled string values must not move. These are the comparisons that were run, not an
+assertion that they hold.
+
+## Method
+The constant values were read straight out of the two built assemblies' metadata with a throwaway tool
+(System.Reflection.Metadata; PEReader + MetadataReader), so nothing is transcribed by hand and nothing
+depends on reading the C# source correctly. Both assemblies were built from clean bin/obj.
+
+## 1. EngineAssemblySource, the constant fix 3 rewrote
+$ dumpconst <before.dll> SharedAnalyzerSources EngineAssemblySource EngineAssemblySource-before.txt
+wrote 1071 chars of SharedAnalyzerSources.EngineAssemblySource
+$ dumpconst <after.dll>  SharedAnalyzerSources EngineAssemblySource EngineAssemblySource-after.txt
+wrote 1071 chars of SharedAnalyzerSources.EngineAssemblySource
+
+$ cmp EngineAssemblySource-before.txt EngineAssemblySource-after.txt
+EXIT=0  (no output, exit 0: the two byte streams are equal)
+
+$ shasum -a 256 EngineAssemblySource-before.txt EngineAssemblySource-after.txt
+6b0ebe5335fd068376e899fe8af5e21e7b36b9fa994af49bbc1fdcdbeb096509  EngineAssemblySource-before.txt
+6b0ebe5335fd068376e899fe8af5e21e7b36b9fa994af49bbc1fdcdbeb096509  EngineAssemblySource-after.txt
+$ wc -c EngineAssemblySource-before.txt EngineAssemblySource-after.txt
+    1071 EngineAssemblySource-before.txt
+    1071 EngineAssemblySource-after.txt
+    2142 total
+
+The line the interpolation hole produces, in the AFTER value (line 46 of the generated fixture):
+46:namespace AgentGuard.Engine.Decoy
+
+## 2. Every other string the test assembly carries
+A second throwaway tool dumped the WHOLE #US user-string heap (where every ldstr operand lives) plus every
+string field constant, sorted and escaped one per line. This covers the method-local const 'body' at
+EngineInternalsOneDoorAnalyzerTests SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported,
+which is folded into an ldstr and so cannot be read as a field.
+
+$ dumpstrings <before.dll> strings-before.txt
+wrote 1019 entries (282132 bytes of #US) to strings-before.txt
+$ dumpstrings <after.dll>  strings-after.txt
+wrote 1019 entries (282132 bytes of #US) to strings-after.txt
+
+$ diff strings-before.txt strings-after.txt
+EXIT=0  (no output, exit 0: no string literal or string constant anywhere in the test assembly changed)
+$ shasum -a 256 strings-before.txt strings-after.txt
+e5041a42e0e6d571752a28b76136c4ea30df7282dbe8941b8a30e2c7c94e18a9  strings-before.txt
+e5041a42e0e6d571752a28b76136c4ea30df7282dbe8941b8a30e2c7c94e18a9  strings-after.txt
+
+The four fix-3 entries, read out of the AFTER dump:
+CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerCreate	AgentGuard.Engine.Decoy.SystemServices.Create()
+CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerType	AgentGuard.Engine.Decoy.SystemServices
+CONST	SharedAnalyzerSources.WrongContainerNamespace	AgentGuard.Engine.Decoy
+US	        internal static object Build() => AgentGuard.Engine.Decoy.SystemServices.Create();

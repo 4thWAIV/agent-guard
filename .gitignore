@@ -163,7 +163,23 @@ eng/obj/
 # Private working area: notes, drafts, and handoffs that never belong in the repository.
 .private/
 
+# Handoff area: files written for another session to read, in a folder without a leading dot so a
+# reader that skips hidden folders can find them. Correspondence, never an input to the build.
+handoff/
+
+# Replies written for the jarvis session, wherever one is put.
+jarvis-reply.md
+JARVIS-REPLY.md
+
 # Review capture artifacts: browser screenshots and console logs from rendering a
 # review page. Evidence of a session, never an input to one; the page regenerates
 # from its committed model, view and render script.
 .dev/**/review-screenshots/
+
+# MetaLang's rendered page: build output from ts/metalang/render.ts, regenerated from the
+# committed language file, view and bundler. Never an input to anything.
+ts/metalang/*.html
+
+# The EvoLang build kit: output of ts/metalang/kit.ts, assembled from the committed source and
+# the committed language files. Never an input to anything.
+dist/evolang-kit/

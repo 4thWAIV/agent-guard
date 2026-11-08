@@ -1,0 +1,32 @@
+# DRY-fix round — commands and exit codes
+captured: 2026-09-16T19:45:42Z
+Working directory for every dotnet command below:
+  <scratchpad>/after   — an rsync copy of the shared checkout, verified byte-identical to it over
+  analyzers/ (excluding bin and obj) immediately before this run. analyzers/*/bin and analyzers/*/obj
+  were deleted first so MSBuild could not read a stale analyzer DLL.
+
+$ dotnet build analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+EXIT=0
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj --filter FullyQualifiedName~DeclaredTypeScannerTests|FullyQualifiedName~EngineToBoundariesOneDoorAnalyzerTests|FullyQualifiedName~OneDoorIntoCrossPlatformAnalyzerTests|FullyQualifiedName~OneDoorIntoPerOsAnalyzerTests|FullyQualifiedName~EngineInternalsOneDoorAnalyzerTests|FullyQualifiedName~TimeMustUseTimeProviderAnalyzerTests
+Passed!  - Failed:     0, Passed:   180, Skipped:     0, Total:   180, Duration: 3 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 6 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+
+## Supporting proofs, each with its own evidence file in this folder
+
+  dry-fix-full-analyzer-tests.txt      the suite output and the case-for-case comparison, before vs after
+  dry-fix-fixture-text-identity.txt    the byte comparisons proving fix 3 moved no generated fixture text
+  dry-fix-mutation-proofs.txt          M1 to M5, the mutations that prove each extraction is wired and load-bearing
+  dry-fix-scope-and-digests.txt        digests before and after, git status, and the diff of this round alone
+
+## Case counts
+  BEFORE these three edits: Passed 619, Failed 0, Skipped 0, Total 619
+  AFTER  these three edits: Passed 619, Failed 0, Skipped 0, Total 619
+  The 619 case NAMES were also compared one by one and are identical; see dry-fix-full-analyzer-tests.txt.

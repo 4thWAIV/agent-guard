@@ -27,12 +27,12 @@ AG0018  | AgentGuard.Architecture | Warning | TestHelpersOnlyInTestsAnalyzer
 AG0019  | AgentGuard.Architecture | Warning | BuilderCompletenessAnalyzer
 AG0020  | AgentGuard.Architecture | Warning | PathPurityAnalyzer
 AG0022  | AgentGuard.Architecture | Warning | ContainerInterfaceSingleOwnerAnalyzer
-AG0023  | AgentGuard.Architecture | Warning | BoundariesToCrossPlatformOneDoorAnalyzer
+AG0023  | AgentGuard.Architecture | Warning | OneDoorIntoCrossPlatformAnalyzer
 AG0024  | AgentGuard.Architecture | Warning | NoStaticServiceHolderAnalyzer
 AG0025  | AgentGuard.Architecture | Warning | OneOwnerPerInterfaceAnalyzer
 AG0026  | AgentGuard.Architecture | Warning | NoOsSkipInTestsAnalyzer
 AG0027  | AgentGuard.Architecture | Warning | GuardedConstructionAnalyzer (InMemoryFileSystemStore single construction)
-AG0029  | AgentGuard.Architecture | Warning | BoundariesToPerOsOneDoorAnalyzer
+AG0029  | AgentGuard.Architecture | Warning | OneDoorIntoPerOsAnalyzer
 AG0030  | AgentGuard.Architecture | Warning | LeafPlatformSingleImplementerAnalyzer
 AG0031  | AgentGuard.Architecture | Warning | NoServiceAsParameterAnalyzer
 AG0032  | AgentGuard.Architecture | Warning | NoCoverageOptOutAnalyzer
@@ -43,6 +43,8 @@ AG0036  | AgentGuard.Architecture | Warning | NoLiteralCaseModeSeedAnalyzer
 AG0037  | AgentGuard.Architecture | Warning | NoOsBranchingOutsideCrossPlatformAnalyzer (single-OS branch inside a per-OS implementation library)
 AG0038  | AgentGuard.Architecture | Warning | TimeoutMustUseTimeProviderAnalyzer (bounded waits/timeouts flow through the injected TimeProvider)
 AG0039  | AgentGuard.Architecture | Warning | NoCallerFilePathAnalyzer ([CallerFilePath] banned production and test alike, wherever the custom analyzers are wired in; reach the base directory through IEnvironment.GetBaseDirectory())
+AG0040  | AgentGuard.Architecture | Warning | EngineToBoundariesOneDoorAnalyzer (Engine reaches AgentGuard.Boundaries only through the four permitted adapter factories, and only from SystemServices.Create())
+AG0041  | AgentGuard.Architecture | Warning | EngineInternalsOneDoorAnalyzer (the CLI and AgentGuard.TestHelpers reach only the SystemServices.Create() invocation among AgentGuard.Engine internals)
 AG0101  | AgentGuard.Architecture | Warning | OsDivergentFilesystemOnlyInCrossPlatformAnalyzer (shrunk to static OS-divergent members, Marshal, and P/Invoke)
 AG0102  | AgentGuard.Architecture | Warning | PInvokeSignatureMustBeBlittableAnalyzer (no object/dynamic/unconstrained-generic/variadic in a P/Invoke signature)
 AG0103  | AgentGuard.Architecture | Warning | MacOsNativeBoolMustBeI1Analyzer (macOS native bool marshalled as UnmanagedType.I1)

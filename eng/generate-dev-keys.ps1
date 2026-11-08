@@ -15,6 +15,7 @@ New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 
 Write-Host "==> minting keys into $OutDir"
 dotnet run (Join-Path $ScriptDir 'generate-dev-keys.cs') -- $OutDir
+if ($LASTEXITCODE -ne 0) { throw "generate-dev-keys.cs failed with exit code $LASTEXITCODE" }
 
 $Pfx = Join-Path $OutDir 'agentguard-codesign.pfx'
 

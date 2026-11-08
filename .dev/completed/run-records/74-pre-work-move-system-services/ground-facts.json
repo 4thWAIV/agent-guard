@@ -1,0 +1,527 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+  "facts": [
+    {
+      "area": "container-and-composition",
+      "facts": [
+        {
+          "claim": "SystemServices today (src/AgentGuard.Boundaries/SystemServices.cs:1-108) is `internal sealed class SystemServices : ISystemServices` (line 28) with a `private` 8-parameter constructor (lines 32-50: fileSystem, environment, random, console, platform, signatures, buildInfo, clock, assigned to 8 get-only properties at lines 53-74 in that same order) and `public static ISystemServices Create()` (line 86). The 8 properties match `ISystemServices` (src/AgentGuard.Abstractions/Contracts/ISystemServices.cs:11-53) member-for-member and in the same declared order (FileSystem, Environment, Random, Console, Platform, Signatures, BuildInfo, Clock).",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:28-74; src/AgentGuard.Abstractions/Contracts/ISystemServices.cs:11-53 (read in full, both files)."
+        },
+        {
+          "claim": "Create() (lines 87-107) builds the 8 services from 6 factory calls in this order: TimeProvider.System read directly (88); CrossPlatformAdapters.Create() stored in a locally-typed `CrossPlatformAdapters adapters` variable (90); `global::AgentGuard.CrossPlatform.PlatformServices.Create()` fully qualified, assigned to an interface-typed `IPlatformServices platform` local, not a door-typed one (91); EnvironmentAdapter.Create() (93), ConsoleAdapter.Create() (94), Ed25519SignatureService.Create() (95), BuildInfoReader.Create() (96) all unqualified (same-namespace calls today); then `new SystemServices(adapters.FileSystem, environment, adapters.Random, console, platform, signatures, buildInfo, clock)` (98-106).",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:87-107, read verbatim."
+        },
+        {
+          "claim": "Exactly two real call sites of SystemServices.Create() exist in the whole repo: src/AgentGuard.Cli/Program.cs:62 (inside `private static Task<int> Main`) and tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs, which calls it at :77 (Real()) and again at :311 (ReadRealHost()).",
+          "evidence": "grep -rn \"SystemServices\\.Create(\" src tests --include=*.cs (obj/bin excluded) returned only those three call lines plus doc-comment mentions in the same two files and in per-OS PlatformServices.cs doc comments (prose only, not code)."
+        },
+        {
+          "claim": "Exactly those same two files have `using AgentGuard.Boundaries;` anywhere in the repo, so both need only that one using-directive changed to AgentGuard.Engine.",
+          "evidence": "grep -rln \"^using AgentGuard\\.Boundaries;\" src tests --include=*.cs (obj/bin excluded) returned exactly src/AgentGuard.Cli/Program.cs and tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs, no others."
+        },
+        {
+          "claim": "Each of the four Boundaries factories the contract names -- EnvironmentAdapter.Create() (EnvironmentAdapter.cs:61, internal static), ConsoleAdapter.Create() (ConsoleAdapter.cs:45), Ed25519SignatureService.Create() (Ed25519SignatureService.cs:97), BuildInfoReader.Create() (BuildInfoReader.cs:48) -- is called from exactly one place in the whole src+tests tree: inside SystemServices.Create() (lines 93-96). No other production or test code calls any of the four.",
+          "evidence": "grep -rn \"EnvironmentAdapter.Create(\\|ConsoleAdapter.Create(\\|Ed25519SignatureService.Create(\\|BuildInfoReader.Create(\" src tests, each pattern run individually, returned only the declaration site and the one call inside SystemServices.cs."
+        },
+        {
+          "claim": "CrossPlatformAdapters.Create() (src/AgentGuard.CrossPlatform/CrossPlatformAdapters.cs:74, internal static) has a second caller besides SystemServices.cs:90: src/AgentGuard.CrossPlatform/PlatformFileSystemComposition.cs:26, an existing same-assembly call inside the per-OS PlatformServices.Create() chain that is untouched by this relocation.",
+          "evidence": "grep -rn \"CrossPlatformAdapters.Create(\" src tests returned SystemServices.cs:90, CrossPlatformAdapters.cs:74 (the declaration), and PlatformFileSystemComposition.cs:26."
+        },
+        {
+          "claim": "No behavior anywhere in the SystemServices.Create() call graph depends on the caller's or the container's declaring assembly. The only reflective assembly read in the whole src tree is BuildInfoReader.Create()'s `Assembly assembly = typeof(BuildInfoReader).Assembly;`, anchored to BuildInfoReader's own declaring type -- which the contract keeps in AgentGuard.Boundaries, not moved -- so it is unaffected by where SystemServices itself lives.",
+          "evidence": "grep -rn \"GetCallingAssembly|GetEntryAssembly|GetExecutingAssembly|StackTrace|MethodBase.GetCurrentMethod\" src and a broader grep -rn \"Assembly\\.\" src (obj/bin excluded) both return exactly one code hit, src/AgentGuard.Boundaries/BuildInfoReader.cs:52; TimeProvider.System, CrossPlatformAdapters.Create(), the per-OS PlatformServices.Create() (read in full: src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs:20-53), and EnvironmentAdapter.GetBaseDirectory()'s AppContext.BaseDirectory read (EnvironmentAdapter.cs:49) all construct/read purely by delegation with no caller-identity reflection."
+        },
+        {
+          "claim": "Every one of src/AgentGuard.Engine's .cs files (59 files) declares the identical file-scoped `namespace AgentGuard.Engine;`. SystemServices.cs already uses file-scoped namespace syntax (`namespace AgentGuard.Boundaries;`, line 7), so the move changes only the namespace value, not the declaration form.",
+          "evidence": "grep -h \"^namespace\" src/AgentGuard.Engine/*.cs | sort -u returns exactly one line, `namespace AgentGuard.Engine;`; SystemServices.cs:7."
+        },
+        {
+          "claim": "No name collision and no second container implementer exists in Engine today.",
+          "evidence": "grep for `class SystemServices|EnvironmentAdapter|ConsoleAdapter|Ed25519SignatureService|BuildInfoReader|CrossPlatformAdapters|PlatformServices|FileSystem|GuidFactory|FileInfoFactory` against src/AgentGuard.Engine/*.cs returns nothing; a separate grep for any `: ISystemServices|IFileSystem|IPlatformServices` implementer against the same files also returns nothing."
+        },
+        {
+          "claim": "SystemServices.cs compiles under identical compiler/analyzer configuration in either assembly. The repo-root Directory.Build.props applies Nullable=enable, LangVersion=latest, TreatWarningsAsErrors=true, AnalysisLevel/AnalysisMode, the full StyleCop/Roslynator/SonarAnalyzer/Meziantou/Philips analyzer suite, and the AgentGuard.Analyzers project-analyzer reference to every project where AgentGuardIsTestProject/AgentGuardIsAnalyzerProject are unset -- true for both Boundaries and Engine, with no per-project override of any of those properties in either csproj and no per-project .editorconfig in either directory.",
+          "evidence": "Directory.Build.props:12-88 (read in full); src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj and src/AgentGuard.Engine/AgentGuard.Engine.csproj (read in full) set only RootNamespace/AssemblyName(/PackageId)/package-and-project references, nothing compiler-level; find for .editorconfig in either project directory returns nothing."
+        },
+        {
+          "claim": "SystemServices.Create()'s own XML doc comment names its two cross-assembly calls using the word 'Boundaries' as the call source ('the single allowed Boundaries -> CrossPlatform call, AG0023' and 'the single allowed Boundaries -> per-OS call, AG0029'), text that becomes inaccurate once the call site is Engine, and needs updating as an instance of the contract's generic 'Comments on changed ownership' surface.",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:80-81."
+        },
+        {
+          "claim": "The wiring test class (BoundariesSystemServicesWiringTests.cs, 56 lines, 4 Facts) and the four adapter test classes (BoundariesConsoleAdapterTests.cs 44 lines, BoundariesEnvironmentAdapterTests.cs 60 lines, BoundariesBuildInfoTests.cs 40 lines, BoundariesEd25519SignatureServiceTests.cs 73 lines) reach every service exclusively through SystemServicesBuilder.Real().Build(). None has `using AgentGuard.Boundaries;` and none names SystemServices/EnvironmentAdapter/ConsoleAdapter/Ed25519SignatureService/BuildInfoReader outside `<c>...</c>` doc-comment prose, so none loses compile-time access when the Boundaries grants move.",
+          "evidence": "All five files read in full from tests/AgentGuard.Tests/; targeted grep of each file for those identifiers plus ^using confirmed no code-level reference, only doc-comment prose and one unrelated string literal ('stdout line from BoundariesConsoleAdapterTests')."
+        },
+        {
+          "claim": "tests/AgentGuard.Tests/AgentGuard.Tests.csproj references AgentGuard.Engine and AgentGuard.TestHelpers directly and has no ProjectReference to AgentGuard.Boundaries at all. src/AgentGuard.Engine/AgentGuard.Engine.csproj already declares `<InternalsVisibleTo Include=\"AgentGuard.Tests\" />` today, pre-existing and unrelated to this contract. src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj grants InternalsVisibleTo only to `guard` and `AgentGuard.TestHelpers`, never to AgentGuard.Tests.",
+          "evidence": "tests/AgentGuard.Tests/AgentGuard.Tests.csproj:18-21; src/AgentGuard.Engine/AgentGuard.Engine.csproj:14; src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj:23-26."
+        },
+        {
+          "claim": "Consequence of the prior fact: TODAY AgentGuard.Tests cannot name SystemServices (or any of the four adapters) as a type at all -- they are internal in Boundaries, which grants it no InternalsVisibleTo, and a ProjectReference to TestHelpers (which does reference Boundaries) carries no internal-access grant transitively. AFTER the move, because Engine already grants AgentGuard.Tests internals-visibility and AgentGuard.Tests already references Engine directly, AgentGuard.Tests gains the ability to name AgentGuard.Engine.SystemServices as a type -- a capability it did not have while the type sat in Boundaries.",
+          "evidence": "Derived from the two csproj facts above plus C# InternalsVisibleTo non-transitivity; this exact consequence is independently recorded in conversation.md's 'Consequences of the approved design that explorers should not reopen' section, which I corroborated against the live csproj files rather than taking on trust."
+        },
+        {
+          "claim": "AG0017 (analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs, `ContainerDiagnosticId = \"AG0017\"` at line 44) matches 'a call to a static factory that hands back the ISystemServices container' by return type and caller identity, not by the callee's declaring assembly, so it continues to gate a SystemServices.Create() CALL from an AgentGuard.Tests test method even after that project gains the ability to name the type -- only the type-naming reachability changes, not the call-site restriction.",
+          "evidence": "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:15,44,124 (grepped and spot-read, not fully re-derived -- AG0017's complete mechanics are the analyzer-fence area's territory)."
+        },
+        {
+          "claim": "The live working tree is clean apart from this run's own input-folder bookkeeping, so every path/line cited above was read from current working-tree bytes at HEAD, and SystemServices.cs's last commit predates HEAD by three weeks, consistent with no relocation having happened yet.",
+          "evidence": "git status --short shows only .dev/inprocess/74-pre-work-move-system-services/contract.md modified and conversation.md untracked; git log -1 --format=\"%H %ci\" -- src/AgentGuard.Boundaries/SystemServices.cs returns f442128608c6bbf25886ce58f6d6d657fb8cb98f 2026-08-21 11:24:16 -0600, versus HEAD c1c2a18 per the session's git status header."
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Boundaries/SystemServices.cs",
+        "src/AgentGuard.Boundaries/EnvironmentAdapter.cs",
+        "src/AgentGuard.Boundaries/ConsoleAdapter.cs",
+        "src/AgentGuard.Boundaries/Ed25519SignatureService.cs",
+        "src/AgentGuard.Boundaries/BuildInfoReader.cs",
+        "src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj",
+        "src/AgentGuard.CrossPlatform/CrossPlatformAdapters.cs",
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemComposition.cs",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PlatformServices.cs",
+        "src/AgentGuard.CrossPlatform.Linux/Posix/PlatformServices.Linux.cs",
+        "src/AgentGuard.CrossPlatform.Windows/Windows/PlatformServices.cs",
+        "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs",
+        "src/AgentGuard.Engine/AgentGuard.Engine.csproj",
+        "src/AgentGuard.Cli/Program.cs",
+        "src/AgentGuard.Cli/AgentGuard.Cli.csproj",
+        "tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs",
+        "tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj",
+        "tests/AgentGuard.Tests/BoundariesSystemServicesWiringTests.cs",
+        "tests/AgentGuard.Tests/BoundariesConsoleAdapterTests.cs",
+        "tests/AgentGuard.Tests/BoundariesEnvironmentAdapterTests.cs",
+        "tests/AgentGuard.Tests/BoundariesBuildInfoTests.cs",
+        "tests/AgentGuard.Tests/BoundariesEd25519SignatureServiceTests.cs",
+        "tests/AgentGuard.Tests/AgentGuard.Tests.csproj",
+        "tests/AgentGuard.Cli.Tests/CliMachine.cs",
+        "Directory.Build.props",
+        "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs"
+      ],
+      "openQuestions": [],
+      "autoResolved": [
+        {
+          "choice": "Whether the wording of SystemServices.Create()'s internal XML doc comment (which names 'Boundaries' as the source of the CrossPlatform and per-OS calls) needs its own approval separate from the contract's blanket comment-update surface.",
+          "resolution": "No -- comment wording is implementation detail already covered by the contract's approved 'Comments on changed ownership and access in the listed source and project files' surface; it needs no separate sign-off.",
+          "principle": "rails-decisions: 'How a named thing is internally coded (a loop, a helper, a name) is implementation, not a decision, and needs no sign-off.'",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:80-81 names 'Boundaries -> CrossPlatform call, AG0023' / 'Boundaries -> per-OS call, AG0029'; .dev/inprocess/74-pre-work-move-system-services/contract.md Surfaces section: 'Comments on changed ownership and access in the listed source and project files.'"
+        }
+      ]
+    },
+    {
+      "area": "project-graph-and-grants",
+      "facts": [
+        {
+          "claim": "AgentGuard.sln already lists all 14 relevant projects (Abstractions, Boundaries, CrossPlatform, the three per-OS impls, CrossPlatform.Tests, Engine, Cli, Cli.Tests, Tests, TestHelpers, Analyzers, Analyzers.Tests) in one Debug|Any CPU / Release|Any CPU configuration with no per-project RID variation. `make build`/`make test` (Makefile) run plain `dotnet restore`/`dotnet build`/`dotnet test` with no project argument, which resolve the sole root-level AgentGuard.sln. No sln edit is required by the relocation.",
+          "evidence": "AgentGuard.sln (14 Project(...) entries, one GlobalSection(ProjectConfigurationPlatforms)); Makefile:1-11 (`build: restore` -> `dotnet build`; `test: build` -> `dotnet test`, no csproj/sln arg)"
+        },
+        {
+          "claim": "Current ProjectReference graph, read from each csproj and cross-verified by live `dotnet msbuild -getItem:ProjectReference`: Abstractions -> (none). Boundaries -> Abstractions + [PlatformImplementation.targets: CrossPlatform + exactly one of MacOS/Linux/Windows]. CrossPlatform -> Abstractions. Each per-OS project -> Abstractions + CrossPlatform. Engine -> Abstractions ONLY (no Boundaries/CrossPlatform/per-OS edge exists today). Cli -> Engine (RID-threaded) + Boundaries (RID-threaded). TestHelpers -> Boundaries. AgentGuard.Tests -> Engine + TestHelpers. Cli.Tests -> Cli + TestHelpers. CrossPlatform.Tests -> TestHelpers + [PlatformImplementation.targets: CrossPlatform + one per-OS project].",
+          "evidence": "src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj, src/AgentGuard.CrossPlatform*/\u200b*.csproj, src/AgentGuard.Engine/AgentGuard.Engine.csproj, src/AgentGuard.Cli/AgentGuard.Cli.csproj, tests/*/\u200b*.csproj (full file reads); live command `dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference` -> JSON listing ONLY AgentGuard.Analyzers (Directory.Build.props-injected) + AgentGuard.Abstractions, confirming Engine has zero platform/Boundaries edge today"
+        },
+        {
+          "claim": "Current InternalsVisibleTo graph, cross-verified live via `dotnet msbuild -getItem:InternalsVisibleTo` against every csproj that declares one: Boundaries grants {guard, AgentGuard.TestHelpers}. Engine grants {AgentGuard.Tests} (one item only). CrossPlatform grants {AgentGuard.Boundaries, AgentGuard.CrossPlatform.MacOS, AgentGuard.CrossPlatform.Linux, AgentGuard.CrossPlatform.Windows, AgentGuard.CrossPlatform.Tests} (five items). Each of the three per-OS projects grants {AgentGuard.Boundaries, AgentGuard.CrossPlatform.Tests} (two items each). Cli grants {AgentGuard.Cli.Tests}. TestHelpers, AgentGuard.Tests, Cli.Tests, CrossPlatform.Tests declare no InternalsVisibleTo.",
+          "evidence": "Live commands, one per project: `dotnet msbuild <csproj> -getItem:InternalsVisibleTo` for Boundaries, Engine, CrossPlatform, CrossPlatform.Linux, CrossPlatform.MacOS, CrossPlatform.Windows, Cli \u2014 all seven runs pasted verbatim in-session, each returning exactly the Identity list stated (e.g. Boundaries: \"guard\", \"AgentGuard.TestHelpers\"; Engine: \"AgentGuard.Tests\" only); matches the raw XML in each csproj read directly"
+        },
+        {
+          "claim": "PlatformImplementation.targets selects exactly one per-OS ProjectReference via a `<Choose>` keyed on `$(AgentGuardPlatformRid)` (StartsWith 'win'/'linux'/'osx'), falling back to `$([MSBuild]::IsOSPlatform(...))` (the build-host OS) only when AgentGuardPlatformRid is empty, and hard-fails the build (`_AgentGuardFailOnUnresolvedPlatformImpl`, BeforeTargets=\"ResolveProjectReferences\") if neither resolves. A leading PropertyGroup sets `AgentGuardPlatformRid` from `$(RuntimeIdentifier)` when unset, so a plain `dotnet publish -r <rid>` of a direct importer also works.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformImplementation.targets:24-58; live proof: `dotnet msbuild src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=linux-x64` returned CrossPlatform + CrossPlatform.Linux only; `...-p:AgentGuardPlatformRid=win-x64` returned CrossPlatform + CrossPlatform.Windows only; no-RID run on this macOS host returned CrossPlatform + CrossPlatform.MacOS only (build-host fallback)"
+        },
+        {
+          "claim": "src/AgentGuard.Cli/AgentGuard.Cli.csproj ALREADY carries the full AgentGuardPlatformRid-threading AdditionalProperties + explanatory comment on its ProjectReference to Engine (added by commit 82ab9ef/31c836b, 2026-08-09/10) \u2014 a full week before the Boundaries ProjectReference block was added (commit 8367242, 2026-08-17). This threading is currently 100% inert: live-proven by running `dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=linux-x64` today, which STILL returns only Abstractions (identical to the no-RID run), because Engine has no import that consumes the property yet. Once Engine imports PlatformImplementation.targets per the contract, this already-present Cli.csproj block requires NO edit \u2014 only the adjacent Boundaries ProjectReference block (csproj lines 40-44, added by the same 8367242 commit) is deleted.",
+          "evidence": "git blame src/AgentGuard.Cli/AgentGuard.Cli.csproj lines 30-39 (comment+AdditionalProperties, commits 82ab9efd 2026-08-09 / 31c836b6 2026-08-10) vs lines 40-44 (Boundaries block, commit 8367242b 2026-08-17); live command `dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference -p:AgentGuardPlatformRid=linux-x64` -> JSON with only AgentGuard.Analyzers + AgentGuard.Abstractions, no per-OS project"
+        },
+        {
+          "claim": "src/AgentGuard.Engine/AgentGuard.Engine.csproj:17-20 carries a comment asserting Engine 'references only the Abstractions assembly... it does not reference Boundaries, CrossPlatform, or any per-OS assembly.' This is true today (confirmed by the live probe above) but becomes FALSE the moment the approved Boundaries ProjectReference and PlatformImplementation.targets import land; it is not on the contract's line-by-line Surfaces list by name but falls under that list's closing catch-all ('Comments on changed ownership and access in the listed source and project files') since AgentGuard.Engine.csproj is itself a named Surfaces entry \u2014 flagged here so IMPLEMENT does not miss it.",
+          "evidence": "src/AgentGuard.Engine/AgentGuard.Engine.csproj:17-23 (git blame: commit 8367242b, 2026-08-17); contract.md Surfaces list, Engine.csproj bullet and closing 'Comments on changed ownership...' bullet"
+        },
+        {
+          "claim": "BouncyCastle.Cryptography (centrally pinned 2.6.2) is a direct PackageReference in exactly two csproj files: AgentGuard.Boundaries and AgentGuard.Tests (unrelated, pre-existing, untouched by this contract). Tmds.DBus.Protocol (pinned 0.94.0) is a direct PackageReference in exactly one: AgentGuard.CrossPlatform.Linux. Neither package reference moves under this contract. After Engine adds a ProjectReference to Boundaries, BouncyCastle.Cryptography becomes transitively visible to the Engine compilation (SDK-style ProjectReference propagates the referenced project's PackageReferences with no PrivateAssets suppression on that item); after Engine imports PlatformImplementation.targets, Tmds.DBus.Protocol becomes transitively visible to Engine only on a build/restore that selects CrossPlatform.Linux (linux-* RID, or build-host-OS fallback on a Linux machine/CI leg) \u2014 the same conditional exposure Boundaries has today.",
+          "evidence": "Directory.Packages.props:43-44 (`<PackageVersion Include=\"BouncyCastle.Cryptography\" Version=\"2.6.2\" />`, `<PackageVersion Include=\"Tmds.DBus.Protocol\" Version=\"0.94.0\" />`); src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj (BouncyCastle PackageReference); tests/AgentGuard.Tests/AgentGuard.Tests.csproj (separate BouncyCastle PackageReference); src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj (Tmds.DBus.Protocol PackageReference, with its own comment 'the ONLY reference to it')"
+        },
+        {
+          "claim": "The coverage aggregate is a straight sum across all four names in eng/coverage-gate.sh's AGGREGATE bash array (AgentGuard.Engine, guard, AgentGuard.CrossPlatform, AgentGuard.Boundaries) via the Python `gate()` function (`covered = sum(asm.get(n,(0,0))[0] for n in names)`), and that same AGGREGATE array is asserted (in the script's own counted-set self-check) to equal exactly the non-per-OS-suffixed names in .runsettings' `<Include>`. Since SystemServices.cs only moves lines between two assemblies that are BOTH already members of this one aggregate bucket, and no assembly is added, removed, or renamed, both the self-check and the aggregate percentage are mathematically unaffected by the relocation with zero edits to either eng/coverage-gate.sh or .runsettings. Boundaries and Engine are never gated as individual per-assembly checks (that treatment is reserved for the three per-OS implementations only), so neither could fail in isolation from having 'too few' lines post-move.",
+          "evidence": "eng/coverage-gate.sh:36 (AGGREGATE array), :48-66 (Python counted-set self-check comparing `everything_else` to `aggregate`), :150-168 (Python `gate()` summing over `names` and the `for check in checks: if check == \"aggregate\": ... gate(..., AGGREGATE)` dispatch); .runsettings `<Include>[AgentGuard.Engine]*,[guard]*,[AgentGuard.CrossPlatform]*,[AgentGuard.Boundaries]*,[AgentGuard.CrossPlatform.MacOS]*,[AgentGuard.CrossPlatform.Linux]*,[AgentGuard.CrossPlatform.Windows]*</Include>` \u2014 the non-suffixed subset is exactly {AgentGuard.Engine, guard, AgentGuard.CrossPlatform, AgentGuard.Boundaries}, matching AGGREGATE"
+        },
+        {
+          "claim": "eng/signing.props's InternalsVisibleTo public-key transform (`AgentGuardInjectStrongNameKey`, `Condition=\"'$(AgentGuardSigned)'=='true' and '@(InternalsVisibleTo)'!=''\"`) operates generically on whatever `InternalsVisibleTo` item group exists in whichever project is currently being built \u2014 it is not anchored to any specific assembly name. Relocating grants between Boundaries.csproj and Engine.csproj (or adding new ones) therefore requires zero change to eng/signing.props; every csproj already imports it uniformly via Directory.Build.props.",
+          "evidence": "eng/signing.props:34-45 (`Target Name=\"AgentGuardInjectStrongNameKey\" BeforeTargets=\"GetAssemblyAttributes\"` with the generic `@(InternalsVisibleTo)` condition and `<InternalsVisibleTo Update=\"@(InternalsVisibleTo)\" Key=\"...\" />`); Directory.Build.props:4 (`<Import Project=\"$(MSBuildThisFileDirectory)eng/signing.props\" />`, unconditional for every project)"
+        },
+        {
+          "claim": "No file under .github/workflows or eng/ names the AgentGuard.Boundaries.csproj or AgentGuard.Engine.csproj paths, PlatformImplementation.targets, or AgentGuardPlatformRid (confirmed by an exhaustive grep across both trees). Every CI build/test step invokes the bare `dotnet build`/`dotnet test` (resolving the sln) or `dotnet publish src/AgentGuard.Cli/AgentGuard.Cli.csproj -r <rid>`; eng/coverage-gate.sh is invoked only with the string arguments 'aggregate' and a per-OS assembly name (both unaffected, per the coverage fact above); eng/check-single-platform-lib.sh and the CI 'Cross-RID selects exactly one platform library' step (ci.yml:90-103) both grep the OUTPUT FILES of a Cli publish for `AgentGuard.CrossPlatform.(MacOS|Linux|Windows)` family names, a check that is agnostic to whether the per-OS project is reached via Boundaries or via Engine \u2014 one hop or two, the bundled/loose-file set is identical. No workflow or eng script requires any edit for this relocation.",
+          "evidence": "`grep -rn \"AgentGuard\\.\\(Boundaries\\|Engine\\|CrossPlatform\\|Abstractions\\|Cli\\|TestHelpers\\)\\b|PlatformImplementation\\.targets|AgentGuardPlatformRid|guard\\.dll\" .github/workflows/` (only unrelated `guard`-binary path hits, zero project-path/import/property hits); .github/workflows/ci.yml:87-89,239-241,364-366 (bare `dotnet build`/publish, no project-shape awareness); eng/check-single-platform-lib.sh:24-38 (publishes Cli, `ls \"$OUT\" | grep -oE 'AgentGuard\\.CrossPlatform\\.(MacOS|Linux|Windows)'`, counts families)"
+        },
+        {
+          "claim": "Directory.Build.props applies identical global settings to every non-analyzer project including Boundaries and Engine alike: TargetFramework net10.0, Nullable/ImplicitUsings enabled, TreatWarningsAsErrors, EnableNETAnalyzers/AnalysisMode=All, the full seven-package 'best-practice analyzer suite', and (via its own unconditional ItemGroup) a ProjectReference to analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj as an Analyzer for every project including both Boundaries and Engine. The relocated SystemServices.cs file therefore compiles under an identical compiler/analyzer configuration in its new home \u2014 no per-project override exists for either assembly that the move would cross.",
+          "evidence": "Directory.Build.props:14-19 (TargetFramework/Nullable/etc, unconditional), :34-41 (Warnings/analyzers, unconditional), :63-71 (custom analyzer wiring ItemGroup, `Condition=\"'$(AgentGuardIsAnalyzerProject)' != 'true'\"` \u2014 true for both Boundaries and Engine); live probe confirms this ProjectReference-as-Analyzer item present identically in both Boundaries' and Engine's `-getItem:ProjectReference` output (Identity=AgentGuard.Analyzers, DefiningProjectFullPath=Directory.Build.props, in both runs)"
+        },
+        {
+          "claim": "Exactly two production/test-helper source files use `using AgentGuard.Boundaries` for a real compiled dependency: src/AgentGuard.Cli/Program.cs:10 and tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs:6, each needing only that one using-directive changed to `AgentGuard.Engine`. A third file, analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs, also contains `using AgentGuard.Boundaries` (5 occurrences) and one qualified `AgentGuard.Boundaries.SystemServices.Create()` call, but every occurrence is inside an embedded string literal that is compiled in-memory as a synthetic analyzer-test-fixture compilation, not a real ProjectReference edge \u2014 it does not appear in, and does not affect, the project-reference graph itself. Two other test files (PathPurityAnalyzerTests.cs:13,129 and RawPrimitiveOnlyInOwnerAnalyzerTests.cs:908) mention 'AgentGuard.Boundaries' only inside code comments unrelated to SystemServices/CompositionPoint, confirmed out of this relocation's scope.",
+          "evidence": "`grep -rln \"using AgentGuard.Boundaries\" src tests analyzers --include=\"*.cs\"` -> exactly the three files named; src/AgentGuard.Cli/Program.cs:10; tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs:6,77,311; analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs:42,54,84,90,103,116 (all inside quoted C# source strings used to build a Roslyn compilation, per the surrounding `CSharpCompilation.Create` pattern the file follows); grep confirming PathPurityAnalyzerTests.cs/RawPrimitiveOnlyInOwnerAnalyzerTests.cs hits are plain `//` comments about an unrelated owner (GetTempPath / process launching)"
+        },
+        {
+          "claim": "No script anywhere in the repository invokes `dotnet pack` (Makefile, every eng/*.sh, eng/*.ps1, eng/*.mjs, and .github/workflows/ci.yml all checked), independently corroborating that AgentGuard.Engine's `<PackageId>AgentGuard.Engine</PackageId>` has no live consequence the relocation could disturb.",
+          "evidence": "`grep -rn \"dotnet pack\" . --include=\"*.sh\" --include=\"*.ps1\" --include=\"*.yml\" --include=\"*.yaml\" --include=\"Makefile\" --include=\"*.mjs\"` (excluding bin/obj/worktree) -> zero matches"
+        },
+        {
+          "claim": "A repo-wide grep for the literal path strings `AgentGuard.Boundaries.csproj` / `AgentGuard.Boundaries/AgentGuard` across every build-relevant file type (csproj/targets/props/sln/yml/yaml/sh/ps1/mjs/json) returns only the files already accounted for above \u2014 AgentGuard.sln, TestHelpers.csproj, Cli.csproj \u2014 plus two archival run-record JSON blobs under .dev/completed and .dev/backlog that are historical captures, not live configuration, and one .claude/worktrees copy (itself a stale isolated checkout pinned at commit aaa38b0 / 2026-08-10 on an unrelated branch, over a month behind HEAD c1c2a18 / 2026-09-13, excluded from this graph as not part of the live tree).",
+          "evidence": "`grep -rln \"AgentGuard\\.Boundaries\\.csproj|AgentGuard\\.Boundaries/AgentGuard\" --include=... . | grep -v \"/bin/|/obj/|/\\.claude/worktrees/\"` -> AgentGuard.sln, tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj, .dev/completed/run-records/2026-09-01-reorganize-rails/{implement-round-4-output.json,implement-output.json}, .dev/backlog/63-appd-1-process/ground-output.json, src/AgentGuard.Cli/AgentGuard.Cli.csproj; `git worktree list` + `git log -1` inside .claude/worktrees/agent-ad5849648391239d1 -> commit aaa38b0 dated 2026-08-10 20:08:51, branch worktree-agent-ad5849648391239d1, untracked spike-ts/"
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Abstractions/AgentGuard.Abstractions.csproj",
+        "src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj",
+        "src/AgentGuard.CrossPlatform/AgentGuard.CrossPlatform.csproj",
+        "src/AgentGuard.CrossPlatform/PlatformImplementation.targets",
+        "src/AgentGuard.CrossPlatform.MacOS/AgentGuard.CrossPlatform.MacOS.csproj",
+        "src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj",
+        "src/AgentGuard.CrossPlatform.Windows/AgentGuard.CrossPlatform.Windows.csproj",
+        "src/AgentGuard.Engine/AgentGuard.Engine.csproj",
+        "src/AgentGuard.Cli/AgentGuard.Cli.csproj",
+        "src/AgentGuard.Cli/Program.cs",
+        "tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj",
+        "tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs",
+        "tests/AgentGuard.Tests/AgentGuard.Tests.csproj",
+        "tests/AgentGuard.Cli.Tests/AgentGuard.Cli.Tests.csproj",
+        "tests/AgentGuard.CrossPlatform.Tests/AgentGuard.CrossPlatform.Tests.csproj",
+        "AgentGuard.sln",
+        "Directory.Build.props",
+        "Directory.Packages.props",
+        "eng/signing.props",
+        ".runsettings",
+        "eng/coverage-gate.sh",
+        "eng/check-single-platform-lib.sh",
+        ".github/workflows/ci.yml",
+        "Makefile"
+      ],
+      "openQuestions": [],
+      "autoResolved": [
+        {
+          "choice": "Whether Engine gaining a new outgoing ProjectReference to Boundaries (AgentGuard.Engine -> AgentGuard.Boundaries) is a forbidden backwards/inverted assembly dependency requiring Tim's personal sign-off under best-practices-guide.md 2d.",
+          "resolution": "Not backwards, and no separate sign-off is needed beyond the relocation approval Tim already gave. Principle 2d forbids a LOWER, depended-upon assembly having a service injected INTO it from a HIGHER assembly that depends on it. Here nothing is injected into Boundaries: Boundaries keeps its own four adapters unchanged and stays exactly as depended-upon as before (its two internal-access grants simply swap from {guard, AgentGuard.TestHelpers} to {AgentGuard.Engine}); Engine \u2014 the higher, consuming assembly \u2014 merely gains a new outgoing edge to Boundaries, running in the same direction Cli's existing direct Boundaries reference already runs today. No service flows from Engine down into Boundaries in either direction.",
+          "principle": "best-practices-guide.md category 2 (Boundary abstraction), Layer 2 principle 2d \u2014 \"Dependencies point one way ... a lower, depended-upon assembly never has a service injected into it from a higher assembly that depends on it.\"",
+          "evidence": "Live probe: `dotnet msbuild src/AgentGuard.Engine/AgentGuard.Engine.csproj -getItem:ProjectReference` today returns Abstractions only (no Boundaries edge exists yet to invert); src/AgentGuard.Cli/AgentGuard.Cli.csproj:42-44 shows the identical one-way Cli->Boundaries edge already live today as precedent for the shape being preserved, just moved one hop; src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj declares no constructor/parameter/injection point that would take an Engine-owned service \u2014 its only InternalsVisibleTo grants are outbound-access grants (who may call in), never inbound service injection; contract.md 'Tim approved the reference and grant moves' bullet 2 ('Engine references Boundaries')"
+        }
+      ]
+    },
+    {
+      "area": "analyzer-fence",
+      "facts": [
+        {
+          "claim": "MemberUseScanner \u2014 the shared registration every Boundaries-anchored rule uses \u2014 observes exactly 5 IOperation kinds (Invocation, ObjectCreation, PropertyReference, FieldReference, MethodReference) and dispatches only when the operation resolves to a member symbol + its declaring type. It cannot see typeof, nameof, a cast, an is/switch pattern, a generic type argument, a base/interface list, an attribute argument, a using alias, or any DECLARED type (field/property/parameter/return/local) that is never used as a member access. Every rule built on it or its RegisterForAssembly wrapper (AG0011, AG0015, AG0017/27/33, AG0018, AG0020, AG0023, AG0029, AGS5443) inherits exactly this blind spot.",
+          "evidence": "analyzers/AgentGuard.Analyzers/MemberUseScanner.cs:29-34 (MemberUseKinds), :89-120 (Dispatch/Resolve pattern-matches only those 5 IOperation subtypes, else returns null,null)"
+        },
+        {
+          "claim": "AG0006 (ContractConcreteTypeMustNotBeReferencedAnalyzer) is a 'carried/declared-type' lens: exactly 4 registrations \u2014 RegisterSymbolAction(Field), RegisterSymbolAction(Property), RegisterSymbolAction(Method, checking both ReturnType and every Parameter in one callback), and RegisterOperationAction(VariableDeclarator) for locals \u2014 each routed through ContractPattern.ReferencesContractImplementation -> TypeTree.Any, which recurses generic type arguments/array elements/pointer targets.",
+          "evidence": "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:49-52 (registrations), :55-102 (bodies); analyzers/AgentGuard.Analyzers/ContractPattern.cs:48-50; analyzers/AgentGuard.Analyzers/TypeTree.cs:25-45"
+        },
+        {
+          "claim": "AG0006's VariableDeclarator registration is the ONLY OperationKind.VariableDeclarator registration in the whole analyzer project (grep confirms one hit), and its Field/Property/Method registrations are the only ones in the project that walk a declared type's full generic/array/pointer tree for an arbitrary target-type match \u2014 every other RegisterSymbolAction(Field/Property/Method) site in the project checks a narrow, unrelated property (static-ness, const-ness, tuple shape, etc.), never a TypeTree walk.",
+          "evidence": "grep -rn RegisterOperationAction + OperationKind.VariableDeclarator across analyzers/AgentGuard.Analyzers/*.cs -> 1 hit (ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:52); grep -rn RegisterSymbolAction across the same -> next-closest sites are NoStateInNativeOpsAnalyzer.cs, NoStaticServiceHolderAnalyzer.cs, ReturnTypesMustNotBeTuplesAnalyzer.cs, none of which call TypeTree.Any"
+        },
+        {
+          "claim": "AG0007 (ContractConcreteTypeMustNotBeCastToAnalyzer) is a 'written-name' lens but scoped only to TypeSyntax positions: 4 RegisterSyntaxNodeAction registrations (CastExpression, AsExpression, DeclarationPattern, TypePattern), each resolving the node's TypeSyntax via context.SemanticModel.GetSymbolInfo(typeSyntax,...).Symbol. This GetSymbolInfo-on-TypeSyntax call is the ONLY type-name-via-syntax resolution site in the entire analyzer project \u2014 the two other GetSymbolInfo call sites (AttributeIdentity.cs, NoOsBranchingOutsideCrossPlatformAnalyzer.cs) resolve a constructor/method symbol, never a type.",
+          "evidence": "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeCastToAnalyzer.cs:49-52 (registrations), :82-89 (Check/GetSymbolInfo); grep -rn GetSymbolInfo analyzers/AgentGuard.Analyzers/*.cs -> AttributeIdentity.cs:63 resolves IMethodSymbol, NoOsBranchingOutsideCrossPlatformAnalyzer.cs:165 resolves IMethodSymbol"
+        },
+        {
+          "claim": "No existing analyzer resolves a general written name node (typeof, nameof, a generic type argument, a qualified/identifier name) anywhere in the project today \u2014 grep for SyntaxKind.IdentifierName|GenericName|QualifiedName|TypeOfExpression|NameOf across every analyzer file returns zero hits. AG0041's and AG0023/AG0029's Engine-gate written-name lens is therefore genuinely new machinery, not an extension of an existing registration.",
+          "evidence": "grep -rn 'SyntaxKind.IdentifierName\\|SyntaxKind.GenericName\\|SyntaxKind.QualifiedName\\|SyntaxKind.TypeOfExpression\\|SyntaxKind.NameOf' analyzers/AgentGuard.Analyzers/*.cs -> exit 1, no output"
+        },
+        {
+          "claim": "Exactly 7 analyzer files use RegisterSyntaxNodeAction anywhere (11 registrations total): ContractConcreteTypeMustNotBeCastToAnalyzer/AG0007 (4), InteropOnlyInCrossPlatformLibrariesAnalyzer/AG0008 (1), NativeCallbackBodyMustBeGuardedAnalyzer/AG0105 (2), NoCallerFilePathAnalyzer/AG0039 (1), NoOsBranchingOutsideCrossPlatformAnalyzer/AG0009+AG0037 (2), ReturnTypesMustNotBeTuplesAnalyzer/AG0002 (1) \u2014 6 files besides AG0007 itself, confirming AG0007 is the closest and only syntax-node precedent for a type-focused written-name walk.",
+          "evidence": "grep -rn RegisterSyntaxNodeAction analyzers/AgentGuard.Analyzers/*.cs -> 11 lines across exactly those 6 files plus AG0007"
+        },
+        {
+          "claim": "AG0023 and AG0029 today gate EXCLUSIVELY to the AgentGuard.Boundaries compilation via MemberUseScanner.RegisterForAssembly(context, BoundaryAssembly.Name, Inspect); a compilation compiled under any other name \u2014 including literally 'AgentGuard.Engine' \u2014 registers no operation action at all and is structurally invisible to both rules as they stand.",
+          "evidence": "analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs:65-66; analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs:57-58; analyzers/AgentGuard.Analyzers/MemberUseScanner.cs:61-73 (RegisterForAssembly returns early on name mismatch)"
+        },
+        {
+          "claim": "Live proof of the Boundaries-only gate: the existing test CallIntoOtherCrossPlatformType_FromNonBoundariesAssembly_IsNotReported builds the prohibited call FileReader.Read(\"x\") as an 'AgentGuard.Engine'-named compilation and asserts Assert.Empty(...); its AG0029 sibling CallOtherPerOsMember_FromNonBoundariesAssembly_IsNotReported does the same for PosixFileSystem.Probe(\"x\"). Both calls are made from an ordinary class method (Composition.Build()), not SystemServices.Create(). These are the ONLY two tests contract Acceptance-7 authorizes reversing.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs:67-74; analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs:67-73"
+        },
+        {
+          "claim": "The other 5 existing AG0023/AG0029 tests (CallIntoAdapterFactory_FromBoundaries_IsNotReported, CallIntoOtherCrossPlatformType_FromBoundaries_IsReported in the AG0023 file; CallPlatformServicesCreate_FromBoundaries_IsNotReported, CallOtherPerOsMember_FromBoundaries_IsReported, CallOldPlatformDoor_FromBoundaries_IsReported in the AG0029 file) all build 'AgentGuard.Boundaries'-named compilations, exercising only the Boundaries gate the contract keeps unchanged; all 7 test method names across both files were read verbatim and match contract Acceptance 6-7's list exactly (2+1 in the AG0023 file, 3+1 in the AG0029 file).",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs:48-74 (3 tests); analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs:48-108 (4 tests)"
+        },
+        {
+          "claim": "AG0011 (RawPrimitiveOnlyInOwnerAnalyzer) is unaffected: it registers unfiltered (every compilation), and its owner exemption requires the enclosing type to implement the owning interface AND compile into an owner assembly via OwnedPrimitives.InBoundaries = OwnerClass.InAssembly(BoundaryAssembly.Name) \u2014 a gate on the four ADAPTER classes' assembly (which never moves), not on SystemServices. SystemServices.Create()'s live body calls no AG0011-governed raw primitive at all, only factory methods returning already-abstracted interfaces.",
+          "evidence": "analyzers/AgentGuard.Analyzers/RawPrimitiveOnlyInOwnerAnalyzer.cs:58 (unfiltered MemberUseScanner.Register); analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs:67-68 (InBoundaries definition); src/AgentGuard.Boundaries/SystemServices.cs:86-107 (Create() body, no raw primitive call)"
+        },
+        {
+          "claim": "AG0015 (TimeMustUseTimeProviderAnalyzer) IS affected and requires retargeting or it breaks: its only exemption for a direct TimeProvider.System acquisition is CompositionPoint.EnclosesConstructionSite -> IsSystemServicesInBoundaries, hardcoded via WellKnownType.IsInAssembly(type, BoundaryAssembly.Name, \"SystemServices\", BoundaryAssembly.Name) \u2014 BoundaryAssembly.Name doubles as both the required namespace and the required assembly. SystemServices.Create()'s live body reads TimeProvider.System at line 88. Once SystemServices moves to namespace+assembly AgentGuard.Engine, this predicate stops matching and AG0015 would newly report a false positive on that exact line unless CompositionPoint's construction-site identity is retargeted.",
+          "evidence": "analyzers/AgentGuard.Analyzers/TimeMustUseTimeProviderAnalyzer.cs:69-78; analyzers/AgentGuard.Analyzers/CompositionPoint.cs:109-130 (IsConstructionSiteType/IsSystemServicesInBoundaries); src/AgentGuard.Boundaries/SystemServices.cs:88"
+        },
+        {
+          "claim": "AG0017 (GuardedConstructionAnalyzer's container-diagnostic) is unaffected and does not gate on the factory's OWN declaring assembly at all: IsContainerFactory matches purely by return-type identity (any static method returning ISystemServices, matched via WellKnownType.IsAnyOf against the fixed (AgentGuard.Abstractions.Contracts,'ISystemServices') pair) with NO check on which assembly declares that static method. Legality is decided only by whether the CALL SITE is enclosed by Program (assembly 'guard') or SystemServicesBuilder (TestHelpers) \u2014 neither moves. The rule is also registered unfiltered (every compilation), which is why it already reports, and will continue to report, any other caller such as one inside AgentGuard.Tests.",
+          "evidence": "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:119 (unfiltered Register), :122-134 (Inspect's AG0017 branch), :158-168 (IsContainerFactory/IsStaticFactoryReturningAnyOf), :73-74 (ContainerInterfaces)"
+        },
+        {
+          "claim": "AG0027 and AG0033 \u2014 the other two diagnostics bundled in the same GuardedConstructionAnalyzer.cs file as AG0017 \u2014 are also unaffected: AG0033 pins *Info wrapper construction to FileInfoFactory in AgentGuard.CrossPlatform (unrelated to Boundaries/SystemServices); AG0027 pins InMemoryFileSystemStore construction to SystemServicesBuilder, gated to the AgentGuard.TestHelpers compilation, also independent of where SystemServices itself compiles. GuardedConstructionAnalyzer.cs does not appear anywhere in the contract's Surfaces list, consistent with this.",
+          "evidence": "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:136-155 (IsWrapperFactoryCall / store-construction branches)"
+        },
+        {
+          "claim": "AG0018 (TestHelpersOnlyInTestsAnalyzer) is unaffected: it gates every non-test-system compilation and reports any reference INTO AgentGuard.TestHelpers from it. The approved reference moves add no such reference in either direction \u2014 TestHelpers moves its own project reference from Boundaries to Engine (TestHelpers -> Engine), never the reverse \u2014 so AG0018's candidate violation set is unchanged.",
+          "evidence": "analyzers/AgentGuard.Analyzers/TestHelpersOnlyInTestsAnalyzer.cs:54-65 (OnCompilationStart gate + Inspect)"
+        },
+        {
+          "claim": "AG0020 (PathPurityAnalyzer) is unaffected for the same structural reason as AG0011: its three impure-Path-member owner exemptions (GetTempPath->IEnvironment/InBoundaries, GetRandomFileName->IRandomGenerator/InCrossPlatform, DirectorySeparatorChar->IPlatformFileSystem/per-OS-or-TestHelpers) are all keyed to the implementer classes' compiled assembly, never to SystemServices or CompositionPoint.",
+          "evidence": "analyzers/AgentGuard.Analyzers/PathPurityAnalyzer.cs:140-159 (ResolveImpureOwner)"
+        },
+        {
+          "claim": "AG0022 (ContainerInterfaceSingleOwnerAnalyzer) is unaffected in outcome though its observed COMPILATION shifts: it derives the container-interface set by walking ISystemServices from its fixed (AgentGuard.Abstractions.Contracts,'ISystemServices') identity (never keyed to a concrete implementer's assembly), then counts SOURCE named-type implementers per-compilation via SecondImplementerGuard (permits 1, reports the 2nd+). SystemServices : ISystemServices is the only source type implementing a container interface in either Boundaries or Engine today, so the count moves from Boundaries (1->0) to Engine (0->1) \u2014 both stay at or under the permitted 1, so AG0022 reports nothing before or after.",
+          "evidence": "analyzers/AgentGuard.Analyzers/ContainerInterfaceSingleOwnerAnalyzer.cs:67-79; analyzers/AgentGuard.Analyzers/BoundaryServices.cs:52-63 (ResolveTree via WellKnownType.Resolve, namespace+name only, no assembly filter); analyzers/AgentGuard.Analyzers/SecondImplementerGuard.cs:63-77 (per-compilation NamedType accumulation)"
+        },
+        {
+          "claim": "AG0024 (NoStaticServiceHolderAnalyzer) is unaffected: its candidate ServiceTypes set includes the container as the INTERFACE identity (AgentGuard.Abstractions.Contracts,'ISystemServices'), matched structurally via WellKnownType.IsAnyOf \u2014 never the concrete SystemServices class's own (namespace,name), which changes from (AgentGuard.Boundaries,'SystemServices') to (AgentGuard.Engine,'SystemServices') but was never itself a member of ServiceTypes in either location.",
+          "evidence": "analyzers/AgentGuard.Analyzers/DerivedServices.cs:36-40,46-51,65; analyzers/AgentGuard.Analyzers/BoundaryServices.cs:84-90 (Resolve builds ServiceTypes from the container's interface identity)"
+        },
+        {
+          "claim": "AG0025 (OneOwnerPerInterfaceAnalyzer) is unaffected, and SystemServices was never a candidate for it in either location: its ServiceInterfaces set explicitly excludes the container \u2014 BoundaryServices.FlattenLeaves recurses INTO a Container-kind accessor's child but only ADDS LeafService-kind accessors to the collected set, never the container node itself. Since SystemServices implements only ISystemServices (a container interface), it was never in AG0025's candidate set.",
+          "evidence": "analyzers/AgentGuard.Analyzers/BoundaryServices.cs:250-270 (FlattenLeaves switch, Container case recurses without collecting); analyzers/AgentGuard.Analyzers/DerivedServices.cs:34,58 (IsOwnerInterface reads ServiceInterfaces only)"
+        },
+        {
+          "claim": "AG0031 (NoServiceAsParameterAnalyzer) is unaffected for the identical reason as AG0025 \u2014 it too reads only services.IsOwnerInterface (the leaf-only ServiceInterfaces set, container excluded). This also explains, independent of this relocation, why AG0031 today does not flag the GitHub-issue-#74-described anti-pattern of Engine methods taking ISystemServices as a parameter: a parameter typed ISystemServices itself is structurally outside AG0031's candidate set by construction, confirmed directly in code.",
+          "evidence": "analyzers/AgentGuard.Analyzers/NoServiceAsParameterAnalyzer.cs:61,83-84; analyzers/AgentGuard.Analyzers/DerivedServices.cs:58"
+        },
+        {
+          "claim": "AG0030 (LeafPlatformSingleImplementerAnalyzer) is unaffected: gated only to compilations whose name ends '.Tests' (TestAssembly.IsTestAssembly), which neither AgentGuard.Boundaries nor AgentGuard.Engine is; its NestedLeafInterfaces candidate set is derived the same interface-tree way and likewise never includes the container ISystemServices.",
+          "evidence": "analyzers/AgentGuard.Analyzers/LeafPlatformSingleImplementerAnalyzer.cs:70-88"
+        },
+        {
+          "claim": "AG0032 (NoCoverageOptOutAnalyzer) is unaffected in kind \u2014 its covered-assembly test bans [ExcludeFromCodeCoverage] on every assembly except AgentGuard.Abstractions, AgentGuard.Analyzers, and TestHelpers/.Tests assemblies; both AgentGuard.Boundaries and AgentGuard.Engine are, and remain, 'covered' under this test, so a relocated SystemServices carries the identical obligation in its new home. Nothing in the rule reads BoundaryAssembly, CompositionPoint, or the type name SystemServices.",
+          "evidence": "analyzers/AgentGuard.Analyzers/NoCoverageOptOutAnalyzer.cs:71-86 (IsCoveredProductAssembly)"
+        },
+        {
+          "claim": "AG0034 (SystemServicesMemberMustBeServiceAccessorAnalyzer) is unaffected and structurally CANNOT be affected by where the concrete SystemServices class lives: it only reports for a container-tree member whose ContainingType passes WellKnownType.IsDeclaredInCompilation against the compilation under analysis, and the members it walks (BoundaryServices.SurfaceMembers) are the INTERFACE's own declared members in AgentGuard.Abstractions \u2014 so this rule only ever fires when analyzing the AgentGuard.Abstractions compilation, never Boundaries or Engine, regardless of where the concrete implementer compiles.",
+          "evidence": "analyzers/AgentGuard.Analyzers/SystemServicesMemberMustBeServiceAccessorAnalyzer.cs:70-84 (AnalyzeCompilation's two IsDeclaredInCompilation guards)"
+        },
+        {
+          "claim": "AGS5443 (TempRootBackDoorAnalyzer) is unaffected: registers unfiltered (every compilation), flags every use of IEnvironment.GetTempDirectory() matched via the fixed interface identity ContractInterfaces.Environment, with its one exemption anchored exclusively on CompositionPoint.EnclosesTestBuilder (SystemServicesBuilder in TestHelpers only \u2014 never SystemServices.Create() itself and never Program). SystemServices.Create()'s live body contains no call to GetTempDirectory(), and the rule's sole exemption was never keyed to the container's location, so relocating the container changes nothing this rule can observe.",
+          "evidence": "analyzers/AgentGuard.Analyzers/TempRootBackDoorAnalyzer.cs:73,85-99; analyzers/AgentGuard.Analyzers/CompositionPoint.cs:62-65 (EnclosesTestBuilder = IsBuilderInTestHelpers only); src/AgentGuard.Boundaries/SystemServices.cs:86-107"
+        },
+        {
+          "claim": "Two rules outside the required checklist, surfaced only by grepping every 'SystemServices' mention in the analyzer project, were also checked and are unaffected: AG0019 (BuilderCompletenessAnalyzer) mirrors the same interface-derived container tree against SystemServicesBuilder without ever referencing BoundaryAssembly/CompositionPoint or an assembly identity; AG0114 (NativePresencePortSingleImplementerAnalyzer) mentions ISystemServices only in a doc comment noting the native presence ports live outside that tree. Neither file appears in the contract's Surfaces list.",
+          "evidence": "analyzers/AgentGuard.Analyzers/BuilderCompletenessAnalyzer.cs (no BoundaryAssembly/CompositionPoint reference anywhere; grep confirms); analyzers/AgentGuard.Analyzers/NativePresencePortSingleImplementerAnalyzer.cs:15,39"
+        },
+        {
+          "claim": "Exactly one literal 'AgentGuard.Boundaries' string exists anywhere in analyzer PRODUCTION code \u2014 BoundaryAssembly.cs's own constant declaration; every other production use goes through BoundaryAssembly.Name. There are exactly 4 non-declaration read sites: AG0023's RegisterForAssembly gate, AG0029's RegisterForAssembly gate, CompositionPoint.IsSystemServicesInBoundaries (feeds AG0015), and OwnedPrimitives.InBoundaries (feeds AG0011/AG0020). This is the complete, exhaustively-grepped set of analyzer code anchored on the Boundaries assembly identity.",
+          "evidence": "grep -rn 'BoundaryAssembly\\.Name' analyzers/AgentGuard.Analyzers/*.cs -> 4 non-declaration hits (BoundariesToCrossPlatformOneDoorAnalyzer.cs:66, BoundariesToPerOsOneDoorAnalyzer.cs:58, CompositionPoint.cs:129, OwnedPrimitives.cs:68); grep -rn '\"AgentGuard\\.Boundaries\"' analyzers/AgentGuard.Analyzers/*.cs -> 1 hit (BoundaryAssembly.cs:19, the declaration)"
+        },
+        {
+          "claim": "CompositionPoint.* is consumed by exactly 5 analyzer files covering 6 diagnostic ids \u2014 TimeMustUseTimeProviderAnalyzer/AG0015 (EnclosesConstructionSite), GuardedConstructionAnalyzer/AG0017+27+33 (Encloses, EnclosesWrapperFactory), NoStaticServiceHolderAnalyzer/AG0024 (Encloses), NoServiceAsParameterAnalyzer/AG0031 (Encloses), TempRootBackDoorAnalyzer/AGS5443 (EnclosesTestBuilder) \u2014 an exhaustively grepped, complete inventory; no other rule touches CompositionPoint.",
+          "evidence": "grep -rn 'CompositionPoint\\.' analyzers/AgentGuard.Analyzers/*.cs -> 8 call sites across exactly those 5 files (excluding CompositionPoint.cs's own body)"
+        },
+        {
+          "claim": "SystemServices.Create()'s live body (86-107 lines) is entirely top-level statements \u2014 no lambda, no local function \u2014 which is the factual basis for the contract's narrowest-reading caller test (a call written inside a lambda/local function nested in Create() would be reported; none exists today, so nothing legitimate is refused by adding that constraint). It makes exactly 5 cross-assembly factory calls (CrossPlatformAdapters.Create(), global::AgentGuard.CrossPlatform.PlatformServices.Create(), EnvironmentAdapter.Create(), ConsoleAdapter.Create(), Ed25519SignatureService.Create(), BuildInfoReader.Create() \u2014 six total, one being the two platform doors) plus one TimeProvider.System read, then its own private constructor.",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:86-107"
+        },
+        {
+          "claim": "Within Create(), CrossPlatformAdapters is BOTH a written name (in its .Create() invocation, covered by the existing/retargeted member-access door logic) AND a carried/declared type (the local 'adapters' is explicitly typed CrossPlatformAdapters at line 90) \u2014 so under the new type-reference extension it needs BOTH the member-access exemption and the carried-type-lens exemption to avoid a false positive. PlatformServices, by contrast, appears ONLY inside the qualified invocation at line 91 \u2014 it is never the declared type of any field/property/parameter/local (the local 'platform' is typed IPlatformServices, the Abstractions interface, confirmed in neither rule's type set) \u2014 so it needs only the existing member-access door exemption; the new carried-type lens never independently needs to accept it because nothing carries it as a declared type.",
+          "evidence": "src/AgentGuard.Boundaries/SystemServices.cs:90-91"
+        },
+        {
+          "claim": "grep for the four Boundaries adapter type names (EnvironmentAdapter, ConsoleAdapter, Ed25519SignatureService, BuildInfoReader) as code identities across the analyzer project returns only 3 hits, all inside TempRootBackDoorAnalyzer.cs doc comments/description prose naming EnvironmentAdapter \u2014 never as a WellKnownType.IsInAssembly-style identity match. Confirms BoundaryAdapterFactories.cs (the new AG0040 support file) duplicates nothing existing.",
+          "evidence": "grep -rn 'EnvironmentAdapter\\|ConsoleAdapter\\|Ed25519SignatureService\\|BuildInfoReader' analyzers/AgentGuard.Analyzers/*.cs -> 3 hits, all TempRootBackDoorAnalyzer.cs:13,25,56, all prose"
+        },
+        {
+          "claim": "grep for 'AgentGuard.Engine' across the analyzer project returns exactly one hit \u2014 a documentation comment in PresenceContracts.cs naming the assembly in prose \u2014 never a code constant or identity check. Confirms EngineAssembly.cs (the new support file) duplicates nothing existing.",
+          "evidence": "grep -rn 'AgentGuard\\.Engine' analyzers/AgentGuard.Analyzers/*.cs -> 1 hit, PresenceContracts.cs:27, a doc comment"
+        },
+        {
+          "claim": "None of the 11 rule-analyzer production files for AG0011, AG0018, AG0020, AG0022, AG0024, AG0025, AG0030, AG0031, AG0032, AG0034, AGS5443 appear anywhere in the contract's Surfaces section (which otherwise lists every file the relocation touches file-by-file) \u2014 independent cross-confirmation, from a document written before this exploration, of the same 'unaffected' conclusion this exploration reached by reading each rule's source directly from a different angle (structural/assembly-identity reasoning).",
+          "evidence": "contract.md Surfaces section (lines 122-140 as read) lists only SystemServices.cs, the .csproj files, Program.cs/SystemServicesBuilder.cs, CompositionPoint.cs, the two renamed one-door analyzers, 6 new files, AG0006's file, AnalyzerReleases.Unshipped.md, the renamed/added test files, and 4 Boundaries*Tests.cs comment-only edits \u2014 none of the 11 files above"
+        },
+        {
+          "claim": "The working tree is clean under analyzers/ and src/ \u2014 the only local modification at exploration time is to contract.md itself (a tracked edit) plus the untracked conversation.md brief; every analyzer source file read reflects the true current HEAD state, last touched 2026-08-22 for the CompositionPoint/AG0023/AG0029 files.",
+          "evidence": "git status --short -> ' M .dev/inprocess/74-pre-work-move-system-services/contract.md' and '?? .../conversation.md' only; git log -1 -- CompositionPoint.cs BoundariesToCrossPlatformOneDoorAnalyzer.cs BoundariesToPerOsOneDoorAnalyzer.cs -> 357d905 2026-08-22 17:15:00 -0600"
+        }
+      ],
+      "surfaces": [
+        "analyzers/AgentGuard.Analyzers/CompositionPoint.cs",
+        "analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs (AG0023)",
+        "analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs (AG0029)",
+        "analyzers/AgentGuard.Analyzers/MemberUseScanner.cs",
+        "analyzers/AgentGuard.Analyzers/WellKnownType.cs",
+        "analyzers/AgentGuard.Analyzers/PlatformFactory.cs",
+        "analyzers/AgentGuard.Analyzers/TypeTree.cs",
+        "analyzers/AgentGuard.Analyzers/BoundaryAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/CliAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/TestAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs (AG0006)",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeCastToAnalyzer.cs (AG0007)",
+        "analyzers/AgentGuard.Analyzers/ContractPattern.cs",
+        "analyzers/AgentGuard.Analyzers/OwnerClass.cs",
+        "analyzers/AgentGuard.Analyzers/ContractInterfaces.cs",
+        "analyzers/AgentGuard.Analyzers/RawPrimitiveOnlyInOwnerAnalyzer.cs (AG0011)",
+        "analyzers/AgentGuard.Analyzers/OwnedPrimitives.cs",
+        "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs (AG0017 / AG0027 / AG0033)",
+        "analyzers/AgentGuard.Analyzers/TestHelpersOnlyInTestsAnalyzer.cs (AG0018)",
+        "analyzers/AgentGuard.Analyzers/PathPurityAnalyzer.cs (AG0020)",
+        "analyzers/AgentGuard.Analyzers/ContainerInterfaceSingleOwnerAnalyzer.cs (AG0022)",
+        "analyzers/AgentGuard.Analyzers/NoStaticServiceHolderAnalyzer.cs (AG0024)",
+        "analyzers/AgentGuard.Analyzers/OneOwnerPerInterfaceAnalyzer.cs (AG0025)",
+        "analyzers/AgentGuard.Analyzers/LeafPlatformSingleImplementerAnalyzer.cs (AG0030)",
+        "analyzers/AgentGuard.Analyzers/NoServiceAsParameterAnalyzer.cs (AG0031)",
+        "analyzers/AgentGuard.Analyzers/NoCoverageOptOutAnalyzer.cs (AG0032)",
+        "analyzers/AgentGuard.Analyzers/SystemServicesMemberMustBeServiceAccessorAnalyzer.cs (AG0034)",
+        "analyzers/AgentGuard.Analyzers/TempRootBackDoorAnalyzer.cs (AGS5443)",
+        "analyzers/AgentGuard.Analyzers/TimeMustUseTimeProviderAnalyzer.cs (AG0015)",
+        "analyzers/AgentGuard.Analyzers/BoundaryServices.cs",
+        "analyzers/AgentGuard.Analyzers/ContainerNode.cs",
+        "analyzers/AgentGuard.Analyzers/DerivedServices.cs",
+        "analyzers/AgentGuard.Analyzers/ServiceAccessor.cs",
+        "analyzers/AgentGuard.Analyzers/ServiceAccessorKind.cs",
+        "analyzers/AgentGuard.Analyzers/SecondImplementerGuard.cs",
+        "analyzers/AgentGuard.Analyzers/KnownNamespaces.cs",
+        "analyzers/AgentGuard.Analyzers/BuilderCompletenessAnalyzer.cs (AG0019, checked incidentally, unaffected)",
+        "analyzers/AgentGuard.Analyzers/NativePresencePortSingleImplementerAnalyzer.cs (AG0114, checked incidentally, unaffected)",
+        "analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md",
+        "analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs (grep-confirmed only, not opened)",
+        "analyzers/AgentGuard.Analyzers.Tests/TimeMustUseTimeProviderAnalyzerTests.cs (grep-confirmed only, not opened)",
+        "analyzers/AgentGuard.Analyzers.Tests/RawPrimitiveOnlyInOwnerAnalyzerTests.cs (grep-confirmed only, not opened)",
+        "analyzers/AgentGuard.Analyzers.Tests/OneOwnerPerInterfaceAnalyzerTests.cs (grep-confirmed only, not opened)",
+        "analyzers/AgentGuard.Analyzers.Tests/PathPurityAnalyzerTests.cs (grep-confirmed only, not opened)",
+        "src/AgentGuard.Boundaries/SystemServices.cs (the container source, current location, moving to src/AgentGuard.Engine/SystemServices.cs)",
+        ".dev/inprocess/74-pre-work-move-system-services/contract.md (authority record, cross-checked against code)"
+      ],
+      "openQuestions": [],
+      "autoResolved": []
+    },
+    {
+      "area": "analyzer-test-infrastructure",
+      "facts": [
+        {
+          "claim": "AnalyzerRunner.cs (analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs, 274 lines, internal static class) exposes exactly four internal entry points and no others: RunAsync<TAnalyzer>(string source, string assemblyName = \"AnalyzerUnderTest\", params string[] expectedCompilerErrors); RunWithReferenceAsync<TAnalyzer>(string source, string assemblyName, string referenceSource, string referenceAssemblyName, params string[] expectedCompilerErrors); CompileAsync(string source, string assemblyName = \"AnalyzerUnderTest\", params string[] expectedCompilerErrors) returning the raw Compilation; and SpanText(string source, Diagnostic diagnostic). Both assembly-name parameters on RunWithReferenceAsync are independent caller-supplied strings.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:44-59 (RunAsync), :78-103 (RunWithReferenceAsync), :115-130 (CompileAsync), :138-142 (SpanText)."
+        },
+        {
+          "claim": "RunWithReferenceAsync always requires the REFERENCE compilation to produce zero compiler errors (hardcoded Array.Empty<string>()); only the SUBJECT compilation's expected-error list is caller-configurable. This is unrelated to AG0040/41 since their new fixtures use the default empty expectation on both sides (contract Acceptance 18: \"New relocation fixtures compile under the default empty compiler-error expectation\").",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:94 \u2014 ThrowOnUnexpectedCompilerErrors(referenceCompilation, referenceAssemblyName, Array.Empty<string>())."
+        },
+        {
+          "claim": "ThrowOnUnexpectedCompilerErrors compares actual compiler ERROR-severity diagnostics against the caller's declared expectedCompilerErrors by identifier AND occurrence count, throwing InvalidOperationException naming the assembly and every mismatch; the default (no params) is zero errors of any kind. This is the exact 'default expectation is none' behavior conversation.md describes, confirmed at the byte level.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs:193-231, using Tally at :264-273 and Describe at :240-257."
+        },
+        {
+          "claim": "AnalyzerRunnerTests.cs (235 lines, tracked, matches HEAD) already proves, against the CURRENT UNCHANGED runner, both compilation-shape mechanics AG0040 and AG0041 need: (1) RunWithReferenceAsync_ReachingAnInternalWithNoGrant_Throws proves an internal reference member reached without InternalsVisibleTo throws (CS0122); (2) RunWithReferenceAsync_ReachingAnInternalThroughAGrant_ReturnsTheAnalyzerResult proves that once the reference source's own text carries '[assembly: InternalsVisibleTo(\"Caller\")]', the SAME unmodified RunWithReferenceAsync compiles cleanly and returns the analyzer's diagnostics. This is exactly the mechanism Acceptance 8 requires for AG0041's fake Engine fixture (two InternalsVisibleTo grants instead of one), and it is already committed, already passing, and requires no runner change.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs:160-178, using InternalReferenceWithGrantSource at :46-58 (which embeds '[assembly: InternalsVisibleTo(\"Caller\")]' directly in fixture source text, proving IVT grants are ordinary source content the runner already handles)."
+        },
+        {
+          "claim": "WellKnownType.IsInAssembly(type, namespace, typeName, assemblyName) matches a type's Name, ContainingNamespace.ToDisplayString(), and ContainingAssembly.Name as three INDEPENDENT string-equality checks. This is why a fixture can hold the type/namespace constant while varying only referenceAssemblyName to build the AG0040 'declared in an assembly other than AgentGuard.Boundaries' decoy case (Acceptance 3), or hold assembly name constant while varying the C# namespace to build the 'declared in a different namespace' case \u2014 both purely through RunWithReferenceAsync's existing free-form referenceAssemblyName parameter, no runner change.",
+          "evidence": "analyzers/AgentGuard.Analyzers/WellKnownType.cs:66-71."
+        },
+        {
+          "claim": "MemberUseScanner.RegisterForAssembly(context, assemblyName, inspect) returns without registering anything when context.Compilation.AssemblyName does not equal the given assemblyName, confirming conversation.md's claim verbatim.",
+          "evidence": "analyzers/AgentGuard.Analyzers/MemberUseScanner.cs:61-77, specifically the guard 'if (!string.Equals(context.Compilation.AssemblyName, assemblyName, StringComparison.Ordinal)) { return; }'."
+        },
+        {
+          "claim": "Both existing one-door analyzers (BoundariesToCrossPlatformOneDoorAnalyzer.cs / AG0023 and BoundariesToPerOsOneDoorAnalyzer.cs / AG0029) call MemberUseScanner.RegisterForAssembly EXACTLY ONCE today, gated only to BoundaryAssembly.Name (\"AgentGuard.Boundaries\"). Diffing the two files shows them structurally identical apart from the door identity and message text. The Engine-side second gate the contract adds is confirmed net-new, not present today.",
+          "evidence": "analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs:65-66 and BoundariesToPerOsOneDoorAnalyzer.cs (same Initialize shape); `diff` of the two files shows only the door/message differ."
+        },
+        {
+          "claim": "Neither BoundariesToCrossPlatformOneDoorAnalyzerTests.cs (75 lines) nor BoundariesToPerOsOneDoorAnalyzerTests.cs (109 lines) references SharedAnalyzerSources today \u2014 both declare 100% private const string fixtures and call ONLY AnalyzerRunner.RunWithReferenceAsync<TAnalyzer>(source, assemblyName, referenceSource, referenceAssemblyName) across every one of their 7 combined [Fact] methods, always with the default (empty) expectedCompilerErrors.",
+          "evidence": "Full read of both files; grep of every SharedAnalyzerSources.<Constant> consumer across all 12 constants lists 20 files, neither of these two among them."
+        },
+        {
+          "claim": "The two tests Acceptance 7 names for reversal already build their subject compilation as \"AgentGuard.Engine\" and already place the prohibited call inside an ordinary class/method (public class Composition { public object Build() => ...; }), never inside SystemServices.Create(): CallIntoOtherCrossPlatformType_FromNonBoundariesAssembly_IsNotReported and CallOtherPerOsMember_FromNonBoundariesAssembly_IsNotReported. Reversing their assertion (Assert.Empty -> diagnostic asserted) needs zero change to their input source, matching conversation.md's claim exactly, confirmed byte-for-byte.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs:67-74; analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs:67-73."
+        },
+        {
+          "claim": "CallOldPlatformDoor_FromBoundaries_IsReported (BoundariesToPerOsOneDoorAnalyzerTests.cs:75-108) is a THIRD Boundaries-gate test not named among the two class-level consts \u2014 it declares its fixture inline inside the [Fact] method itself, the only such case in either file. It is one of the five tests Acceptance 6 requires to keep passing unchanged.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs:75-108."
+        },
+        {
+          "claim": "SharedAnalyzerSources.cs (268 lines, internal static class in namespace AgentGuard.Analyzers.Tests) currently holds exactly 12 internal const string fixtures \u2014 LinkTargetSource, AbstractionsPrefix, RealShapeContainer, OverlaySeedHelpers, PresenceContract, LocalAuthenticationPort, LocalAuthNativeBinding, PolkitAuthorityPort, ObjCRuntimeNativeOps, SystemServicesContainerMembers, FileSystemContainerMembers, PlatformServicesContainerMembers \u2014 none naming AgentGuard.Engine, InternalsVisibleTo, or SystemServices.Create(). Every constant carries an XML doc comment naming each consuming test class by name and the DRY rationale for sharing it byte-identical, an established per-constant documentation convention. 20 existing test classes already consume this file, confirming it is already the codebase's single established owner for cross-class fixture sharing.",
+          "evidence": "Full read of analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs (all 268 lines); grep -rln 'SharedAnalyzerSources\\.' across analyzers/AgentGuard.Analyzers.Tests/*.cs lists 20 consumer files."
+        },
+        {
+          "claim": "SeedSiteAnalyzerRunner.cs (39 lines, internal static class) is a live precedent for a thin, domain-specific composing helper built ON TOP of the unmodified AnalyzerRunner: its one method string-concatenates a caller-supplied preamble and consumer body into a template and delegates to AnalyzerRunner.RunAsync<TAnalyzer>(source, \"AgentGuard.TestHelpers\") \u2014 never touching AnalyzerRunner.cs itself. It has exactly two consumers (NoLiteralCaseModeSeedAnalyzerTests.cs, NoLiteralFakeRootAnalyzerTests.cs).",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/SeedSiteAnalyzerRunner.cs:1-39, RunAsync at :30-38 delegating via 'return AnalyzerRunner.RunAsync<TAnalyzer>(source, \"AgentGuard.TestHelpers\");'."
+        },
+        {
+          "claim": "AnalyzerReleases.Unshipped.md currently lists rows for AG0015, AG0017, AG0022, AG0023, and AG0029 but has NO row for AG0040 or AG0041, confirming both are genuinely new diagnostic IDs, not already declared.",
+          "evidence": "grep -n on analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md: lines 24 (AG0015), 25 (AG0017), 29 (AG0022), 30 (AG0023), 35 (AG0029); no AG0040/AG0041 match anywhere in the file."
+        },
+        {
+          "claim": "SystemServices.Create() has exactly two call sites in the entire tree today: src/AgentGuard.Cli/Program.cs:62 and tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs (lines 77 and 311), independently re-confirming conversation.md's claim.",
+          "evidence": "grep -rn 'SystemServices\\.Create()' src tests --include='*.cs' \u2014 exactly those three call-site lines plus doc-comment mentions."
+        },
+        {
+          "claim": "Real, currently-configured <AssemblyName> values that any fixture must literally match: CLI = \"guard\" (with RootNamespace AgentGuard.Cli), Engine = \"AgentGuard.Engine\" (RootNamespace also AgentGuard.Engine), Boundaries = \"AgentGuard.Boundaries\", TestHelpers = \"AgentGuard.TestHelpers\". These exactly match the analyzer project's own existing constant holders: CliAssembly.CompiledName=\"guard\"/RootNamespace=\"AgentGuard.Cli\", BoundaryAssembly.Name=\"AgentGuard.Boundaries\", TestAssembly.TestHelpersName=\"AgentGuard.TestHelpers\", and CrossPlatformBoundary.RootName=\"AgentGuard.CrossPlatform\" with .MacOS/.Linux/.Windows suffix constants. No EngineAssembly.cs file exists yet, so any fixture written before RULE-PHASE adds it must spell the literal string \"AgentGuard.Engine\" directly.",
+          "evidence": "src/AgentGuard.Cli/AgentGuard.Cli.csproj:6; src/AgentGuard.Engine/AgentGuard.Engine.csproj (RootNamespace/AssemblyName both AgentGuard.Engine); src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj; tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj; analyzers/AgentGuard.Analyzers/CliAssembly.cs:21,30; BoundaryAssembly.cs:19; TestAssembly.cs:20; CrossPlatformBoundary.cs:19-31; `ls` confirms no EngineAssembly.cs exists."
+        },
+        {
+          "claim": "AgentGuard.Engine.csproj today has exactly one InternalsVisibleTo grant (to AgentGuard.Tests) and references only AgentGuard.Abstractions \u2014 neither the guard nor AgentGuard.TestHelpers grant exists yet, so AG0041's fake-Engine fixture (which Acceptance 8 requires to carry BOTH grants) has no real project file to mirror; its InternalsVisibleTo set must be spelled fresh in fixture source text, using the same bare-attribute mechanism AnalyzerRunnerTests.cs already proves works.",
+          "evidence": "src/AgentGuard.Engine/AgentGuard.Engine.csproj \u2014 '<InternalsVisibleTo Include=\"AgentGuard.Tests\" />' is the only grant; ProjectReference only to AgentGuard.Abstractions."
+        },
+        {
+          "claim": "AgentGuard.Analyzers.Tests.csproj targets net10.0 and AgentGuard.Analyzers.csproj (the analyzer itself) targets netstandard2.0, but AnalyzerRunner.ResolveReferencesAsync always resolves ReferenceAssemblies.Net.Net90 regardless of either \u2014 a pre-existing, contract-untouched quirk that applies identically to every existing and every new fixture, including AG0040/41's.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj (<TargetFramework>net10.0</TargetFramework>); analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj:4 (<TargetFramework>netstandard2.0</TargetFramework>); AnalyzerRunner.cs:148-152 (ReferenceAssemblies.Net.Net90.ResolveAsync)."
+        },
+        {
+          "claim": "None of the contract's planned new files exist anywhere in the tree yet: EngineToBoundariesOneDoorAnalyzerTests.cs, EngineInternalsOneDoorAnalyzerTests.cs, OneDoorIntoCrossPlatformAnalyzerTests.cs, OneDoorIntoPerOsAnalyzerTests.cs (test side), nor EngineAssembly.cs, BoundaryAdapterFactories.cs, OneDoorRule.cs, DeclaredTypeScanner.cs, EngineToBoundariesOneDoorAnalyzer.cs, EngineInternalsOneDoorAnalyzer.cs (analyzer side) \u2014 no naming collisions with anything currently on disk.",
+          "evidence": "Direct `ls` check on all ten paths returned 'No such file' for every one."
+        },
+        {
+          "claim": "GuardedConstructionAnalyzerTests.cs (AG0017's test class, comment-only touch per the contract's Surfaces list) already exercises the identical two-assembly RunWithReferenceAsync shape with 'AgentGuard.Engine' as a caller assembly name today \u2014 a fourth already-working precedent (beyond the two one-door test classes and AnalyzerRunnerTests.cs itself) that this exact compilation shape is exercised, unmodified, right now.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs:385,396,403,411,422 \u2014 RunWithReferenceAsync calls with assemblyName values \"AgentGuard.Engine\", \"guard\", \"AgentGuard.TestHelpers\", each against BoundariesSource/\"AgentGuard.Boundaries\"."
+        },
+        {
+          "claim": "TimeMustUseTimeProviderAnalyzerTests.cs (AG0015's test class) has one test, TimeProviderSystem_InSystemServicesCreate_IsNotReported, whose fixture today declares 'namespace AgentGuard.Boundaries { internal static class SystemServices { ... TimeProvider.System ... } }' compiled via plain RunAsync(source, \"AgentGuard.Boundaries\") (no reference needed). Acceptance 14 requires this single test's namespace and assemblyName to move from Boundaries to Engine \u2014 an ordinary source-text and string-argument edit using RunAsync's existing custom-assemblyName parameter, no runner change. The sibling report-case test (TimeProviderSystem_OutsideComposition_IsReported) already asserts against an 'AgentGuard.Engine' compilation today.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/TimeMustUseTimeProviderAnalyzerTests.cs:90-128 (the Boundaries-sited accept case) and :90-106 (the Engine-sited report case already present)."
+        },
+        {
+          "claim": "Compilation-shape conclusion for AG0040 (Acceptance 2-4, 12) and AG0041 (Acceptance 8-12): every scenario reduces to either RunWithReferenceAsync<TAnalyzer>(subjectSource, subjectAssemblyName, referenceSource, referenceAssemblyName) with ordinary C# source-text variation (which method/class/position holds the call; which syntax position holds a type name; lambdas and local functions are plain valid C#), or plain RunAsync<TAnalyzer>(source, assemblyName) for a no-reference decoy declared directly in the subject. Both are the runner's existing, unmodified signatures. The two specific mechanics the new tests uniquely need \u2014 independent subject/reference assembly-name strings decoupled from any C# namespace, and an InternalsVisibleTo grant carried in reference source text \u2014 are each independently proven already working against the CURRENT, unmodified runner by AnalyzerRunnerTests.cs and by GuardedConstructionAnalyzerTests.cs's existing usage. No third overload, no new parameter, and no change to the compiler-error validator's default-empty behavior is required, confirming (not merely trusting) conversation.md's and Acceptance 18's 'no runner change' position.",
+          "evidence": "Composite of AnalyzerRunner.cs:44-103 (signatures), AnalyzerRunnerTests.cs:160-178 (IVT-grant proof), WellKnownType.cs:66-71 (namespace/assembly independence), and existing usage in BoundariesToCrossPlatformOneDoorAnalyzerTests.cs, BoundariesToPerOsOneDoorAnalyzerTests.cs, and GuardedConstructionAnalyzerTests.cs."
+        },
+        {
+          "claim": "Working-tree stability check: one mid-exploration `git status --short` read showed a large set of modified analyzer-test files (consistent with a concurrent process \u2014 most likely a sibling GROUND explorer or a build \u2014 touching the shared checkout at that instant). Re-running `git status --short` and `git diff HEAD` immediately after, and again as a final check, showed every file this report cites evidence from is byte-identical to committed HEAD (c1c2a1875c14b1a2fb76bf1affc04b386769dccb, \"Repair analyzer fixture validation and use SDK SourceLink\", 2026-09-13 16:59:03 -0600) with zero diff and fully tracked; the only real tree changes present are this run's own contract.md (modified) and conversation.md (untracked). All facts above are grounded against that stable, committed content.",
+          "evidence": "Sequential `git status --short` calls showing transient dirty state then clean state; `git diff HEAD -- <file>` returning 0 lines and `git ls-files --error-unmatch <file>` succeeding for AnalyzerRunner.cs, AnalyzerRunnerTests.cs, SharedAnalyzerSources.cs, both one-door test files, SeedSiteAnalyzerRunner.cs, and AnalyzerReleases.Unshipped.md; `git log -1 --format='%H %ci %s'` = c1c2a1875c14b1a2fb76bf1affc04b386769dccb 2026-09-13 16:59:03 -0600 Repair analyzer fixture validation and use SDK SourceLink."
+        }
+      ],
+      "surfaces": [
+        "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunnerTests.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/SeedSiteAnalyzerRunner.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs (to be renamed OneDoorIntoCrossPlatformAnalyzerTests.cs)",
+        "analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs (to be renamed OneDoorIntoPerOsAnalyzerTests.cs)",
+        "analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs (new, does not exist yet)",
+        "analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs (new, does not exist yet)",
+        "analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/TimeMustUseTimeProviderAnalyzerTests.cs",
+        "analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj",
+        "analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md",
+        "analyzers/AgentGuard.Analyzers/WellKnownType.cs",
+        "analyzers/AgentGuard.Analyzers/MemberUseScanner.cs",
+        "analyzers/AgentGuard.Analyzers/CompositionPoint.cs",
+        "analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs",
+        "analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs",
+        "analyzers/AgentGuard.Analyzers/BoundaryAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/CliAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/TestAssembly.cs",
+        "analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs",
+        "analyzers/AgentGuard.Analyzers/AgentGuard.Analyzers.csproj",
+        "src/AgentGuard.Cli/AgentGuard.Cli.csproj",
+        "src/AgentGuard.Engine/AgentGuard.Engine.csproj",
+        "src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj",
+        "tests/AgentGuard.TestHelpers/AgentGuard.TestHelpers.csproj",
+        "src/AgentGuard.Cli/Program.cs:62",
+        "tests/AgentGuard.TestHelpers/SystemServicesBuilder.cs:77,311",
+        ".dev/inprocess/74-pre-work-move-system-services/contract.md",
+        ".dev/inprocess/74-pre-work-move-system-services/conversation.md",
+        ".dev/inprocess/74-pre-work-move-system-services/adjudication.md (historical record; its 'runner harness' question is superseded by the current contract's binding 'no runner change' text)"
+      ],
+      "openQuestions": [
+        "Whether ONE shared 'fake AgentGuard.Engine' constant in SharedAnalyzerSources.cs literally serves both required shapes \u2014 (a) a SUBJECT source (compiled directly as assemblyName=\"AgentGuard.Engine\") for AG0040's and AG0023/AG0029's Engine-gate tests, which need a SystemServices.Create() call site with an injectable/variable call statement, versus (b) a REFERENCE source for AG0041's tests, which needs internal AND public members across many syntax positions plus two InternalsVisibleTo grants \u2014 or whether these are two related-but-distinct constants both owned by SharedAnalyzerSources.cs. The contract's Surfaces text says 'the fake AgentGuard.Engine fixture source' (singular) consumed by four classes, but the two shapes differ enough in required content that no fact in the working tree forces one answer; this is a fixture-shape/DRY design choice for DESIGN or RULE-PHASE to settle, not something GROUND can resolve from current code.",
+        "The exact identity of 'the four test classes' sharing the fake Engine fixture is my inference from the contract's own Rules-to-add and Acceptance text (EngineToBoundariesOneDoorAnalyzerTests.cs for AG0040, EngineInternalsOneDoorAnalyzerTests.cs for AG0041, and the renamed OneDoorIntoCrossPlatformAnalyzerTests.cs / OneDoorIntoPerOsAnalyzerTests.cs for AG0023/AG0029's new Engine gates) \u2014 the contract never enumerates the four by name in one place, so this set should be explicitly confirmed rather than taken on my inference alone.",
+        "Whether AG0040's 'fifth Boundaries factory that returns a service interface but is not one of the four named identities' scenario (Acceptance 3) is built by adding a fifth method to the SAME reference source already used for the four-accepted-factories test, or as a separate reference source \u2014 an ordinary fixture-spelling choice with no forced answer anywhere in the current tree."
+      ],
+      "autoResolved": []
+    }
+  ],
+  "panelComplete": true,
+  "failedRoles": []
+}

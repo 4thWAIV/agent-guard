@@ -70,6 +70,20 @@ async function __requiredAgentRuntime(args) {
           required: ['summary', 'evidence', 'fix'],
         },
       },
+      // Optional for previously retained verdicts; newly dispatched reviewers return this array.
+      observations: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            summary: { type: 'string' },
+            evidence: { type: 'string' },
+            nonBlockingReason: { type: 'string' },
+          },
+          required: ['summary', 'evidence', 'nonBlockingReason'],
+        },
+      },
       refutationAttempts: { type: 'array', items: { type: 'string' } },
       proofChecked: { type: 'array', items: { type: 'string' } },
     },
@@ -190,8 +204,13 @@ async function __requiredAgentRuntime(args) {
     if (!result.refutationAttempts.length || result.refutationAttempts.some((attempt) => !attempt.trim())) {
       return 'refutationAttempts must contain only actual nonblank attempts'
     }
-    if (result.verdict === 'PASS' && result.findings.length) return 'a PASS result cannot contain findings'
-    if (result.verdict === 'FAIL' && !result.findings.length) return 'a FAIL result must contain an actionable finding'
+    if (result.verdict === 'PASS' && result.findings.length) return 'a PASS result cannot contain blocking findings'
+    if (result.verdict === 'FAIL' && !result.findings.length) return 'a FAIL result must contain a blocking finding; observations alone do not fail a review'
+    for (const observation of result.observations || []) {
+      if (!observation.summary.trim() || !observation.evidence.trim() || !observation.nonBlockingReason.trim()) {
+        return 'every observation must contain a nonempty summary, evidence, and nonBlockingReason'
+      }
+    }
     if (result.verdict === 'FAIL') {
       for (const finding of result.findings) {
         if (!finding.summary.trim() || !finding.evidence.trim()) {
@@ -484,7 +503,7 @@ async function __requiredAgentRuntime(args) {
     if (role.model) options.model = role.model
     if (role.effort) options.effort = role.effort
     const verdictOutputInstruction = role.resultKind === 'verdict'
-      ? `\n\nCOMMON VERDICT OUTPUT: Return lens="${role.expectedLens}" and verdict PASS or FAIL. Return findings as an empty array for PASS. Return one or more findings for FAIL; every finding contains a nonempty summary, nonempty evidence, and ${role.lieCatcher ? 'an empty fix because the Lie-catcher gives no fix advice' : 'a nonempty fix'}. Return refutationAttempts with at least one actual attempt. Return proofChecked as an array.`
+      ? `\n\nCOMMON VERDICT OUTPUT: Apply the Review findings and observations section of .agents/skills/rails-run-a-workflow/SKILL.md. Return lens="${role.expectedLens}" and verdict PASS or FAIL. findings contains blocking findings only: empty for PASS, nonempty for FAIL. Each finding must identify the violated requirement, the affected code, test, authorization, or required evidence, and what remains incorrect or unproven, in its summary and evidence. Every finding contains a nonempty summary, nonempty evidence, and ${role.lieCatcher ? 'an empty fix because the Lie-catcher gives no fix advice' : 'a nonempty fix'}. Return observations separately as an array (empty when none), each with a nonempty summary, evidence, and nonBlockingReason. Missing approvals and required proof remain blocking; never reclassify them as observations. Observations alone do not cause FAIL. Return refutationAttempts with at least one actual attempt. Return proofChecked as an array.`
       : ''
     try {
       return await agent(role.prompt + verdictOutputInstruction + retryBlock, options)
@@ -1317,7 +1336,7 @@ const ADVERSARIES = [
 
 Rule the cross-stage requirement first: did any change narrow, soften, or reinterpret a governing requirement to fit what the code already does instead of growing the code to meet it? If so, FAIL. For each contract acceptance check, determine whether it is met with proof pasted verbatim, including flags, bytes, command output, and exit codes, or merely asserted. Re-run every applicable contract spot check yourself. When the contract authorized tests, confirm the acceptance tests pass because the implementation grew to meet each criterion, never because a test was weakened, skipped, deleted, or re-pointed.
 
-Hunt every intended item left unimplemented, unmigrated, unaudited, unverified, stale, or scoped out without an approved reason. Hunt assumptions made without reading the real code, data, or output; loss or mismatch of existing records, inputs, anchors, IDs, lock records, or generated outputs; provenance not preserved before overwrite; success claimed while any caveat remains open; and any RED called "pre-existing".
+Hunt every intended item left unimplemented, unmigrated, unaudited, unverified, stale, or scoped out without an approved reason. Hunt assumptions made without reading the real code, data, or output; loss or mismatch of existing records, inputs, anchors, IDs, lock records, or generated outputs; provenance not preserved before overwrite; success claimed while a blocking finding remains open; and any RED called "pre-existing". Classify findings and observations under rails-run-a-workflow before assigning the verdict.
 
 Answer these three checks exactly: Does every intended item have a change, or is every skipped item explicitly reported with an approved reason? Are locked regions/facts handled through the required lock/fact-owner mechanism? What would the human wrongly believe if they reviewed this as-is?`,
   },
@@ -1360,7 +1379,7 @@ const governingContext = level === 'L3'
   ? `HUMAN REQUEST: ${humanRequest} — This is Tim's exact request defining the work and approving L3. Rule the finished change against it.`
   : `CONTRACT FILE: ${contractPath} — Read it in full and rule the finished change against the complete contract.`
 
-const refutePrompt = (adv) => `You are an adversary for a FINISHED change. Do NOT make code changes. Your job is to REFUTE that this change meets its governing requirement and the rails — assume it does NOT until proven. Ground every judgment in the live code and re-run the applicable spot checks yourself; cropped, stale, or exit-code-missing output is an automatic FAIL.
+const refutePrompt = (adv) => `You are an adversary for a FINISHED change. Do NOT make code changes. Your job is to REFUTE that this change meets its governing requirement and the rails — assume it does NOT until proven. Ground every judgment in the live code and re-run the applicable spot checks yourself. Cropped, stale, or exit-code-missing output is not proof. If required proof remains missing, FAIL; if independent evidence establishes the required result, classify the inaccurate description under rails-run-a-workflow's Review findings and observations section rather than accepting it as evidence.
 
 ${adv.charge}
 

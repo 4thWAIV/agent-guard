@@ -92,4 +92,4 @@ A rail against low-quality work — anything that looks like progress but does n
 
 ## Verdict
 
-Return PASS only when no Violation is confirmed. Return FAIL when any Violation is confirmed.
+Apply `rails-run-a-workflow`'s **Review findings and observations** section before assigning the verdict. Return FAIL for blocking findings. Return PASS when none remain, retaining non-blocking observations separately. False claims never count as proof.

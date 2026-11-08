@@ -92,4 +92,49 @@ internal static class CrossPlatformBoundary
     {
         return assemblyName is not null && PerOsImplementationAssemblyNames.Contains(assemblyName);
     }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="assemblyName"/> is the CORE
+    /// <c>AgentGuard.CrossPlatform</c> contract assembly, excluding its three per-OS siblings — the exact complement
+    /// of <see cref="IsPerOsImplementationAssembly"/> within the platform set. AG0023 gates its scope on it, and
+    /// <see cref="IsSharedNamespaceDecoy"/> excludes it, so the one comparison against
+    /// <see cref="RootName"/> as an ASSEMBLY name lives here once.
+    /// </summary>
+    /// <param name="assemblyName">The assembly name to test.</param>
+    /// <returns><see langword="true"/> when the assembly is the core contract assembly.</returns>
+    internal static bool IsCoreAssembly(string? assemblyName)
+    {
+        return string.Equals(assemblyName, RootName, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> SQUATS the shared <see cref="RootName"/> namespace
+    /// from an assembly that is neither the core contract assembly nor one of the three per-OS implementations — a
+    /// type that wears the guarded namespace without being declared in any assembly the two one-door rules guard.
+    /// <para>
+    /// The <c>AgentGuard.CrossPlatform</c> NAMESPACE is shared: the core assembly and all three per-OS
+    /// implementations declare into it, and <c>PlatformServices</c> exists in each of the three. A type from any
+    /// OTHER assembly that squats that namespace is a same-named decoy as far as BOTH rules are concerned, so each
+    /// admits it into its own Engine-facing scope — AG0023 beside its core-assembly types and AG0029 beside its
+    /// per-OS ones — and lets its own assembly-pinned door test reject it, rather than letting it fall out of scope
+    /// and be silently accepted at the one site that may call the real door. Both rules reporting the same decoy is
+    /// the intended overlap, not a partition: neither rule may be silent about an imitation of its own door.
+    /// </para>
+    /// <para>
+    /// The exclusions are what keep each rule off the other's real territory. Excluding the per-OS assemblies keeps
+    /// AG0023 silent about the legitimate <c>PlatformServices.Create()</c> call, and excluding the core assembly
+    /// keeps AG0029 silent about the legitimate <c>CrossPlatformAdapters.Create()</c> call, both of which
+    /// <c>SystemServices.Create()</c> makes.
+    /// </para>
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is in the shared namespace but in neither guarded assembly
+    /// set.</returns>
+    internal static bool IsSharedNamespaceDecoy(INamedTypeSymbol type)
+    {
+        string? assemblyName = type?.ContainingAssembly?.Name;
+        return WellKnownType.IsInNamespace(type, RootName)
+            && !IsCoreAssembly(assemblyName)
+            && !IsPerOsImplementationAssembly(assemblyName);
+    }
 }

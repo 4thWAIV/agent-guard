@@ -1,0 +1,16 @@
+# Acceptance 25 round — full analyzer suite AFTER the test changes
+captured: 2026-09-16T18:58:54Z
+HEAD: a12e58b305c5315bc175332066e90a2d693b1769
+This run is over the DELIVERED files, whose digests are recorded in tdd-acceptance25-scope-and-digests.txt.
+The BEFORE run is tdd-acceptance25-baseline-analyzer-tests.txt: Passed 616, Total 616, EXIT=0.
+
+$ dotnet test analyzers/AgentGuard.Analyzers.Tests/AgentGuard.Analyzers.Tests.csproj
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  AgentGuard.Analyzers -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers/bin/Debug/netstandard2.0/AgentGuard.Analyzers.dll
+  AgentGuard.Analyzers.Tests -> /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll
+Test run for /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/bin/Debug/net10.0/AgentGuard.Analyzers.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 8 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0

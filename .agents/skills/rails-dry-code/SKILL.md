@@ -15,19 +15,21 @@ This file owns the prior-art criteria. The `prior-art-ledger` workflow (`.agents
 
 ## The rails
 
-### 1. Capability built with no prior-art-ledger ruling
+### 1. Prior-art search establishes whether the code duplicates an existing capability
 - **Practice:** Before building any new capability — including a one-off helper or a new guardrail — run the `prior-art-ledger` tool over it and carry its ruling (reuse / extract / new) in the contract's reuse ledger. A helper or guardrail needing no sign-off is about approval, not a license to skip this check; reuse the right existing owner before adding a new one. Run the tool, `.agents/workflows/prior-art-ledger.js`. It is a checked-in script that runs at any Level, so the search is never done by hand and no lens is ever skipped. There is no second path. This is a locked law: it cannot be changed, narrowed, or excepted except by a contract the human approves for that exact change. When the work introduces no new capability, use an empty capability list and record `None — this change introduces no new capability` in the contract. Do not invent a fake capability merely to satisfy the workflow.
-- **Violation:** A new capability was built with no prior-art-ledger ruling, the reuse ledger is missing from the contract, or the work invents a fake capability instead of recording `None — this change introduces no new capability` — the duplication check was not recorded correctly at design time.
-- **Fix:** Run the prior-art-ledger over every new capability before building and record each reuse / extract / new ruling; when there is no new capability, record `None — this change introduces no new capability`.
+- **Review:** A missing prior-art ruling or ledger entry triggers inspection of the implementation and existing owners. Establish whether the code reuses or extracts the right owner. The missing entry alone is a non-blocking observation, not proof of duplicated code. Approval requirements still apply unchanged.
+- **Violation:** The code duplicates an existing capability instead of reusing or extracting its owner. Name both implementations, the knowledge or logic they duplicate, and their consumers. A claim that an implementation is shared is not proof; inspect the call sites.
+- **Fix:** Route the consumers through the existing owner or extract one owner for the duplicated capability. A ledger edit alone does not fix duplicated code.
 
 ### 2. Ledger trusted instead of verified
 - **Practice:** Own the reuse ledger. Re-run every discovery lens YOURSELF for each capability the change introduces — CodeGraph (`codegraph_explore`), and grep across `src`, `tests`, `analyzers`, and `eng`. Do not rely on the worker's ledger entries.
-- **Violation:** The ledger was accepted as written with no lens re-run, so a wrong ruling passes unchecked.
-- **Fix:** Re-run both lenses per capability yourself; record each query and what it returned (file:line).
+- **Review:** Establish the current ownership yourself. An absent record of an earlier search is not evidence that the implementation is duplicated. If ownership cannot be established, name the missing evidence and what it prevents you from verifying; do not substitute a ledger-completeness check.
+- **Violation:** A ledger's reuse claim is contradicted by duplicated implementations or consumers that bypass the claimed owner.
+- **Fix:** Re-run both lenses per capability yourself and identify the actual implementations and consumers (file:line). Correct the duplicated implementation rather than accepting its ledger description.
 
 ### 3. False "new"
 - **Practice:** A capability is "new" only when every lens came back empty.
-- **Violation:** A capability the ledger marked "new" that any lens shows already exists, or that was not checked by every lens.
+- **Violation:** A capability built as "new" duplicates an existing implementation that should have been reused or extracted. A missing search record alone triggers the inspection in rail 1, not this finding.
 - **Fix:** Reclassify to reuse or extract against the owner a lens found; reuse that owner instead of building.
 
 ### 4. "Reuse" / "extract" written as a fresh copy
@@ -35,15 +37,17 @@ This file owns the prior-art criteria. The `prior-art-ledger` workflow (`.agents
 - **Violation:** A capability the ledger marked "reuse" or "extract" where the worker instead wrote a fresh copy.
 - **Fix:** Delete the copy; call the existing owner (reuse) or the one owner extracted from copies A / B / C (extract).
 
-### 5. Duplicated value
-- **Practice:** Every literal string, number, or path lives in exactly one named owner and is referenced from there.
-- **Violation:** A duplicated string, number, or path spelled in more than one place.
-- **Fix:** Hoist it to one named constant/owner and reference it everywhere.
+### 5. Duplicated knowledge in values
+- **Practice:** A value that expresses one shared requirement has one named owner, referenced by its consumers. Equal text alone does not establish shared ownership: independent examples, fixture syntax, and test expectations can legitimately contain the same literal.
+- **Violation:** Multiple values independently encode the same requirement and must change together to remain correct. Identify that requirement, its competing definitions, and the consumers that must agree. Repeated one-line fixture text alone is not a DRY finding; neither line count nor textual equality decides whether knowledge is duplicated.
+- **Fix:** Put the shared value in its existing owner, or extract one owner and route the affected consumers through it. Preserve independent test expectations rather than deriving the expected result from the implementation under test.
 
 ### 6. Duplicated block or whole function
 - **Practice:** Every block of logic and every function exists once.
 - **Violation:** A duplicated block or whole function — same logic even with renamed variables — **including copies across projects/modules, which the in-build analyzers cannot see.**
 - **Fix:** Extract one owner and collapse every copy into it.
+
+When sharing test setup, fixture construction, or assertions, preserve each independently reported scenario. Extract the implementation; do not bundle separate test cases to reduce duplication.
 
 ### 7. Single-lens search that misses copies
 - **Practice:** No single lens finds every copy, so chain them: grep the distinctive tokens across `src`, `tests`, `analyzers`, and `eng` to get the concept neighborhood, pivot on the shared primitive those hits expose, ask CodeGraph for that symbol's callers and blast radius, then READ the callers.
@@ -57,4 +61,4 @@ This file owns the prior-art criteria. The `prior-art-ledger` workflow (`.agents
 
 ## Verdict
 
-Return PASS only when no Violation is confirmed. Return FAIL when any Violation is confirmed.
+Apply `rails-run-a-workflow`'s **Review findings and observations** section. Confirmed duplicated knowledge or logic is a blocking finding. A missing ledger entry alone is an observation. Return FAIL for blocking findings; return PASS when there are none, retaining any observations separately.

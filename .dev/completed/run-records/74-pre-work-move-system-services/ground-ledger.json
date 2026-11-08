@@ -1,0 +1,48 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+  "verdicts": [
+    {
+      "capability": "call-site-restricted-factory-set",
+      "decision": "extract",
+      "copies": [
+        "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:188",
+        "analyzers/AgentGuard.Analyzers/GuardedConstructionAnalyzer.cs:127",
+        "analyzers/AgentGuard.Analyzers/PresenceCheckOnlyFromApprovalGateAnalyzer.cs:82",
+        "analyzers/AgentGuard.Analyzers/WellKnownType.cs:38",
+        "analyzers/AgentGuard.Analyzers/PlatformFactory.cs:41",
+        "analyzers/AgentGuard.Analyzers/CompositionPoint.cs:94"
+      ],
+      "evidence": "No hit is a \"new\" candidate: per rails-dry-code rule 3, new is valid only when every lens comes back empty, and both codegraph and grep returned hits (lensesEmpty is empty in the pooled search). No single existing owner does the exact job (callee-identity SET matched at method-identity granularity, gated to ONE named caller method), so this is not a bare reuse either. The building blocks to compose already exist and must be reused, not reimplemented: WellKnownType.IsAnyOf (WellKnownType.cs:38) is the existing set-of-permitted-identities matcher (today over type identities, the pattern AG0040 extends to method identities, mirroring PlatformFactory.Is's single-method-identity shape at PlatformFactory.cs:41); CompositionPoint.EnclosedBy (CompositionPoint.cs:94) is the existing caller-site-walking primitive (today at type granularity, per OwnerClass.cs:47 confirmed zero hits anywhere in the repo of resolving the enclosing METHOD instead of type). The closest full-shape precedent combining a callee-identity-SET test with a caller-site test in one rule is GuardedConstructionAnalyzer.IsStaticFactoryReturningAnyOf + its call-site CompositionPoint.Encloses check (GuardedConstructionAnalyzer.cs:188 and :127); PresenceCheckOnlyFromApprovalGateAnalyzer.cs:82 is the closest precedent for combining a callee-identity test with a caller-site identity test in one place, albeit single-callee and type-granularity. AG0040 must extract/compose from these existing owners (a method-identity set matcher modeled on WellKnownType.IsAnyOf/PlatformFactory.Is, and a caller-site-by-enclosing-method test modeled on CompositionPoint.EnclosedBy/OwnerClass.EnclosingType) rather than building a freestanding new mechanism.",
+      "confidence": "high"
+    },
+    {
+      "capability": "internal-surface-one-door",
+      "decision": "extract",
+      "copies": [
+        "analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs:65",
+        "analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs:57",
+        "analyzers/AgentGuard.Analyzers/MemberUseScanner.cs:61",
+        "analyzers/AgentGuard.Analyzers/WellKnownType.cs:66"
+      ],
+      "evidence": "No analyzer already implements the whole AG0041 shape (reject any reference to an internal type/member of a named assembly from a named consumer assembly, except one permitted symbol), so a bare \"reuse\" ruling is wrong. But the whole-rule shape is not new either: BoundariesToCrossPlatformOneDoorAnalyzer (AG0023, analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs:65) and BoundariesToPerOsOneDoorAnalyzer (AG0029, analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs:57) are two existing copies of the identical pattern \u2014 gate one consumer assembly via MemberUseScanner.RegisterForAssembly, report every member use in the gated scope except one named door symbol \u2014 differing only in which assembly pair and which door type they name. AG0041 is a third instance of that same pattern (Engine as the gated assembly, SystemServices.Create as the door). The underlying primitives it must be built from already have a single owner each and must not be reimplemented: MemberUseScanner.RegisterForAssembly (analyzers/AgentGuard.Analyzers/MemberUseScanner.cs:61) is the existing per-consumer(compiled)-assembly gate, and WellKnownType.IsInAssembly (analyzers/AgentGuard.Analyzers/WellKnownType.cs:66) judges assembly-of-declaration for a referenced symbol. Ruling: extract/mirror the AG0023/AG0029 one-door pattern for the new assembly pair, built on the existing RegisterForAssembly + IsInAssembly primitives, rather than a from-scratch new mechanism.",
+      "confidence": "high"
+    },
+    {
+      "capability": "type-reference-lens",
+      "decision": "extract",
+      "copies": [
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:49",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:55",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:64",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:73",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs:95",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeCastToAnalyzer.cs:49",
+        "analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeCastToAnalyzer.cs:82"
+      ],
+      "evidence": "No single existing component covers the full capability. ContractConcreteTypeMustNotBeReferencedAnalyzer.Initialize (line 49) fully covers the carried-type half via four separate registrations \u2014 AnalyzeField (55), AnalyzeProperty (64), AnalyzeMethod (73, covers both return-type and parameter positions), AnalyzeLocal (95, covers var/inferred locals) \u2014 but this logic is scattered across four registrations tied to AG0006's own diagnostic, not exposed as a shared lens. ContractConcreteTypeMustNotBeCastToAnalyzer.Initialize (line 49) and its Check helper (line 82) cover only 4 of the many written-type-name positions the capability needs (cast/as/pattern types), leaving typeof, nameof, generic arguments, generic constraints, base lists, attribute arguments, using aliases, and general declaration positions unaddressed \u2014 confirmed by the grep hit's own note. TypeTree.Any (TypeTree.cs:25) is a generic recursive walker over an already-resolved ITypeSymbol, not a syntax-level lens for locating type references in source; it's a plugin point, not the capability itself. MemberUseScanner is explicitly the member-access lens (a distinct, already-reused capability for AG0041), not this one. Since three rules (AG0041, AG0023, AG0029 Engine gates) now need one unified lens and the closest two implementations each own only half the surface embedded inside their own analyzers, the DRY move is to extract the carried-type logic out of AG0006's four registrations and the written-name Check pattern out of AG0007 into one shared TypeReferenceLens, rather than reimplementing either half a third time inline in the new rules.",
+      "confidence": "high"
+    }
+  ],
+  "panelComplete": true,
+  "failedRoles": []
+}

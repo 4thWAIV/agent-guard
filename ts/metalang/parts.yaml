@@ -1,0 +1,267 @@
+# The parts of this toolchain, written in the architecture language rather than in MetaLang.
+#
+# `language: arch` says which rulebook this file is read against. The checker loads that file,
+# reads the scopes it brings in, and checks what is written here against the result — so `element`
+# and `mark` below are the architecture language's own words, and MetaLang alone could say nothing
+# about them.
+#
+# `part` derives from `element`, which the architecture language declares, so the form a part takes
+# and the line saying what it does are that language's words and not this file's invention. This
+# file adds the two things `element` does not carry: the file a part lives in, and the glyph it is
+# drawn with where it has one of its own. Tim approved `element` on 2026-10-21.
+#
+# Each part is its own `constant`, declared under the name the part actually has, which Tim approved
+# on 2026-10-24. They were one enum called `parts` until then, which said the toolchain has these
+# six parts and can have no others, and gave every part two names.
+#
+# Every member below was read out of the source before it was written here: `Vocabulary` and
+# `Fault` in ts/metalang/words.ts, `Rulebook` in ts/metalang/rulebook.ts, and `Expression` in
+# ts/metalang/expression.ts. `check` and `pathTo` are callables belonging to no type, so each
+# writes `members: none` rather than a list. Checking that automatically is step 6 on the road and
+# does not exist yet.
+#
+# `import: [metalang]` brings in the types the architecture language is itself written with, which
+# is where `string` comes from. A document reaches the language it names without importing it, and
+# reaches anything else by bringing it in.
+scope: [parts]
+language: arch
+import:
+  - [metalang]
+title: The parts of the MetaLang toolchain
+description: What each part of ts/metalang is, and which form it takes.
+declare:
+  - entity:
+      id: part
+      is: element
+      title: One part of this toolchain.
+      properties:
+        file:
+          is: string
+          title: The file it lives in.
+        mark:
+          is: mark
+          optional: true
+          title: The glyph it is drawn with, where it is drawn with one of its own.
+
+  - constant:
+      id: Vocabulary
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: checking
+          job: container
+        relates:
+          implements: none
+          answers: none
+          holds: none
+        file: words.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: record
+        does: The whole vocabulary as one value, so nothing reads a subset of it.
+        members:
+          - name: places
+            kind: property
+            reach: public
+            type: none
+            does: Where a declaration may be written, and which kinds may be written there.
+          - name: types
+            kind: property
+            reach: public
+            type: none
+            does: The kinds whose declarations are types, so a name under `is` may point at one.
+          - name: topLevel
+            kind: property
+            reach: public
+            type: none
+            does: The top-level keys a file may write.
+          - name: kinds
+            kind: property
+            reach: public
+            type: none
+            does: Every kind a declaration may be, wherever it may be written.
+          - name: onKind
+            kind: property
+            reach: public
+            type: none
+            does: The keywords each kind carries, or nothing where they are not decided.
+          - name: onProperty
+            kind: property
+            reach: public
+            type: none
+            does: The keywords a property carries.
+          - name: onValue
+            kind: property
+            reach: public
+            type: none
+            does: The keywords one value of an enum carries.
+          - name: entities
+            kind: property
+            reach: public
+            type: none
+            does: Every entity the language file declares, and the properties each one carries.
+          - name: choices
+            kind: property
+            reach: public
+            type: none
+            does: Every choice the language file declares, and the options it lists.
+          - name: scope
+            kind: property
+            reach: public
+            type: none
+            does: Where the language file says its own declarations live.
+          - name: brought
+            kind: property
+            reach: public
+            type: none
+            does: Every scope this vocabulary was read from, the language's own first.
+          - name: declared
+            kind: property
+            reach: public
+            type: none
+            does: Every declaration of the language file itself, by the id it declares.
+
+  - constant:
+      id: Fault
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: checking
+          job: container
+        relates:
+          implements: none
+          answers: none
+          holds: none
+        file: words.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: record
+        does: One thing to say about one place in a document.
+        members:
+          - name: where
+            kind: property
+            reach: public
+            type: none
+            does: The place in the document it is about.
+          - name: what
+            kind: property
+            reach: public
+            type: none
+            does: What is wrong there.
+
+  - constant:
+      id: Rulebook
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: checking
+          job: container
+        relates:
+          implements: none
+          answers: none
+          holds: [Vocabulary, Fault]
+        file: rulebook.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: record
+        does: The vocabulary a document is read against, or why it could not be read.
+        members:
+          - name: words
+            kind: property
+            reach: public
+            type: none
+            does: The vocabulary, or nothing when a language it needs could not be read.
+          - name: faults
+            kind: property
+            reach: public
+            type: none
+            does: Everything that stopped it being read as written.
+
+  - constant:
+      id: Expression
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: checking
+          job: port
+        relates:
+          implements: none
+          answers: none
+          holds: none
+        file: expression.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: interface
+        does: A regular expression that has been read, and what it matches.
+        members:
+          - name: source
+            kind: property
+            reach: public
+            type: none
+            does: The text it was written as.
+          - name: matches
+            kind: method
+            reach: public
+            type: none
+            does: Whether the whole of the value is what it matches.
+
+  - constant:
+      id: check
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: checking
+          job: service
+        relates:
+          implements: none
+          answers: none
+          holds: none
+        file: check.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: function
+        does: Reads one document against a vocabulary and says what is wrong with it.
+        members: none
+
+  - constant:
+      id: pathTo
+      is: part
+      value:
+        reach: public
+        exactness: loose
+        groups:
+          concept: drawing
+          job: service
+        relates:
+          implements: none
+          answers: none
+          holds: none
+        file: highlight.ts
+        sits:
+          package: agent-guard-ts
+          assembly: none
+          namespace: none
+        form: function
+        mark: "◇"
+        does: Where a path written in a highlight points, in the form the page writes.
+        members: none

@@ -19,6 +19,22 @@ public class TimeMustUseTimeProviderAnalyzerTests
         }
         """;
 
+    // The relocated container reading the clock: AgentGuard.Engine's SystemServices acquiring TimeProvider.System.
+    // ONE source run under two different assembly names — the real Engine, where it is the construction site and is
+    // accepted, and a same-named decoy assembly, where it is not — so the two tests differ only in that argument.
+    // Same technique as UtcNowSource above, which the two DateTime.UtcNow tests share the same way.
+    private const string SystemServicesInEngineSource = """
+        using System;
+
+        namespace AgentGuard.Engine
+        {
+            internal static class SystemServices
+            {
+                private static TimeProvider Compose() => TimeProvider.System;
+            }
+        }
+        """;
+
     [Fact]
     public async Task DateTimeUtcNow_IsReported()
     {
@@ -110,8 +126,19 @@ public class TimeMustUseTimeProviderAnalyzerTests
     public async Task TimeProviderSystem_InSystemServicesCreate_IsNotReported()
     {
         // clock-legal-in-create-and-builder: TimeProvider.System is legal inside SystemServices in
-        // AgentGuard.Boundaries — whose Create() wires the clock into the container. This is the construction site the
+        // AgentGuard.Engine — whose Create() wires the clock into the container. This is the construction site the
         // clock is acquired at, distinct from the composition CALLERS (Program + builder) that only call the factory.
+        // The construction site moved to Engine with the container; AG0015 keeps its TYPE-level test, so anywhere
+        // inside the container class qualifies.
+        Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(
+            SystemServicesInEngineSource, "AgentGuard.Engine"));
+    }
+
+    [Fact]
+    public async Task TimeProviderSystem_InSystemServicesLeftBehindInBoundaries_IsReported()
+    {
+        // The retarget, proved from the other side: the construction-site exemption is anchored on the container in
+        // AgentGuard.Engine, so the same class left in AgentGuard.Boundaries no longer carries it.
         const string source = """
             using System;
 
@@ -124,7 +151,20 @@ public class TimeMustUseTimeProviderAnalyzerTests
             }
             """;
 
-        Assert.Empty(await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "AgentGuard.Boundaries"));
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(source, "AgentGuard.Boundaries"));
+        Assert.Equal("AG0015", diagnostic.Id);
+    }
+
+    [Fact]
+    public async Task TimeProviderSystem_InSameNamedContainerInAnotherAssembly_IsReported()
+    {
+        // The construction-site identity is the namespace-plus-assembly conjunction, so a class merely NAMED
+        // SystemServices in the AgentGuard.Engine namespace but compiled elsewhere cannot self-grant the exemption.
+        Diagnostic diagnostic = Assert.Single(
+            await AnalyzerRunner.RunAsync<TimeMustUseTimeProviderAnalyzer>(
+                SystemServicesInEngineSource, "AgentGuard.Engine.Decoy"));
+        Assert.Equal("AG0015", diagnostic.Id);
     }
 
     [Fact]

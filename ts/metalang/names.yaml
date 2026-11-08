@@ -1,0 +1,149 @@
+# What each language calls each form — a document written in the architecture language.
+#
+# ── APPROVED — the naming dictionary is its own document.                        2026-10-21 ──
+# Tim approved moving this dictionary out of `ts/metalang/arch.yaml`, through his jarvis session.
+# What each language calls a form is naming rather than architecture, so it is written here, in
+# the architecture language, rather than declared inside it. `language`, `languages` and
+# `equivalent` came here with it, and the `equivalents` property that used to hang on `form` is
+# now one entry for each form in each language: six forms, four languages, twenty-four entries.
+#
+# `language: arch` says which rulebook this file is read against, so `forms` below is the
+# architecture language's own word and MetaLang alone could say nothing about it.
+# `import: [metalang]` brings in `string`.
+#
+# Two things the checker proves about this file:
+#   - A bare value on a property typed by an enum names one member of that enum, resolved among
+#     that enum's own values. `csharp` in an entry below is the member `csharp` of `languages`,
+#     and `interface` is the member `interface` of `forms`. A bare value that names no member is
+#     a problem that lists the members.
+#   - A form absent from a language says so. The four `process` entries hold the reserved state
+#     `none`, which Tim approved on 2026-10-20: a decided absence reads as one, and nothing is
+#     reported, because nothing is missing. No language has a word for a process.
+#
+# The `function` entry for C# is text rather than `none`, because C# has no callable belonging to
+# no type and the workaround is worth saying.
+#
+# This file is the first half of the verifiable path to each language that Tim asked for on
+# 2026-10-05: what each language calls a form. The second half — how to find one in that
+# language's source — belongs here too, and is step 6 on the road.
+# ── APPROVED — the name a language is shown by, said to be the name.             2026-10-25 ──
+# Tim approved `role: name` on `language.name`, through his jarvis session. A value naming one
+# member of a closed set is drawn with the name that set gives it beside the id, so an entry below
+# reads `csharp C#` rather than `csharp`, and the form it names reads `interface Interface`. The id
+# is what it is written as and the name is what it is called, and saying so is what stops both
+# renderers reading the property literally spelled `name`, which is a field name written into code
+# that this repository does not allow.
+
+scope: [names]
+language: arch
+import:
+  - [metalang]
+title: What each language calls each form
+description: One entry for each of the six forms in each of the four languages.
+declare:
+  - entity:
+      id: language
+      is: object
+      title: One language a form may be named in.
+      properties:
+        name:
+          is: string
+          role: name
+          title: The name the language is shown by.
+
+  - enum:
+      id: languages
+      is: language
+      title: Every language a form is named in, in reading order.
+      values:
+        - id: csharp
+          value: { name: C# }
+        - id: python
+          value: { name: Python }
+        - id: rust
+          value: { name: Rust }
+        - id: typescript
+          value: { name: TypeScript }
+
+  - entity:
+      id: equivalent
+      is: object
+      title: What one form is called in one language.
+      description: A form absent from a language says so in the entry rather than leaving it out.
+      properties:
+        form: { is: forms, title: The form being named. }
+        language: { is: languages, title: The language naming it. }
+        name:
+          is: string
+          accepts: [none]
+          title: What that language calls the form.
+        written:
+          is: expression
+          accepts: [none]
+          title: The expression that finds one in that language's source, with the element's name as its one group.
+          description: >
+            The name above is written for a reader; this is written for a search. `none` where the
+            language has no word for the form, because there is nothing to look for.
+
+  - enum:
+      id: equivalents
+      is: equivalent
+      title: What each language calls each form, in reading order.
+      values:
+        - id: interface_csharp
+          value: { form: interface, language: csharp, name: interface, written: '^\s*(?:public |internal |private |protected |partial |unsafe )*interface\s+(\w+)' }
+        - id: interface_python
+          value: { form: interface, language: python, name: Protocol or ABC, written: '^\s*class\s+(\w+)\s*\([^)]*\b(?:Protocol|ABC)\b[^)]*\)' }
+        - id: interface_rust
+          value: { form: interface, language: rust, name: trait, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?(?:unsafe\s+)?trait\s+(\w+)' }
+        - id: interface_typescript
+          value: { form: interface, language: typescript, name: interface, written: '^\s*(?:export\s+)?(?:declare\s+)?interface\s+(\w+)' }
+
+        - id: class_csharp
+          value: { form: class, language: csharp, name: class, written: '^\s*(?:public |internal |private |protected |sealed |abstract |static |partial |unsafe )*class\s+(\w+)' }
+        - id: class_python
+          value: { form: class, language: python, name: class, written: '^\s*class\s+(\w+)\s*[(:]' }
+        - id: class_rust
+          value: { form: class, language: rust, name: struct with an impl, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?struct\s+(\w+)' }
+        - id: class_typescript
+          value: { form: class, language: typescript, name: class, written: '^\s*(?:export\s+)?(?:abstract\s+)?class\s+(\w+)' }
+
+        - id: record_csharp
+          value: { form: record, language: csharp, name: record, written: '^\s*(?:public |internal |private |protected |sealed |abstract |partial )*record\s+(?:class\s+|struct\s+)?(\w+)' }
+        - id: record_python
+          value: { form: record, language: python, name: dataclass or NamedTuple, written: '^\s*@dataclass[^\n]*\n\s*class\s+(\w+)' }
+        - id: record_rust
+          value: { form: record, language: rust, name: struct, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?struct\s+(\w+)' }
+        - id: record_typescript
+          value: { form: record, language: typescript, name: "interface, or a type alias", written: '^\s*(?:export\s+)?(?:interface|type)\s+(\w+)' }
+
+        - id: enum_csharp
+          value: { form: enum, language: csharp, name: enum, written: '^\s*(?:public |internal |private |protected )*enum\s+(\w+)' }
+        - id: enum_python
+          value: { form: enum, language: python, name: Enum, written: '^\s*class\s+(\w+)\s*\([^)]*\bEnum\b[^)]*\)' }
+        - id: enum_rust
+          value: { form: enum, language: rust, name: "enum — a sum type, so not the same thing", written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?enum\s+(\w+)' }
+        - id: enum_typescript
+          value: { form: enum, language: typescript, name: "enum, or a union of literals", written: '^\s*(?:export\s+)?(?:const\s+)?enum\s+(\w+)' }
+
+        - id: function_csharp
+          value:
+            form: function
+            language: csharp
+            name: none — a static method on a class is the workaround
+            written: none
+        - id: function_python
+          value: { form: function, language: python, name: def at module level, written: '^def\s+(\w+)' }
+        - id: function_rust
+          value: { form: function, language: rust, name: fn at module level, written: '^(?:pub\s+(?:\([^)]*\)\s*)?)?(?:async\s+)?fn\s+(\w+)' }
+        - id: function_typescript
+          value: { form: function, language: typescript, name: function at module level, written: '^(?:export\s+)?(?:async\s+)?function\s+(\w+)' }
+
+        - id: process_csharp
+          value: { form: process, language: csharp, name: none, written: none }
+        - id: process_python
+          value: { form: process, language: python, name: none, written: none }
+        - id: process_rust
+          value: { form: process, language: rust, name: none, written: none }
+        - id: process_typescript
+          value: { form: process, language: typescript, name: none, written: none }
