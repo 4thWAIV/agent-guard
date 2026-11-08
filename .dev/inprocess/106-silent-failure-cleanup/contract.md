@@ -132,7 +132,9 @@ Each therefore raises, or folds its failure into the exception already being thr
 
 In the five test-cleanup places, let the exception surface, or assert on it where the test is about cleanup. A catch whose body is only a comment is removed.
 
-**Group 5.** Make the win-arm64 and linux-x64 legs run the tests they build, or record in `docs/silent-failure-audit.md` why a leg stays build-only. Change the upload steps from `if-no-files-found: warn` to `error`. Run `eng/check-copied-modules.mjs` from CI. Narrow the `no-unsafe-*` disable in `eslint.config.js` to the files that narrow YAML, named one by one. Make `eng/local-cosign.sh`, `eng/local-cosign.ps1` and `eng/version.compute.targets:81,86` fail rather than exit 0 or continue when they sign nothing or compute no hash.
+**Group 5.** Make the win-arm64 and linux-x64 legs run the tests they build, or record in `docs/silent-failure-audit.md` why a leg stays build-only. Change the upload steps from `if-no-files-found: warn` to `error`. Run `eng/check-copied-modules.mjs` from CI. Narrow the `no-unsafe-*` disable in `eslint.config.js` to the files that narrow YAML, named one by one. Make `eng/local-cosign.sh` and `eng/local-cosign.ps1` fail rather than exit 0 when they sign nothing. All three of their skips — the switch being off, running in CI, and no interactive terminal — exit non-zero naming which condition stopped the signing.
+
+`eng/version.compute.targets:81,86` fails only on CI. A local build keeps stamping `local`, which is what it is. That matches `eng/compute-build-id.sh`, which already fails only in CI, so the two halves stop disagreeing. The two legs that stay build-only, and the job that runs `eng/check-copied-modules.mjs`, are recorded in `docs/silent-failure-audit.md` with their reasons.
 
 **All groups.** Update `docs/silent-failure-audit.md` so each of the thirteen moves from "Listed, not fixed" to "Fixed", or stays with the reason recorded.
 
@@ -171,6 +173,8 @@ In the five test-cleanup places, let the exception surface, or assert on it wher
    `python3 -I -c "import re,pathlib,sys; bad=[(str(f),m.start()) for f in list(pathlib.Path('src').rglob('*.cs'))+list(pathlib.Path('tests').rglob('*.cs')) for m in re.finditer(r'catch\s*(?:\([^)]*\))?\s*\{(?:\s|//[^\n]*\n)*\}', f.read_text())]; print(bad or 'none'); sys.exit(1 if bad else 0)"`
    The first draft of this check used a single-line regex, which matched none of the eight before the work and would match none after, so it could not prove the group either way.
 10. `grep -n "if-no-files-found: warn" .github/workflows/ci.yml` returns nothing.
+10a. A local build with no git still succeeds and stamps `local`. Run it with git unreachable and paste the version it produced.
+10b. A CI build with no git fails. Prove it by running the same path with the CI marker set and pasting the non-zero exit.
 11. `eng/check-copied-modules.mjs` appears in a CI step. Paste the step.
 12. `eslint.config.js` names each file the `no-unsafe-*` disable applies to, and no directory glob. Paste the block.
 13. Every one of the thirteen findings in `issue.md` is marked fixed in `docs/silent-failure-audit.md`, or carries a recorded reason for staying. An adversary reads both files and confirms the count is thirteen.
