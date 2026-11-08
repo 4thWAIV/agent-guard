@@ -17,7 +17,7 @@ const said = (ran: { stdout?: Buffer | undefined; stderr?: Buffer | undefined })
 /** Bun inherits a child's stderr unless told otherwise, and a refusal is written there. */
 const CAPTURED = { stdout: 'pipe', stderr: 'pipe' } as const
 
-import { buildKit, carriedFiles, missingOf, readmeText } from './kit.ts'
+import { buildKit, carriedFiles, LOCAL_VERSION, missingOf, readmeText } from './kit.ts'
 
 let dir: string
 
@@ -168,7 +168,7 @@ describe('drawing a page from the built kit', () => {
 describe('a required file the kit cannot find', () => {
   test('stops the build and names the file, rather than writing a kit without it', () => {
     expect(
-      buildKit(join(dir, 'never-written'), [
+      buildKit(join(dir, 'never-written'), LOCAL_VERSION, [
         { name: 'metalang.yaml', from: join(dir, 'gone.yaml'), required: true },
       ]),
     ).rejects.toThrow('metalang.yaml is not beside the source')
@@ -203,5 +203,30 @@ describe('a document written in a language other than MetaLang', () => {
     const html = await readFile(page, 'utf8')
     expect(html).toContain('id="page-data"')
     expect(html).toContain('The parts of the MetaLang toolchain')
+  })
+})
+
+describe('the version the kit says it is', () => {
+  test('is the one it was built with, so a consumer can tell which kit they have', async () => {
+    const out = join(dir, 'kit-versioned')
+    const built = await buildKit(out, '0.1.108169728-pre-release')
+    expect(built.version).toBe('0.1.108169728-pre-release')
+    const manifest = JSON.parse(await readFile(join(out, 'package.json'), 'utf8'))
+    expect(manifest.version).toBe('0.1.108169728-pre-release')
+  })
+
+  test('says it is a local build when nobody gave it a version, rather than claiming one', async () => {
+    const out = join(dir, 'kit-unversioned')
+    const built = await buildKit(out)
+    expect(built.version).toBe(LOCAL_VERSION)
+    expect(LOCAL_VERSION).toContain('local')
+    const manifest = JSON.parse(await readFile(join(out, 'package.json'), 'utf8'))
+    expect(manifest.version).toBe(LOCAL_VERSION)
+  })
+
+  test('the readme names the version, because the folder travels away from this repository', async () => {
+    const out = join(dir, 'kit-readme-version')
+    await buildKit(out, '9.9.9-test')
+    expect(await readFile(join(out, 'README.md'), 'utf8')).toContain('9.9.9-test')
   })
 })

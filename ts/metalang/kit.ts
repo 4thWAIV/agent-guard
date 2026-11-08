@@ -25,6 +25,15 @@ const here = dirname(fileURLToPath(import.meta.url))
 /** Where the kit is written when the caller does not say. */
 export const KIT_DIR = join(here, '..', '..', 'dist', 'evolang-kit')
 
+/**
+ * What a kit says it is when nobody gave it a version.
+ *
+ * A kit travels away from this repository, so the folder has to be able to answer which kit it is.
+ * A build with no version says so in as many words rather than carrying a number that looks like a
+ * release and is not one.
+ */
+export const LOCAL_VERSION = '0.0.0-local'
+
 export interface Carried {
   /** The name it has inside the kit. */
   readonly name: string
@@ -73,8 +82,8 @@ export function missingOf(files: readonly Carried[]): readonly string[] {
 }
 
 /** What the kit tells whoever takes it. */
-export function readmeText(): string {
-  return `# The EvoLang build kit
+export function readmeText(version: string = LOCAL_VERSION): string {
+  return `# The EvoLang build kit ${version}
 
 One folder. It checks a document against the language it names, and draws it as one
 self-contained page.
@@ -116,6 +125,7 @@ refused by name rather than read against a language that does not exist.
 
 export interface Built {
   readonly out: string
+  readonly version: string
   readonly carried: readonly string[]
   readonly absent: readonly string[]
 }
@@ -126,7 +136,11 @@ export interface Built {
  * The manifest is an argument so the refusal below can be exercised without moving a real file
  * out of the source folder. Every caller but a test uses the one real list.
  */
-export async function buildKit(out: string, files: readonly Carried[] = carriedFiles()): Promise<Built> {
+export async function buildKit(
+  out: string,
+  version: string = LOCAL_VERSION,
+  files: readonly Carried[] = carriedFiles(),
+): Promise<Built> {
   const missing = missingOf(files)
   if (missing.length > 0) {
     throw new Error(
@@ -148,7 +162,7 @@ export async function buildKit(out: string, files: readonly Carried[] = carriedF
   // Node loads an ES module only when something says the file is one.
   writeFileSync(
     join(out, 'package.json'),
-    `${JSON.stringify({ name: 'evolang-kit', private: true, type: 'module' }, null, 2)}\n`,
+    `${JSON.stringify({ name: 'evolang-kit', version, private: true, type: 'module' }, null, 2)}\n`,
   )
 
   const carried: string[] = []
@@ -162,14 +176,14 @@ export async function buildKit(out: string, files: readonly Carried[] = carriedF
     }
   }
 
-  writeFileSync(join(out, 'README.md'), readmeText())
+  writeFileSync(join(out, 'README.md'), readmeText(version))
 
-  return { out, carried, absent }
+  return { out, version, carried, absent }
 }
 
 if (import.meta.main) {
-  const built = await buildKit(process.argv[2] ?? KIT_DIR)
-  console.log(`${built.out} — kit.js, package.json, README.md, and ${built.carried.join(', ')}`)
+  const built = await buildKit(process.argv[2] ?? KIT_DIR, process.argv[3])
+  console.log(`${built.out} — ${built.version}: kit.js, page.js, package.json, README.md, and ${built.carried.join(', ')}`)
   if (built.absent.length > 0) {
     console.log(`  not carried, because it is not written yet: ${built.absent.join(', ')}`)
   }
