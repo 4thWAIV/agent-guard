@@ -12,7 +12,11 @@ import { describe, expect, test } from 'bun:test'
 
 import { classed, coloured, FROM, reach, textOf, TO, withStyle, writtenBy } from './examples.ts'
 
-const root = import.meta.dir.replace(/\/ts\/metalang$/, '')
+// The repository root, reached with path functions rather than by cutting separators out of a
+// string: on Windows `import.meta.dir` is separated by backslashes and a regex over slashes
+// matches nothing, which left every example reaching another document pointing at a file that
+// was not there. Windows CI caught it; this is why the leg exists.
+const root = join(import.meta.dir, '..', '..')
 
 const page = (body: string): string => `<style>\n  pre { padding: 1rem; }\n</style>\n${body}\n`
 

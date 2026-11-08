@@ -44,7 +44,9 @@ afterAll(async () => {
 describe('the file a scope is written in', () => {
   test('its segments are the path, with yaml on the end', () => {
     expect(fileForScope(['metalang'], [dir, '.'])).toBeNull()
-    expect(fileForScope(['metalang'], ['ts/metalang'])).toBe('ts/metalang/metalang.yaml')
+    // Joined rather than written out: the path the code hands back is separated the way the
+    // platform separates paths, and on Windows that is not a forward slash.
+    expect(fileForScope(['metalang'], ['ts/metalang'])).toBe(join('ts/metalang', 'metalang.yaml'))
   })
 
   test('several segments are several folders', () => {
