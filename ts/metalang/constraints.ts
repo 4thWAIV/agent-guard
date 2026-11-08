@@ -16,7 +16,7 @@
 // Nothing here reaches the file system, so the page's bundle may import it.
 
 import { readExpression } from './expression.ts'
-import { BOOTSTRAP, isMapping, onlyWord, type BodyOf, type Mapping } from './words.ts'
+import { BOOTSTRAP, isMapping, onlyWord, RESERVED, type BodyOf, type Mapping } from './words.ts'
 
 /** The keyword a type carries its constraints under. */
 export const CONSTRAINTS = 'constraints'
@@ -69,6 +69,88 @@ const READERS: Record<string, Reader> = {
 
 /** How a value of one primitive is read, or nothing when nothing here says. */
 export const readerFor = (primitive: string): Reader | null => READERS[primitive] ?? null
+
+/**
+ * What a path came to: the values it reached, or why the walk could not be made at all. A route
+ * nothing could follow is said rather than answered with an empty hand, because a rule that found
+ * nothing to judge and a rule that could not look are not the same answer.
+ */
+export type Reached = { readonly reached: readonly unknown[] } | { readonly stopped: string }
+
+/**
+ * What one declaration carries, by the name it is known by, or nothing where the name names no
+ * declaration the document reaches. It is what lets a path cross from a thing to the thing it
+ * points at; without one a path descends only through content a value owns.
+ */
+export type Resolve = (name: string) => Mapping | undefined
+
+/**
+ * Every value a path reaches, in the order it reaches them. Each part names a property of whatever
+ * the part before it held; a part holding many of something fans out, so one path reaching through
+ * a list names the same part of every member. A part nothing is written at reaches nothing, which
+ * is an empty answer and not a wrong one.
+ *
+ * It descends only through content a value owns. Ownership forms a tree, so the walk always ends
+ * and nothing here has to count its own steps.
+ */
+export function reachedBy(value: unknown, path: string, through?: Resolve): Reached {
+  let here: unknown[] = [value]
+  // Every declaration the route has already been through. Two declarations are free to name each
+  // other, so this is what makes a route that crosses them end: a name it has already followed is
+  // where it stops, rather than where it goes round again.
+  const crossed = new Set<string>()
+
+  for (const part of path.split('.')) {
+    const next: unknown[] = []
+    for (const one of here) {
+      // Nothing written there is an empty answer and not a wrong one, so the walk goes on with
+      // one fewer thing in hand. A word standing in place of a value says the same: a part that
+      // was deliberately left empty, or that nobody has written yet, holds nothing to take a part
+      // of, and reading it as a name to follow would make an absence look like a broken route.
+      if (one === undefined || one === null) continue
+      if (one === RESERVED.none || one === RESERVED.pending) continue
+
+      // A part naming another declaration holds the name, not the thing. The route asks for a
+      // part of it, so the name is followed to what that declaration carries and the walk goes on
+      // from there.
+      let at = one
+      if (!isMapping(at) && typeof at === 'string' && through !== undefined) {
+        if (crossed.has(at)) {
+          return { stopped: `cannot be read at "${path}", because it returns to "${at}", which it has already been through` }
+        }
+        const found = through(at)
+        if (found !== undefined) {
+          crossed.add(at)
+          at = found
+        }
+      }
+
+      // Something written there that has no named parts, and that names no declaration either, is
+      // the end of the road: the route asks for a part of it and there is no way to take one, so
+      // it stops and says so rather than coming back empty as though the part had been left out.
+      if (!isMapping(at)) {
+        return {
+          stopped: `cannot be read at "${path}", because "${part}" is asked of something with no named parts`,
+        }
+      }
+      const held = at[part]
+      if (held === undefined) continue
+      if (Array.isArray(held)) next.push(...(held as unknown[]))
+      else next.push(held)
+    }
+    here = next
+  }
+  return { reached: here }
+}
+
+/** One value as the word a constraint compares it against. */
+const asWord = (value: unknown): string => (typeof value === 'string' ? value : JSON.stringify(value))
+
+/** The values one constraint names, or nothing when what is written there is not a list of them. */
+const wordsOf = (written: unknown): readonly string[] | null =>
+  Array.isArray(written) && (written as unknown[]).every((one) => typeof one === 'string')
+    ? (written as string[])
+    : null
 
 /** One constraint written on a type, and which type wrote it. */
 export interface Constraint {
@@ -124,8 +206,12 @@ export interface Logic {
    * stops a value being passed against it meanwhile.
    */
   readonly unusable?: (body: Mapping) => string | null
-  /** Why a value does not meet it, or nothing when it does. */
-  readonly unmet: (body: Mapping, value: unknown) => string | null
+  /**
+   * Why a value does not meet it, or nothing when it does. `through` is how a name is followed to
+   * the declaration it points at, for the constraints that walk a path; one given none descends
+   * only through content the value owns.
+   */
+  readonly unmet: (body: Mapping, value: unknown, through?: Resolve) => string | null
 }
 
 // A pattern holds its regular expression under `value`, and the whole of the value has to match.
@@ -143,6 +229,120 @@ const LOGIC: Record<string, Logic> = {
       if (expression === null) throw new Error('a pattern with no readable expression was applied')
       if (typeof value !== 'string') return 'is not text, so no pattern can be matched against it'
       return expression.matches(value) ? null : `does not match ${expression.source}`
+    },
+  },
+
+  // Distinct names a part of the value holding many of something, and a part of each of those. No
+  // two of them may carry the same value there. A property's named parts are declared as a list and
+  // written as a block keyed by name, so both are read; the key is the name a member is reported
+  // by when it has none of its own. A member leaving the part out is passed over, because an
+  // absence is not a value two things can share, and whether it may be left out at all is what the
+  // property's own `optional` says.
+  distinct: {
+    fault: (body) => {
+      const { in: held, by } = body
+      if (typeof held !== 'string' || held.length === 0) return 'does not name the part it reads'
+      if (typeof by !== 'string' || by.length === 0) return 'does not name the part no two may share'
+      return null
+    },
+    unmet: (body, value) => {
+      const held = body.in as string
+      const by = body.by as string
+      if (!isMapping(value)) return `is not a set of named parts, so "${held}" cannot be read from it`
+      const written = value[held]
+      // Written as neither is the property's own type to report, and it does, so there is nothing
+      // here to judge rather than something that quietly passed.
+      const members: readonly (readonly [string | null, unknown])[] = Array.isArray(written)
+        ? (written as unknown[]).map((one) => [null, one] as const)
+        : isMapping(written)
+          ? Object.entries(written)
+          : []
+
+      const taken = new Map<string, string>()
+      for (const [key, member] of members) {
+        if (!isMapping(member)) continue
+        const carried = member[by]
+        if (carried === undefined) continue
+        const word = typeof carried === 'string' ? carried : JSON.stringify(carried)
+        const named = key ?? (typeof member[BOOTSTRAP.id] === 'string' ? (member[BOOTSTRAP.id] as string) : '')
+        const first = taken.get(word)
+        if (first !== undefined) {
+          const both = [first, named].filter((one) => one !== '')
+          return (
+            `writes "${word}" at "${by}" on more than one of "${held}"` +
+            (both.length === 2 ? ` — ${both[0]} and ${both[1]}` : '')
+          )
+        }
+        taken.set(word, named)
+      }
+      return null
+    },
+  },
+
+  // A prohibition. Nothing the path reaches may be one of the words written here.
+  never: {
+    fault: (body) => {
+      if (typeof body.at !== 'string' || body.at.length === 0) return 'does not name the part it is about'
+      return wordsOf(body.carries) === null ? 'does not say which values are refused' : null
+    },
+    unmet: (body, value, through) => {
+      const carries = wordsOf(body.carries) ?? []
+      const came = reachedBy(value, body.at as string, through)
+      if ('stopped' in came) return came.stopped
+      for (const found of came.reached) {
+        const word = asWord(found)
+        if (carries.includes(word)) return `writes "${word}" at "${body.at as string}", which it may never carry`
+      }
+      return null
+    },
+  },
+
+  // A condition. The constraint it holds is applied only where the part it names carries one of
+  // these, and is not applied at all where that part reaches nothing.
+  when: {
+    fault: (body) => {
+      if (typeof body.at !== 'string' || body.at.length === 0) return 'does not name the part that decides it'
+      if (wordsOf(body.holds) === null) return 'does not say which values make it apply'
+      const then = onlyWord(body.then)
+      if (then === null) return 'does not hold exactly one constraint to apply'
+      const inner = logicFor(then[0])
+      if (inner === null) return `holds ${then[0]}, and nothing says how that is applied`
+      if (!isMapping(then[1])) return `holds ${then[0]} written as something other than a mapping`
+      const fault = inner.fault(then[1]) ?? inner.unusable?.(then[1]) ?? null
+      return fault === null ? null : `holds ${then[0]}, which ${fault}`
+    },
+    unmet: (body, value, through) => {
+      const holds = wordsOf(body.holds) ?? []
+      const came = reachedBy(value, body.at as string, through)
+      if ('stopped' in came) return came.stopped
+      const applies = came.reached.some((found) => holds.includes(asWord(found)))
+      if (!applies) return null
+      const then = onlyWord(body.then)
+      if (then === null || !isMapping(then[1])) throw new Error('a when with no readable constraint was applied')
+      const inner = logicFor(then[0])
+      if (inner === null) throw new Error(`a when holding ${then[0]} was applied with nothing to apply`)
+      const why = inner.unmet(then[1], value, through)
+      return why === null ? null : `${why}, where "${body.at as string}" is ${holds.map((one) => `"${one}"`).join(' or ')}`
+    },
+  },
+
+  // How many of a thing a part holds. It counts what the path reaches and hands the count to a
+  // range, which is already the word for a lowest and a highest, rather than saying one again.
+  many: {
+    fault: (body) => {
+      if (typeof body.at !== 'string' || body.at.length === 0) return 'does not name the part it counts'
+      if (!isMapping(body.bounds)) return 'does not say how many are allowed'
+      const bounds = LOGIC.range?.fault(body.bounds) ?? null
+      return bounds === null ? null : `says how many as a range that ${bounds}`
+    },
+    unmet: (body, value, through) => {
+      const came = reachedBy(value, body.at as string, through)
+      if ('stopped' in came) return came.stopped
+      const bounds = body.bounds as Mapping
+      const off = LOGIC.range?.unmet(bounds, came.reached.length) ?? null
+      if (off === null) return null
+      const many = came.reached.length
+      return `holds ${many} at "${body.at as string}", which ${off}`
     },
   },
 
@@ -191,11 +391,11 @@ export function cannotApply(constraint: Constraint): string | null {
  * Why a value does not meet one constraint, or nothing when it does. It refuses a constraint that
  * `cannotApply` names, because answering "met" for one nothing could judge is a silent pass.
  */
-export function unmetBy(constraint: Constraint, value: unknown): string | null {
+export function unmetBy(constraint: Constraint, value: unknown, through?: Resolve): string | null {
   const logic = logicFor(constraint.kind)
   const cannot = cannotApply(constraint)
   if (logic === null || cannot !== null || !isMapping(constraint.body)) {
     throw new Error(`unmetBy was asked to judge a constraint that cannot be applied: ${cannot}`)
   }
-  return logic.unmet(constraint.body, value)
+  return logic.unmet(constraint.body, value, through)
 }

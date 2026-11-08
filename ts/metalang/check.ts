@@ -41,6 +41,7 @@ import {
   primitiveOf,
   propertiesOf,
   propertyAbove,
+  REPLACES,
   RESERVED,
   samePath,
   sameValue,
@@ -257,6 +258,23 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
    * choice's options are the same check, so there is one copy of it. It reads `seen`, which is
    * filled by the walk below, so it is only ever called after that walk has finished.
    */
+  /**
+   * The name that took the place of a retired one, or nothing where none did. A word that is
+   * retired keeps its declaration and says so; the word that replaced it names the old one under
+   * `replaces`. A document still writing the old name is told what to write, which is the whole
+   * point of retiring a word rather than deleting it.
+   */
+  const tookThePlaceOf = (retired: string): string | null => {
+    const everywhere = [
+      ...[...byId.entries()].map(([id, one]) => [id, one.body] as const),
+      ...Object.entries(words.declared).map(([id, one]) => [id, one.body] as const),
+    ]
+    for (const [id, body] of everywhere) {
+      if (isMapping(body) && body[REPLACES] === retired) return id
+    }
+    return null
+  }
+
   const namesType = (where: string, named: unknown): void => {
     if (typeof named !== 'string' || named.length === 0) {
       fail(where, 'must name a type')
@@ -266,12 +284,15 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     const found = byId.get(named) ?? fromVocabulary(named)
     if (found === undefined) {
       const elsewhere = words.declared[named]
+      const instead = tookThePlaceOf(named)
       block(
         where,
-        elsewhere === undefined
-          ? `"${named}" is declared nowhere in this file and no scope it imports brings it in`
-          : `"${named}" is declared in "${elsewhere.scope.join('.')}", which this document does` +
-            ' not bring in',
+        instead !== null
+          ? `"${named}" has been retired — "${instead}" takes its place`
+          : elsewhere === undefined
+            ? `"${named}" is declared nowhere in this file and no scope it imports brings it in`
+            : `"${named}" is declared in "${elsewhere.scope.join('.')}", which this document does` +
+              ' not bring in',
       )
       return
     }
@@ -473,6 +494,51 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
    * names one of the type's properties and holds a value of that property's type, and which of
    * them have to be there is the same rule every other thing in the file is read by.
    */
+  /**
+   * A value held to every constraint its type carries, its own and the ones it derives. One that
+   * cannot be applied is said so rather than counted as met, because a value nothing judged is not
+   * a value that was checked.
+   *
+   * Both a value written in a document and a declaration written in one come here, because a
+   * declaration is a value of its own kind and what that kind says its values may be is one
+   * question with one answer.
+   */
+  /**
+   * What one declaration carries, by the name it is known by. A constraint walking a path crosses
+   * a name with this: the name holds the thing, not a part of it, so the route follows it to what
+   * that declaration's value is and goes on from there. A name naming nothing this document
+   * reaches answers nothing, and the route stops where it is and says so.
+   */
+  const carriedBy = (name: string): Mapping | undefined => {
+    const body = byId.get(name)?.body ?? fromVocabulary(name)?.body
+    if (body === undefined) return undefined
+    // What a declaration carries is its own value where it has one, and the declaration itself
+    // where it does not. A constant carries a value and a type carries what it says about itself,
+    // and a route following a name wants whichever of those that name stands for.
+    const value = body[VALUE]
+    return isMapping(value) ? value : body
+  }
+
+  const holdsToConstraints = (
+    where: string,
+    type: string,
+    value: unknown,
+    lookUp: BodyOf = inVocabulary,
+  ): void => {
+    for (const constraint of constraintsOn(lookUp, type)) {
+      const cannot = cannotApply(constraint)
+      if (cannot !== null) {
+        block(where, cannot)
+        continue
+      }
+      const why = unmetBy(constraint, value, carriedBy)
+      if (why !== null) {
+        const shown = typeof value === 'string' ? `"${value}"` : isMapping(value) ? 'it' : String(value)
+        fail(where, `${shown} ${why}, which "${constraint.from}" requires of every value of it`)
+      }
+    }
+  }
+
   const judgesParts = (where: string, type: string, value: Mapping, lookUp: BodyOf): void => {
     const properties = propertiesOf(lookUp, type)
     for (const name of Object.keys(value)) {
@@ -713,6 +779,13 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       block(where, 'nothing says what type this holds, so what is written here cannot be checked')
       return
     }
+    // A property holding any constraint rather than one named kind of it is read the way a type's
+    // own `constraints` are read: one word naming the kind, with what it holds inside. A property
+    // naming one kind — a range, say — holds that kind's own parts and is read as any value is.
+    if (type === SELF.constraint) {
+      checksWritten(where, value)
+      return
+    }
     if (lookUp(type) === undefined) {
       block(where, `"${type}" is not declared where this value is read, so it cannot be checked`)
       return
@@ -759,28 +832,12 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       return
     }
 
-    // A value of `object` is a set of named parts, so the same walk goes one level down into them.
-    // A leaf has no parts, and what its values may be is the constraints' business below.
-    if (primitive === SELF.object) {
-      judgesParts(where, type, value as Mapping, lookUp)
-      return
-    }
+    // It is written as the primitive says, so what the type allows decides the rest.
+    holdsToConstraints(where, type, value, lookUp)
 
-    // It is written as the primitive says, so what the type allows decides the rest. The
-    // constraints a type derives are applied along with its own, and one that cannot be applied
-    // is said so rather than counted as met.
-    for (const constraint of constraintsOn(lookUp, type)) {
-      const cannot = cannotApply(constraint)
-      if (cannot !== null) {
-        block(where, cannot)
-        continue
-      }
-      const why = unmetBy(constraint, value)
-      if (why !== null) {
-        const shown = typeof value === 'string' ? `"${value}"` : String(value)
-        fail(where, `${shown} ${why}, which "${constraint.from}" requires of every value of it`)
-      }
-    }
+    // A value of `object` is a set of named parts, so the same walk goes one level down into them.
+    // A leaf has no parts, so there is nothing below it to walk.
+    if (primitive === SELF.object) judgesParts(where, type, value as Mapping, lookUp)
   }
 
   /** A value written against a type this document declares. */
@@ -814,22 +871,30 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
       return
     }
     for (const [j, one] of (written as unknown[]).entries()) {
-      const where = `${at}.${CONSTRAINTS}[${j}]`
-      writesType(where, one, new Set())
-
-      const named = isMapping(one) ? onlyWord(one) : null
-      if (named === null) continue
-      const [kind, body] = named
-
-      const logic = logicFor(kind)
-      if (logic === null) {
-        block(where, `nothing says how ${a(kind)} is applied, so no value can be checked against it`)
-        continue
-      }
-      if (!isMapping(body)) continue
-      const fault = logic.fault(body)
-      if (fault !== null) fail(`${where}.${kind}`, fault)
+      checksWritten(`${at}.${CONSTRAINTS}[${j}]`, one)
     }
+  }
+
+  /**
+   * One constraint as it is written: one word naming its kind with what it holds inside. A type
+   * writes its own this way, and a constraint that holds another writes that one the same way, so
+   * the two cannot disagree about what a constraint looks like.
+   */
+  const checksWritten = (where: string, one: unknown): void => {
+    writesType(where, one, new Set())
+
+    const named = isMapping(one) ? onlyWord(one) : null
+    if (named === null) return
+    const [kind, body] = named
+
+    const logic = logicFor(kind)
+    if (logic === null) {
+      block(where, `nothing says how ${a(kind)} is applied, so no value can be checked against it`)
+      return
+    }
+    if (!isMapping(body)) return
+    const fault = logic.fault(body)
+    if (fault !== null) fail(`${where}.${kind}`, fault)
   }
 
   // Names one word, which is either the kind itself or the wrapper that says the kind comes next.
@@ -953,6 +1018,12 @@ export function check(doc: unknown, root: string, words: Vocabulary = WORDS): Ch
     if (body[CONSTRAINTS] !== undefined) checksConstraints(at, body[CONSTRAINTS])
 
     checksKeywords(at, kind, body, claimed, APART_ON_KIND)
+
+    // A declaration is a value of its own kind, so what that kind says its values may be is asked
+    // of the whole declaration as well as of each keyword in it. A rule like "no two properties of
+    // a type carry the same role" is a statement about the declaration entire, and the walk above,
+    // which takes one keyword at a time, is the wrong place to see it.
+    holdsToConstraints(at, kind, body)
 
     // A declaration whose kind lists values is based on exactly one type, because every value it
     // lists is a value of that type, and it has to say which. Everything else may derive from

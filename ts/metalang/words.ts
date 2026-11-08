@@ -148,6 +148,8 @@ export const SELF = {
   collection: 'collection',
   /** The type a value naming one declaration is written out as. */
   link: 'link',
+  /** The type every kind of constraint derives from. */
+  constraint: 'constraint',
   /** The enum listing what a value may say in place of a value of its own type. */
   reserved: 'reserved',
 } as const
@@ -459,6 +461,9 @@ export function typeOfPart(
 
 /** The keyword a declaration writes the one value it carries of its own type under. */
 export const VALUE = 'value'
+
+/** The keyword a declaration names the retired word it takes the place of under. */
+export const REPLACES = 'replaces'
 
 /**
  * The type the one value a declaration carries is of, which is the type its `is` names. A value an

@@ -77,6 +77,13 @@ declare:
           is: string
           accepts: [none]
           title: What that language calls the form.
+        written:
+          is: expression
+          accepts: [none]
+          title: The expression that finds one in that language's source, with the element's name as its one group.
+          description: >
+            The name above is written for a reader; this is written for a search. `none` where the
+            language has no word for the form, because there is nothing to look for.
 
   - enum:
       id: equivalents
@@ -84,58 +91,59 @@ declare:
       title: What each language calls each form, in reading order.
       values:
         - id: interface_csharp
-          value: { form: interface, language: csharp, name: interface }
+          value: { form: interface, language: csharp, name: interface, written: '^\s*(?:public |internal |private |protected |partial |unsafe )*interface\s+(\w+)' }
         - id: interface_python
-          value: { form: interface, language: python, name: Protocol or ABC }
+          value: { form: interface, language: python, name: Protocol or ABC, written: '^\s*class\s+(\w+)\s*\([^)]*\b(?:Protocol|ABC)\b[^)]*\)' }
         - id: interface_rust
-          value: { form: interface, language: rust, name: trait }
+          value: { form: interface, language: rust, name: trait, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?(?:unsafe\s+)?trait\s+(\w+)' }
         - id: interface_typescript
-          value: { form: interface, language: typescript, name: interface }
+          value: { form: interface, language: typescript, name: interface, written: '^\s*(?:export\s+)?(?:declare\s+)?interface\s+(\w+)' }
 
         - id: class_csharp
-          value: { form: class, language: csharp, name: class }
+          value: { form: class, language: csharp, name: class, written: '^\s*(?:public |internal |private |protected |sealed |abstract |static |partial |unsafe )*class\s+(\w+)' }
         - id: class_python
-          value: { form: class, language: python, name: class }
+          value: { form: class, language: python, name: class, written: '^\s*class\s+(\w+)\s*[(:]' }
         - id: class_rust
-          value: { form: class, language: rust, name: struct with an impl }
+          value: { form: class, language: rust, name: struct with an impl, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?struct\s+(\w+)' }
         - id: class_typescript
-          value: { form: class, language: typescript, name: class }
+          value: { form: class, language: typescript, name: class, written: '^\s*(?:export\s+)?(?:abstract\s+)?class\s+(\w+)' }
 
         - id: record_csharp
-          value: { form: record, language: csharp, name: record }
+          value: { form: record, language: csharp, name: record, written: '^\s*(?:public |internal |private |protected |sealed |abstract |partial )*record\s+(?:class\s+|struct\s+)?(\w+)' }
         - id: record_python
-          value: { form: record, language: python, name: dataclass or NamedTuple }
+          value: { form: record, language: python, name: dataclass or NamedTuple, written: '^\s*@dataclass[^\n]*\n\s*class\s+(\w+)' }
         - id: record_rust
-          value: { form: record, language: rust, name: struct }
+          value: { form: record, language: rust, name: struct, written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?struct\s+(\w+)' }
         - id: record_typescript
-          value: { form: record, language: typescript, name: "interface, or a type alias" }
+          value: { form: record, language: typescript, name: "interface, or a type alias", written: '^\s*(?:export\s+)?(?:interface|type)\s+(\w+)' }
 
         - id: enum_csharp
-          value: { form: enum, language: csharp, name: enum }
+          value: { form: enum, language: csharp, name: enum, written: '^\s*(?:public |internal |private |protected )*enum\s+(\w+)' }
         - id: enum_python
-          value: { form: enum, language: python, name: Enum }
+          value: { form: enum, language: python, name: Enum, written: '^\s*class\s+(\w+)\s*\([^)]*\bEnum\b[^)]*\)' }
         - id: enum_rust
-          value: { form: enum, language: rust, name: "enum — a sum type, so not the same thing" }
+          value: { form: enum, language: rust, name: "enum — a sum type, so not the same thing", written: '^\s*(?:pub\s+(?:\([^)]*\)\s*)?)?enum\s+(\w+)' }
         - id: enum_typescript
-          value: { form: enum, language: typescript, name: "enum, or a union of literals" }
+          value: { form: enum, language: typescript, name: "enum, or a union of literals", written: '^\s*(?:export\s+)?(?:const\s+)?enum\s+(\w+)' }
 
         - id: function_csharp
           value:
             form: function
             language: csharp
             name: none — a static method on a class is the workaround
+            written: none
         - id: function_python
-          value: { form: function, language: python, name: def at module level }
+          value: { form: function, language: python, name: def at module level, written: '^def\s+(\w+)' }
         - id: function_rust
-          value: { form: function, language: rust, name: fn at module level }
+          value: { form: function, language: rust, name: fn at module level, written: '^(?:pub\s+(?:\([^)]*\)\s*)?)?(?:async\s+)?fn\s+(\w+)' }
         - id: function_typescript
-          value: { form: function, language: typescript, name: function at module level }
+          value: { form: function, language: typescript, name: function at module level, written: '^(?:export\s+)?(?:async\s+)?function\s+(\w+)' }
 
         - id: process_csharp
-          value: { form: process, language: csharp, name: none }
+          value: { form: process, language: csharp, name: none, written: none }
         - id: process_python
-          value: { form: process, language: python, name: none }
+          value: { form: process, language: python, name: none, written: none }
         - id: process_rust
-          value: { form: process, language: rust, name: none }
+          value: { form: process, language: rust, name: none, written: none }
         - id: process_typescript
-          value: { form: process, language: typescript, name: none }
+          value: { form: process, language: typescript, name: none, written: none }

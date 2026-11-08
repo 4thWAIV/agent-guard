@@ -14,6 +14,7 @@ import {
   cannotApply,
   constraintsOn,
   logicFor,
+  reachedBy,
   readerFor,
   unmetBy,
   type Constraint,
@@ -248,5 +249,241 @@ describe('applying a range', () => {
 
   test('an end written as something other than a number is the type of the property to report', () => {
     expect(logicFor('range')?.fault({ minimum: 'nine' })).toBeNull()
+  })
+})
+
+/**
+ * No two members of one list carry the same value at one part. It is the constraint MetaLang's own
+ * `role` needed: a role is given to at most one property of a type, which the language said in
+ * prose and could not write.
+ */
+describe('distinct', () => {
+  const found = logicFor('distinct')
+  if (found === null) throw new Error('the reader says nothing about how distinct is applied')
+  const logic = found
+
+  test('says so where it names neither part', () => {
+    expect(logic.fault({ by: 'role' })).toBe('does not name the part it reads')
+    expect(logic.fault({ in: 'properties' })).toBe('does not name the part no two may share')
+    expect(logic.fault({ in: 'properties', by: 'role' })).toBeNull()
+  })
+
+  test('passes members that differ, and members leaving the part out', () => {
+    const body = { in: 'properties', by: 'role' }
+    expect(logic.unmet(body, { properties: { a: { role: 'name' }, b: { role: 'mark' } } })).toBeNull()
+    expect(logic.unmet(body, { properties: { a: { role: 'name' }, b: {} } })).toBeNull()
+    expect(logic.unmet(body, { properties: {} })).toBeNull()
+  })
+
+  test('names the part, the value and both that carry it when two share one', () => {
+    const why = logic.unmet(
+      { in: 'properties', by: 'role' },
+      { properties: { label: { role: 'name' }, alias: { role: 'name' } } },
+    )
+    expect(why).toBe('writes "name" at "role" on more than one of "properties" — label and alias')
+  })
+
+  test('reads a list as well as a block keyed by name', () => {
+    const why = logic.unmet(
+      { in: 'values', by: 'mark' },
+      { values: [{ id: 'one', mark: '#' }, { id: 'two', mark: '#' }] },
+    )
+    expect(why).toBe('writes "#" at "mark" on more than one of "values" — one and two')
+  })
+
+  test('says what is wrong where the value is not a set of named parts', () => {
+    expect(logic.unmet({ in: 'properties', by: 'role' }, 'text')).toBe(
+      'is not a set of named parts, so "properties" cannot be read from it',
+    )
+  })
+})
+
+/**
+ * A route to a part of a value. It descends only through content the value owns, which forms a
+ * tree, so it always ends; a part holding many of something fans out, so one path names the same
+ * part of every member of a list.
+ */
+describe('the part a path reaches', () => {
+  test('reaches a part of the value, and a part of a part', () => {
+    expect(reachedBy({ a: 1 }, 'a')).toEqual({ reached: [1] })
+    expect(reachedBy({ a: { b: 'x' } }, 'a.b')).toEqual({ reached: ['x'] })
+  })
+
+  test('fans out through many of something', () => {
+    expect(reachedBy({ members: [{ type: 'a' }, { type: 'b' }] }, 'members.type')).toEqual({
+      reached: ['a', 'b'],
+    })
+  })
+
+  test('reaches nothing where nothing is written there, rather than reaching an absence', () => {
+    expect(reachedBy({ a: 1 }, 'b')).toEqual({ reached: [] })
+    expect(reachedBy({ a: { b: 1 } }, 'a.c')).toEqual({ reached: [] })
+  })
+
+  // A route that asks for a part of something with no parts is not an absence. A name pointing at
+  // another declaration is the case that matters: until a path may cross one, a rule written
+  // through a reference would find nothing and pass, which is the loudest kind of quiet failure.
+  test('stops and says so where it asks for a part of something that has none', () => {
+    expect(reachedBy({ a: 1 }, 'a.b')).toEqual({
+      stopped: 'cannot be read at "a.b", because "b" is asked of something with no named parts',
+    })
+    expect(reachedBy({ holds: 'InEngine' }, 'holds.where')).toEqual({
+      stopped: 'cannot be read at "holds.where", because "where" is asked of something with no named parts',
+    })
+    expect(reachedBy('text', 'a')).toEqual({
+      stopped: 'cannot be read at "a", because "a" is asked of something with no named parts',
+    })
+  })
+})
+
+/** A prohibition: nothing the path reaches may carry one of these. */
+describe('never', () => {
+  const found = logicFor('never')
+  if (found === null) throw new Error('the reader says nothing about how never is applied')
+  const logic = found
+
+  test('says so where it names neither the part nor what is refused', () => {
+    expect(logic.fault({ carries: ['none'] })).toBe('does not name the part it is about')
+    expect(logic.fault({ at: 'x' })).toBe('does not say which values are refused')
+    expect(logic.fault({ at: 'x', carries: ['none'] })).toBeNull()
+  })
+
+  test('passes a value carrying something else, and one carrying nothing there', () => {
+    const body = { at: 'members.type', carries: ['none'] }
+    expect(logic.unmet(body, { members: [{ type: 'uint32' }] })).toBeNull()
+    expect(logic.unmet(body, { members: [{}] })).toBeNull()
+    expect(logic.unmet(body, {})).toBeNull()
+  })
+
+  test('says so where the route could not be followed, rather than passing what it never read', () => {
+    expect(logic.unmet({ at: 'holds.where', carries: ['engine'] }, { holds: 'InEngine' })).toBe(
+      'cannot be read at "holds.where", because "where" is asked of something with no named parts',
+    )
+  })
+
+  test('names the word and the part where one of them carries it', () => {
+    expect(
+      logic.unmet({ at: 'members.type', carries: ['none'] }, { members: [{ type: 'uint32' }, { type: 'none' }] }),
+    ).toBe('writes "none" at "members.type", which it may never carry')
+  })
+})
+
+/** A condition: the constraint it holds is applied only where another part says so. */
+describe('when', () => {
+  const found = logicFor('when')
+  if (found === null) throw new Error('the reader says nothing about how when is applied')
+  const logic = found
+
+  const inner = { never: { at: 'members.type', carries: ['none'] } }
+  const body = { at: 'exactness', holds: ['exact'], then: inner }
+
+  test('says so where what it holds could not be applied', () => {
+    expect(logic.fault({ holds: ['exact'], then: inner })).toBe('does not name the part that decides it')
+    expect(logic.fault({ at: 'exactness', then: inner })).toBe('does not say which values make it apply')
+    expect(logic.fault({ at: 'exactness', holds: ['exact'] })).toBe(
+      'does not hold exactly one constraint to apply',
+    )
+    expect(logic.fault({ at: 'exactness', holds: ['exact'], then: { never: { at: 'x' } } })).toBe(
+      'holds never, which does not say which values are refused',
+    )
+    expect(logic.fault(body)).toBeNull()
+  })
+
+  test('says so where the route that decides it could not be followed', () => {
+    expect(logic.unmet({ at: 'a.b', holds: ['x'], then: inner }, { a: 'word' })).toBe(
+      'cannot be read at "a.b", because "b" is asked of something with no named parts',
+    )
+  })
+
+  test('is not applied where the part it names says otherwise', () => {
+    expect(logic.unmet(body, { exactness: 'loose', members: [{ type: 'none' }] })).toBeNull()
+    expect(logic.unmet(body, { members: [{ type: 'none' }] })).toBeNull()
+  })
+
+  test('is applied where it says so, and says which part made it apply', () => {
+    expect(logic.unmet(body, { exactness: 'exact', members: [{ type: 'none' }] })).toBe(
+      'writes "none" at "members.type", which it may never carry, where "exactness" is "exact"',
+    )
+    expect(logic.unmet(body, { exactness: 'exact', members: [{ type: 'uint32' }] })).toBeNull()
+  })
+})
+
+/**
+ * A path crossing a name. A part naming another declaration holds the name, not the thing, so the
+ * route follows it; a route returning to one it has already been through ends there, which is what
+ * makes a path that crosses references end at all.
+ */
+describe('a path crossing a reference', () => {
+  const held: Record<string, Mapping> = {
+    InEngine: { where: 'engine' },
+    InAbstractions: { where: 'abstractions' },
+    A: { where: 'good', points: 'B' },
+    B: { where: 'good', points: 'A' },
+  }
+  const through = (name: string): Mapping | undefined => held[name]
+
+  test('descends through owned content without one, as it always did', () => {
+    expect(reachedBy({ a: { b: 'x' } }, 'a.b')).toEqual({ reached: ['x'] })
+  })
+
+  test('follows a name to what that declaration carries', () => {
+    expect(reachedBy({ holds: 'InEngine' }, 'holds.where', through)).toEqual({ reached: ['engine'] })
+  })
+
+  test('follows every name a part holds many of', () => {
+    expect(
+      reachedBy({ holds: ['InEngine', 'InAbstractions'] }, 'holds.where', through),
+    ).toEqual({ reached: ['engine', 'abstractions'] })
+  })
+
+  test('ends where it returns to a declaration it has already been through', () => {
+    expect(reachedBy({ points: 'A' }, 'points.points.points.where', through)).toEqual({
+      stopped:
+        'cannot be read at "points.points.points.where", because it returns to "A", which it has already been through',
+    })
+  })
+
+  test('stops where the name names nothing it can reach', () => {
+    expect(reachedBy({ holds: 'Nowhere' }, 'holds.where', through)).toEqual({
+      stopped:
+        'cannot be read at "holds.where", because "where" is asked of something with no named parts',
+    })
+  })
+})
+
+/** How many of a thing a part holds: the count of what a path reaches, held to a range. */
+describe('many', () => {
+  const found = logicFor('many')
+  if (found === null) throw new Error('the reader says nothing about how many is applied')
+  const logic = found
+
+  test('says so where it names neither the part nor how many are allowed', () => {
+    expect(logic.fault({ bounds: { minimum: 1 } })).toBe('does not name the part it counts')
+    expect(logic.fault({ at: 'parts' })).toBe('does not say how many are allowed')
+    expect(logic.fault({ at: 'parts', bounds: {} })).toBe(
+      'says how many as a range that says neither a minimum nor a maximum',
+    )
+    expect(logic.fault({ at: 'parts', bounds: { minimum: 1 } })).toBeNull()
+  })
+
+  test('counts what the part holds and passes a count inside the bounds', () => {
+    const body = { at: 'parts', bounds: { minimum: 1, maximum: 3 } }
+    expect(logic.unmet(body, { parts: ['a', 'b'] })).toBeNull()
+    expect(logic.unmet(body, { parts: ['a'] })).toBeNull()
+  })
+
+  test('names the count and the bound it is outside', () => {
+    const body = { at: 'parts', bounds: { minimum: 1, maximum: 3 } }
+    expect(logic.unmet(body, { parts: [] })).toBe('holds 0 at "parts", which is below 1')
+    expect(logic.unmet(body, {})).toBe('holds 0 at "parts", which is below 1')
+    expect(logic.unmet(body, { parts: ['a', 'b', 'c', 'd'] })).toBe(
+      'holds 4 at "parts", which is above 3',
+    )
+  })
+
+  test('says so where the route could not be followed, rather than counting nothing', () => {
+    expect(logic.unmet({ at: 'a.b', bounds: { minimum: 1 } }, { a: 'word' })).toBe(
+      'cannot be read at "a.b", because "b" is asked of something with no named parts',
+    )
   })
 })

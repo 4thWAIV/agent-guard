@@ -203,3 +203,35 @@ describe('the rulebook a document is read against', () => {
     expect(words?.scope).toEqual(['metalang'])
   })
 })
+
+/**
+ * Reading every scope a document reaches is this function's job. It hands back what it read so
+ * nothing else has to walk the imports a second time to reach the same documents.
+ */
+describe('the documents it read', () => {
+  const scopesOf = (read: readonly unknown[]): unknown[] =>
+    read.map((one) => (one !== null && typeof one === 'object' ? (one as { scope?: unknown }).scope : null))
+
+  test('hands back the language it was read against', () => {
+    const { documents } = rulebookFor({ scope: ['x'], language: 'colour' }, join(dir, 'x.yaml'))
+    expect(scopesOf(documents)).toContainEqual(['colour'])
+  })
+
+  test('hands back a scope brought in, with what that scope itself brings in before it', () => {
+    const { documents } = rulebookFor({ scope: ['x'], import: [['colour']] }, join(dir, 'x.yaml'))
+    const scopes = scopesOf(documents)
+    expect(scopes).toContainEqual(['colour'])
+    expect(scopes).toContainEqual(['metalang'])
+    // Deepest first: the language a document is read against is read before the scope that brings
+    // it in, so a reader taking the first of a repeated name gets the nearer declaration.
+    expect(scopes.indexOf(scopes.find((s) => nameOfScope(s as string[]) === 'metalang'))).toBeLessThan(
+      scopes.indexOf(scopes.find((s) => nameOfScope(s as string[]) === 'colour')),
+    )
+  })
+
+  test('hands back what it read even where a scope it needs is not there', () => {
+    const { words, documents } = rulebookFor({ scope: ['x'], import: [['missing']] }, join(dir, 'x.yaml'))
+    expect(words).not.toBeNull()
+    expect(scopesOf(documents)).toContainEqual(['metalang'])
+  })
+})

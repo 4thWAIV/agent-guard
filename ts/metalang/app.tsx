@@ -480,11 +480,27 @@ const Inside = ({ word, inside }: { word: string; inside: unknown }) => {
             </span>
           )
         }
+        // The type a part holds may be named under `is` or written out as one word with its own
+        // properties inside, which is how a part says it holds many of something. Both are read
+        // the one way, so a part holding a set of words draws as those words rather than falling
+        // back to the text of a file.
+        const holds = typeOfPart((id) => words.declared[id]?.body, words.onProperty, word, key)
+        // A part holding any constraint rather than one named kind of it is written as one word
+        // naming the kind, the way a type's own constraints are, so it is drawn as one of those
+        // rather than as a value whose shape nothing accounts for.
+        if (holds === SELF.constraint) {
+          return (
+            <span key={key}>
+              <i className="d-pof">{key}</i>
+              <Constraint at={key} node={held} />
+            </span>
+          )
+        }
         return (
           <span key={key}>
             <i className="d-pof">{key}</i>
             {!holdsAType((id) => words.declared[id]?.body, word, key) ? (
-              <Val value={held} type={typeOfProperty((id) => words.declared[id]?.body, word, key)} />
+              <Val value={held} type={holds} />
             ) : nested !== null ? (
               <Written word={nested[0]} inside={nested[1]} />
             ) : typeof held === 'string' && held.length > 0 ? (
@@ -717,7 +733,9 @@ const Table = ({
       <thead>
         <tr>
           {columns.map((name) => (
-            <th key={name}>{name}</th>
+            <th key={name} data-col={name}>
+              {name}
+            </th>
           ))}
         </tr>
       </thead>
@@ -736,7 +754,7 @@ const Table = ({
                 id={says === null ? undefined : rowAt}
               >
                 {columns.map((name) => (
-                  <td key={name}>
+                  <td key={name} data-col={name}>
                     {member[name] === undefined ? (
                       <i className="t-none" aria-hidden="true">
                         —
@@ -942,7 +960,7 @@ const Parts = ({
     <span className="d-parts">
       {Object.entries(value).map(([name, held]) => (
         <Marked key={name} at={where === undefined ? '' : `${where}.${name}`}>
-          <span className="d-part">
+          <span className="d-part" data-part={name}>
             <i>{name}</i>
             <Val
               value={held}
@@ -1658,13 +1676,22 @@ const NotOnThePage = ({ missing }: { missing: readonly string[] }) => {
   )
 }
 
-/** The name one item under `declare` declares, whatever kind it is written as. */
-const idOf = (item: unknown): string | null => {
+/**
+ * The name one item under `declare` declares, whatever kind it is written as.
+ *
+ * A declaration written inside another carries its name one level further in: `external` holds the
+ * kind whose implementation it leaves out, and the name is on that kind rather than on `external`.
+ * Reading only the first level found no name there, and a page asked for one of those drew an
+ * empty document instead of the declaration asked for.
+ */
+export const idOf = (item: unknown): string | null => {
   if (!isMapping(item)) return null
   for (const held of Object.values(item)) {
     if (!isMapping(held)) continue
     const id = held[BOOTSTRAP.id]
     if (typeof id === 'string') return id
+    const inner = idOf(held)
+    if (inner !== null) return inner
   }
   return null
 }

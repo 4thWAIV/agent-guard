@@ -36,7 +36,7 @@ import * as yaml from 'js-yaml'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { kindColour, Page } from './app.tsx'
+import { idOf, kindColour, Page } from './app.tsx'
 import { checkedAgainst } from './check.ts'
 import { rulebookFor } from './rulebook.ts'
 import { htmlOf, partsOf, type Part, type Written } from './syntax.ts'
@@ -257,6 +257,12 @@ function pageOf(from: string, items: readonly unknown[], only?: string): Drawn {
   const host = yaml.load(readFileSync(path, 'utf8'))
   if (!isMapping(host)) throw new Error(`${from} — this is not a document`)
 
+  // A name nothing in the document declares would narrow the page to nothing and draw an empty
+  // document, which reads exactly like a declaration that says nothing. It is refused here instead.
+  if (only !== undefined && !items.some((one) => idOf(one) === only)) {
+    throw new Error(`${from} — nothing in it is declared "${only}"`)
+  }
+
   const doc = { ...host, declare: items }
   const rulebook = rulebookFor(doc, path)
   if (rulebook.words === null) {
@@ -300,6 +306,31 @@ const bodiesIn = (doc: Mapping): readonly Mapping[] =>
     .filter(isMapping)
     .flatMap((one) => Object.values(one).filter(isMapping))
 
+/**
+ * Every declaration a document can reach: the ones it writes, the ones the language it names
+ * writes, and the ones every scope it brings in writes, deepest first so the nearest one wins.
+ *
+ * A vocabulary takes its words from a base type, and that base type is nearly always declared in
+ * the language rather than in the document being drawn. A lookup that stopped at the document's
+ * own declarations found nothing, and every word of the set was then drawn with its mark missing
+ * and nothing said about it.
+ *
+ * The documents come from the rulebook, which reads every scope a document reaches to build the
+ * vocabulary and now hands back what it read. Walking the imports again here was the same walk
+ * written twice.
+ */
+function bodiesReachedBy(file: string, doc: Mapping): ReadonlyMap<string, Mapping> {
+  const bodies = new Map<string, Mapping>()
+  for (const one of rulebookFor(doc, join(REPO, file)).documents) {
+    if (!isMapping(one)) continue
+    for (const [id, body] of declaredBodiesOf(one)) if (!bodies.has(id)) bodies.set(id, body)
+  }
+  // The document's own declarations go on last, so one it writes itself wins over the same name
+  // brought in from somewhere else.
+  for (const [id, body] of declaredBodiesOf(doc)) bodies.set(id, body)
+  return bodies
+}
+
 /** One word a closed set lists: the entry as written, and what its id stands for. */
 interface Word {
   readonly id: string
@@ -316,6 +347,12 @@ interface Vocab {
   readonly words: readonly Word[]
   /** What a word of this set is shown by, falling back to the id rather than to a guess. */
   readonly named: (id: string, word: Mapping | undefined) => string
+  /**
+   * Whether the words of this set are drawn with a mark at all. A set whose words carry none draws
+   * as it drew before the language had the word; a set whose words carry one and whose word does
+   * not hold it is a gap, and a gap is drawn rather than left out.
+   */
+  readonly marks: boolean
   /** The character a word of this set is drawn with, where this set gives its words one. */
   readonly marked: (word: Mapping | undefined) => string | null
 }
@@ -338,13 +375,14 @@ function entriesOf(file: string, id: string): Vocab {
   if (words.length !== listed.length || words.length === 0) {
     throw new Error(`${file} — "${id}" lists ${listed.length} words and this renderer read ${words.length}`)
   }
-  const held = heldIn(doc, found)
+  const held = heldIn(file, doc, found)
   const name = held(ROLES.name)
   const mark = held(ROLES.mark)
   return {
     words,
-    named: (id, word) => (word === undefined ? id : (name(word) ?? id)),
-    marked: (word) => (word === undefined ? null : mark(word)),
+    marks: mark.carried,
+    named: (id, word) => (word === undefined ? id : (name.of(word) ?? id)),
+    marked: (word) => (word === undefined ? null : mark.of(word)),
   }
 }
 
@@ -354,14 +392,21 @@ function entriesOf(file: string, id: string): Vocab {
  * exists to answer — so a set whose words are spelled differently reads the same way and no field
  * name of a language is in this code.
  */
-function heldIn(doc: Mapping, set: Mapping): (role: string) => (word: Mapping) => string | null {
-  const bodies = declaredBodiesOf(doc)
+function heldIn(
+  file: string,
+  doc: Mapping,
+  set: Mapping,
+): (role: string) => { carried: boolean; of: (word: Mapping) => string | null } {
+  const bodies = bodiesReachedBy(file, doc)
   const bodyOf: BodyOf = (named) => bodies.get(named)
   const of = typeOfOwnValue(set)
   return (role) => {
     const part =
       typeof of === 'string' && of.length > 0 ? propertyCarrying(bodyOf, of, role) : undefined
-    return (word) => (part === undefined ? null : text(word[part]))
+    return {
+      carried: part !== undefined,
+      of: (word) => (part === undefined ? null : text(word[part])),
+    }
   }
 }
 
@@ -389,6 +434,18 @@ const showReading: Shows = (body) => {
 }
 
 /** A closed set, drawn whole: every word it lists, the mark it is drawn with, and a real one. */
+/**
+ * The mark chip on a tile. A set whose words carry no mark draws without one, as it did before the
+ * language had the word. A set whose words do carry one and whose word holds nothing draws the gap
+ * where the mark would be, because a tile missing a piece of its word silently reads as a whole
+ * one.
+ */
+const markOn = (set: Vocab, mark: string | null): string => {
+  if (mark !== null) return `<span class="tile-mark">${escape(mark)}</span>`
+  if (!set.marks) return ''
+  return '<span class="tile-mark missing" title="this word is drawn with a mark and holds none">?</span>'
+}
+
 const showVocabulary: Shows = (body) => {
   const from = readsFrom(body)
   if (typeof from === 'string') return plain(`<p class="gone">${from}</p>`)
@@ -404,7 +461,7 @@ const showVocabulary: Shows = (body) => {
         throw new Error(`${from.file} — "${from.id}" says nothing about "${word.id}"`)
       }
       return `<div class="tile"${colour === null ? '' : ` style="--kind:${colour}"`}>
-        ${mark === null ? '' : `<span class="tile-mark">${escape(mark)}</span>`}
+        ${markOn(set, mark)}
         <b class="tile-name">${escape(set.named(word.id, word.value))}</b>
         ${example === null ? '' : `<code class="tile-eg">${escape(example)}</code>`}
         <p class="tile-says">${escape(line)}</p>
@@ -461,6 +518,37 @@ const showDecision: Shows = (body) => {
           )
           .join('')
 
+  // The word in use, drawn inside the block about that word. A definition and an example on two
+  // different pages make a reader hold one against the other himself, which is what this part
+  // exists to stop.
+  const used =
+    text(body.used) === 'none'
+      ? '<p class="dec-none">none — there is nothing to draw it in.</p>'
+      : (Array.isArray(body.used) ? body.used : [])
+          .filter(isMapping)
+          .map((one) => {
+            const page = showReading(one)
+            keys.push(...page.keys)
+            const shows = (Array.isArray(one.shows) ? one.shows : [])
+              .filter((part): part is string => typeof part === 'string' && part.length > 0)
+            if (shows.length === 0) {
+              throw new Error(`${said(one.id)} — an example says nothing about which part is the word`)
+            }
+            // The rule naming the part is written beside the drawing it marks, generated from the
+            // same list, so a drawing and the thing picked out of it cannot come apart.
+            const rules = shows
+              .map(
+                (part) =>
+                  `.inuse[data-shows~="${part}"] .d-part[data-part="${part}"],` +
+                  `.inuse[data-shows~="${part}"] .d-table th[data-col="${part}"],` +
+                  `.inuse[data-shows~="${part}"] .d-table td[data-col="${part}"]{background:var(--warm-soft);` +
+                  'box-shadow:inset 0 0 0 1px var(--warm-line);border-radius:7px}',
+              )
+              .join('')
+            return `<div class="inuse" data-shows="${escape(shows.join(' '))}"><style>${rules}</style>${page.sheet}</div>`
+          })
+          .join('')
+
   const parts =
     text(body.parts) === 'none'
       ? ''
@@ -479,6 +567,7 @@ const showDecision: Shows = (body) => {
       <h3 class="dec-says">${said(body.says)}</h3>
       ${under('The word', `<p class="dec-word"><code>${said(body.word)}</code></p>${parts}`)}
       ${under('What it means', asText(body.means, 'dec-text'))}
+      ${under('The word in use', used)}
       ${under('The lines', changes)}
       ${under('What you would read', asText(body.result, 'dec-result'))}
       ${under('What the checker refuses', refuses)}
@@ -668,6 +757,12 @@ const PAGE = `
   .dec .sheet { background:var(--paper); }
   .tile { background:var(--card); border:1px solid var(--rule); border-radius:10px;
           padding:12px 14px 13px; border-left:3px solid var(--kind,var(--rule)); }
+  /* The word the example is there to show is picked out of the drawing it sits in, so a reader
+     sees the one new line without being told which it is. The rule itself is written beside each
+     drawing, from the parts that drawing names. */
+  .inuse .d-part { padding:3px 7px; margin:0 -7px }
+  .inuse .d-table th[data-col], .inuse .d-table td[data-col] { padding-left:7px; padding-right:7px }
+  .tile-mark.missing { color:var(--bad,#b3261e); border-color:var(--bad,#b3261e); font-weight:700 }
   .tile-mark { display:inline-grid; place-items:center; min-width:26px; height:26px; padding:0 6px;
                border-radius:7px; background:var(--band); color:var(--kind,var(--ink));
                font:600 14px var(--mono); }

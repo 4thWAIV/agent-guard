@@ -47,6 +47,7 @@ describe('the vocabulary the live language file declares', () => {
       'scope',
       'import',
       'language',
+      'against',
       'title',
       'description',
       'declare',
@@ -63,7 +64,7 @@ describe('the vocabulary the live language file declares', () => {
       'rule',
       'fact',
     ])
-    expect(WORDS.places.external).toEqual(['cast'])
+    expect(WORDS.places.external).toEqual(['cast', 'entity'])
   })
 
   test('external is an option of a declaration, so it is written in the one stream', () => {
@@ -82,16 +83,19 @@ describe('the vocabulary the live language file declares', () => {
     ])
   })
 
+  // Every kind takes its name, its line, its prose and the two facts about the declaration itself
+  // from `declared`, which is why those five come first and in one order everywhere. A cast
+  // carries `from` for the type it converts from, so the one it takes from above is `origin`.
   test('each kind carries the properties of the entity that declares it', () => {
-    const prose = ['title', 'description']
+    const shared = ['id', 'title', 'description', 'standing', 'origin', 'replaces']
     expect(WORDS.onKind).toEqual({
-      entity: ['id', 'is', ...prose, 'abstract', 'primitive', 'constraints', 'properties'],
-      enum: ['id', 'is', ...prose, 'values'],
-      choice: ['id', ...prose, 'options'],
-      constant: ['id', 'is', ...prose, 'value'],
-      rule: ['id', ...prose],
-      fact: ['id', ...prose],
-      cast: ['id', ...prose, 'from', 'to', 'implicit'],
+      entity: [...shared, 'is', 'abstract', 'primitive', 'constraints', 'properties'],
+      enum: [...shared, 'is', 'values'],
+      choice: [...shared, 'options'],
+      constant: [...shared, 'is', 'value'],
+      rule: [...shared, 'of', 'from', 'through'],
+      fact: shared,
+      cast: [...shared, 'from', 'to', 'implicit'],
     })
   })
 
@@ -202,6 +206,7 @@ describe('the words the reader knows before it reads anything', () => {
       'object',
       'collection',
       'link',
+      'constraint',
       'reserved',
     ])
     for (const named of [SELF.document, SELF.property, SELF.value, SELF.object, SELF.collection, SELF.link]) {
@@ -477,7 +482,16 @@ describe('every property a type has', () => {
 
   test('the live language file reads its own kinds this way', () => {
     const lookUp: BodyOf = (id) => WORDS.declared[id]?.body
-    expect(names(lookUp, 'constant')).toEqual(['id', 'is', 'title', 'description', 'value'])
+    expect(names(lookUp, 'constant')).toEqual([
+      'id',
+      'title',
+      'description',
+      'standing',
+      'origin',
+      'replaces',
+      'is',
+      'value',
+    ])
   })
 })
 

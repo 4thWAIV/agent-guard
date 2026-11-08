@@ -118,6 +118,10 @@ declare:
         means:
           is: string
           title: What that word means, in one or two sentences.
+        used:
+          list: { of: inuse }
+          accepts: [none]
+          title: The word in use, drawn beside the decision it belongs to.
         changes:
           list: { of: block }
           accepts: [none]
@@ -150,6 +154,20 @@ declare:
         declaration: { is: string, title: The name of the declaration drawn. }
 
   - entity: { id: reading, is: shown, title: One thing as it would read once the change is in. }
+
+  - entity:
+      id: inuse
+      is: shown
+      title: The word in use, drawn inside the decision that adds it.
+      properties:
+        shows:
+          list: { of: string }
+          title: Which parts of the drawing are the word, named as the document writes them.
+      description: >
+        A definition says what a word means and an example says what it looks like written down.
+        A reader deciding whether to take a word needs both, side by side, in the block about that
+        word — not a page of definitions and a page of examples that he has to hold against each
+        other himself.
 
   - entity:
       id: vocabulary

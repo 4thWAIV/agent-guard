@@ -59,6 +59,14 @@ export interface Rulebook {
   readonly words: Vocabulary | null
   /** Everything that stopped it being read as written. */
   readonly faults: readonly Fault[]
+  /**
+   * Every document this read to build the vocabulary, deepest first: everything a language brings
+   * in comes before the language itself. The document given is not among them.
+   *
+   * Reading a scope is this function's job and nobody else's. Anything that needs the documents a
+   * scope reaches takes them from here rather than walking the imports a second time.
+   */
+  readonly documents: readonly unknown[]
 }
 
 /**
@@ -160,7 +168,7 @@ export function rulebookFor(doc: unknown, file: string): Rulebook {
   const named = isMapping(doc) ? doc[LANGUAGE] : undefined
   const names = typeof named === 'string' && named.length > 0 ? named : null
   const base = load(names === null ? WORDS.scope : [names], names === null ? root : `${root}.${LANGUAGE}`)
-  if (base === null) return { words: null, faults }
+  if (base === null) return { words: null, faults, documents: order }
 
   if (isMapping(base) && base[LANGUAGE] !== undefined) {
     faults.push({
@@ -169,7 +177,7 @@ export function rulebookFor(doc: unknown, file: string): Rulebook {
         `"${names ?? ''}" is itself written in another language, and a language read through` +
         ' another language cannot be read yet',
     })
-    return { words: null, faults }
+    return { words: null, faults, documents: order }
   }
 
   // The document's own imports go on top of the language's, and the language still wins over all
@@ -181,5 +189,5 @@ export function rulebookFor(doc: unknown, file: string): Rulebook {
     order.filter((one) => one !== base),
   )
   for (const what of said) faults.push({ where: nameOfScope(words.scope), what })
-  return { words, faults }
+  return { words, faults, documents: order }
 }

@@ -6,6 +6,7 @@
   "scripts": {
     "check": "bun run ts/metalang/check.ts",
     "render": "bun run ts/metalang/render.ts",
+    "examples": "bun run ts/metalang/examples.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ts",
     "test": "bun test",

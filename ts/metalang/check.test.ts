@@ -60,7 +60,9 @@ describe('the top level', () => {
   test('a key that is not in the vocabulary is a problem that names the ones that are', () => {
     const r = only(file({ notes: 'hello' }))
     expect(problemsAt(r, 'f.yaml')[0]).toContain('"notes" is not a top-level key')
-    expect(problemsAt(r, 'f.yaml')[0]).toContain('scope, import, language, title, description')
+    expect(problemsAt(r, 'f.yaml')[0]).toContain(
+      'scope, import, language, against, title, description',
+    )
   })
 
   test('a title written as a list is a problem', () => {
@@ -129,10 +131,16 @@ describe('a declaration', () => {
   })
 
   test('a kind that is never external is a problem when written inside external', () => {
-    const r = only(file({ declare: [{ external: { entity: { id: 'A' } } }] }))
-    expect(problemsAt(r, 'declare[0].external')[0]).toBe(
-      '"entity" cannot be written inside external',
+    const r = only(file({ declare: [{ external: { enum: { id: 'A' } } }] }))
+    expect(problemsAt(r, 'declare[0].external')[0]).toBe('"enum" cannot be written inside external')
+  })
+
+  test('a type may be written inside external, which is how a borrowed type is named', () => {
+    const r = only(
+      file({ declare: [{ external: { entity: { id: 'Task', is: 'object', title: 'Work.' } } }] }),
     )
+    expect(problemsAt(r, 'declare[0].external')).toEqual([])
+    expect(problemsAt(r, 'declare[0]')).toEqual([])
   })
 
   test('external naming no kind, or more than one, is a problem at the wrapper', () => {
@@ -185,7 +193,7 @@ describe('a declaration', () => {
   test('a keyword the kind does not carry is a problem naming the ones it does', () => {
     const r = only(file({ declare: [{ choice: { id: 'C', values: ['a'] } }] }))
     expect(problemsAt(r, 'declare[0].choice')[0]).toBe(
-      '"values" cannot be written on a choice — the only ones are id, title, description, options',
+      '"values" cannot be written on a choice — the only ones are id, title, description, standing, origin, replaces, options',
     )
   })
 
@@ -522,7 +530,7 @@ describe('the two closed kinds — an enum lists values, a choice lists types', 
   test('the two words do not cross: options cannot be written on an enum', () => {
     const r = only(file({ declare: [{ enum: { id: 'E', is: 'number', options: ['A'] } }] }))
     expect(problemsAt(r, 'declare[0].enum')[0]).toBe(
-      '"options" cannot be written on an enum — the only ones are id, is, title, description, values',
+      '"options" cannot be written on an enum — the only ones are id, title, description, standing, origin, replaces, is, values',
     )
   })
 })
@@ -578,7 +586,7 @@ describe('a declaration holding one value of its own', () => {
   test('the two words do not cross: values cannot be written on a constant', () => {
     const r = only(holder({ is: 'A', values: [{ id: 'x', value: { does: 'Something.' } }] }))
     expect(problemsAt(r, 'declare[1].constant')[0]).toBe(
-      '"values" cannot be written on a constant — the only ones are id, is, title, description, value',
+      '"values" cannot be written on a constant — the only ones are id, title, description, standing, origin, replaces, is, value',
     )
   })
 })
@@ -1403,6 +1411,9 @@ describe('a document written in a language of its own', () => {
             value: {
               form: 'interface',
               does: 'The three behaviours every guard answers a tool call through.',
+              reach: 'public',
+              exactness: 'loose',
+              groups: { concept: 'guard', job: 'port' },
               sits: { package: 'none', assembly: 'A.Abstractions', namespace: 'A.Abstractions.Contracts' },
               relates: { implements: 'none', answers: 'none', holds: 'none' },
               ...(members === undefined ? {} : { members }),
@@ -1418,7 +1429,13 @@ describe('a document written in a language of its own', () => {
       return check(doc, 'guard.yaml', words ?? undefined)
     }
 
-    const one = { name: 'PrecheckAsync', kind: 'method', does: 'Judges a tool call before it runs.' }
+    const one = {
+      name: 'PrecheckAsync',
+      kind: 'method',
+      reach: 'public',
+      type: 'none',
+      does: 'Judges a tool call before it runs.',
+    }
 
     test('an element naming its members is wholly right', () => {
       expect(checked([one])).toEqual({ problems: [], blockers: [], pending: [] })
@@ -1463,10 +1480,12 @@ describe('a document written in a language of its own', () => {
     })
 
     test('a member with no name is a problem, and so is one with no kind', () => {
-      expect(problemsAt(checked([{ kind: 'method', does: 'x' }]), 'declare[0].constant.value.members[0]')).toEqual([
+      const without = (part: string): Record<string, unknown> =>
+        Object.fromEntries(Object.entries(one).filter(([key]) => key !== part))
+      expect(problemsAt(checked([without('name')]), 'declare[0].constant.value.members[0]')).toEqual([
         'has no name',
       ])
-      expect(problemsAt(checked([{ name: 'A', does: 'x' }]), 'declare[0].constant.value.members[0]')).toEqual([
+      expect(problemsAt(checked([without('kind')]), 'declare[0].constant.value.members[0]')).toEqual([
         'has no kind',
       ])
     })
@@ -2021,6 +2040,9 @@ describe('the architecture language itself', () => {
     expect(Object.keys(element?.entity?.properties ?? {})).toEqual([
       'form',
       'does',
+      'reach',
+      'exactness',
+      'groups',
       'members',
       'sits',
       'relates',
@@ -2031,7 +2053,13 @@ describe('the architecture language itself', () => {
     // A member is not declared and so has no id to be known by, which is why it carries `name`
     // where an element does not.
     const member = arch.declare.find((d) => d.entity?.id === 'member')
-    expect(Object.keys(member?.entity?.properties ?? {})).toEqual(['name', 'kind', 'does'])
+    expect(Object.keys(member?.entity?.properties ?? {})).toEqual([
+      'name',
+      'kind',
+      'reach',
+      'type',
+      'does',
+    ])
   })
 })
 
@@ -2507,5 +2535,68 @@ describe('a value naming one declaration', () => {
 
   test('a thing standing to nothing says so with the state the property takes', () => {
     expect(only(language('none', 'none')).problems).toEqual([])
+  })
+})
+
+/**
+ * A word that is retired and the one that took its place. The retired word's declaration may be
+ * gone; what the document is told is what to write now, rather than that it invented a name.
+ */
+describe('a word that has been retired', () => {
+  const retiring = (declare: readonly unknown[]): CheckResult =>
+    check({ scope: ['retired'], import: [['metalang']], title: 'A file', declare }, 'f.yaml')
+
+  test('a document naming the gone word is told which one took its place', () => {
+    const r = retiring([
+      { entity: { id: 'newname', is: 'string', replaces: 'oldname', title: 'The one that took its place.' } },
+      { entity: { id: 'thing', is: 'object', title: 'A thing.', properties: { part: { is: 'oldname', title: 'Old.' } } } },
+    ])
+    expect(blockersAt(r, 'declare[1].entity.properties.part.is')).toEqual([
+      '"oldname" has been retired — "newname" takes its place',
+    ])
+  })
+
+  test('a name nothing replaced is still a name nothing declares', () => {
+    const r = retiring([
+      { entity: { id: 'thing', is: 'object', title: 'A thing.', properties: { part: { is: 'nowhere', title: 'Gone.' } } } },
+    ])
+    expect(blockersAt(r, 'declare[0].entity.properties.part.is')).toEqual([
+      '"nowhere" is declared nowhere in this file and no scope it imports brings it in',
+    ])
+  })
+
+  test('nothing takes the place of a locked declaration by being approved', () => {
+    const r = retiring([
+      { entity: { id: 'settled', is: 'string', standing: 'locked', title: 'Locked.' } },
+      {
+        entity: {
+          id: 'upstart',
+          is: 'string',
+          replaces: 'settled',
+          standing: 'approved',
+          title: 'One that tries.',
+        },
+      },
+    ])
+    expect(problemsAt(r, 'declare[1].entity')).toEqual([
+      'it writes "approved" at "standing", which it may never carry, where "replaces.standing" is' +
+        ' "locked", which "declared" requires of every value of it',
+    ])
+  })
+
+  test('taking the place of a word that is not locked is nothing to report', () => {
+    const r = retiring([
+      { entity: { id: 'older', is: 'string', standing: 'withdrawn', title: 'Retired.' } },
+      {
+        entity: {
+          id: 'newer',
+          is: 'string',
+          replaces: 'older',
+          standing: 'approved',
+          title: 'The one after it.',
+        },
+      },
+    ])
+    expect(problemsAt(r, 'declare[1].entity')).toEqual([])
   })
 })

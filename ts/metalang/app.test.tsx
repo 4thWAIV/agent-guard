@@ -987,9 +987,9 @@ describe('a value of a type with properties', () => {
 
   test('each part draws its name and its own value', () => {
     const html = listing(parts, { mark: '<>', example: 'IGuard' })
-    expect(html).toContain(`<span class="d-part"><i>mark</i>${prose('d-val v-text', '&lt;&gt;')}</span>`)
+    expect(html).toContain(`<span class="d-part" data-part="mark"><i>mark</i>${prose('d-val v-text', '&lt;&gt;')}</span>`)
     expect(html).toContain(
-      `<span class="d-part"><i>example</i>${prose('d-val v-text', 'IGuard')}</span>`,
+      `<span class="d-part" data-part="example"><i>example</i>${prose('d-val v-text', 'IGuard')}</span>`,
     )
   })
 
@@ -1021,13 +1021,13 @@ describe('a value of a type with properties', () => {
       }),
     )
     expect(html).toContain(
-      `<span class="d-part"><i>csharp</i>${prose('d-val v-text', 'interface')}</span>`,
+      `<span class="d-part" data-part="csharp"><i>csharp</i>${prose('d-val v-text', 'interface')}</span>`,
     )
   })
 
   test('a part nothing says a type for still draws as what is written', () => {
     const html = listing(parts, { colour: 'blue' })
-    expect(html).toContain(`<span class="d-part"><i>colour</i>${val('d-val', 'blue')}</span>`)
+    expect(html).toContain(`<span class="d-part" data-part="colour"><i>colour</i>${val('d-val', 'blue')}</span>`)
   })
 
   test('a value of a type with no properties behind it is still drawn as text', () => {
@@ -1095,17 +1095,19 @@ describe('several of one shape', () => {
 
   test('a column carries each part name once, in the order the shape declares them', () => {
     const html = table({ equivalents: cells })
-    expect(html).toContain('<th>language</th><th>name</th>')
-    expect(html.match(/<th>language<\/th>/g)).toHaveLength(1)
+    expect(html).toContain('<th data-col="language">language</th><th data-col="name">name</th>')
+    expect(html.match(/<th data-col="language">language<\/th>/g)).toHaveLength(1)
   })
 
   test('a row carries each member', () => {
     const html = table({ equivalents: cells })
     expect(html).toContain(
-      `<td>${prose('d-val v-text', 'csharp')}</td><td>${prose('d-val v-text', 'interface')}</td>`,
+      `<td data-col="language">${prose('d-val v-text', 'csharp')}</td>` +
+        `<td data-col="name">${prose('d-val v-text', 'interface')}</td>`,
     )
     expect(html).toContain(
-      `<td>${prose('d-val v-text', 'rust')}</td><td>${prose('d-val v-text', 'trait')}</td>`,
+      `<td data-col="language">${prose('d-val v-text', 'rust')}</td>` +
+        `<td data-col="name">${prose('d-val v-text', 'trait')}</td>`,
     )
   })
 
@@ -1129,7 +1131,7 @@ describe('several of one shape', () => {
   test('one of the shape on its own is parts rather than a table', () => {
     const html = table({ held: { language: 'csharp', name: 'interface' } }, { held: { is: 'equivalent' } })
     expect(html).not.toContain('d-table')
-    expect(html).toContain('<span class="d-part"><i>language</i>')
+    expect(html).toContain('<span class="d-part" data-part="language"><i>language</i>')
   })
 })
 
@@ -1539,7 +1541,7 @@ describe('a declaration carrying one value of its own', () => {
   test('the table names each column once, from the type the parts are of', () => {
     const html = shown(guard())
     for (const column of ['name', 'kind', 'does']) {
-      expect(html).toContain(`<th>${column}</th>`)
+      expect(html).toContain(`<th data-col="${column}">${column}</th>`)
     }
   })
 

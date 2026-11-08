@@ -641,6 +641,77 @@
 # its name; there was no third step to the glyph, so the only route to it was writing a property
 # name into a renderer.
 
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a route to a part of a value, and the five words that needed one.    2026-10-27
+#
+#   path       a route to a part of a value, written in parts separated by dots
+#   never      a constraint: a part and the values it may never carry
+#   when       a constraint: a part, the values of it that make it apply, and a constraint to apply
+#   many       how many of a thing a part holds, counted and handed to a `range`
+#   distinct   a constraint: no two members of one list carry the same value at one part
+#
+# Tim approved these through his jarvis session, on his word to finish the remaining work on the
+# language and decide its design rather than put it back to him.
+#
+# A prohibition and a condition both have to name the part of a document they are about, and
+# MetaLang had no paths at all, so minting either before `path` would have been a word that could
+# say only one thing. A path descends only through content a value owns, which forms a tree, so it
+# always ends and nothing counts its own steps; a part holding many of something fans out, so
+# `members.type` names the type of every member. The architecture language's own `path` — the dotted
+# name of a package, an assembly or a namespace — became `placename` the same day, because the
+# standard word belongs to the standard thing.
+#
+# `when` holds a constraint rather than repeating what one can say, so anything that can be required
+# of a value can be required of it only sometimes. Together `never` and `when` write the rule the
+# language had been apologising for in prose: an element whose bytes are laid out has to say what
+# each member carries, and one whose types are named as the language gives them does not.
+#
+# `many` is how many of a thing a part holds. It counts what a path reaches and hands the count to
+# `range`, which was already the word for a lowest and a highest, so nothing says a bound twice. It
+# was held out by the standing rule — no language feature until a problem cannot be solved without
+# one — until the law the guard's own document has to write could not be said without it.
+#
+# `distinct` is the rule MetaLang had stated in prose since the day `role` landed and could not
+# write: a role is given to at most one property of a type. `entity` carries it as
+# `distinct: { in: properties, by: role }`. A declaration is now held to the constraints its own
+# kind carries, which it was not before; constraints had been applied to a leaf value only, so a
+# rule about a whole declaration had nowhere to be read.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — one base under every declaration, a version, and a retired word.     2026-10-27
+#
+#   declared   the properties every kind of declaration carries
+#   standing   on a declaration, whether it is proposed, approved, locked or withdrawn
+#   origin     on a declaration, where it was read from
+#   against    on a document, the version of its language it was written against
+#   replaces   on a declaration, the word it takes the place of
+#
+# Tim approved these through his jarvis session, in the same decision.
+#
+# `declared` carries the name, the line, the prose, and two facts about the declaration itself:
+# `standing` and `origin`. Entity, enum, choice, constant, rule, fact and cast each took three
+# properties from it and stopped writing them again. It is `origin` and not `from` because a cast
+# already uses `from` for the type it converts from, and one word means one thing.
+#
+# `against` says which version of its language a document was written against. Nothing compares it
+# yet.
+#
+# `replaces` names the word a declaration takes the place of, written as a name rather than a
+# reference because the word it names may already be gone. A document writing a word nothing
+# declares any more is told which one took its place. MetaLang also carries the law that governs
+# its own change: nothing takes the place of a locked declaration by being approved, written as a
+# constraint in the language it governs.
+#
+# `external` gained the power to hold a type as well as a conversion, so a document declares a
+# borrowed type once and every member naming it resolves or is refused. That replaced a proposed
+# closed set of nine borrowed types called `outside`, raised on 26 October and withdrawn the same
+# day, because `external` already gives a definition and leaves the implementation out.
+#
+# Crossing a reference went in on the same day and is recorded with the rest of that work in
+# `.dev/inprocess/82-guard-process-workflow/ROAD.md`.
+# ───────────────────────────────────────────────────────────────────────────────
+
 scope: [metalang]
 title: MetaLang
 description: The approved vocabulary of the language that defines languages.
@@ -671,6 +742,90 @@ declare:
         value:
           is: expression
           title: The regular expression itself.
+
+  - entity:
+      id: path
+      is: string
+      title: A route to a part of a value, written in parts separated by dots.
+      description: >
+        Each part names a property of whatever the part before it holds. A part that holds many of
+        something fans out, so a path reaching through a list names the same part of every member
+        of it. A part naming another declaration holds the name and not the thing, so the name is
+        followed to what that declaration carries and the route goes on from there.
+
+        A route that returns to a declaration it has already been through ends there and says so.
+        That is what makes it end at all: content a thing owns forms a tree and always ends, and
+        two declarations are free to name each other, so the set of names already crossed is the
+        proof rather than the shape of the data.
+      constraints:
+        - pattern: { value: '[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*' }
+
+  - entity:
+      id: never
+      is: constraint
+      title: A part that must never carry any of these values.
+      description: >
+        A prohibition. Where the part reaches through many of something, none of them may carry one
+        of these. A part nothing is written at is not carrying anything, so it is not refused here;
+        whether it may be left out at all is what the property's own `optional` says.
+      properties:
+        at:
+          is: path
+          title: The part this is about.
+        carries:
+          set: { of: string }
+          title: The values it must never carry.
+
+  - entity:
+      id: when
+      is: constraint
+      title: A constraint applied only where another part carries one of these values.
+      description: >
+        A condition. It holds a constraint rather than repeating what one can say, so anything that
+        can be required of a value can be required of it only sometimes.
+      properties:
+        at:
+          is: path
+          title: The part that decides whether it applies.
+        holds:
+          set: { of: string }
+          title: The values of that part that make it apply.
+        then:
+          is: constraint
+          title: The constraint applied where it does.
+
+  - entity:
+      id: many
+      is: constraint
+      title: How many of a thing a part holds.
+      description: >
+        It counts what a path reaches and holds the count to a range. A range bounds a number and
+        this bounds a count, which is why it holds one rather than being one. A part nothing is
+        written at holds none of them, which is a count like any other.
+      properties:
+        at:
+          is: path
+          title: The part this counts.
+        bounds:
+          is: range
+          title: The lowest and the highest number of them allowed.
+
+  - entity:
+      id: distinct
+      is: constraint
+      title: No two members of one list carry the same value at one part.
+      description: >
+        `unique` says no two members of a collection are the same. This says less and reaches
+        further: the members may differ, and still no two of them may carry the same value at the
+        one part named here. A member that leaves that part out is not compared, because an absence
+        is not a value two things can share.
+      properties:
+        in:
+          is: name
+          title: The property holding the list its members are read from.
+        by:
+          is: name
+          title: The part of each member whose value no two of them may share.
 
   - entity:
       id: range
@@ -927,26 +1082,90 @@ declare:
 
   # The kinds a declaration may be. Each one is an entity whose properties are the keywords it
   # carries.
+  - enum:
+      id: standings
+      is: string
+      title: How firmly a declaration is agreed.
+      description: A declaration saying nothing here says nothing about whether it is agreed, which is not the same as saying it is not.
+      values:
+        - id: proposed
+          value: proposed
+          title: Put to whoever decides, and not yet answered.
+        - id: approved
+          value: approved
+          title: Agreed, and open to being changed the same way it was agreed.
+        - id: locked
+          value: locked
+          title: Agreed, and not to be changed without undoing the lock first.
+        - id: withdrawn
+          value: withdrawn
+          title: Taken back, and kept so the record of it is not lost.
+
   - entity:
-      id: entity
+      id: declared
       is: object
-      title: A type with named properties.
+      abstract: true
+      title: What every kind of declaration carries.
+      constraints:
+        - when:
+            at: replaces.standing
+            holds: [locked]
+            then:
+              never: { at: standing, carries: [approved] }
+      description: >
+        Written once here rather than again under each kind. A declaration says what it is called,
+        what it is in one line, and prose where one line is not enough. It may also say how firmly
+        it is agreed, where it was read from, and which retired word it takes the place of — facts
+        about the declaration rather than about the values of it.
+
+        The law above governs its own evolution: nothing takes the place of a locked declaration by
+        being approved. The lock is undone first, deliberately, as its own change.
       properties:
         id:
           is: name
-          title: The name the entity is known by.
+          title: The name it is known by.
+        title:
+          is: string
+          optional: true
+          title: One line saying what it is.
+        description:
+          is: string
+          optional: true
+          title: Prose explaining it.
+        standing:
+          is: standings
+          optional: true
+          title: How firmly it is agreed.
+        origin:
+          is: string
+          optional: true
+          title: Where it was read from — the document, the conversation or the person it came from.
+          description: >
+            Not `from`, which a cast already uses for the type it converts from. One word means one
+            thing, and a cast is a declaration like any other.
+        replaces:
+          is: name
+          optional: true
+          title: The word this one takes the place of, where it takes the place of one.
+          description: >
+            It is a name and not a reference, because the word it names is on its way out and may
+            already be gone. A document naming a word nothing declares any more is told which one
+            took its place, rather than failing on a name as though it had been invented.
+
+  - entity:
+      id: entity
+      is: declared
+      title: A type with named properties.
+      description: >
+        A role is given to at most one property of a type, because a reader asking which property
+        holds the kind has to get one answer. That is written below rather than said here.
+      constraints:
+        - distinct: { in: properties, by: role }
+      properties:
         is:
           is: type
           optional: true
           title: The types it derives from.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the entity is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the entity.
         abstract:
           is: boolean
           optional: true
@@ -987,126 +1206,75 @@ declare:
 
   - entity:
       id: enum
-      is: object
+      is: declared
       title: A type that lists fixed values.
       description: Every value it lists is a value of the one type it is based on.
       properties:
-        id:
-          is: name
-          title: The name the enum is known by.
         is:
           is: type
           title: The one type every value it lists is.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the enum is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the enum.
         values:
           list: { of: value }
           title: The values it lists, in the order they are written.
 
   - entity:
       id: choice
-      is: object
+      is: declared
       title: A type that is one of several types.
       description: >
         Untagged, so the types it is one of have to be distinguishable from one another.
       properties:
-        id:
-          is: name
-          title: The name the choice is known by.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the choice is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the choice.
         options:
           set: { of: type }
           title: The types it is one of.
 
   - entity:
       id: constant
-      is: object
+      is: declared
       title: A fixed value.
       properties:
-        id:
-          is: name
-          title: The name the constant is known by.
         is:
           is: type
           title: The type the value is of.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the constant is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the constant.
         value:
           is: object
           title: The value itself.
 
   - entity:
       id: rule
-      is: object
+      is: declared
       title: A way to derive something.
-      description: A rule derives data, where a fact is data.
+      description: >
+        A rule derives data, where a fact is data. It says the type of the value it works out, the
+        part it works it out from, and the conversion it works it out by, which is `cast` — already
+        a conversion from one type to another, and already able to leave its implementation out.
+
+        Nothing is written as worked out yet: a property still says what it holds and a document
+        still writes it. What is here is the shape a derivation is written in; running one is the
+        next piece and the reader runs none.
       properties:
-        id:
-          is: name
-          title: The name the rule is known by.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the rule is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the rule.
+        of:
+          is: type
+          title: The type of the value it works out.
+        from:
+          is: path
+          title: The part it is worked out from.
+        through:
+          link: { to: cast }
+          title: The conversion it is worked out by.
 
   - entity:
       id: fact
-      is: object
+      is: declared
       title: Something that is true.
       description: A fact is data, where a rule derives data.
-      properties:
-        id:
-          is: name
-          title: The name the fact is known by.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the fact is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the fact.
 
   - entity:
       id: cast
-      is: object
+      is: declared
       title: A conversion from one type to another.
       description: One that does not happen on its own is asked for with `as`.
       properties:
-        id:
-          is: name
-          title: The name the conversion is known by.
-        title:
-          is: string
-          optional: true
-          title: One line saying what the conversion is.
-        description:
-          is: string
-          optional: true
-          title: Prose explaining the conversion.
         from:
           is: type
           title: The type it converts from.
@@ -1129,9 +1297,13 @@ declare:
 
   - choice:
       id: external
-      options: [cast]
+      options: [cast, entity]
       title: The kinds that may be written inside external.
-      description: An external declaration gives the definition and leaves the implementation out.
+      description: >
+        An external declaration gives the definition and leaves the implementation out. A conversion
+        written this way says what it converts and leaves how to somebody else; a type written this
+        way says what it is and leaves what it is made of to whoever owns it, so a document can name
+        a type it does not own and have the name resolve or be refused.
 
   - choice:
       id: declaration
@@ -1156,6 +1328,10 @@ declare:
           is: name
           optional: true
           title: Which language the file is written in.
+        against:
+          is: name
+          optional: true
+          title: The version of that language it was written against.
         title:
           is: string
           title: One line about the file.
