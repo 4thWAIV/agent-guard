@@ -37,10 +37,19 @@ export interface Carried {
 /**
  * Every file the kit carries beside the bundle.
  *
- * The language files are read at run time by rulebook.ts, which resolves them beside the module
- * that asks for them — in the kit, beside the bundle. The stylesheets are read by render.ts the
- * same way. `evolang.yaml` is listed and not required: not one word of EvoLang is written, so
- * the kit is built and proven against MetaLang and carries EvoLang the day it exists.
+ * EVERY language, not only the one a document names by default. A document says which language
+ * it is written in, and rulebook.ts resolves that language's file beside the module asking for
+ * it — in the kit, beside the bundle. Carrying only MetaLang meant a document written in the
+ * architecture language was refused with "names no file this checker could find", which is a
+ * build kit that cannot read three quarters of what this repository writes.
+ *
+ * The three are languages. `names.yaml` and `parts.yaml` are documents written in the
+ * architecture language and are not carried: a document is the consumer's own, and the kit
+ * exists to read theirs.
+ *
+ * The stylesheets are read by render.ts the same way. `evolang.yaml` is listed and not required:
+ * not one word of EvoLang is written, so the kit is proven against the three that exist and
+ * carries EvoLang the day it does.
  */
 export function carriedFiles(): readonly Carried[] {
   const beside = (name: string, required: boolean): Carried => ({
@@ -50,6 +59,8 @@ export function carriedFiles(): readonly Carried[] {
   })
   return [
     beside('metalang.yaml', true),
+    beside('arch.yaml', true),
+    beside('propose.yaml', true),
     beside('evolang.yaml', false),
     beside('style.css', true),
     beside('syntax.css', true),
@@ -92,12 +103,14 @@ afterwards, so a drawn page travels on its own.
 - \`page.js\` — the page's bundle, built once when this kit was. Read when a page is drawn.
 - \`metalang.yaml\` — the language that defines languages. A document naming no language is read
   against this one.
+- \`arch.yaml\` — the architecture language: what code is made of. A document saying
+  \`language: arch\` is read against it.
+- \`propose.yaml\` — the proposal language, for putting a decision to a reader.
 - \`style.css\`, \`syntax.css\` — read from this folder while a page is drawn.
 - \`package.json\` — says the bundle is a module, which is how node loads it.
 
-\`evolang.yaml\` joins this folder when EvoLang is written. Until then the kit is built and proven
-against MetaLang, and a document naming EvoLang is refused by name rather than read against a
-language that does not exist.
+\`evolang.yaml\` joins this folder when EvoLang is written. Until then a document naming EvoLang is
+refused by name rather than read against a language that does not exist.
 `
 }
 
