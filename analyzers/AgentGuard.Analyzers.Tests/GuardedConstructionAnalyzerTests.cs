@@ -390,6 +390,31 @@ public class GuardedConstructionAnalyzerTests
     }
 
     [Fact]
+    public async Task CreateCall_FromTheMainTestAssembly_IsReported()
+    {
+        // After the relocation the main test assembly gains compiler VISIBILITY of the container through the
+        // InternalsVisibleTo grant Engine already gives it, so a direct SystemServices.Create() written there now
+        // COMPILES where it previously could not. AG0017 is the one wall that remains; this pins that it still fires
+        // from that assembly, so tests keep building the container through SystemServicesBuilder.
+        const string source = """
+            using AgentGuard.Abstractions.Contracts;
+            using AgentGuard.Engine;
+
+            public class ContainerTest
+            {
+                public ISystemServices Build() => SystemServices.Create();
+            }
+            """;
+
+        Diagnostic diagnostic = Assert.Single(
+            await SharedAnalyzerSources.RunAgainstFakeEngineAsync<GuardedConstructionAnalyzer>(
+                source, "AgentGuard.Tests"));
+
+        Assert.Equal("AG0017", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
     public async Task CreateCall_InProgramCompositionMethod_IsNotReported()
     {
         Assert.Empty(await AnalyzerRunner.RunWithReferenceAsync<GuardedConstructionAnalyzer>(

@@ -1,0 +1,592 @@
+# The architecture language — a second document written in MetaLang.
+#
+# ── APPROVED — the architecture language, the languages as an enum, and `mark` as a choice. ──
+#                                                                                   2026-10-19
+# `form` is a declaration of this language; `interface` and the five beside it are its members.
+# Neither is a word of MetaLang.
+#
+# Tim approved this file and its rendered page, and approved declaring the four languages once as
+# the enum `languages` rather than as four property names on `equivalent`. He approved that `mark`
+# is a choice between a `string` (the glyph) and a `uri` (the location of the mark), where `uri`
+# is declared in MetaLang as a `string` carrying the pattern `[A-Za-z][A-Za-z0-9+.-]*:[^\s]+`.
+# The approvals arrived through his jarvis session.
+#
+# Everything in this file is now checked, and the checker says so:
+#   - A value written against a choice belongs to whichever option it is a value of, asked
+#     narrowest first. Each mark below is a `string`, and a uri would be a `uri`.
+#   - A value written against a property whose type is an entity is read one level further down,
+#     each key against the property it names. The value each form's id stands for is read that way.
+# The checker never skips or passes what it cannot verify: it reports a blocker or a problem.
+#
+# ── APPROVED — one element, the naming dictionary moved out, and `mark` under `appearance`. ──
+#                                                                                   2026-10-21
+# Tim approved three changes, through his jarvis session, after the case for each was put to him:
+#
+#   - `element` is declared here: one named piece of an architecture, carrying which of the six
+#     forms it takes and one line saying what it does. Until it existed, a document could call the
+#     name of a part anything at all and the checker had no opinion, because this language never
+#     said how one piece of an architecture is written down. `ts/metalang/parts.yaml` now derives
+#     its `part` from `element` and keeps only the `file` and `mark` it adds of its own.
+#   - The naming dictionary — `language`, `languages`, `equivalent`, and the `equivalents`
+#     property this file hung on `form` — is now `ts/metalang/names.yaml`, a document written in
+#     this language, with one entry for each form in each language. What each language calls a
+#     form is naming rather than architecture, and it is also the first half of the verifiable
+#     path to each language, which is where the second half will be written.
+#   - `mark` sat under `appearance`, an entity declared here, which was the grouping Tim asked for
+#     on 2026-10-18. The wrapper was retired on 2026-10-25, below. The `mark` choice itself stays
+#     in this file, because `ts/metalang/parts.yaml` names it as a type of its own.
+#
+# What is left in this file is `form`, `forms`, `element`, and the two declarations that say how a
+# form is drawn.
+#
+# The `function` form's example was the first value this language ever left unwritten. It said so
+# in text — "none in this repository" — which read as an answer and was not one, so on 2026-10-20
+# it was written as `pending` and the checker reported this document as right and not finished.
+# Tim then asked for the example, and it is `reportLines` in `ts/metalang/check.ts`: a callable
+# belonging to no type, in the one language in this repository that has them. C# has none, which
+# is what the `function_csharp` entry of `ts/metalang/names.yaml` says. `example` still accepts
+# `pending`, because the next form with no example to give needs the same word.
+#
+# `mark` is a choice between a `string` and a `uri`, which is the shape Tim approved. It was
+# narrowed on 2026-10-19 to a `glyph` entity declared in this file, because the checker then
+# reported any choice where one option derives from another, and every uri is a string. Tim said on
+# 2026-10-20 that he never approved that `glyph`, and it has been removed. A narrower option is now
+# asked before the one it derives from, so a value carrying a scheme and a colon is a `uri` and
+# every other value is a `string`. The `glyph` entity carried a pattern allowing one non-whitespace
+# character, and the approved shape has no such limit: any string is now a mark.
+# ── APPROVED — one declaration per element, and `name` comes off `element`. ──
+#                                                                                   2026-10-24
+# Tim approved writing each element as its own declaration rather than as one value of an enum
+# listing them all, and approved `constant` gaining the two keywords that let it hold one value of
+# a named type. A part of an architecture is now written like this:
+#
+#   - constant:
+#       id: IGuard
+#       is: element
+#       value:
+#         form: interface
+#         does: The three behaviours every guard answers a tool call through.
+#
+# `name` comes off `element` because the declaration's own id is the name of the element. Before
+# this, every element carried two names — the id naming it inside its enum, and the `name` it
+# actually has — and the one a reader cares about was the second. The full name of an element is
+# now its scope and its id, which is how MetaLang names every other declared thing.
+#
+# Writing them as an enum also said the set was closed. The six forms are a closed set and `forms`
+# is rightly an enum: a seventh is a change to this language. The parts of a guard are not that.
+#
+# The direction this replaces is recorded where it was rejected: declaring the six forms as the six
+# kinds an architecture document may write. It required this language to re-declare MetaLang's own
+# `declaration` choice and replace its list, it took MetaLang's `enum` away from every document
+# written in this language, and it left the file and the glyph in `ts/metalang/parts.yaml` with
+# nowhere to live. Tim rejected it on 2026-10-24.
+# ── APPROVED — step 3, what a thing is made of. ──
+#                                                                                   2026-10-24
+# Tim approved the five kinds a member may be on 2026-10-21 — method, constructor, property, field
+# and value — and approved the exact lines on 2026-10-24. `value` is one of the closed set an enum
+# declares rather than stored data on a type.
+#
+# Three declarations and one property. `kind` and `kinds` are the vocabulary, written the way `form`
+# and `forms` are written. `member` is one named piece of an element, carrying its own `name` because
+# a member is not declared and so has no id to be known by. `members` on `element` holds them in the
+# order the source declares them.
+#
+# The sentence this buys is `IGuard` has a member called `PrecheckAsync`, and `PrecheckAsync` is a
+# method. Rules and tests are written about members rather than about whole types, so nothing could
+# be signed while a member could not be named.
+#
+# `members` is written as a `list`, MetaLang's ordered collection with no two entries the same, which
+# is what the members of a type are. It is optional because `reportLines` is a function with no
+# members at all, and an element with none leaves the line out rather than writing an empty list.
+# ── APPROVED — the three roles, one word for a vocabulary, and members required. ──
+#                                                                                   2026-10-25
+# Tim approved five changes, through his jarvis session, each one put to him as the word it uses,
+# the lines it adds and the result it draws:
+#
+#   - `role: kind` on `element.form` and `member.kind`. What the property holds is what the thing
+#     IS, so a page heads the thing with it and marks it with it, instead of with the keyword the
+#     declaration happens to be written under — which for every part of the guard is `constant`.
+#   - `role: prose` on `element.does` and `member.does`. The property holds the prose explaining
+#     the thing, read as the line under the heading, which is where `title` and `description` are
+#     read on a declaration, rather than sitting in a row labelled with a keyword nobody wrote.
+#   - `member.name` is `name`, MetaLang's type for an identifier, rather than `string`. `name`
+#     matches `[A-Za-z_][A-Za-z0-9_]*` and nothing else; `string` matches a sentence.
+#   - `members` on `element` is required and accepts the two reserved states. `none` says there
+#     are none and that was decided, and nothing is reported; `pending` says they are required and
+#     not written yet, and the run exits non-zero. This replaces the line in the block above
+#     saying `members` is optional because `reportLines` is a function with no members at all:
+#     `reportLines` now writes `members: none`, which says that and says it was decided.
+#   - `word` is one word of a vocabulary this language draws, carrying the four properties `form`
+#     and `kind` each had — the mark, `example`, `name` and `description` — written once, with
+#     `form` and `kind` deriving from it and writing none of them. It is abstract, so nothing is
+#     ever directly of it. Tim took it before step 4 writes the third copy of those four, which is
+#     cheaper than unpicking three.
+#
+# `role: name` sits on `word.name`. A value naming one of these words is drawn with the name as
+# well as the id, because the id is what it is written as and the name is what it is called, and
+# it is what takes the last field name out of the two renderers that draw this language.
+# ── APPROVED — the mark on the word itself, and where a thing sits. ──
+#                                                                                   2026-10-25
+# Tim approved four changes, through his jarvis session, each put to him as the word it uses, the
+# lines it adds, what the checker refuses and the page it draws:
+#
+#   - `role: mark` on `word.mark`. The glyph comes up onto the word itself and the `appearance`
+#     wrapper is retired. A role answers one question about a type, and a wrapper holding one
+#     property put the answer out of reach: the only route from a page to the glyph was writing
+#     the words `appearance` and `mark` into that page's code. Every card is now headed by the
+#     mark of what it is, and a member reads `() method`.
+#   - A value naming one member of a closed set draws the name only where the name says what the
+#     id does not. Every form is named after itself, so `interface Interface` was one word read
+#     twice; the naming dictionary still reads `csharp C#`, which is the case worth drawing.
+#   - `places` is the third closed vocabulary of this language, beside the six forms and the five
+#     kinds of member: a package is shipped, an assembly is loaded, a namespace groups names
+#     inside one. Each carries its own mark, a real example, the name it is shown by and a
+#     sentence, and takes a colour from its place in the set, as every other vocabulary does.
+#   - `sits` on `element` holds one line for each of those places, written with MetaLang's new
+#     `map`, and `placename` is the type a place's name is. That type was approved on 2026-10-25
+#     under the name `path`; it was renamed to `placename` on 2026-10-27, when MetaLang took `path`
+#     for a route to a part of a value. A level the language has no word for says
+#     `none`: the three types in AgentGuard.Abstractions ship inside another package, and the
+#     TypeScript side has neither an assembly nor a namespace. The keys belong to the vocabulary,
+#     so the order is fixed, an invented place is refused by name, and a place left out is
+#     reported rather than read as an absence.
+#
+# What each language calls each kind of place is not written. Tim decided on 2026-10-25 to leave
+# it until a document needs it, because the three words read the same in C#, Python, Rust and
+# TypeScript, and a dictionary written before anything asks it would be wrong in whichever way the
+# first real non-C# document turns out to need.
+# ── APPROVED — how two elements relate. ──
+#                                                                                   2026-10-25
+# Tim approved `relates`, step 5 of the road, through his jarvis session. `relations` is the fourth
+# closed vocabulary of this language, beside the six forms, the five kinds of member and the three
+# kinds of place: a thing implements another, answers with another, or holds another. Each carries
+# its own mark, a real pair from this repository, the name it is shown by and one line saying what
+# it is. `relates` on an element holds one line for each of them, and each line names the elements
+# it stands to that way; a way it does not stand to anything says `none`.
+#
+# Only elements a document declares are named. A member whose type is a string says nothing here,
+# because text is not a part of an architecture.
+#
+# It is written with MetaLang's `link`, approved the same day: a value written as the id of a
+# declaration, with `to` naming the type that declaration must carry a value of. A name nothing the
+# document reaches declares is refused where it is written, so a relation can never point at
+# nothing, and the page draws each name as the same reference chip every other reference uses.
+
+
+scope: [arch]
+import:
+  - [metalang]
+title: The architecture language
+description: What an architecture may contain, written against MetaLang.
+declare:
+  - choice:
+      id: mark
+      options: [string, uri]
+      title: The character a form is drawn with, or a uri saying where its mark is drawn from.
+
+  - entity:
+      id: word
+      is: object
+      abstract: true
+      title: One word of a vocabulary this language draws.
+      description: >
+        Every closed vocabulary here is read as a set of these, so the three words they share are
+        written once and a new vocabulary cannot drift from the others. The line saying what a word
+        is belongs to the enum value it already is, under `title`, and is not written again here.
+      properties:
+        mark:
+          is: mark
+          role: mark
+          title: "The character it is drawn with, or where it is drawn from."
+        example:
+          is: string
+          accepts: [none, pending]
+          title: A real one from this repository.
+          description: >
+            `none` where this repository holds no example of the word, which is a decided absence
+            and not unfinished work: a language names what any project may write, and no one
+            project writes all of it. `pending` where one exists and nobody has gone and found it.
+        name:
+          is: string
+          role: name
+          title: The name it is shown by.
+
+  - entity:
+      id: form
+      is: word
+      title: One kind of declaration an architecture can make.
+      description: Every element of an architecture is of exactly one form.
+
+  - enum:
+      id: forms
+      is: form
+      title: Every form, in reading order.
+      values:
+        - id: interface
+          title: A declaration of surface with no implementation.
+          value:
+            mark: "◇"
+            example: IGuard
+            name: Interface
+        - id: class
+          title: An implementation satisfying an interface.
+          value:
+            mark: "■"
+            example: FileGuard
+            name: Class
+        - id: record
+          title: Data only. No behaviour.
+          value:
+            mark: "≡"
+            example: Verdict
+            name: Record
+        - id: enum
+          title: A closed set of values.
+          value:
+            mark: "◈"
+            example: VerdictKind
+            name: Enum
+        - id: function
+          title: A callable belonging to no type.
+          value:
+            mark: "ƒ"
+            example: reportLines
+            name: Function
+        - id: process
+          title: An ordered run of steps with a gate at each end.
+          value:
+            mark: "▷"
+            example: the Conversation phase
+            name: Process
+
+  - entity:
+      id: kind
+      is: word
+      title: One kind of member an element can have.
+      description: Every member of an element is of exactly one kind.
+
+  - enum:
+      id: kinds
+      is: kind
+      title: Every kind of member, in reading order.
+      values:
+        - id: method
+          title: A callable on a type. Carries a signature.
+          value:
+            mark: "()"
+            example: IGuard.PrecheckAsync
+            name: Method
+        - id: constructor
+          title: How an instance comes into being.
+          value:
+            mark: new
+            example: FileGuard(FileGuardConfiguration)
+            name: Constructor
+        - id: property
+          title: Accessed as data, computed as behaviour.
+          value:
+            mark: get/set
+            example: Verdict.Kind
+            name: Property
+        - id: field
+          title: Stored data on a type.
+          value:
+            mark: "▪"
+            example: FileGuard._defaultVerifier
+            name: Field
+        - id: value
+          title: One of the closed set an enum declares. Not stored data on a type.
+          value:
+            mark: "◆"
+            example: VerdictKind.Deny
+            name: Value
+
+  - entity:
+      id: placename
+      is: string
+      title: The name of a place, written in parts separated by dots.
+      description: >
+        A package, an assembly and a namespace are all named this way. MetaLang's `name` would
+        refuse both the dot an assembly carries and the hyphen a package carries.
+      constraints:
+        - pattern: { value: '[A-Za-z_][A-Za-z0-9_-]*(\.[A-Za-z_][A-Za-z0-9_-]*)*' }
+
+  - entity:
+      id: place
+      is: word
+      title: One kind of place an element can sit in.
+      description: >
+        Each one is a level of its own: a package is shipped, an assembly is loaded, a namespace
+        groups names inside one. A language that has no word for a level has none of that kind.
+
+  - enum:
+      id: places
+      is: place
+      title: Every kind of place, widest first.
+      values:
+        - id: package
+          title: What is shipped and depended on as one thing.
+          value:
+            mark: "▣"
+            example: AgentGuard.Engine
+            name: Package
+        - id: assembly
+          title: What is compiled and loaded as one thing.
+          value:
+            mark: "▤"
+            example: AgentGuard.Abstractions
+            name: Assembly
+        - id: namespace
+          title: What names are grouped under inside an assembly.
+          value:
+            mark: "::"
+            example: AgentGuard.Abstractions.Contracts
+            name: Namespace
+
+  - entity:
+      id: relation
+      is: word
+      title: One way an element can stand to another element.
+      description: >
+        Each one is a different question about the same two things, so a document that says which
+        one it means says what the relation is rather than that there is one.
+
+  - enum:
+      id: relations
+      is: relation
+      title: Every way one element can stand to another, in reading order.
+      values:
+        - id: implements
+          title: It satisfies the whole of the surface the other declares.
+          value:
+            mark: "⊢"
+            example: FileGuard implements IGuard
+            name: Implements
+        - id: answers
+          title: It gives the other one back to whoever called it.
+          value:
+            mark: "→"
+            example: IGuard answers with a Verdict
+            name: Answers
+        - id: holds
+          title: It carries the other one as part of itself.
+          value:
+            mark: "⊂"
+            example: Verdict holds a VerdictKind
+            name: Holds
+
+  - entity:
+      id: reach
+      is: word
+      standing: approved
+      origin: Tim, through his jarvis session, 27 October 2026
+      title: One answer to who can see a thing.
+      description: Written on an element and on each of its members, because a public member of an internal class is not reachable and the two answers are not the same answer.
+
+  - enum:
+      id: reaches
+      is: reach
+      title: Every answer to who can see a thing, widest first.
+      values:
+        - id: public
+          title: Visible to anything that can see the assembly it lives in.
+          value: { mark: "◎", example: IGuard, name: Public }
+        - id: internal
+          title: Visible inside its own assembly and nowhere else.
+          value: { mark: "◐", example: SystemServices, name: Internal }
+        - id: private
+          title: Visible only inside the type that declares it.
+          value: { mark: "●", example: FileGuard's constructor, name: Private }
+
+  - entity:
+      id: exactness
+      is: word
+      standing: approved
+      origin: Tim, through his jarvis session, 27 October 2026
+      title: How exactly an element pins the types of its members.
+      description: Nearly everything is loose. Exact is for a thing whose bytes are laid out, where the width of each member is part of what it is.
+
+  - enum:
+      id: exactnesses
+      is: exactness
+      title: Every answer to how exactly an element pins its types.
+      values:
+        - id: loose
+          title: Types are named as the language gives them, which is nearly always right.
+          value: { mark: "≈", example: Verdict, name: Loose }
+        - id: exact
+          title: Every member names a built-in type of determined size, so a byte layout is drawn.
+          value: { mark: "▦", example: CredUiInfo, name: Exact }
+
+  - entity:
+      id: builtin
+      is: word
+      standing: approved
+      origin: Tim, through his jarvis session, 27 October 2026
+      title: One built-in type a member may carry where its element is exact, that MetaLang does not already name.
+      description: >
+        Common to C#, Python, Rust and TypeScript. The mark is shared by family rather than one per
+        word, because fifteen glyphs would be noise where four families read at a glance. MetaLang
+        already declares `boolean` and `uuid`, and every document written in this language brings
+        MetaLang in, so a member carrying one of those names it rather than naming a second word
+        for the same thing. The width is a `range`, which is MetaLang's own word for a lowest and a
+        highest value, so a page works out a byte layout from the document rather than from a
+        sentence.
+      properties:
+        bounds:
+          is: range
+          accepts: [none]
+          title: The lowest and the highest value it holds, where it holds a number.
+
+  - enum:
+      id: builtins
+      is: builtin
+      title: Every built-in type an exact element may use beside the ones MetaLang already names.
+      values:
+        - id: int8
+          title: A signed whole number, one byte.
+          value: { bounds: { minimum: -128, maximum: 127 }, mark: "#", example: none, name: "int8" }
+        - id: int16
+          title: A signed whole number, two bytes.
+          value: { bounds: { minimum: -32768, maximum: 32767 }, mark: "#", example: none, name: "int16" }
+        - id: int32
+          title: A signed whole number, four bytes.
+          value: { bounds: { minimum: -2147483648, maximum: 2147483647 }, mark: "#", example: CredUiInfo.Size, name: "int32" }
+        - id: int64
+          title: A signed whole number, eight bytes.
+          value: { bounds: { minimum: -9223372036854775808, maximum: 9223372036854775807 }, mark: "#", example: none, name: "int64" }
+        - id: uint8
+          title: An unsigned whole number, one byte.
+          value: { bounds: { minimum: 0, maximum: 255 }, mark: "#", example: none, name: "uint8" }
+        - id: uint16
+          title: An unsigned whole number, two bytes.
+          value: { bounds: { minimum: 0, maximum: 65535 }, mark: "#", example: none, name: "uint16" }
+        - id: uint32
+          title: An unsigned whole number, four bytes.
+          value: { bounds: { minimum: 0, maximum: 4294967295 }, mark: "#", example: none, name: "uint32" }
+        - id: uint64
+          title: An unsigned whole number, eight bytes.
+          value: { bounds: { minimum: 0, maximum: 18446744073709551615 }, mark: "#", example: none, name: "uint64" }
+        - id: fp32
+          title: A number with a fraction, four bytes.
+          value: { bounds: none, mark: "~", example: none, name: fp32 }
+        - id: fp64
+          title: A number with a fraction, eight bytes.
+          value: { bounds: none, mark: "~", example: none, name: fp64 }
+        - id: decimal128
+          title: A number with a fraction and no rounding error, sixteen bytes.
+          value: { bounds: none, mark: "~", example: none, name: decimal128 }
+        - id: bytes
+          title: Raw bytes of a stated length.
+          value: { bounds: none, mark: "▭", example: none, name: bytes }
+        - id: utf8
+          title: Text, held as UTF-8.
+          value: { bounds: none, mark: "¶", example: none, name: utf8 }
+        - id: instant
+          title: A point in time.
+          value: { bounds: none, mark: "◷", example: none, name: instant }
+        - id: duration
+          title: A length of time.
+          value: { bounds: none, mark: "◷", example: none, name: duration }
+
+  - entity:
+      id: grouping
+      is: word
+      standing: approved
+      origin: Tim, through his jarvis session, 27 October 2026
+      title: One way of gathering elements that cuts across where they sit.
+      description: >
+        An element says which group it is in, on the element. A grouping never holds a list of its
+        members, so the answer is always written next to the thing it is true of. A layer is not
+        one of these: the layers of a project are its assemblies, which an element already writes
+        under `sits`.
+
+  - enum:
+      id: groupings
+      is: grouping
+      title: Every way of grouping elements, beside the places they sit in.
+      values:
+        - id: concept
+          title: A subject area, gathering elements wherever they sit.
+          value: { mark: "✳", example: "presence, setup, context, guard", name: Concept }
+        - id: job
+          title: What a type is for, as distinct from what it is.
+          value: { mark: "⊙", example: "service, owner, port, door, container", name: Job }
+
+  - entity:
+      id: member
+      is: object
+      title: One named piece of an element.
+      description: Its name is written here, because a member is not declared and has no id.
+      properties:
+        name:
+          is: name
+          title: The name it is known by.
+        kind:
+          is: kinds
+          role: kind
+          title: Which of the five kinds of member it is.
+        reach:
+          is: reaches
+          accepts: [pending]
+          title: Who can see it. A public member of an internal class is not reachable, so the element's answer is not this one.
+        type:
+          is: builtins
+          accepts: [none, pending]
+          title: The built-in type it carries where its element is exact.
+          description: >
+            `none` where its element is loose, which is nearly always, because a loose element names
+            its types as the language it is written in gives them. Where its element is exact it may
+            not say `none`, which the element says for itself as a constraint rather than here.
+        does:
+          is: string
+          role: prose
+          title: One line saying what it does.
+
+  - entity:
+      id: element
+      is: object
+      title: One named piece of an architecture.
+      description: >
+        The name it is known by is the name it is declared under. An element whose bytes are laid
+        out has to say what each of its members carries, and one whose types are named as the
+        language gives them does not; that is written below rather than said here.
+      constraints:
+        - when:
+            at: exactness
+            holds: [exact]
+            then:
+              never: { at: members.type, carries: [none] }
+      properties:
+        form:
+          is: forms
+          role: kind
+          title: Which of the six forms it takes.
+        does:
+          is: string
+          role: prose
+          title: One line saying what it does.
+        reach:
+          is: reaches
+          accepts: [pending]
+          title: Who can see it.
+        exactness:
+          is: exactnesses
+          accepts: [pending]
+          title: How exactly it pins the types of its members.
+        groups:
+          map: { by: groupings, of: string, accepts: [none] }
+          accepts: [none, pending]
+          title: Which group it is in, for each way of grouping.
+        members:
+          list: { of: member }
+          accepts: [none, pending]
+          title: The members it has, in the order the source declares them.
+        sits:
+          map: { by: places, of: placename, accepts: [none] }
+          accepts: [none, pending]
+          title: Where it sits, one line for each kind of place.
+        relates:
+          map: { by: relations, of: { list: { of: { link: { to: element } } } }, accepts: [none] }
+          accepts: [none, pending]
+          title: What it stands to, one line for each way one element can stand to another.

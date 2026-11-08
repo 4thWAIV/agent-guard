@@ -1,0 +1,83 @@
+COMMAND: git diff --check
+STARTED: 2026-09-16T04:58:36Z
+----------------------------------------
+EXIT=0
+
+COMMAND: git status --short
+ M .dev/inprocess/74-pre-work-move-system-services/contract.md
+ D analyzers/AgentGuard.Analyzers.Tests/BoundariesToCrossPlatformOneDoorAnalyzerTests.cs
+ D analyzers/AgentGuard.Analyzers.Tests/BoundariesToPerOsOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/GuardedConstructionAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+ M analyzers/AgentGuard.Analyzers.Tests/TimeMustUseTimeProviderAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers/AnalyzerReleases.Unshipped.md
+ M analyzers/AgentGuard.Analyzers/AttributeIdentity.cs
+ D analyzers/AgentGuard.Analyzers/BoundariesToCrossPlatformOneDoorAnalyzer.cs
+ D analyzers/AgentGuard.Analyzers/BoundariesToPerOsOneDoorAnalyzer.cs
+ M analyzers/AgentGuard.Analyzers/CompositionPoint.cs
+ M analyzers/AgentGuard.Analyzers/ContractConcreteTypeMustNotBeReferencedAnalyzer.cs
+ M analyzers/AgentGuard.Analyzers/CrossPlatformBoundary.cs
+ M analyzers/AgentGuard.Analyzers/PlatformFactory.cs
+ M analyzers/AgentGuard.Analyzers/TypeTree.cs
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-authoring-run1-results.json
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-authoring-run2-results.json
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-build-with-override.txt
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-build-without-override.txt
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-history.md
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-result.md
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-review-round1.json
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-review-round2.json
+?? .dev/inprocess/74-pre-work-move-system-services/architecture-review-round3.json
+?? .dev/inprocess/74-pre-work-move-system-services/contract-opening-bracket.txt
+?? .dev/inprocess/74-pre-work-move-system-services/conversation.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-brief.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-correction-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-brief.md
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-revision-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/design-verdict.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-facts.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-ledger.json
+?? .dev/inprocess/74-pre-work-move-system-services/ground-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/remaining-work.md
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix-direction.md
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix2-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix3-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix4-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-fix5-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-output.json
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-production-impact.md
+?? .dev/inprocess/74-pre-work-move-system-services/rule-phase-using-literal-correction.md
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-affected-classes-detailed.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-baseline-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-diff-check-and-status.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-final-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-intermediate-build.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-mutation-proofs.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-run1-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-run2-analyzer-tests.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-run3-after-dedup.txt
+?? .dev/inprocess/74-pre-work-move-system-services/tdd-worker-instructions.md
+?? analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/SymbolResolutionTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/TypeTreeTests.cs
+?? analyzers/AgentGuard.Analyzers.Tests/WrittenNameScannerTests.cs
+?? analyzers/AgentGuard.Analyzers/BoundaryAdapterFactories.cs
+?? analyzers/AgentGuard.Analyzers/DeclaredTypeScanner.cs
+?? analyzers/AgentGuard.Analyzers/EngineAssembly.cs
+?? analyzers/AgentGuard.Analyzers/EngineInternalsOneDoorAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/EngineToBoundariesOneDoorAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorIntoCrossPlatformAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorIntoPerOsAnalyzer.cs
+?? analyzers/AgentGuard.Analyzers/OneDoorRule.cs
+?? analyzers/AgentGuard.Analyzers/SymbolResolution.cs
+?? analyzers/AgentGuard.Analyzers/WrittenNameScanner.cs
+EXIT=0
+FINISHED: 2026-09-16T04:58:37Z

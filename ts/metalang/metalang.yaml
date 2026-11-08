@@ -1,0 +1,1375 @@
+# MetaLang — the approved vocabulary.
+#
+# Nothing is in this file that Tim has not approved. The previous file is archived as
+# metalang.archived-2026-10-13.yaml; it carried words he never approved, most of them taken
+# from Ecore, and it is not a source of truth for anything.
+#
+# A word that is not below does not exist in the language.
+#
+# THE DECLARATIONS AT THE FOOT OF THIS FILE ARE THE VOCABULARY. Every word of the language is
+# declared there and every script reads it from there, so there is no second copy anywhere.
+#
+# The comment blocks are the record of what Tim approved and when, and the reasons he gave. A
+# declaration has no place to carry prose yet, which is why both are here.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the top-level keys of a file.  2026-10-13, 2026-10-14, 2026-10-15
+#
+# Tim's ruling: these five, and not to change without his approval.
+#
+#   scope         the file's name, as a list of segments
+#   import        the scopes the file brings into itself, each one written as a scope is
+#   language      which language the file is written in
+#   title         one line of prose about the file
+#   description   longer prose about the file
+#   declare       the declarations the file makes, as one ordered list
+#
+# `external` was a top-level key from 2026-10-14 until 2026-10-15, when Tim ruled it is
+# written inside `declare` instead. See the block on external below.
+#
+# Every declaration in the file belongs to the file's scope. A declaration's full name is the
+# scope followed by its own id.
+#
+# There is no `id` at the top level. A file's scope IS its name, so carrying both would be two
+# keywords for one thing. Each keyword keeps one shape: `scope` is always a path, `id` is
+# always a single name.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# ORDERED — reaching the declarations of another scope.            2026-10-17
+#
+#   import        the scopes a file brings into itself
+#
+# A file declares what it declares and nothing else is in it. Every name it writes that it does
+# not declare is reached by importing the scope that declares it, written the way a scope is
+# written, and a name reached no other way is refused. Tim's ruling: this is an import and it is
+# no different from importing a namespace in any other language. He has not said yes to the word
+# or to the shape, and each is one line to change.
+#
+#   scope: [guard, process]
+#   import:
+#     - [metalang]
+#
+# A file's own declaration wins over an imported one, so importing a scope never takes a name away
+# from the file that imports it.
+#
+# `import` is singular where `properties` and `options` are plural, because it is the word every
+# language uses for this and a reader knows it on sight.
+#
+# This file imports nothing. It declares every name it writes, which is what makes it the file the
+# rest are written against.
+#
+# Not decided: what happens when two imported scopes declare the same name. More than one scope
+# can be brought in since 2026-10-19, so this can now be written. The checker reports it where it
+# is written rather than keeping one of the two, because keeping one would decide it.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the language a file names is the rulebook it is read against.   2026-10-19
+#
+#   language      which language the file is written in
+#
+# A file naming a language is read against that language's file: its declarations, and the ones
+# the scopes it brings in declare. So a file written in a language this one defines is checked by
+# that language's own rules, which is what defining a language is for.
+#
+#   scope: [parts]
+#   language: arch
+#   import:
+#     - [metalang]
+#
+# A file reaches the declarations of the language it names without bringing it in, because naming
+# the language is naming where its words come from. Everything else it reaches by bringing it in,
+# which is the rule above unchanged.
+#
+# A file naming no language is written in this one. The six top-level keys are this file's, so
+# every file has the same frame whatever language it is written in, and the language it names
+# decides what may be written under `declare`.
+#
+# Where a file sits is not said here. A scope of several segments is looked for as a path, so
+# `[guard, process]` is `guard/process.yaml`, beside the file being read and then beside this one.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the kinds a declaration may be.           2026-10-13, 2026-10-15
+#
+#   entity        a type
+#   enum          a type that lists fixed values
+#   choice        a type that is one of several types
+#   constant      a fixed value
+#   rule          a way to derive something
+#   fact          something that is true
+#
+# Ruled out, with the reason:
+#
+#   local         lives in a rule body, never declared at the document layer
+#   variable      the head's argument or the body's local, never at the document layer
+#   condition     an element of a rule's body, never declared on its own
+#   primitive     deferred. Declaring one means changing the system, and an entity
+#                 deriving from a primitive covers what was needed. May come back.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the identity of a declaration.                       2026-10-13
+#
+#   id            the declaration's name, a single segment
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the type of a thing.                                 2026-10-13
+#
+#   is            the type
+#
+# One word, one meaning: this is that type. The context says what is being typed.
+#
+#   on a declaration   the type it derives from. Several are allowed, so it may be a list.
+#   on a property      the type the property holds. Exactly one.
+#
+# Left off a declaration, `is` means it derives from nothing in particular.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — what an entity is made of.                           2026-10-13
+#
+#   properties    the named properties of an entity
+#
+# A property is a name and a type, and nothing more has been decided. Its value is either a
+# mapping that declares it here, or a reference that takes an existing declaration. A
+# reference binds rather than copies: the property is whatever the referenced one later
+# becomes.
+#
+# Two parents declaring the same property name do not conflict when the two declarations are
+# identical once every default is resolved. When they differ it is a conflict, refused where
+# the language file is checked, and the author resolves it in the child.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — rulings that bind every word added from here.         2026-10-13
+#
+#   A fact and a rule are different kinds with different properties. A fact is data;
+#   a rule derives data. A rule contains conditions, so a condition can never be the
+#   same structure as a rule — one is the container, the other the content.
+#
+#   One slot means one thing. No key carries two meanings.
+#
+#   Names are segmented, not flat.
+#
+#   No silent acceptance. Anything the checker cannot resolve or does not understand
+#   fails loudly.
+#
+#   Every word needs its own case made and Tim's yes before it is used. One at a time.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — asking for a conversion.                             2026-10-14
+#
+#   as            the type this value is wanted as
+#
+# Written as `Value as type`. The type named is the one wanted; the value's own type is
+# already known, so only one is written.
+#
+# Tim's requirement is that a conversion happens on its own where it is safe and is asked
+# for where it is not. `as` is how it is asked for.
+#
+# `is` is the type a thing has. `as` is the type it is wanted as.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — what external is for.                    2026-10-14, 2026-10-15
+#
+# external describes things outside the language. The definition is given — what the thing
+# looks like — and the implementation is not. A rule written externally is its head alone;
+# the body lives outside.
+#
+# A kind may therefore carry different keywords when it is written externally than it
+# carries otherwise, because what external leaves out is exactly the implementing part.
+#
+# How it is written, ruled 2026-10-15. A document holds ONE ordered list of declarations,
+# under `declare`, and a kind may be written in it as often as the document needs. An
+# external declaration is an item of that same list with `external` written in place of its
+# kind and the kind inside it, so it reads in the order the author put it:
+#
+#   declare:
+#     - enum:
+#         id: A
+#     - entity:
+#         id: Ab
+#     - external:
+#         cast:
+#
+# An item names one word. That word is a kind, or it is `external` and then its body names
+# one kind. There is never an external inside an external.
+#
+# Not decided: which further kinds may be written externally, and which keywords each
+# carries there.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the kinds each place takes.              2026-10-14, 2026-10-15
+#
+#   written plainly   entity  enum  choice  constant  rule  fact
+#   inside external   cast
+#
+#   cast          a conversion from one type to another, implicit or explicit
+#
+# constant and fact are never external. A constant is its value and a fact is its data, so
+# writing either one externally would leave nothing behind.
+#
+# A rule does have something to leave out externally, since its body can live outside. It is
+# not enabled externally yet: we start with cast alone.
+#
+# Held for later: functions supplied from outside — string handling and the like — written
+# externally, with a process for reaching them.
+#
+# Not decided: the keywords a cast carries.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — one of several types, and the rename that makes room for it.
+#                                                                 2026-10-15
+#
+#   enum          a type that lists fixed values
+#   is            on an enum, the one type its values are
+#   values        the values an enum lists
+#   id            on one of those values, the name it is known by
+#   value         on one of those values, what it stands for
+#   choice        a type that is one of several types
+#   options       the types a choice is one of
+#
+# `choice` previously meant the enumeration. Tim renamed that to `enum`, which is what most
+# languages call it, and gave the name `choice` to the union of types — something the language
+# had no way to say.
+#
+# The two are different things. An enum's alternatives are the values themselves and carry no
+# structure. A choice's alternatives are types, and its values are their values.
+#
+# A choice is untagged. A value belongs to whichever option it is a value of, and no label is
+# written beside it, so the options themselves have to decide which one a value belongs to.
+#
+# APPROVED — the options are asked narrowest first.                          2026-10-20
+#
+# Where one option derives from another, every value of the narrower one is a value of the wider
+# one as well, and only the narrower one says anything about it. So the narrower one is asked
+# first, and the value belongs to it when it takes it. That is what makes a choice between an
+# enum and the type it is based on read the way it is written: a value the enum lists is the
+# enum, and a value it does not list is the type underneath.
+#
+# Two options with no derivation between them that both take one value leave nothing to say
+# which of the two was meant. That is reported where the value is written rather than on the
+# choice, because the options are fine and it is the one value that cannot be told apart.
+#
+# That leaves three ways to say a thing may be one of several, with no overlap between them:
+#
+#   enum              a closed set of values
+#   choice            a closed set of types
+#   is, pointing up   an open set of types, where anything may join later by deriving
+#
+# An option names a type, the same way `is` does, so a choice's members are declarations
+# elsewhere rather than something written inside the choice.
+#
+# An enum is based on one type, which `is` names, and that type is one of the primitive
+# types. Which primitives may be named is not settled, because the built-in type names are
+# not settled, so a wrong one cannot yet be refused.
+#
+# Each value an enum lists carries its own id and the value that id stands for, written out
+# rather than taken from its place in the list:
+#
+#   values:
+#     - id: NOT_FOUND
+#       value: 404
+#
+# Languages differ in how they number a member whose value is left unwritten, so writing the
+# value is what makes one enum mean the same thing in every language it is emitted into.
+#
+# A value's id names it inside its own enum and nowhere else. It is not a declaration of the
+# file, and nothing outside the enum refers to it by that name alone.
+#
+# APPROVED — an enum enforces its members.                                   2026-10-20
+#
+# An enum is a closed set of values. A value of one is written as the id naming a member, or
+# written out in full as one of the values listed, and nothing else is a value of it. An enum
+# that also took every value of the type it is based on would say nothing that type does not say
+# already, and the list of values it exists to close would go unchecked.
+#
+# The enum has to carry over into languages that allow an enum to be numbers only. C# is the
+# case to hold in mind: it has no string enum, and the same thing is written there as a
+# sealed class with a private constructor and public static readonly instances, which is the
+# type-safe enum pattern. That is the business of whatever emits C#, and it does not narrow
+# what this language allows.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — the language declares itself, as entities and choices.  2026-10-15
+#
+# A kind is an entity whose properties are the keywords that kind carries. Which kinds may be
+# written where is said by choices. There is no separate mechanism for declaring a word, and the
+# scripts read the vocabulary from these declarations alone.
+#
+#   document      the entity whose properties are the keys a file carries
+#   declaration   the choice listing what may be written as an item under declare
+#   external      the choice listing which kinds may be written inside external
+#   type          the choice listing which kinds are types
+#   property      the entity whose properties are what a property carries
+#   value         the entity whose properties are what one value of an enum carries
+#
+# `keyword`, `where` and `carries` are gone. They were a second mechanism for placing a word, and
+# Tim ruled that a thing says what it has rather than every word pointing at its containers.
+#
+# `external` is an ordinary option of a declaration rather than a special case, so an external
+# inside an external cannot be written: a cast is an entity and holds no declaration of its own.
+#
+# A type with properties of its own may be written out instead of named, as one word naming it
+# with its properties inside. That is how a collection says what it holds, and it is the same
+# shape an item under `declare` is written in.
+#
+# Eight words are known to the reader before it reads anything, because the vocabulary is written
+# in them: declare, external, entity, choice, id, is, properties and options. Every other word is
+# read.
+#
+# APPROVED — what a type says about itself.                        2026-10-16
+#
+#   abstract      no value is ever directly of this type
+#   primitive     this type's values come from whatever reads the file
+#
+# `abstract` does not stop a type being named. A property may hold any `collection`, and what is
+# written there has to be a list, an array, a set or a bag. `object` and `collection` carry it.
+#
+# `primitive` is where the language stops and the reader of the file begins. `boolean` cannot be an
+# enum of true and false, because an enum names the one type its values are and that would be
+# `boolean` itself; and it cannot be a choice of them, because a choice's options name types and
+# `true` is not a type. `true` and `false` are not declarations at all — they carry no id and
+# nothing refers to them by name. So the language says the type is primitive, and what one of its
+# values looks like belongs to the concrete syntax: in a YAML file `true` arrives as a boolean,
+# `"a"` as text and `7` as a number.
+#
+# This is the case Tim deferred `primitive` for on 2026-10-13. Without it nothing can check that
+# `true` is a `boolean`.
+#
+# ── APPROVED — `object` is primitive.                              2026-10-18 ──
+#
+# `object` is the root every type derives from, and what one of its values looks like had never
+# been said, so nothing could be written as a value of any type with properties. Tim approved
+# giving it the definition it already has elsewhere: an instance, whose content is its parts.
+#
+#   one value of `object`   a set of named parts, one part per property
+#
+# In a YAML file that is a mapping, which is concrete syntax like the other primitives. What the
+# parts ARE is said in the language and read from there: each key names one of the type's
+# properties, each key holds a value of that property's type, and a property that does not say
+# `optional: true` has to be written. A key naming no property of the type is refused.
+#
+# It carries `abstract` as well, so nothing is ever directly an `object`. A value is written
+# against a type that derives from it, and the definition is what that type inherits.
+#
+# This is what the architecture language was waiting on. Its content is one hundred and
+# twenty-nine members, each a set of named parts.
+#
+# What a value may be is now checked. A value written against a type that derives down to no
+# primitive is refused, and one written against a primitive the concrete syntax says nothing about
+# blocks rather than passing.
+
+# NOT YET APPROVED, written below so Tim can see it working:
+#
+#   object        the root everything derives from
+#   string        a run of characters, from his cast table of 2026-10-13
+#   collection    many of a thing, abstract, with the four kinds deriving from it
+#   list          the written order is part of the value, and no two members may be the same
+#   array         the written order is part of the value, and members may repeat
+#   set           the order means nothing, and no two members may be the same
+#   bag           the order means nothing, and members may repeat
+#   of            on a collection, what it holds
+#
+# The four kinds and their words are his, settled 2026-10-09 and refined 2026-10-15. What is not
+# approved is declaring them here, the abstract `collection` they derive from, and the word `of`.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a type, and the type an id has.                      2026-10-15
+#
+#   type          a type: an entity, an enum or a choice
+#   name          the type an id has
+#
+# `type` is stated in the language with the words it already has, and the same declaration both
+# gives the language the type `type` and says which kinds are types:
+#
+#   - choice:
+#       id: type
+#       options: [entity, enum, choice]
+#
+# `name` is its own type, separate from `string`. An id is a name and not any text. Which
+# characters a name may contain is not settled, and every declaration is refused until it is.
+#
+# Together they separate a name that defines something from a name that points at a type. The
+# property says which it is, not the name:
+#
+#   id            has the type `name`
+#   is            has the type `type`, so what is written there resolves to an entity, an enum or
+#                 a choice, and to nothing else
+#
+# A property holding a value is typed by the value's own type, so nothing further is needed to
+# tell a type reference from a value reference.
+#
+# A built-in type is declared as an entity, with Tim's reason: an entity is a template for a data
+# structure, and no entity in this language carries an implementation. `name` derives from
+# `string`, which is his, and it is declared below as `- entity: { id: name, is: string }`.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — four more of the built-in types.                      2026-10-16
+#
+#   number        a number, and primitive the way `boolean` and `string` are
+#   byte
+#   uuid
+#   expression
+#
+# All four are names from Tim's cast table of 2026-10-13, and he ruled them into the document.
+#
+# `number` is primitive because in a YAML file `7` arrives as a number, so what one of its values
+# looks like belongs to the concrete syntax, the same as `true` and `"a"`.
+#
+# `byte`, `uuid` and `expression` are declared and nothing more. Each of them is defined by what
+# its values may be, the language has no word for saying that yet, and what each one derives from
+# is not settled. Until both are, nothing can be written as a value of one.
+#
+# `instant` and `duration` are the two left out. Tim's requirement is that they carry properties
+# when they come in.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — what a type says its values may be.                  2026-10-16
+#
+#   constraint    what a type says its values may be. Abstract: a constraint is always one of
+#                 the kinds deriving from it.
+#   constraints   on a type, the constraints it puts on its values
+#   pattern       a constraint: a regular expression the whole value has to match
+#   value         on a pattern, the regular expression itself
+#
+# Each kind of constraint is a type deriving from `constraint`, the same way the four collection
+# kinds derive from `collection`, so a further kind joins by deriving and nothing else in the
+# language changes. A range for `byte` is the next one wanted.
+#
+# `constraints` is a set: the order they are written in means nothing and no two of them should be
+# the same. It stands to `constraint` as `properties` stands to `property`.
+#
+# A type's constraints are the ones it writes and the ones everything it derives from writes, so a
+# type deriving from `name` is held to the characters a name may contain as well as to its own.
+#
+# What a kind of constraint MEANS — that a pattern is matched against the whole value — is not
+# said in the language. It is code, one piece per kind, beside the table that says what a value of
+# each primitive looks like once the file is read. The language says the constraint exists, what it
+# holds, and which type carries it.
+#
+# NOT YET APPROVED, written below so Tim can see it working:
+#
+#   `expression` is primitive. Nothing could be written as a value of it, so a pattern had nothing
+#   to hold. In a YAML file a regular expression arrives as text, which is the same statement
+#   about the concrete syntax that `boolean`, `number` and `string` already carry. What
+#   `expression` derives from is still not settled, and this does not settle it.
+#
+#   The characters a name may contain: a letter or an underscore, then any number of letters,
+#   digits and underscores. Written on `name` as a pattern, and every id in every document is
+#   checked against it. The characters themselves are Tim's to set and one line changes them.
+#
+#   `byte` and `uuid` are primitive as well, for the reason given in the block below.
+#
+# Which regular expressions are allowed — the subset that means the same thing in every runtime —
+# is not checked.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# ORDERED — what a byte and a uuid allow, and the conversions a uuid has.  2026-10-17
+#
+#   range         a constraint: the lowest and the highest value allowed
+#   minimum       on a range, the lowest value allowed
+#   maximum       on a range, the highest value allowed
+#   from          on a cast, the type it converts from
+#   to            on a cast, the type it converts to
+#   implicit      on a cast, that the conversion happens on its own
+#
+# Tim ordered a byte constrained to its range, a uuid constrained to the shape a uuid is written
+# in, and the four conversions between a uuid and the two things it is carried as. These six words
+# are what carrying that out needed. He has not said yes to the words themselves, and each is one
+# line to change.
+#
+# A byte is a range: the lowest value is 0 and the highest is 255, which is the whole of what his
+# cast table of 2026-10-13 gives it. A uuid is a pattern: eight, four, four, four and twelve hex
+# digits, which is the whole of what the same table gives it.
+#
+# Both are primitive. A constraint says which values of a type are allowed, and nothing can be
+# allowed until something can be written at all, so a type carrying a constraint has to say where
+# its values come from. In a YAML file a byte arrives as a number and a uuid arrives as text. What
+# either one derives from is still not settled and this does not settle it: a byte is not declared
+# to be a number, and a uuid is not declared to be a string. The conversions are what say how they
+# are carried, and a conversion is between two types rather than inside one.
+#
+# `cast` was approved on 2026-10-14 with its keywords undecided. These are the keywords: what it
+# converts from, what it converts to, and whether it happens on its own. A cast carries an id as
+# every declaration does. `from` and `to` each name a type, so either may be a type written out,
+# which is how a cast to many bytes says so.
+#
+# A conversion that cannot fail happens on its own, and `implicit` says that. One that can fail is
+# asked for, which is what `as` was approved for on 2026-10-14, and a cast that does not write
+# `implicit` is one of those. Writing `implicit: false` says what leaving it off says.
+#
+# Not written: a cast between a byte and a number, or between an expression and a string. Tim
+# ordered the uuid's four and no others.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# ORDERED — prose on a declaration, and whether a property is written.    2026-10-17
+#
+#   title         on a declaration, a property or a value, one line saying what it is
+#   description   on the same three, prose explaining it
+#   optional      on a property, that it may be left out
+#
+# Tim ordered both. A page that draws a model is what the model is read and signed off on, and
+# until now only the file itself could carry prose, so every name on the page stood with nothing
+# saying what it was. `title` and `description` were already in the language on `document`; they
+# are now on the seven kinds a declaration may be and on the two parts written inside one.
+#
+# They are not on a constraint or on a collection kind. A constraint is written inside a type and
+# the type carries the prose, and a collection kind is written inline as a property's type and is
+# never a named item on the page.
+#
+# A property is written unless it says otherwise. `optional: true` says it may be left out. There
+# is no word for required, because that is what a property is when it says nothing. Tim's reason
+# for this way round: leaving `optional` off makes the checker demand something and the author
+# hears about it at once, where leaving a mark meaning required off would mean the check silently
+# never runs.
+#
+# A property written again on a type deriving from the one that declared it leaves `optional` off
+# and takes the ruling of the property above it, which is the rule `is` already follows. That is
+# what the four collection kinds do when they fix `ordered` and `unique`.
+#
+# `title` and `description` are themselves optional everywhere. Requiring a title would force one
+# onto a property written again only to fix its value, and onto every property of every type,
+# which is noise rather than prose. `title` on a file stays required, because a file has no id to
+# fall back on.
+#
+# Nothing says what a property holds when it is left out. There is no `default` and none is
+# proposed, because no document has needed one.
+#
+# With this the checker stops naming mandatory keywords in TypeScript. A declaration's `id`, an
+# enum's `is`, and an enum value's `id` and `value` are now required because the language says so.
+# The one check that stays is that a property has an `is`, because its type may come from the
+# declaration above it instead.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a value that is required and not yet given.                 2026-10-20
+#
+#   accepts    on a property, the reserved states it takes in place of a value
+#   reserved   an enum of two: `pending` and `none`
+#
+# Tim approved all three. A document had no way to say that a value is coming, so an author wrote
+# text in its place — "none in this repository" — and nothing could tell that from an answer.
+#
+# `pending` says a value is required and not yet given. The checker reports it in a list of its
+# own, headed as unfinished rather than as wrong, and the run exits non-zero, so a document that
+# is not finished can never print that nothing is wrong with it. Whether anything is wrong with a
+# document and whether a document is finished are two questions with two answers.
+#
+# `none` says a value was deliberately left empty. Nothing is reported, because nothing is
+# missing. It is in the language so that a decided absence reads as one.
+#
+# A property takes a reserved state only where its own `accepts` names it. Without that the word
+# is the text it is written as, so no document gains a meaning it did not ask for.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a constant says what its value is of, and holds it.         2026-10-24
+#
+#   is       on a constant, the type its value is of
+#   value    on a constant, the value itself
+#
+# Tim approved both. `constant` could name a fixed value and say nothing about it: it carried `id`,
+# `title` and `description` alone, so it could not say what type the value was or hold anything. An
+# `enum` was therefore the only kind that carried data, and a document with five real things to
+# write down had to list them as the values of an enum, which says the set is closed and gives each
+# thing two names — the id inside the enum and the name it actually has.
+#
+# Both are required. A constant that does not say what its value is of cannot be checked, and the
+# checker never passes what it could not verify. A constant with no value is a name standing for
+# nothing.
+#
+# They are the two words `enum` already uses, one level up: `is` names the type, and `value` is
+# written exactly as a value an enum lists is written, and read by the same rule.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — what a property is to a reader.                             2026-10-25
+#
+#   role   on a property, what it is to a reader beyond the value it holds
+#
+# Tim approved the word and its three members — `kind`, `prose` and `name` — through his jarvis
+# session. A page draws a thing by what it IS, and two of the things it has to draw are not the
+# value: which kind of thing this is, and the prose explaining it. MetaLang knows its own two
+# prose words, `title` and `description`, because it declared them. A language built on MetaLang
+# has its own, and until now nothing let it say which.
+#
+# Without the word a page has to guess: the kind is the first property whose type is an enum, the
+# prose is a string no constraint pins down, and the name is the property literally spelled
+# `name`. Each guess is wrong for some language, and the third is a field name written into code,
+# which this repository does not allow.
+#
+# A property carries no role unless the language that declares it gives it one, and a role is
+# given to at most one property of a type, because a reader asking which property holds the kind
+# has to get one answer.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ── APPROVED — one of a thing for each word of a closed set, and a fourth role. ──
+#                                                                                   2026-10-25
+# Tim approved `map`, the fifth way to write many of a thing. The other four — a list, an array, a
+# set and a bag — are all written as a sequence, so a value keyed by a vocabulary had to repeat the
+# key word on every item. A map's keys are the words of the closed set named under `by`: every word
+# that set lists is written, the order is the set's rather than the author's, a key the set does
+# not list is refused by name, and a word that holds nothing says so with a state written under
+# `accepts`. `ts/metalang/arch.yaml` writes where an element sits with it.
+#
+# ── APPROVED — a value that names a declaration. ──                                 2026-10-25
+# Tim approved `link`: a value written as the id of a declaration, with `to` naming the type that
+# declaration must carry a value of. Nothing MetaLang could write before it pointed at another
+# declaration, so a relation between two things could only be written as text nothing reads. It is
+# written out the way a collection is, so many of them is `list: { of: { link: { to: element } } }`
+# and nothing further is needed to say that one thing stands to two others. A name nothing the
+# document reaches declares is refused where it is written, and so is a name whose declaration
+# carries no value, or carries a value of another type. `ts/metalang/arch.yaml` writes how two
+# elements relate with it.
+#
+# He also approved `mark`, a fourth member of `role`, saying which property of a type holds the
+# character a thing is drawn with. The three roles before it reached a thing's kind, its prose and
+# its name; there was no third step to the glyph, so the only route to it was writing a property
+# name into a renderer.
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — a route to a part of a value, and the five words that needed one.    2026-10-27
+#
+#   path       a route to a part of a value, written in parts separated by dots
+#   never      a constraint: a part and the values it may never carry
+#   when       a constraint: a part, the values of it that make it apply, and a constraint to apply
+#   many       how many of a thing a part holds, counted and handed to a `range`
+#   distinct   a constraint: no two members of one list carry the same value at one part
+#
+# Tim approved these through his jarvis session, on his word to finish the remaining work on the
+# language and decide its design rather than put it back to him.
+#
+# A prohibition and a condition both have to name the part of a document they are about, and
+# MetaLang had no paths at all, so minting either before `path` would have been a word that could
+# say only one thing. A path descends only through content a value owns, which forms a tree, so it
+# always ends and nothing counts its own steps; a part holding many of something fans out, so
+# `members.type` names the type of every member. The architecture language's own `path` — the dotted
+# name of a package, an assembly or a namespace — became `placename` the same day, because the
+# standard word belongs to the standard thing.
+#
+# `when` holds a constraint rather than repeating what one can say, so anything that can be required
+# of a value can be required of it only sometimes. Together `never` and `when` write the rule the
+# language had been apologising for in prose: an element whose bytes are laid out has to say what
+# each member carries, and one whose types are named as the language gives them does not.
+#
+# `many` is how many of a thing a part holds. It counts what a path reaches and hands the count to
+# `range`, which was already the word for a lowest and a highest, so nothing says a bound twice. It
+# was held out by the standing rule — no language feature until a problem cannot be solved without
+# one — until the law the guard's own document has to write could not be said without it.
+#
+# `distinct` is the rule MetaLang had stated in prose since the day `role` landed and could not
+# write: a role is given to at most one property of a type. `entity` carries it as
+# `distinct: { in: properties, by: role }`. A declaration is now held to the constraints its own
+# kind carries, which it was not before; constraints had been applied to a leaf value only, so a
+# rule about a whole declaration had nowhere to be read.
+# ───────────────────────────────────────────────────────────────────────────────
+
+# ───────────────────────────────────────────────────────────────────────────────
+# APPROVED — one base under every declaration, a version, and a retired word.     2026-10-27
+#
+#   declared   the properties every kind of declaration carries
+#   standing   on a declaration, whether it is proposed, approved, locked or withdrawn
+#   origin     on a declaration, where it was read from
+#   against    on a document, the version of its language it was written against
+#   replaces   on a declaration, the word it takes the place of
+#
+# Tim approved these through his jarvis session, in the same decision.
+#
+# `declared` carries the name, the line, the prose, and two facts about the declaration itself:
+# `standing` and `origin`. Entity, enum, choice, constant, rule, fact and cast each took three
+# properties from it and stopped writing them again. It is `origin` and not `from` because a cast
+# already uses `from` for the type it converts from, and one word means one thing.
+#
+# `against` says which version of its language a document was written against. Nothing compares it
+# yet.
+#
+# `replaces` names the word a declaration takes the place of, written as a name rather than a
+# reference because the word it names may already be gone. A document writing a word nothing
+# declares any more is told which one took its place. MetaLang also carries the law that governs
+# its own change: nothing takes the place of a locked declaration by being approved, written as a
+# constraint in the language it governs.
+#
+# `external` gained the power to hold a type as well as a conversion, so a document declares a
+# borrowed type once and every member naming it resolves or is refused. That replaced a proposed
+# closed set of nine borrowed types called `outside`, raised on 26 October and withdrawn the same
+# day, because `external` already gives a definition and leaves the implementation out.
+#
+# Crossing a reference went in on the same day and is recorded with the rest of that work in
+# `.dev/inprocess/82-guard-process-workflow/ROAD.md`.
+# ───────────────────────────────────────────────────────────────────────────────
+
+scope: [metalang]
+title: MetaLang
+description: The approved vocabulary of the language that defines languages.
+
+
+declare:
+  - entity:
+      id: object
+      abstract: true
+      primitive: true
+      title: The root every type derives from.
+      description: One of its values is a set of named parts, one part per property.
+
+  - entity:
+      id: constraint
+      is: object
+      abstract: true
+      title: What a type says its values may be.
+      description: >
+        A value meets every constraint its type carries and every one carried by the types above it.
+
+  - entity:
+      id: pattern
+      is: constraint
+      title: A regular expression the whole value has to match.
+      description: Matched against the whole value, never against a part of it.
+      properties:
+        value:
+          is: expression
+          title: The regular expression itself.
+
+  - entity:
+      id: path
+      is: string
+      title: A route to a part of a value, written in parts separated by dots.
+      description: >
+        Each part names a property of whatever the part before it holds. A part that holds many of
+        something fans out, so a path reaching through a list names the same part of every member
+        of it. A part naming another declaration holds the name and not the thing, so the name is
+        followed to what that declaration carries and the route goes on from there.
+
+        A route that returns to a declaration it has already been through ends there and says so.
+        That is what makes it end at all: content a thing owns forms a tree and always ends, and
+        two declarations are free to name each other, so the set of names already crossed is the
+        proof rather than the shape of the data.
+      constraints:
+        - pattern: { value: '[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*' }
+
+  - entity:
+      id: never
+      is: constraint
+      title: A part that must never carry any of these values.
+      description: >
+        A prohibition. Where the part reaches through many of something, none of them may carry one
+        of these. A part nothing is written at is not carrying anything, so it is not refused here;
+        whether it may be left out at all is what the property's own `optional` says.
+      properties:
+        at:
+          is: path
+          title: The part this is about.
+        carries:
+          set: { of: string }
+          title: The values it must never carry.
+
+  - entity:
+      id: when
+      is: constraint
+      title: A constraint applied only where another part carries one of these values.
+      description: >
+        A condition. It holds a constraint rather than repeating what one can say, so anything that
+        can be required of a value can be required of it only sometimes.
+      properties:
+        at:
+          is: path
+          title: The part that decides whether it applies.
+        holds:
+          set: { of: string }
+          title: The values of that part that make it apply.
+        then:
+          is: constraint
+          title: The constraint applied where it does.
+
+  - entity:
+      id: many
+      is: constraint
+      title: How many of a thing a part holds.
+      description: >
+        It counts what a path reaches and holds the count to a range. A range bounds a number and
+        this bounds a count, which is why it holds one rather than being one. A part nothing is
+        written at holds none of them, which is a count like any other.
+      properties:
+        at:
+          is: path
+          title: The part this counts.
+        bounds:
+          is: range
+          title: The lowest and the highest number of them allowed.
+
+  - entity:
+      id: distinct
+      is: constraint
+      title: No two members of one list carry the same value at one part.
+      description: >
+        `unique` says no two members of a collection are the same. This says less and reaches
+        further: the members may differ, and still no two of them may carry the same value at the
+        one part named here. A member that leaves that part out is not compared, because an absence
+        is not a value two things can share.
+      properties:
+        in:
+          is: name
+          title: The property holding the list its members are read from.
+        by:
+          is: name
+          title: The part of each member whose value no two of them may share.
+
+  - entity:
+      id: range
+      is: constraint
+      title: The lowest and the highest value allowed.
+      description: At least one of the two bounds is written.
+      properties:
+        minimum:
+          is: number
+          optional: true
+          title: The lowest value allowed.
+        maximum:
+          is: number
+          optional: true
+          title: The highest value allowed.
+
+  # The built-in types. An entity is a template for a data structure, which is what a built-in
+  # type is, and no entity here carries an implementation.
+  - entity:
+      id: boolean
+      is: object
+      primitive: true
+      title: True or false.
+
+  - entity:
+      id: number
+      is: object
+      primitive: true
+      title: A number, whole or not.
+
+  - entity:
+      id: string
+      is: object
+      primitive: true
+      title: A run of characters.
+
+  - entity:
+      id: expression
+      is: object
+      primitive: true
+      title: A regular expression.
+      description: Write the subset that means the same thing in every runtime it is emitted into.
+
+  - entity:
+      id: name
+      is: string
+      title: The type an id has.
+      description: An id is a name, never any text.
+      constraints:
+        - pattern: { value: '[A-Za-z_][A-Za-z0-9_]*' }
+
+  - entity:
+      id: byte
+      is: object
+      primitive: true
+      title: A whole number from 0 to 255.
+      constraints:
+        - range: { minimum: 0, maximum: 255 }
+
+  - entity:
+      id: uuid
+      is: object
+      primitive: true
+      title: A universally unique identifier.
+      description: Carried as text or as sixteen bytes, by the conversions declared for it.
+      constraints:
+        - pattern:
+            value: '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+
+  - entity:
+      id: uri
+      is: string
+      title: A uniform resource identifier.
+      description: A scheme, a colon, then anything but spaces.
+      constraints:
+        - pattern: { value: '[A-Za-z][A-Za-z0-9+.-]*:[^\s]+' }
+
+  # Many of a thing. One abstract collection, with the kinds deriving from it, each fixing the two
+  # traits that tell the kinds apart.
+  - entity:
+      id: collection
+      is: object
+      abstract: true
+      title: Many of a thing.
+      description: Which kind it is, is chosen where it is written and never changes.
+      properties:
+        of:
+          is: type
+          title: The type every member is.
+        ordered:
+          is: boolean
+          title: Whether the written order is part of the value.
+        unique:
+          is: boolean
+          title: Whether two members may be the same.
+
+  - entity:
+      id: list
+      is: collection
+      title: Ordered, and no two members the same.
+      properties:
+        ordered: { value: true }
+        unique: { value: true }
+
+  - entity:
+      id: array
+      is: collection
+      title: Ordered, and members may repeat.
+      properties:
+        ordered: { value: true }
+        unique: { value: false }
+
+  - entity:
+      id: set
+      is: collection
+      title: Unordered, and no two members the same.
+      properties:
+        ordered: { value: false }
+        unique: { value: true }
+
+  - entity:
+      id: bag
+      is: collection
+      title: Unordered, and members may repeat.
+      properties:
+        ordered: { value: false }
+        unique: { value: false }
+
+  - entity:
+      id: link
+      is: object
+      title: A value naming one declaration.
+      description: >
+        It is written as the id of a declaration, and the one it names has to carry a value of the
+        type written under `to`. A name nothing the document reaches declares is reported, so a
+        thing written down here can never point at nothing.
+      properties:
+        to:
+          is: type
+          title: The type the declaration it names carries a value of.
+
+  - entity:
+      id: map
+      is: collection
+      title: One of a thing for each word of a closed set.
+      description: >
+        It is written as a block whose keys are the words that set lists, so the keys are the
+        language's and not the author's. Every word the set lists is written, and a word that
+        holds no value says so with a reserved state rather than by being left out.
+      properties:
+        by:
+          is: type
+          title: The closed set whose words the keys are.
+        accepts:
+          set: { of: reserved }
+          optional: true
+          title: The reserved states one word of the set takes in place of a value.
+        ordered: { value: true }
+        unique: { value: false }
+
+  # What one property of a type is to a reader, which a language says of its own properties.
+  - enum:
+      id: role
+      is: string
+      title: What a property is to a reader, beyond the value it holds.
+      description: >
+        A property carries no role unless the language that declares it gives it one, and a role is
+        given to at most one property of a type, because a reader asking which property holds the
+        kind has to get one answer.
+      values:
+        - id: kind
+          value: kind
+          title: It names which kind of thing this is.
+          description: >
+            The thing is headed and marked by what this property holds, rather than by the keyword
+            it happens to be declared under.
+        - id: prose
+          value: prose
+          title: It is the prose explaining what this thing is.
+          description: >
+            It is read as the line under the heading, which is where `title` and `description` are
+            read on a declaration.
+        - id: name
+          value: name
+          title: It holds the name this thing is shown by.
+          description: >
+            A value naming this thing is drawn with that name beside the id where the two differ,
+            because the id is what it is written as and the name is what it is called.
+        - id: mark
+          value: mark
+          title: It holds the character this thing is drawn with.
+          description: >
+            A page draws the character beside the name, so a reader tells one kind of thing from
+            another without reading a word.
+
+  # What a property carries, and what one value of an enum carries.
+  - entity:
+      id: property
+      is: object
+      title: One named part of an entity.
+      description: >
+        Written again on a type deriving from the one that declared it, it takes everything it
+        does not write from above.
+      properties:
+        is:
+          is: type
+          optional: true
+          title: The type the property holds.
+        title:
+          is: string
+          optional: true
+          title: One line saying what the property is.
+        description:
+          is: string
+          optional: true
+          title: Prose explaining the property.
+        optional:
+          is: boolean
+          optional: true
+          title: Whether the property may be left out.
+        value:
+          is: object
+          optional: true
+          title: What the property always holds.
+        accepts:
+          set: { of: reserved }
+          optional: true
+          title: The reserved states this property takes in place of a value.
+        role:
+          is: role
+          optional: true
+          title: What this property is to a reader, beyond the value it holds.
+
+  - entity:
+      id: value
+      is: object
+      title: One of the values an enum lists.
+      description: Its id names it inside its own enum and nowhere else.
+      properties:
+        id:
+          is: name
+          title: The name this value is known by inside its enum.
+        title:
+          is: string
+          optional: true
+          title: One line saying what the value stands for.
+        description:
+          is: string
+          optional: true
+          title: Prose explaining the value.
+        value:
+          is: object
+          title: What the id stands for.
+
+  # The kinds a declaration may be. Each one is an entity whose properties are the keywords it
+  # carries.
+  - enum:
+      id: standings
+      is: string
+      title: How firmly a declaration is agreed.
+      description: A declaration saying nothing here says nothing about whether it is agreed, which is not the same as saying it is not.
+      values:
+        - id: proposed
+          value: proposed
+          title: Put to whoever decides, and not yet answered.
+        - id: approved
+          value: approved
+          title: Agreed, and open to being changed the same way it was agreed.
+        - id: locked
+          value: locked
+          title: Agreed, and not to be changed without undoing the lock first.
+        - id: withdrawn
+          value: withdrawn
+          title: Taken back, and kept so the record of it is not lost.
+
+  - entity:
+      id: declared
+      is: object
+      abstract: true
+      title: What every kind of declaration carries.
+      constraints:
+        - when:
+            at: replaces.standing
+            holds: [locked]
+            then:
+              never: { at: standing, carries: [approved] }
+      description: >
+        Written once here rather than again under each kind. A declaration says what it is called,
+        what it is in one line, and prose where one line is not enough. It may also say how firmly
+        it is agreed, where it was read from, and which retired word it takes the place of — facts
+        about the declaration rather than about the values of it.
+
+        The law above governs its own evolution: nothing takes the place of a locked declaration by
+        being approved. The lock is undone first, deliberately, as its own change.
+      properties:
+        id:
+          is: name
+          title: The name it is known by.
+        title:
+          is: string
+          optional: true
+          title: One line saying what it is.
+        description:
+          is: string
+          optional: true
+          title: Prose explaining it.
+        standing:
+          is: standings
+          optional: true
+          title: How firmly it is agreed.
+        origin:
+          is: string
+          optional: true
+          title: Where it was read from — the document, the conversation or the person it came from.
+          description: >
+            Not `from`, which a cast already uses for the type it converts from. One word means one
+            thing, and a cast is a declaration like any other.
+        replaces:
+          is: name
+          optional: true
+          title: The word this one takes the place of, where it takes the place of one.
+          description: >
+            It is a name and not a reference, because the word it names is on its way out and may
+            already be gone. A document naming a word nothing declares any more is told which one
+            took its place, rather than failing on a name as though it had been invented.
+
+  - entity:
+      id: entity
+      is: declared
+      title: A type with named properties.
+      description: >
+        A role is given to at most one property of a type, because a reader asking which property
+        holds the kind has to get one answer. That is written below rather than said here.
+      constraints:
+        - distinct: { in: properties, by: role }
+      properties:
+        is:
+          is: type
+          optional: true
+          title: The types it derives from.
+        abstract:
+          is: boolean
+          optional: true
+          title: Whether no value is ever directly of it.
+        primitive:
+          is: boolean
+          optional: true
+          title: Whether its values come from whatever reads the file.
+        constraints:
+          set: { of: constraint }
+          optional: true
+          title: The constraints it puts on its values.
+        properties:
+          list: { of: property }
+          optional: true
+          title: Its named properties, in the order they are written.
+
+  - enum:
+      id: reserved
+      is: string
+      title: What a value says when it is not the value itself.
+      description: >
+        A property takes one of these only where its `accepts` names it, so a document that does
+        not use the word holds it as the text it is.
+      values:
+        - id: pending
+          value: pending
+          title: Required, and not yet given.
+          description: >
+            The work is not done. It is reported, and the run it is reported in exits non-zero,
+            so a document holding one can never be called finished.
+        - id: none
+          value: none
+          title: Deliberately left empty.
+          description: >
+            Nothing is missing, so nothing is reported. It says that the absence was decided
+            rather than overlooked, which is what writing nothing at all cannot say.
+
+  - entity:
+      id: enum
+      is: declared
+      title: A type that lists fixed values.
+      description: Every value it lists is a value of the one type it is based on.
+      properties:
+        is:
+          is: type
+          title: The one type every value it lists is.
+        values:
+          list: { of: value }
+          title: The values it lists, in the order they are written.
+
+  - entity:
+      id: choice
+      is: declared
+      title: A type that is one of several types.
+      description: >
+        Untagged, so the types it is one of have to be distinguishable from one another.
+      properties:
+        options:
+          set: { of: type }
+          title: The types it is one of.
+
+  - entity:
+      id: constant
+      is: declared
+      title: A fixed value.
+      properties:
+        is:
+          is: type
+          title: The type the value is of.
+        value:
+          is: object
+          title: The value itself.
+
+  - entity:
+      id: rule
+      is: declared
+      title: A way to derive something.
+      description: >
+        A rule derives data, where a fact is data. It says the type of the value it works out, the
+        part it works it out from, and the conversion it works it out by, which is `cast` — already
+        a conversion from one type to another, and already able to leave its implementation out.
+
+        Nothing is written as worked out yet: a property still says what it holds and a document
+        still writes it. What is here is the shape a derivation is written in; running one is the
+        next piece and the reader runs none.
+      properties:
+        of:
+          is: type
+          title: The type of the value it works out.
+        from:
+          is: path
+          title: The part it is worked out from.
+        through:
+          link: { to: cast }
+          title: The conversion it is worked out by.
+
+  - entity:
+      id: fact
+      is: declared
+      title: Something that is true.
+      description: A fact is data, where a rule derives data.
+
+  - entity:
+      id: cast
+      is: declared
+      title: A conversion from one type to another.
+      description: One that does not happen on its own is asked for with `as`.
+      properties:
+        from:
+          is: type
+          title: The type it converts from.
+        to:
+          is: type
+          title: The type it converts to.
+        implicit:
+          is: boolean
+          optional: true
+          title: Whether the conversion happens on its own.
+
+  # Which kinds are types, which kinds may be written inside external, and what may be written as
+  # an item under declare. An external is an ordinary option of a declaration, so an external
+  # inside an external cannot be written: a cast is an entity and holds no declaration.
+  - choice:
+      id: type
+      options: [entity, enum, choice]
+      title: A type.
+      description: What a name written under `is` resolves to.
+
+  - choice:
+      id: external
+      options: [cast, entity]
+      title: The kinds that may be written inside external.
+      description: >
+        An external declaration gives the definition and leaves the implementation out. A conversion
+        written this way says what it converts and leaves how to somebody else; a type written this
+        way says what it is and leaves what it is made of to whoever owns it, so a document can name
+        a type it does not own and have the name resolve or be refused.
+
+  - choice:
+      id: declaration
+      options: [entity, enum, choice, constant, rule, fact, external]
+      title: What may be written as an item under declare.
+
+  # The file itself. Its properties are the keys a file carries, in the order they are written.
+  - entity:
+      id: document
+      is: object
+      title: A file of declarations.
+      description: A declaration's full name is the file's scope followed by its own id.
+      properties:
+        scope:
+          array: { of: name }
+          title: The file's name, as a list of segments.
+        import:
+          set: { of: { array: { of: name } } }
+          optional: true
+          title: The scopes the file brings into itself.
+        language:
+          is: name
+          optional: true
+          title: Which language the file is written in.
+        against:
+          is: name
+          optional: true
+          title: The version of that language it was written against.
+        title:
+          is: string
+          title: One line about the file.
+        description:
+          is: string
+          optional: true
+          title: Prose about the file.
+        declare:
+          array: { of: declaration }
+          title: The declarations the file makes, as one ordered list.
+
+  # The conversions between a uuid and the two things it is carried as. Each is external: the
+  # definition is here and the implementation is not. A conversion that cannot fail happens on
+  # its own; the one that can is asked for with `as`, because a uuid read back out of text or of
+  # bytes is only a uuid if what is there has the right shape.
+  - external:
+      cast:
+        id: uuid_to_string
+        from: uuid
+        to: string
+        implicit: true
+        title: A uuid as the text it is written in.
+  - external:
+      cast:
+        id: uuid_to_bytes
+        from: uuid
+        to: { array: { of: byte } }
+        implicit: true
+        title: A uuid as the bytes it is carried in.
+  - external:
+      cast:
+        id: string_to_uuid
+        from: string
+        to: uuid
+        title: Text read back as a uuid.
+  - external:
+      cast:
+        id: bytes_to_uuid
+        from: { array: { of: byte } }
+        to: uuid
+        title: Bytes read back as a uuid.

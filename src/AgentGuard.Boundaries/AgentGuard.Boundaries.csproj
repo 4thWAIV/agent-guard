@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- The OS-uniform boundary layer: the EnvironmentAdapter/ConsoleAdapter owners, the ISignatureService and
-       IBuildInfo owners, the concrete ISystemServices container, and the one SystemServices.Create() composition
-       factory (boundaries-assembly). It references AgentGuard.Abstractions and AgentGuard.CrossPlatform. The
-       file-op adapters and GuidFactory live in AgentGuard.CrossPlatform (owners-live-at-lowest-consumer). -->
+  <!-- The OS-uniform boundary layer: the EnvironmentAdapter/ConsoleAdapter owners and the ISignatureService and
+       IBuildInfo owners (boundaries-assembly). It references AgentGuard.Abstractions and nothing else. The concrete
+       ISystemServices container and the one SystemServices.Create() composition factory now live in
+       AgentGuard.Engine, which is why this project no longer selects a per-OS implementation: the four adapters here
+       reach neither AgentGuard.CrossPlatform nor any per-OS assembly. The file-op adapters and GuidFactory live in
+       AgentGuard.CrossPlatform (owners-live-at-lowest-consumer). -->
   <PropertyGroup>
     <RootNamespace>AgentGuard.Boundaries</RootNamespace>
     <AssemblyName>AgentGuard.Boundaries</AssemblyName>
@@ -16,23 +18,17 @@
     <PackageReference Include="BouncyCastle.Cryptography" />
   </ItemGroup>
 
-  <!-- The owners, the container, and the SystemServices.Create() factory are internal (Wall 1). The two legal
-       callers of SystemServices.Create() reach it through these grants (single-construction-point,
-       two-walls-stop-the-bypass): the CLI's Program composition method (compiled as "guard") and the test
-       SystemServicesBuilder. Keyless in source; the signing target injects the public key on a signed build. -->
+  <!-- The four adapters and their factories are internal (Wall 1). AgentGuard.Engine reaches them through this one
+       grant, and only from SystemServices.Create() and only as one of the four permitted factory identities (AG0040).
+       This replaces the earlier grants to the CLI ("guard") and the test SystemServicesBuilder: both now reach the
+       container through AgentGuard.Engine's own grants instead, so nothing but Engine sees a Boundaries internal.
+       Keyless in source; the signing target injects the public key on a signed build. -->
   <ItemGroup>
-    <InternalsVisibleTo Include="guard" />
-    <InternalsVisibleTo Include="AgentGuard.TestHelpers" />
+    <InternalsVisibleTo Include="AgentGuard.Engine" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../AgentGuard.Abstractions/AgentGuard.Abstractions.csproj" />
   </ItemGroup>
-
-  <!-- Boundaries reaches the OS-uniform adapters through the one CrossPlatformAdapters factory (AG0023) and the
-       OS-divergent platform through exactly one per-OS PlatformServices.Create() (AG0029). This shared targets file
-       references the AgentGuard.CrossPlatform contract and exactly one per-OS implementation, selected by
-       RuntimeIdentifier (falling back to the build-host OS), so SystemServices.Create() stays OS-agnostic. -->
-  <Import Project="../AgentGuard.CrossPlatform/PlatformImplementation.targets" />
 
 </Project>

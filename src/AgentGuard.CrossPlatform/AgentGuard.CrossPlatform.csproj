@@ -16,12 +16,13 @@
   </ItemGroup>
 
   <!-- The owned adapters and the one CrossPlatformAdapters factory stay internal with private constructors (Wall 1).
-       AgentGuard.Boundaries reaches the one factory through this grant (boundaries-calls-one-crossplatform-factory);
-       the three per-OS implementation assemblies reach it too, so each PlatformServices.Create() wires the same owned adapters
+       AgentGuard.Engine reaches the one factory through this grant, and only from SystemServices.Create() (AG0023);
+       the grant moved here from AgentGuard.Boundaries with the container itself. The three per-OS implementation
+       assemblies reach it too, so each PlatformServices.Create() wires the same owned adapters
        into its platform file system. Keyless in source; the signing target injects the public key on a signed build
        (decision 35). -->
   <ItemGroup>
-    <InternalsVisibleTo Include="AgentGuard.Boundaries" />
+    <InternalsVisibleTo Include="AgentGuard.Engine" />
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.MacOS" />
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Linux" />
     <InternalsVisibleTo Include="AgentGuard.CrossPlatform.Windows" />

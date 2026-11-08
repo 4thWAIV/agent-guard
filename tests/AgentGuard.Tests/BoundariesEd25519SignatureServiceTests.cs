@@ -8,8 +8,9 @@ using Xunit;
 namespace AgentGuard.Tests;
 
 /// <summary>
-/// Exercises the real <c>Ed25519SignatureService</c> in <c>AgentGuard.Boundaries</c> through the owned
-/// <see cref="ISignatureService"/> off a real container (<see cref="SystemServicesBuilder.Real"/>) — no fake verifier
+/// Exercises the real <c>Ed25519SignatureService</c> in <c>AgentGuard.Boundaries</c> — where the four adapters stay —
+/// through the owned <see cref="ISignatureService"/> off a real container, now built by <c>SystemServices.Create()</c>
+/// in <c>AgentGuard.Engine</c> (<see cref="SystemServicesBuilder.Real"/>) — no fake verifier
 /// exists by design, so these run the real BouncyCastle Ed25519 sign, verify, and key-generation paths and assert the
 /// real cryptographic outcomes, including the fail-closed denials.
 /// </summary>

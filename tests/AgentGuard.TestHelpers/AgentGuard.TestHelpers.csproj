@@ -2,8 +2,9 @@
 
   <!-- The one test-only helpers assembly: SystemServicesBuilder (the single approved way a test builds the
        ISystemServices container), the shared copy-on-write overlay, and the fakes. It references
-       AgentGuard.Boundaries so SystemServicesBuilder.Real() can call the internal SystemServices.Create() through
-       the InternalsVisibleTo grant Boundaries already declares; AgentGuard.Abstractions comes transitively. A
+       AgentGuard.Engine so SystemServicesBuilder.Real() can call the internal SystemServices.Create() through
+       the InternalsVisibleTo grant Engine declares; the container moved there, and AG0041 pins this grant to that one
+       invocation, so no other Engine internal is reachable from here. AgentGuard.Abstractions comes transitively. A
        reference to this assembly from any shipping assembly is a build error (AG0018). It is classified a test
        project so it inherits the shared test relaxations — EXCEPT the documentation rules, re-enabled for this
        one project (GenerateDocumentationFile + the local .editorconfig) so its public builder and fake API carry
@@ -23,7 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/AgentGuard.Boundaries/AgentGuard.Boundaries.csproj" />
+    <ProjectReference Include="../../src/AgentGuard.Engine/AgentGuard.Engine.csproj" />
   </ItemGroup>
 
 </Project>

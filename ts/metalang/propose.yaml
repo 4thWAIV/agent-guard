@@ -1,0 +1,196 @@
+# The proposal language — one document that puts a decision to the reader, written in MetaLang.
+#
+# ── NOT APPROVED. This file is itself the thing being proposed. ──────────── 2026-10-24 ──
+#
+# What it is for. Tim reads a proposal to approve or reject a change, quickly and exactly. So the
+# language is built around one rule: a decision he cannot act on is not a decision, and this
+# language will not let one be written.
+#
+# Where it went wrong, and what the shape here fixes. The first version had a kind called `open` —
+# one id and one line of prose — for a thing the reader still answers. Eight of them went on a page
+# and every one of them said a version of "whether MetaLang gains a way to say X. Recommended:
+# yes." Not one named the word, showed the lines, or said what would be different. Tim rejected it
+# on 24 October 2026: a proposal must show the actual decision, not a summary of one; "add a word"
+# is not a proposal unless the word, the implementation and the effect are all shown.
+#
+# So `open` is gone, and with it `proposal`, `change`, `example`, `refusal` and `cost` as things
+# that could be written loose on a page. There is one kind for a thing he answers, `decision`, and
+# it carries every part he needs to answer it:
+#
+#   says      the question, in one line
+#   word      the exact word or construct, or `none` where it adds none
+#   parts     the parts of that word, one line each, or `none` where it has none
+#   means     what that word means, in one or two sentences
+#   changes   the exact lines, per file, each read against a real rulebook and drawn
+#   result    what he would read once it is in
+#   refuses   what the checker refuses once it is in, quoted from the checker
+#   pick      the recommendation
+#   instead   the alternative, and what it costs
+#   rejected  what happens if the recommendation is not taken
+#   costs     what taking it costs
+#
+# Nothing on that list may be left out. Where one does not apply the document writes `none`, which
+# is a decided absence and reads as one, rather than being silently missing. A decision with no
+# lines has to say so and then carry the whole weight of the change in `means` and `result`.
+#
+# A document leads with `problem`, because purpose comes before terminology. `reading` and
+# `vocabulary` draw a real thing and a real closed set out of a document that exists, so a reader
+# sees them rather than decoding them.
+#
+# No line a reader reads is about the document, the page, the renderer or the language. The
+# renderer prints nothing standing of its own, so a reader never reads the same sentence twice.
+#
+# A proposal document names this language and brings in whatever language the proposal is about.
+# `declaration` lists MetaLang's own kinds beside the four here because this file is read against
+# the vocabulary it declares, so the kinds it uses to declare itself have to be in the list.
+scope: [propose]
+import:
+  - [metalang]
+title: The proposal language
+description: One document that puts a decision to a reader with everything needed to answer it.
+declare:
+  - entity:
+      id: slug
+      is: string
+      title: The short name a proposal and each of its parts is known by.
+      description: >
+        Lower case with hyphens, so it reads aloud as what it is. MetaLang's own `name` would
+        refuse the hyphen, and a decision is referred to by its slug in conversation long before
+        anything in it is code.
+      constraints:
+        - pattern: { value: '[a-z][a-z0-9-]*' }
+
+  - entity:
+      id: part
+      is: object
+      abstract: true
+      title: One part of a proposal.
+      description: Every part carries the name it is known by and the one line it says.
+      properties:
+        id: { is: slug, title: The name it is known by. }
+        says: { is: string, title: The one line it says. }
+
+  - entity:
+      id: block
+      is: object
+      title: The exact lines of one file.
+      description: >
+        `against` names a real file whose header these lines are read with, so they are checked and
+        drawn as a document rather than quoted as text nothing checks. `file` is where they belong.
+      properties:
+        file: { is: string, title: The file the lines belong in. }
+        says: { is: string, title: "What these lines do, in one line." }
+        against: { is: string, title: The file whose rulebook the lines are read against. }
+        yaml: { is: string, title: The lines themselves. }
+
+  - entity:
+      id: sense
+      is: object
+      title: One of the things a word can mean, in one line.
+      description: >
+        A word with parts is shown as its parts before it is explained, because three short lines
+        side by side are read in a glance and a paragraph holding the same three is not.
+      properties:
+        word: { is: string, title: The exact form this part is written as. }
+        says: { is: string, title: "What it means, in one line." }
+
+  - entity:
+      id: refusal
+      is: object
+      title: One thing the checker refuses once the change is in.
+      properties:
+        given: { is: string, title: What is written. }
+        says: { is: string, title: "What the checker says back, in its own words." }
+
+  - entity:
+      id: decision
+      is: part
+      title: One thing to approve or reject, with everything needed to answer it.
+      properties:
+        word:
+          is: string
+          accepts: [none]
+          title: The exact word or construct it adds or changes.
+        parts:
+          list: { of: sense }
+          accepts: [none]
+          title: The parts of that word, one line each.
+        means:
+          is: string
+          title: What that word means, in one or two sentences.
+        used:
+          list: { of: inuse }
+          accepts: [none]
+          title: The word in use, drawn beside the decision it belongs to.
+        changes:
+          list: { of: block }
+          accepts: [none]
+          title: The exact lines to add or change, one entry per file.
+        result:
+          is: string
+          title: What you would read once it is in.
+        refuses:
+          list: { of: refusal }
+          accepts: [none]
+          title: What the checker refuses once it is in.
+        pick: { is: string, title: The recommendation. }
+        instead: { is: string, title: "The alternative, and what it costs." }
+        rejected: { is: string, title: What happens if the recommendation is not taken. }
+        costs: { is: string, accepts: [none], title: What taking it costs. }
+        state: { is: states, title: Where it stands. }
+
+  - entity: { id: problem, is: part, title: One thing wrong with what a reader has today. }
+
+  - entity:
+      id: shown
+      is: part
+      abstract: true
+      title: One thing drawn out of a document that really exists.
+      description: >
+        It names a document and a declaration in it rather than carrying lines of its own, so what
+        is drawn cannot drift from what the document says.
+      properties:
+        file: { is: string, title: The document it is read out of. }
+        declaration: { is: string, title: The name of the declaration drawn. }
+
+  - entity: { id: reading, is: shown, title: One thing as it would read once the change is in. }
+
+  - entity:
+      id: inuse
+      is: shown
+      title: The word in use, drawn inside the decision that adds it.
+      properties:
+        shows:
+          list: { of: string }
+          title: Which parts of the drawing are the word, named as the document writes them.
+      description: >
+        A definition says what a word means and an example says what it looks like written down.
+        A reader deciding whether to take a word needs both, side by side, in the block about that
+        word — not a page of definitions and a page of examples that he has to hold against each
+        other himself.
+
+  - entity:
+      id: vocabulary
+      is: shown
+      title: A closed set, drawn whole so a reader sees that it is closed.
+
+  - enum:
+      id: states
+      is: string
+      title: Where a decision stands.
+      values:
+        - id: proposed
+          value: proposed
+          title: Put to the reader, not yet answered.
+        - id: approved
+          value: approved
+          title: The reader said yes.
+        - id: declined
+          value: declined
+          title: The reader said no.
+
+  - choice:
+      id: declaration
+      options: [problem, reading, vocabulary, decision,
+                entity, enum, choice, constant, rule, fact, external]
+      title: What may be written as an item under declare.

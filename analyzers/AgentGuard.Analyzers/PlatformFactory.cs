@@ -42,15 +42,15 @@ internal static class PlatformFactory
     {
         return method.IsStatic
             && string.Equals(method.Name, MethodName, StringComparison.Ordinal)
-            && WellKnownType.Is(method.ContainingType, CrossPlatformBoundary.RootName, TypeName);
+            && IsFactoryType(method.ContainingType);
     }
 
     /// <summary>
     /// Gets a value indicating whether <paramref name="member"/>, used on <paramref name="type"/>, is a call to the
     /// platform factory — the static <c>Create</c> on the <c>PlatformServices</c> type in
     /// <c>AgentGuard.CrossPlatform</c>. This is the call-site shape AG0029 uses when it inspects a member use from
-    /// <c>AgentGuard.Boundaries</c> into a per-OS assembly, where the used member and the type it is used on arrive
-    /// separately.
+    /// <c>AgentGuard.Boundaries</c> or <c>AgentGuard.Engine</c> into a per-OS assembly, where the used member and the
+    /// type it is used on arrive separately.
     /// </summary>
     /// <param name="member">The used member symbol.</param>
     /// <param name="type">The type the member is used on.</param>
@@ -63,5 +63,23 @@ internal static class PlatformFactory
         return member is IMethodSymbol method
             && SymbolEqualityComparer.Default.Equals(method.ContainingType, type)
             && Is(method);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether <paramref name="type"/> is the platform container factory TYPE itself — the
+    /// <c>PlatformServices</c> type in the <c>AgentGuard.CrossPlatform</c> namespace — regardless of which member of
+    /// it is being reached. This is the door-TYPE identity AG0029's Engine gate tests when it inspects a written or
+    /// carried reference to a per-OS type rather than a call, so the one <c>PlatformServices</c> identity is spelled
+    /// here once and the type-reference half cannot drift from the call half. The assembly is deliberately NOT part of
+    /// this conjunction: the type is declared in each of the three per-OS implementation assemblies under the same
+    /// namespace, so the CALLER supplies the assembly half of the door's identity. AG0029 conjoins this check with
+    /// <see cref="CrossPlatformBoundary.IsPerOsImplementationAssembly"/>, which is how a same-named decoy from a
+    /// foreign assembly is rejected even where that rule's Engine-facing scope deliberately admits it.
+    /// </summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is the <c>PlatformServices</c> platform container factory.</returns>
+    internal static bool IsFactoryType(INamedTypeSymbol? type)
+    {
+        return WellKnownType.Is(type, CrossPlatformBoundary.RootName, TypeName);
     }
 }

@@ -105,6 +105,20 @@ async function __requiredAgentRuntime(args) {
           required: ['summary', 'evidence', 'fix'],
         },
       },
+      // Optional for previously retained verdicts; newly dispatched reviewers return this array.
+      observations: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            summary: { type: 'string' },
+            evidence: { type: 'string' },
+            nonBlockingReason: { type: 'string' },
+          },
+          required: ['summary', 'evidence', 'nonBlockingReason'],
+        },
+      },
       refutationAttempts: { type: 'array', items: { type: 'string' } },
       proofChecked: { type: 'array', items: { type: 'string' } },
     },
@@ -225,8 +239,13 @@ async function __requiredAgentRuntime(args) {
     if (!result.refutationAttempts.length || result.refutationAttempts.some((attempt) => !attempt.trim())) {
       return 'refutationAttempts must contain only actual nonblank attempts'
     }
-    if (result.verdict === 'PASS' && result.findings.length) return 'a PASS result cannot contain findings'
-    if (result.verdict === 'FAIL' && !result.findings.length) return 'a FAIL result must contain an actionable finding'
+    if (result.verdict === 'PASS' && result.findings.length) return 'a PASS result cannot contain blocking findings'
+    if (result.verdict === 'FAIL' && !result.findings.length) return 'a FAIL result must contain a blocking finding; observations alone do not fail a review'
+    for (const observation of result.observations || []) {
+      if (!observation.summary.trim() || !observation.evidence.trim() || !observation.nonBlockingReason.trim()) {
+        return 'every observation must contain a nonempty summary, evidence, and nonBlockingReason'
+      }
+    }
     if (result.verdict === 'FAIL') {
       for (const finding of result.findings) {
         if (!finding.summary.trim() || !finding.evidence.trim()) {
@@ -519,7 +538,7 @@ async function __requiredAgentRuntime(args) {
     if (role.model) options.model = role.model
     if (role.effort) options.effort = role.effort
     const verdictOutputInstruction = role.resultKind === 'verdict'
-      ? `\n\nCOMMON VERDICT OUTPUT: Return lens="${role.expectedLens}" and verdict PASS or FAIL. Return findings as an empty array for PASS. Return one or more findings for FAIL; every finding contains a nonempty summary, nonempty evidence, and ${role.lieCatcher ? 'an empty fix because the Lie-catcher gives no fix advice' : 'a nonempty fix'}. Return refutationAttempts with at least one actual attempt. Return proofChecked as an array.`
+      ? `\n\nCOMMON VERDICT OUTPUT: Apply the Review findings and observations section of .agents/skills/rails-run-a-workflow/SKILL.md. Return lens="${role.expectedLens}" and verdict PASS or FAIL. findings contains blocking findings only: empty for PASS, nonempty for FAIL. Each finding must identify the violated requirement, the affected code, test, authorization, or required evidence, and what remains incorrect or unproven, in its summary and evidence. Every finding contains a nonempty summary, nonempty evidence, and ${role.lieCatcher ? 'an empty fix because the Lie-catcher gives no fix advice' : 'a nonempty fix'}. Return observations separately as an array (empty when none), each with a nonempty summary, evidence, and nonBlockingReason. Missing approvals and required proof remain blocking; never reclassify them as observations. Observations alone do not cause FAIL. Return refutationAttempts with at least one actual attempt. Return proofChecked as an array.`
       : ''
     try {
       return await agent(role.prompt + verdictOutputInstruction + retryBlock, options)

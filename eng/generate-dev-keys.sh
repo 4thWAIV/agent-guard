@@ -28,13 +28,14 @@ case "$(uname -s)" in
     # -p codeSign scopes the anchor to the code-signing policy in the USER login keychain, not the System
     # Root store (decision 24). The public-only .cer is emitted by the generator (no openssl anywhere).
     security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN" "$CER" || {
-      echo "   (trust step skipped/failed; codesign still works, but Gatekeeper won't trust the cert until this runs)"; }
+      echo "FAILED: the trust step did not complete; Gatekeeper will not trust the cert until it does." >&2; exit 1; }
     echo "Done. Keys are in $OUT_DIR (git-ignored)."
     ;;
   Linux)
     echo "Linux has no OS code-signing trust store; cosign (keyless) covers Linux builds. Keys are in $OUT_DIR."
     ;;
   *)
-    echo "Unsupported OS for the trust step; keys were still minted into $OUT_DIR."
+    echo "FAILED: unsupported OS for the trust step; keys were still minted into $OUT_DIR." >&2
+    exit 1
     ;;
 esac

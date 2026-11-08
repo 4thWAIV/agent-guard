@@ -16,6 +16,10 @@
 # Requires cosign on PATH; runs on macOS, Linux, and Windows (Git bash).
 set -uo pipefail
 
+if [ "$#" -lt 5 ]; then
+  echo "usage: ci-verify-signatures.sh <result-file> <native> <ext> <identity> <rid> [<rid> ...] — no rid given, so nothing would be verified" >&2
+  exit 2
+fi
 RESULT="$1"; NATIVE="$2"; EXT="$3"; IDENTITY="$4"; shift 4
 ISSUER="https://token.actions.githubusercontent.com"
 mkdir -p "$(dirname "$RESULT")"

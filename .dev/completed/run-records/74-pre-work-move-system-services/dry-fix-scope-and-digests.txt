@@ -1,0 +1,193 @@
+# DRY-fix round — scope, digests and the diff of the three extractions
+captured: 2026-09-16T19:45:24Z
+HEAD: a12e58b305c5315bc175332066e90a2d693b1769
+
+## Files changed by this round
+                       before   ->  after     file
+  SharedAnalyzerSources.cs                 db6c6995 -> 91a3997f
+  EngineToBoundariesOneDoorAnalyzerTests.cs e20d7570 -> 11054c62
+  EngineInternalsOneDoorAnalyzerTests.cs    85ad3248 -> bbdfc93f
+
+## Files in scope that this round did NOT change (digest unchanged from the dispatch baseline)
+  DeclaredTypeScannerTests.cs              1942cc6c == 1942cc6c
+  OneDoorIntoCrossPlatformAnalyzerTests.cs 6ec75338 == 6ec75338
+  OneDoorIntoPerOsAnalyzerTests.cs         7139aa1d == 7139aa1d
+  TimeMustUseTimeProviderAnalyzerTests.cs  d8876818 == d8876818
+
+## git diff --stat (whole working tree against HEAD; the other four entries are the Acceptance 25 round)
+ .../74-pre-work-move-system-services/tdd-result.md | 440 ---------------------
+ .../DeclaredTypeScannerTests.cs                    |   6 +-
+ .../EngineInternalsOneDoorAnalyzerTests.cs         |  21 +-
+ .../EngineToBoundariesOneDoorAnalyzerTests.cs      |  32 +-
+ .../OneDoorIntoCrossPlatformAnalyzerTests.cs       |  23 ++
+ .../OneDoorIntoPerOsAnalyzerTests.cs               |  24 ++
+ .../SharedAnalyzerSources.cs                       | 114 +++++-
+ 7 files changed, 193 insertions(+), 467 deletions(-)
+
+## git status --porcelain, tracked entries
+ D .dev/inprocess/74-pre-work-move-system-services/tdd-result.md
+ M analyzers/AgentGuard.Analyzers.Tests/DeclaredTypeScannerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoCrossPlatformAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/OneDoorIntoPerOsAnalyzerTests.cs
+ M analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+
+tdd-result.md remains deleted (the ' D' line above); it was not restored and no replacement report was written.
+No file under analyzers/AgentGuard.Analyzers/, src/ or tests/ was touched, and contract.md,
+tdd-worker-instructions.md, the existing tdd-acceptance25-* captures and every review file are untouched.
+
+## The diff of this round alone (pre-fix snapshot vs the working tree)
+diff -u -r - /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs
+--- /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs	2026-09-16 10:06:15
++++ /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/EngineInternalsOneDoorAnalyzerTests.cs	2026-09-16 13:35:54
+@@ -39,9 +39,11 @@
+ 
+     private const string ListOfContainer = "System.Collections.Generic.List<AgentGuard.Engine.SystemServices>";
+ 
+-    private const string DecoyContainerType = "AgentGuard.Engine.Decoy.SystemServices";
++    // The decoy container in its two roles, both built off the one owner of the wrong namespace so a change there
++    // moves the fixture declaration and these expected subjects together.
++    private const string DecoyContainerType = SharedAnalyzerSources.WrongContainerNamespace + ".SystemServices";
+ 
+-    private const string DecoyContainerCreate = "AgentGuard.Engine.Decoy.SystemServices.Create()";
++    private const string DecoyContainerCreate = DecoyContainerType + ".Create()";
+ 
+     // A var local whose inferred type is an Engine internal — the carried-type lens with nothing written out.
+     private const string InferredLocalDeclaration =
+@@ -247,10 +249,9 @@
+     public async Task SameNamedContainerInTheWrongNamespace_FromGatedConsumer_IsReported(string assemblyName)
+     {
+         // The privileged identity is the namespace-plus-assembly-plus-name conjunction: a class merely NAMED
+-        // SystemServices, with a static Create, declared in AgentGuard.Engine.Decoy, is just another Engine internal —
+-        // so both the decoy type and its Create are reported.
+-        const string body =
+-            "        internal static object Build() => AgentGuard.Engine.Decoy.SystemServices.Create();";
++        // SystemServices, with a static Create, declared in SharedAnalyzerSources.WrongContainerNamespace, is just
++        // another Engine internal — so both the decoy type and its Create are reported.
++        const string body = "        internal static object Build() => " + DecoyContainerCreate + ";";
+ 
+         await AssertReportsAsync(
+             Consumer(string.Empty, body), assemblyName, DecoyContainerType, DecoyContainerCreate);
+@@ -302,11 +303,9 @@
+ 
+         Assert.Equal(expectedSubjects.Length, diagnostics.Length);
+         Assert.All(diagnostics, diagnostic => diagnostic.AssertReported(RuleId));
+-        Assert.Equal(
+-            expectedSubjects.Select(subject => ExpectedMessage(assemblyName, subject))
+-                .OrderBy(message => message, StringComparer.Ordinal),
+-            diagnostics.Select(diagnostic => diagnostic.Message())
+-                .OrderBy(message => message, StringComparer.Ordinal));
++        SharedAnalyzerSources.AssertSameStrings(
++            expectedSubjects.Select(subject => ExpectedMessage(assemblyName, subject)),
++            diagnostics.Select(diagnostic => diagnostic.Message()));
+     }
+ 
+     // The message AG0041 has to produce, SPELLED OUT here rather than read from the analyzer: an expectation taken
+diff -u -r - /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs
+--- /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs	2026-09-16 12:53:32
++++ /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/EngineToBoundariesOneDoorAnalyzerTests.cs	2026-09-16 13:34:01
+@@ -86,7 +86,8 @@
+     private const string ContainerFactoryMethod = "Create";
+ 
+     // One of the four permitted identities, written as a fixture calls it. Held once because the compliant theory,
+-    // the wrong-site test and the wrong-namespace caller test all make this same call and must make the same one.
++    // the wrong-site test, the wrong-namespace caller test and the wrong-namespace factory test all make this same
++    // call and must make the same one.
+     private const string PermittedFactoryCall = "EnvironmentAdapter.Create()";
+ 
+     // An assembly that is NOT AgentGuard.Engine. The container declaration below is compiled into it unchanged, so
+@@ -226,7 +227,7 @@
+         // Right assembly, wrong namespace: the identity conjunction rejects it.
+         ImmutableArray<Diagnostic> diagnostics = await RunAsync(
+             SharedAnalyzerSources.InsideContainerFactory(
+-                "using DecoyNamespace;", "EnvironmentAdapter.Create()"));
++                "using DecoyNamespace;", PermittedFactoryCall));
+ 
+         Assert.Single(diagnostics);
+         diagnostics.AssertNamesExactly(
+diff -u -r - /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs
+--- /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/7e128584-a478-42e9-a0ef-5669bb1f47c2/scratchpad/before/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs	2026-09-16 12:53:00
++++ /Users/timothystockstill/code/macos/4thWAIV/agent-guard/analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs	2026-09-16 13:35:44
+@@ -66,7 +66,7 @@
+     /// identity, and each is preserved exactly.
+     /// </para>
+     /// </summary>
+-    internal const string EngineAssemblySource = """
++    internal const string EngineAssemblySource = $$"""
+         using System.Runtime.CompilerServices;
+ 
+         [assembly: InternalsVisibleTo("guard")]
+@@ -112,7 +112,7 @@
+             }
+         }
+ 
+-        namespace AgentGuard.Engine.Decoy
++        namespace {{WrongContainerNamespace}}
+         {
+             internal static class SystemServices
+             {
+@@ -138,9 +138,10 @@
+     /// <summary>
+     /// The namespace a <c>SystemServices</c> container is declared in when a fixture needs the privileged CALLER's
+     /// namespace to be the wrong one. It is a child of the real namespace, the nearest miss there is, so a caller test
+-    /// that matched on a prefix rather than on the whole name would wrongly accept it. The same spelling is what
+-    /// <see cref="EngineAssemblySource"/>'s decoy container uses, so the wrong-namespace container reads the same
+-    /// wherever a test declares one.
++    /// that matched on a prefix rather than on the whole name would wrongly accept it. <see cref="EngineAssemblySource"/>
++    /// interpolates this same constant into its decoy container's <c>namespace</c> declaration, so the wrong-namespace
++    /// container reads the same wherever a test declares one and changing it here moves every declaration and every
++    /// expected message together.
+     /// </summary>
+     internal const string WrongContainerNamespace = EngineAssemblyName + ".Decoy";
+ 
+@@ -958,10 +959,10 @@
+     /// <summary>
+     /// Asserts that <paramref name="diagnostics"/> points at EXACTLY the source text in <paramref name="expectedSpans"/>
+     /// — one entry per diagnostic, so a position repeated because more than one lens saw the same reach is written out
+-    /// twice and a missing, extra or displaced report fails. The two sequences are compared as sorted multisets, so
+-    /// the order the scanners happen to run in is not pinned but the count is: this assertion is what pins how many
+-    /// diagnostics a fixture produces, alongside the identifier and message checks in
+-    /// <see cref="AssertNamesExactly"/>.
++    /// twice and a missing, extra or displaced report fails. The two sequences are compared by
++    /// <see cref="AssertSameStrings"/>, so the order the scanners happen to run in is not pinned but the count is:
++    /// this assertion is what pins how many diagnostics a fixture produces, alongside the identifier and message
++    /// checks in <see cref="AssertNamesExactly"/>.
+     /// <para>
+     /// Every expected span is spelled by the asking test from its own fixture constants, never read back off the
+     /// diagnostic, so the assertion proves the reported location is the required one rather than that the rule agrees
+@@ -974,10 +975,31 @@
+     internal static void AssertSpans(
+         this ImmutableArray<Diagnostic> diagnostics, string source, params string[] expectedSpans)
+     {
++        AssertSameStrings(
++            expectedSpans,
++            diagnostics.Select(diagnostic => AnalyzerRunner.SpanText(source, diagnostic)));
++    }
++
++    /// <summary>
++    /// Asserts that <paramref name="actual"/> holds exactly the strings in <paramref name="expected"/> — the same
++    /// strings and the same number of each. Both sequences are sorted with <see cref="StringComparer.Ordinal"/> and
++    /// then compared in order, so the two are compared as sorted multisets: the order the producing code happens to
++    /// emit them in is not pinned, while a value that appears twice on one side must appear twice on the other. Set
++    /// equality would drop that count and weaken every caller.
++    /// <para>
++    /// The one owner of that comparison. Each caller projects its own expected and actual strings and hands both
++    /// sequences here — <see cref="AssertSpans"/> projects the actual side through
++    /// <see cref="AnalyzerRunner.SpanText"/>, and the AG0041 tests project the expected side through their own
++    /// message builder and the actual side through <see cref="Message"/>.
++    /// </para>
++    /// </summary>
++    /// <param name="expected">The strings the run is required to produce.</param>
++    /// <param name="actual">The strings it did produce.</param>
++    internal static void AssertSameStrings(IEnumerable<string> expected, IEnumerable<string> actual)
++    {
+         Assert.Equal(
+-            expectedSpans.OrderBy(text => text, StringComparer.Ordinal),
+-            diagnostics.Select(diagnostic => AnalyzerRunner.SpanText(source, diagnostic))
+-                .OrderBy(text => text, StringComparer.Ordinal));
++            expected.OrderBy(text => text, StringComparer.Ordinal),
++            actual.OrderBy(text => text, StringComparer.Ordinal));
+     }
+ 
+     /// <summary>

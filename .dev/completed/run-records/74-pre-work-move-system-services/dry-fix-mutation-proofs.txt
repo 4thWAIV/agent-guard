@@ -1,0 +1,90 @@
+# DRY-fix round — mutation proofs for the three extractions
+captured: 2026-09-16T19:45:06Z
+Every mutation was applied in an isolated rsync copy under the session scratchpad and reverted afterwards.
+'AFTER-tree' is the corrected working tree; 'BEFORE-tree' is the same tree without the three fixes.
+
+================================================================
+Fix 2 — does SharedAnalyzerSources.AssertSameStrings still pin duplicate counts?
+================================================================
+
+## M1 — Distinct() applied to BOTH sides (true set equality)
+AFTER-tree result:
+Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 6 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=0
+This mutation does NOT fail the suite: collapsing both sides symmetrically keeps every current
+expectation satisfied. It is recorded because it is the mutation that looks like the right one and is not.
+The mutation that models the defect set equality would let through is M2.
+
+## M2 — Distinct() applied to the ACTUAL side only (models a duplicate diagnostic being dropped)
+AFTER-tree result:
+Failed!  - Failed:    27, Passed:   592, Skipped:     0, Total:   619, Duration: 6 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=1
+Failing cases by test class:
+  26 EngineInternalsOneDoorAnalyzerTests
+   1 OneDoorIntoCrossPlatformAnalyzerTests
+Both callers of the new owner are represented, so multiplicity is load-bearing through each of them:
+  - EngineInternalsOneDoorAnalyzerTests reaches it through AssertReportsAsync (26 cases, all of them
+    theory rows whose expectedSubjects list the same subject twice).
+  - OneDoorIntoCrossPlatformAnalyzerTests reaches it through AssertSpans (1 case):
+      Failed AgentGuard.Analyzers.Tests.OneDoorIntoCrossPlatformAnalyzerTests.DoorCall_FromSameNamedContainerInAnotherNamespace_IsReported [6 ms]
+    which is OneDoorIntoCrossPlatformAnalyzerTests.cs:278, diagnostics.AssertSpans(source, DoorCall, DoorCall, DoorType).
+
+## M3 — the ordinal sort removed from the ACTUAL side (emission order becomes load-bearing)
+AFTER-tree result:
+Failed!  - Failed:     7, Passed:   612, Skipped:     0, Total:   619, Duration: 11 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+EXIT=1
+Failing cases by test class:
+   1 DeclaredTypeScannerTests
+   6 EngineInternalsOneDoorAnalyzerTests
+Again both callers: DeclaredTypeScannerTests through AssertSpans, EngineInternalsOneDoorAnalyzerTests
+through AssertReportsAsync. The sort the extraction carried over is doing work in each.
+
+================================================================
+Fix 1 — does EngineToBoundariesOneDoorAnalyzerTests:229 actually read PermittedFactoryCall now?
+================================================================
+
+## M4 — PermittedFactoryCall changed from "EnvironmentAdapter.Create()" to "EnvironmentAdapter.Probe()"
+Run in both trees. The discriminating case is SameNamedFactoryInAnotherNamespace_IsReported, the test
+that held the second literal copy.
+
+BEFORE-tree:
+  Failed!  - Failed:     3, Passed:   616, Skipped:     0, Total:   619, Duration: 7 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+  SameNamedFactoryInAnotherNamespace_IsReported: not in the failure list — it still passes, because it
+  kept its own literal and did not move with the constant.
+
+AFTER-tree:
+  Failed!  - Failed:     4, Passed:   615, Skipped:     0, Total:   619, Duration: 8 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+  SameNamedFactoryInAnotherNamespace_IsReported:
+    Failed AgentGuard.Analyzers.Tests.EngineToBoundariesOneDoorAnalyzerTests.SameNamedFactoryInAnotherNamespace_IsReported [17 ms]
+  It moved with the constant, which is the routing the fix was for.
+
+================================================================
+Fix 3 — does the fixture declaration follow WrongContainerNamespace now?
+================================================================
+
+## M5 — WrongContainerNamespace changed from EngineAssemblyName + ".Decoy" to + ".Decoy2"
+
+Test result in BOTH trees:
+  BEFORE-tree: Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 8 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+  AFTER-tree:  Passed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 8 s - AgentGuard.Analyzers.Tests.dll (net10.0)
+  EXIT=0 in both. This mutation is not observable through the test result: in the BEFORE tree the four
+  literal spellings stayed consistent with each other while the owner moved alone, so nothing broke.
+  That silence is exactly the defect the fix removes, so the proof has to read the compiled values.
+
+Compiled values under M5, read from each tree's built assembly:
+  --- BEFORE-tree ---
+    EngineAssemblySource namespace line: namespace AgentGuard.Engine.Decoy
+    CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerCreate	AgentGuard.Engine.Decoy.SystemServices.Create()
+    CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerType	AgentGuard.Engine.Decoy.SystemServices
+    CONST	SharedAnalyzerSources.WrongContainerNamespace	AgentGuard.Engine.Decoy2
+    US	        internal static object Build() => AgentGuard.Engine.Decoy.SystemServices.Create();
+  --- AFTER-tree  ---
+    EngineAssemblySource namespace line: namespace AgentGuard.Engine.Decoy2
+    CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerCreate	AgentGuard.Engine.Decoy2.SystemServices.Create()
+    CONST	EngineInternalsOneDoorAnalyzerTests.DecoyContainerType	AgentGuard.Engine.Decoy2.SystemServices
+    CONST	SharedAnalyzerSources.WrongContainerNamespace	AgentGuard.Engine.Decoy2
+    US	        internal static object Build() => AgentGuard.Engine.Decoy2.SystemServices.Create();
+
+  In the BEFORE tree the owner moved to AgentGuard.Engine.Decoy2 and all four spellings stayed at
+  AgentGuard.Engine.Decoy. In the AFTER tree the fixture declaration and all three derived expectations
+  moved with it.
