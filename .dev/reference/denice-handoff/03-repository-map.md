@@ -1,8 +1,8 @@
 # Every reference to this repository, and what a clone of it actually contains
 
-Read this before deciding how to get at the material. The short version: a clone of the remote contains none of the language work and none of the design record. Reading the working tree on this machine is the only route that gives you the current state today.
+Read this before deciding how to get at the material. The short version: the language is on the remote now, on the `metalang` branch, which is not the branch a clone lands on. The design record is still on this machine only.
 
-**Corrected on 2026-11-08.** This file was written on 2026-11-06 and said the remote carried the language up to commit `e8394e5`. That was wrong, and the section below is rewritten. The branch holding every commit of the language has never been pushed, so the remote has no MetaLang at all. On 2026-11-08 Tim approved committing the 27 October vocabulary and this handover package, which landed as `41a084c` on the same unpushed branch. Committing moved nothing off this machine; only a push would, and no push has been authorised.
+**Corrected twice on 2026-11-08.** This file was written on 2026-11-06 and said the remote carried the language up to commit `e8394e5`. That was wrong: the branch holding every commit of the language had never been pushed, so the remote had none of it. Tim then approved committing the 27 October vocabulary and this handover package, which landed as `41a084c`, and approved pushing the branch, which is now done. The section below is written against the state after the push.
 
 ## The repository
 
@@ -14,15 +14,18 @@ Read this before deciding how to get at the material. The short version: a clone
 | Visibility | public — anyone can clone it; no access grant is needed |
 | Absolute path on this machine | `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` |
 | Branch holding the language work | `metalang` |
-| Newest commit on it | `41a084c` Record the vocabulary approved on 27 October and the Denice handover package, 2026-11-08 |
-| Is that branch on the remote? | **No.** There is no `origin/metalang`, the branch has no upstream configured, and all nineteen commits of the language work are on this machine only. |
+| Newest commit on it | `a83f598` Say what the browser capture folder actually holds, 2026-11-08 |
+| Is that branch on the remote? | Yes, since 2026-11-08: `origin/metalang` tracks it and carries all twenty commits. It is not the default branch, so a clone does not land on it. |
+| Has CI ever run on it? | No. The workflow triggers only on pushes to `dev` and `main`, so pushing this branch started nothing. |
 | Default branch on GitHub | `dev`. Work integrates there and is cut to `main` only at a milestone. The local `origin/HEAD` still points at `main` and is stale. |
 
-## What is on this machine only
+## What a clone gets, and what is still on this machine only
 
-**The whole language is on this machine only, and committing it did not change that.** Branch `metalang` holds nineteen commits that no remote branch contains, starting at `fc5fa76` Add MetaLang, its checker and its page, with the architecture language. There is no `origin/metalang` and the branch has no upstream. A clone of `4thWAIV/agent-guard` gets no `ts/metalang` at all: no MetaLang, no architecture language, no naming dictionary, no proposal language and none of the TypeScript toolchain. This file said on 2026-11-06 that the remote's copy stopped at `e8394e5`; that was wrong, because `e8394e5` is itself on no remote branch.
+**The language is on the remote, on a branch a clone does not land on.** `origin/metalang` carries all twenty commits, starting at `fc5fa76` Add MetaLang, its checker and its page, with the architecture language, and ending at `a83f598`. The default branch is `dev`, which holds no `ts/` directory at all, so reaching the language is `git clone` followed by `git checkout metalang`. Fetching that one branch works too.
 
-The 27 October 2026 vocabulary was committed on 2026-11-08 as `41a084c`, on Tim's word, together with this handover package. That commit sits on the same unpushed branch, so the material still exists in one place. Pushing the branch is a separate action and is not authorised.
+No CI has ever run against any of it. The workflow triggers only on pushes to `dev` and `main`, so the push on 2026-11-08 started nothing, and the language reaches a green gate only when a pull request is opened against `dev`.
+
+This file said on 2026-11-06 that the remote's copy of the language stopped at `e8394e5`. That was wrong at the time: `e8394e5` was on no remote branch either, and the remote had none of it.
 
 **The entire design record is untracked.** `.dev/inprocess/` holds only a placeholder file in the remote, so the whole of `.dev/inprocess/82-guard-process-workflow/` is local only — 57 files of its own, including `ROAD.md`, `rebuild/STATE.md`, `rebuild/GENERAL-FORM.md`, `human-checkins-proposal.md` and every diagram, plus an archive of two superseded languages and a vendored `node_modules` tree, which bring the raw file count to 339. Fifteen issue folders under `.dev/backlog/` are local only too: 83, 84, 88 to 93, 95, and 97 to 102.
 

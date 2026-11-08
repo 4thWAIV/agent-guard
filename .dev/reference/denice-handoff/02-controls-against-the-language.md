@@ -1,6 +1,6 @@
 # The eight controls against the language as it stands
 
-All line numbers are in the working tree of `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` on branch `metalang`, read on 2026-11-06. The branch was committed to on 2026-11-08 and has never been pushed, so none of this is on any remote; see `03-repository-map.md`. The comment blocks added to `ts/metalang/metalang.yaml` on 2026-11-08 shift the line numbers in that one file by about seventy lines.
+All line numbers are in the working tree of `/Users/timothystockstill/code/macos/4thWAIV/agent-guard` on branch `metalang`, read on 2026-11-06. That branch was committed to and pushed on 2026-11-08, so all of this is now on `origin/metalang`, which is not the branch a clone lands on; see `03-repository-map.md`. The comment blocks added to `ts/metalang/metalang.yaml` on 2026-11-08 shift the line numbers in that one file by about seventy lines.
 
 ## The answer in one table
 
