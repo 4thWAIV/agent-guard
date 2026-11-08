@@ -16,7 +16,14 @@ NOW=$(date -u +%s)
 DAY=$(( (NOW - EPOCH) / 86400 ))
 TIME=$(( (NOW % 86400) / 2 ))
 COMBINED=$(( DAY * 43200 + TIME ))
-HASH=$(git rev-parse --short=7 HEAD 2>/dev/null || echo local)
+if ! HASH=$(git rev-parse --short=7 HEAD 2>/dev/null); then
+  # A local build with no git may carry the placeholder; a CI build stamping a release as +local may not.
+  if [ -n "${CI:-}" ] || [ -n "${GITHUB_OUTPUT:-}" ]; then
+    echo "compute-build-id: git rev-parse failed in CI, so the build would be stamped +local" >&2
+    exit 1
+  fi
+  HASH=local
+fi
 
 # The SINGLE owner of the assembled version string on the CI side (decisions compute-version-once /
 # two-version-forms / channel-by-prerelease-id / release-fields). MAJOR.MINOR comes from the one config file

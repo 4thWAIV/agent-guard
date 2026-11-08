@@ -66,7 +66,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
         run: |
-          curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
           echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
           # Explicit proof of the SDK this leg builds with — resolved through global.json (rollForward disable),
@@ -343,7 +343,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install pinned .NET SDK (official script, same as local)
         run: |
-          curl -sSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o "$RUNNER_TEMP/dotnet-install.sh"
           bash "$RUNNER_TEMP/dotnet-install.sh" --jsonfile "$GITHUB_WORKSPACE/global.json" --install-dir "$RUNNER_TEMP/dotnet"
           echo "$RUNNER_TEMP/dotnet" >> "$GITHUB_PATH"
           # Explicit proof of the SDK this leg builds with — resolved through global.json (rollForward disable),
@@ -566,10 +566,12 @@ jobs:
           rm -rf evidence-zip-root
           for os in macos windows linux; do
             src="evidence-artifacts/evidence-$os"
-            if [ -d "$src" ]; then
-              mkdir -p "evidence-zip-root/$os"
-              cp -R "$src/." "evidence-zip-root/$os/"
+            if [ ! -d "$src" ]; then
+              echo "::error::missing $src — the release would silently omit $os from evidence.zip" >&2
+              exit 1
             fi
+            mkdir -p "evidence-zip-root/$os"
+            cp -R "$src/." "evidence-zip-root/$os/"
           done
           ( cd evidence-zip-root && zip -r "../dist/evidence.zip" . )
       - name: Create the GitHub release
