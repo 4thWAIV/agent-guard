@@ -1,0 +1,445 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard",
+  "facts": [
+    {
+      "area": "symlink-read",
+      "facts": [
+        {
+          "claim": "The only implementation of the real read is PlatformFileSystemBase.ReadLinkTarget. It returns Factory.GetFileInfo(path).LinkTarget ?? Factory.GetDirectoryInfo(path).LinkTarget. It wraps that in catch (IOException) and catch (UnauthorizedAccessException), and both blocks return null. IsLinkTarget is defined as ReadLinkTarget(linkPath) is not null, so it reports false for a link it cannot read.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformFileSystemBase.cs:29 and :32-49. The Windows and POSIX classes inherit these members and do not re-implement them (WindowsFileSystem.cs:67 and PosixFileSystem.cs:50 comments)."
+        },
+        {
+          "claim": "The contract documents null as 'not a symlink (a regular file, a directory, or absent)'. It says nothing about an unreadable link, so the contract text is silent on the unreadable case and must be updated alongside the code.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IPlatformFileSystem.cs:23-36"
+        },
+        {
+          "claim": "PathCanonicalizer.Resolve treats null as 'not a link' and returns the candidate as the final path. That is the wrong-answer path: an unreadable link stops resolution at the link itself. If the read raised, the exception would escape Resolve and Canonicalize (no try/catch anywhere in the file). The file already throws IOException for a symlink cycle at the link-depth ceiling, so an IOException from Canonicalize is existing precedent.",
+          "evidence": "src/AgentGuard.Engine/PathCanonicalizer.cs:68-72 (null check) and :49-55 (throw new IOException ceiling); grep for 'catch' in the file returns nothing."
+        },
+        {
+          "claim": "PathCanonicalizer.Canonicalize returns CanonicalPath, not Verdict. The contract's wording for this call site is 'it returns a denial carrying the reason, through Verdict.Deny'. That cannot be done at this method without a signature change. The exception would have to be caught at the callers of Canonicalize.",
+          "evidence": "src/AgentGuard.Engine/PathCanonicalizer.cs:33 (Canonicalize returns CanonicalPath); .dev/inprocess/106-silent-failure-cleanup/contract.md line 86; src/AgentGuard.Abstractions/Verdict.cs:38 (Verdict.Deny)."
+        },
+        {
+          "claim": "Callers of Canonicalize and what catches an exception from it today. FileGuard.PrecheckWriteAsync (FileGuard.cs:346) has no catch around Canonicalize, and its caller at :73 has none in the lines surveyed. ProtectedFileScanner.cs:72 is inside the scan that FileGuard.CaptureAsync wraps in catch IOException and catch UnauthorizedAccessException, which return CaptureFailed with the message (FileGuard.cs:90-100). So CaptureAsync would surface a raised read as a CaptureFailed with the message, and PrecheckWriteAsync would let it propagate uncaught. The other callers, DirectoryPrefixMatcher.cs:41, ExactPathMatcher.cs:32, RegionMapRegistry.cs:65 and :67, ProtectedFileScanner.cs:47 and GuardEngine.cs:48, :109 and :111, were found by grep and not read for enclosing catches.",
+          "evidence": "grep -rn '\\.Canonicalize(' src; sed of FileGuard.cs:340-365 and :80-100; ProtectedFileScanner.cs:60-80. Which of these callers are built at startup versus per tool call was not traced."
+        },
+        {
+          "claim": "SymlinkOps.EnsurePointsTo reads the link and compares it ordinally with the wanted target. Null is not equal, so it calls MakeLinkTarget, which re-points the link. Today an unreadable link is therefore overwritten (or MakeLinkTarget fails). If the read raised, the exception would propagate from EnsurePointsTo. Its only caller is CreationHelper.RepairLink, which catches only UnauthorizedAccessException and turns it into RepairOutcome.NotRepairable(exception.Message). An IOException from the read would be uncaught there; an UnauthorizedAccessException would be caught.",
+          "evidence": "src/AgentGuard.Engine/Setup/SymlinkOps.cs:40-46; src/AgentGuard.Engine/Setup/CreationHelper.cs:235-243 (single call site, found by grep EnsurePointsTo)."
+        },
+        {
+          "claim": "BinSymlinkCondition and CurrentSymlinkCondition each read the link and pass the result to string.Equals(actual, expected). Null is not equal, so they return ConditionState.Broken with the message \"... points at '', expected '...'\", and an unreadable link is reported as a link pointing at nothing. Neither has a catch. Both sit in DetectInstalled, which MachineCondition.cs:26 calls. Whether MachineCondition or any condition runner catches IOException or UnauthorizedAccessException was not read, so what a raised read would do above these two methods is unproven.",
+          "evidence": "src/AgentGuard.Engine/Setup/BinSymlinkCondition.cs:28-31; src/AgentGuard.Engine/Setup/CurrentSymlinkCondition.cs:28-31; MachineCondition.cs:26 and :39. grep for 'catch' in both condition files returns nothing."
+        },
+        {
+          "claim": "Callers of IsLinkTarget that the issue's list of four does not name. Each inherits the unreadable-link behaviour change. (a) InstallIntegrity.HasCurrentEntry (InstallIntegrity.cs:126-131) uses it as the last operand of an OR to decide whether a directory holds a 'current' entry. An unreadable link is treated as absent there. The only catches in that file are around the binary hash read (:90-98) and ReadState (:141-150), so none would catch a raised IsLinkTarget in HasCurrentEntry. (b) The per-OS link writers call it: PosixFileSystem.cs:56 and :79, WindowsFileSystem.cs:73, :80, :93 and :98 (RefuseIfRealEntry and DeleteLinkEntry arguments). Those would raise instead of treating an unreadable link as 'not a link, so a real entry'. (c) InMemoryFileSystemStore.cs:345, :551 and :789.",
+          "evidence": "grep -rnE 'ReadLinkTarget|IsLinkTarget' --include='*.cs' src tests analyzers eng"
+        },
+        {
+          "claim": "The test doubles delegate to a real base platform when the overlay holds no entry. InMemoryFileSystemStore.ReadLinkTarget (:351-361) returns the overlay target when present. Otherwise it returns null if the in-memory node exists, otherwise _basePlatform?.ReadLinkTarget(entry). IsLinkTarget (:341-346) is derived separately: overlay not null, or no node and the base's IsLinkTarget. FollowLinks (:551-552) calls IsLinkTarget then ReadLinkTarget, and the guard at :789 calls IsLinkTarget. The doubles hold no catch, so a raising base propagates through them. ManagedPlatformFileSystem.cs:33 and :36 are one-line pass-throughs to the store. The overlay has no way to simulate an unreadable link, so a test of the raise needs either a new simulation seam or a real on-disk test.",
+          "evidence": "tests/AgentGuard.TestHelpers/InMemoryFileSystemStore.cs:341-361, :551-552, :789; tests/AgentGuard.TestHelpers/ManagedPlatformFileSystem.cs:33,36."
+        },
+        {
+          "claim": "Existing tests that pin the current contract: ReadLinkTarget_OnANonLink_ReturnsNull (PlatformFileSystemSpecTests.cs:123-128), IsLinkTarget_IsTrueForALinkAndFalseForANonLinkOrAbsentPath (:132-142), and the post-RemoveLinkTarget checks (:156-157). All three cases are non-link or absent, so they stay valid when the unreadable case starts raising. No existing test covers an unreadable link.",
+          "evidence": "tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs:123-157; grep of tests for ReadLinkTarget/IsLinkTarget lists only this file, ManagedPlatformFileSystem.cs and InMemoryFileSystemStore.cs."
+        },
+        {
+          "claim": "No caller of the symlink read currently catches around it for this purpose. grep for 'catch' in PathCanonicalizer.cs, SymlinkOps.cs, BinSymlinkCondition.cs and CurrentSymlinkCondition.cs returns nothing. InstallIntegrity.HasCurrentEntry has no catch. The one indirect catch is CreationHelper.RepairLink, which catches UnauthorizedAccessException only, around EnsurePointsTo, so it covers SymlinkOps indirectly for that one exception type. The 'callers catch' decision therefore requires adding catches at all four named sites and the unnamed IsLinkTarget sites, or deciding that some propagate.",
+          "evidence": "grep -n catch over the five Engine files; CreationHelper.cs:240."
+        },
+        {
+          "claim": "Approved decision on the shape: ReadLinkTarget keeps null for a non-link and raises on an unreadable link; IsLinkTarget raises for the same reason because it is that read; callers catch. The contract draft calls for removing both catch blocks in PlatformFileSystemBase and updating the IPlatformFileSystem doc.",
+          "evidence": ".dev/inprocess/106-silent-failure-cleanup/contract.md lines 5, 84, 86 and 88; live issue #106 first bullet."
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.CrossPlatform/PlatformFileSystemBase.cs (the only real implementation, shared by the Windows and POSIX classes)",
+        "src/AgentGuard.Abstractions/Contracts/IPlatformFileSystem.cs (contract doc for IsLinkTarget :28 and ReadLinkTarget :36)",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs and src/AgentGuard.CrossPlatform.Windows/Windows/WindowsFileSystem.cs (IsLinkTarget callers via RefuseIfRealEntry and DeleteLinkEntry)",
+        "src/AgentGuard.Engine/PathCanonicalizer.cs:68 and its Canonicalize callers (FileGuard.cs:346, ProtectedFileScanner.cs:47 and :72, DirectoryPrefixMatcher.cs:41, ExactPathMatcher.cs:32, RegionMapRegistry.cs:65 and :67, GuardEngine.cs:48, :109 and :111)",
+        "src/AgentGuard.Engine/Setup/SymlinkOps.cs:40 and its single caller CreationHelper.cs:237",
+        "src/AgentGuard.Engine/Setup/BinSymlinkCondition.cs:28 and CurrentSymlinkCondition.cs:28, called through MachineCondition.cs:26",
+        "src/AgentGuard.Engine/Setup/InstallIntegrity.cs:131 (IsLinkTarget in HasCurrentEntry, a caller the issue does not list)",
+        "tests/AgentGuard.TestHelpers/ManagedPlatformFileSystem.cs:33,36 and InMemoryFileSystemStore.cs:341-361, :551-552, :789",
+        "tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs:45-157, :187 and :199 (pin the null and false answers for non-link and absent paths)",
+        "No file, database or config holds the link target; the stores are the live filesystem and the in-memory overlay. analyzers/ and eng/ have no reference to either member (grep)."
+      ],
+      "openQuestions": [
+        "PathCanonicalizer.Canonicalize returns CanonicalPath, but the contract says it 'returns a denial ... through Verdict.Deny'. Which layer turns the raised exception into a Verdict: each Canonicalize caller, or a signature change on Canonicalize? The tree cannot answer this and no approved principle chooses between them. It matters because PrecheckWriteAsync has no catch today.",
+        "What the contract wants IsLinkTarget callers to do that are not among the four named: InstallIntegrity.HasCurrentEntry, the Posix and Windows link writers, and the in-memory store. The contract says only that IsLinkTarget raises because it is that read. Whether HasCurrentEntry should deny, report broken, or propagate is not stated.",
+        "Whether anything above MachineCondition.DetectInstalled and above FileGuard.PrecheckWriteAsync already catches IOException or UnauthorizedAccessException. I did not read the condition runner or the FileGuard caller chain beyond :73, so what a raised read would do end to end is unproven for those two paths.",
+        "How a test simulates an unreadable link with the in-memory overlay, which has no way to fail a read. The contract's acceptance item 4 needs a raising case. Does it get a real on-disk pointed-integration test only (and how an unreadable link is arranged on Windows), or a new simulation seam on the doubles? A new seam would need an explicit approval under global rule 2.",
+        "The tree does not say whether the real .NET FileSystemInfo.LinkTarget actually raises IOException or UnauthorizedAccessException for a link it cannot read, or returns null, on each OS. The existing catch blocks assume it can raise, but no test proves it. This was not probed."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Whether the unreadable-link failure is returned as null or raised",
+          "resolution": "Raise. The two approved exception types propagate, and null stays for 'not a link' only.",
+          "principle": "Best-practices guide area 5a: fail closed by throwing an exception, never a silent ignore. Also agent-guard CLAUDE.md rule 1: 'Nothing may ever fail silently'.",
+          "evidence": ".dev/reference/best-practices-guide.md line 84; Tim's approved decision symlink-shape in .dev/inprocess/106-silent-failure-cleanup/contract.md line 5."
+        },
+        {
+          "choice": "Which exception types the read raises, and whether a new exception type is added",
+          "resolution": "Reuse IOException and UnauthorizedAccessException. No new type. PathCanonicalizer.cs:49-55 already throws IOException for a symlink cycle.",
+          "principle": "Reuse the existing primitive rather than mint a new one (best-practices guide reuse area, MEMORY 'Reuse a primitive behind an owner'). The contract states the choice as well.",
+          "evidence": ".dev/inprocess/106-silent-failure-cleanup/contract.md line 80; src/AgentGuard.Engine/PathCanonicalizer.cs:49-55."
+        },
+        {
+          "choice": "Whether ReadLinkTarget stays on PlatformFileSystemBase or is re-implemented per OS",
+          "resolution": "It stays in the one shared base. The change is made once there, not per OS.",
+          "principle": "DRY and cross-OS uniformity: best-practices guide area 1 and global rule 3. The base file's own comment declares it the one shared home.",
+          "evidence": "src/AgentGuard.CrossPlatform/PlatformFileSystemBase.cs:9-19; PosixFileSystem.cs:50 and WindowsFileSystem.cs:67 comments."
+        }
+      ]
+    },
+    {
+      "area": "inert-fence",
+      "facts": [
+        {
+          "claim": "BoundaryServices.ResolveTree returns null when WellKnownType.Resolve cannot find AgentGuard.Abstractions.Contracts.ISystemServices in the compilation (source or referenced); Resolve then returns DerivedServices.Empty (both ServiceInterfaces and ServiceTypes empty). Neither reports anything: no diagnostic, no log, no exception.",
+          "evidence": "analyzers/AgentGuard.Analyzers/BoundaryServices.cs ResolveTree (container is null -> return null) and Resolve (root is null -> return DerivedServices.Empty); DerivedServices.cs:26-28 Empty is two ImmutableArray.Empty; WellKnownType.cs:133-149 Resolve returns null if the namespace or type is not found. The doc comments say outright: 'every consuming rule is simply inert there' and 'the three rules that consume them simply do not fire' (the comment still says three; there are seven)."
+        },
+        {
+          "claim": "Exactly eight call sites in analyzers/AgentGuard.Analyzers consume ResolveTree or Resolve, in seven analyzers; no other production file calls either. The test project calls both directly (DerivedBoundaryServicesTests.cs:60 Resolve, :80 ResolveTree).",
+          "evidence": "grep -rnE 'BoundaryServices\\.(Resolve|ResolveTree)\\(' --include=*.cs, excluding obj: ContainerInterfaceSingleOwnerAnalyzer.cs:73, OneOwnerPerInterfaceAnalyzer.cs:77, SystemServicesMemberMustBeServiceAccessorAnalyzer.cs:72, LeafPlatformSingleImplementerAnalyzer.cs:85, NoServiceAsParameterAnalyzer.cs:61, BuilderCompletenessAnalyzer.cs:89, NoStaticServiceHolderAnalyzer.cs:60. That is seven analyzer files plus the two test lines."
+        },
+        {
+          "claim": "The seven analyzers that go inert without the container, with their IDs, match the issue's list of seven: AG0025 OneOwnerPerInterface (one-owner-per-interface), AG0031 NoServiceAsParameter (no-service-as-parameter), AG0024 NoStaticServiceHolder (no-static-service-holder), AG0030 LeafPlatformSingleImplementer (leaf-platform-single-implementer), AG0034 SystemServicesMemberMustBeServiceAccessor (system-services-member-must-be-service-accessor), AG0022 ContainerInterfaceSingleOwner (container-interface-single-owner), AG0019 BuilderCompleteness (builder-completeness).",
+          "evidence": "DiagnosticId constants: ContainerInterfaceSingleOwnerAnalyzer.cs:35 AG0022; OneOwnerPerInterfaceAnalyzer.cs:30 AG0025; NoServiceAsParameterAnalyzer.cs:26 AG0031; NoStaticServiceHolderAnalyzer.cs:25 AG0024; LeafPlatformSingleImplementerAnalyzer.cs:38 AG0030; SystemServicesMemberMustBeServiceAccessorAnalyzer.cs:32 AG0034; BuilderCompletenessAnalyzer.cs:33 AG0019."
+        },
+        {
+          "claim": "Three different shapes of inertness, all silent. (a) Resolve consumers (AG0025, AG0031, AG0024) get empty arrays and register their actions over an empty set, so nothing ever matches. (b) AG0022 and AG0030 convert a null root to ImmutableArray.Empty and pass it to SecondImplementerGuard.Register, so no interface is guarded. (c) AG0019 and AG0034 contain an explicit early 'return' on root is null (AG0034 also returns when the container is not declared in this compilation).",
+          "evidence": "OneOwnerPerInterfaceAnalyzer.cs:77-78; NoServiceAsParameterAnalyzer.cs:61-62; NoStaticServiceHolderAnalyzer.cs:60-62; ContainerInterfaceSingleOwnerAnalyzer.cs:73-78 ('root is null ? ImmutableArray.Empty : ...'); LeafPlatformSingleImplementerAnalyzer.cs:85-93 (same ternary); BuilderCompletenessAnalyzer.cs:89-93 ('if (root is null) { return; }'); SystemServicesMemberMustBeServiceAccessorAnalyzer.cs:72-81 ('if (root is null || !IsDeclaredInCompilation(...)) { return; }')."
+        },
+        {
+          "claim": "AG0034 has two distinct 'return' reasons: container absent (inert-fence defect) and container declared only in a referenced assembly (intended, so the diagnostic has a source location). A loud fix cannot treat every null root as an error for AG0034 without distinguishing the two cases, and cannot treat it as an error for any analyzer in an assembly that legitimately does not reference Abstractions.",
+          "evidence": "SystemServicesMemberMustBeServiceAccessorAnalyzer.cs:74-81 comment 'Guard the tree only where the root container is DECLARED... Absent the container (a compilation that does not define it) there is nothing to keep honest.'"
+        },
+        {
+          "claim": "Two existing tests deliberately pin the inert behaviour: BuilderCompletenessAnalyzerTests.BuilderDefinedButNoContainer_IsNotReported asserts AG0019 reports nothing in AgentGuard.TestHelpers when ISystemServices is absent (comment: 'Preventive: without an ISystemServices container to fall behind, the rule does not fire'). Any change that makes a missing container loud for AG0019 would fail this test, which would have to be changed with approval.",
+          "evidence": "analyzers/AgentGuard.Analyzers.Tests/BuilderCompletenessAnalyzerTests.cs:228-246. grep for no-container/absent/inert cases found no equivalent test for the other six analyzers."
+        },
+        {
+          "claim": "No existing test in analyzers/AgentGuard.Analyzers.Tests resolves the container from the live AgentGuard.Abstractions assembly. Every container fixture is a synthetic source string: SharedAnalyzerSources.RealShapeContainer (a hand-written copy of the shape, compiled under the assembly name 'AgentGuard.Abstractions'), compiled by AnalyzerRunner.CompileAsync/RunAsync against only the Net90 reference assemblies. The test csproj has a single ProjectReference, to AgentGuard.Analyzers; there is no reference to src/AgentGuard.Abstractions.",
+          "evidence": "AgentGuard.Analyzers.Tests.csproj:20-22 (only ProjectReference is ../AgentGuard.Analyzers/AgentGuard.Analyzers.csproj); AnalyzerRunner.cs:148-153 ResolveReferencesAsync returns only ReferenceAssemblies.Net.Net90; DerivedBoundaryServicesTests.cs:59,79 compile RealShapeContainer as 'AgentGuard.Abstractions'; SharedAnalyzerSources.cs:205 defines RealShapeContainer. grep for Abstractions.dll, Abstractions.csproj, Assembly.Load, typeof(ISystemServices) in the test project (excluding obj/bin) returned nothing."
+        },
+        {
+          "claim": "The only tests that touch the real repository read it as text (csproj and workflow files via RepositoryFiles.FindRepositoryRoot, which walks up to AgentGuard.sln); none parse src/AgentGuard.Abstractions/Contracts/ISystemServices.cs or build a compilation from it. So the real container and the hand-written RealShapeContainer copy can drift apart with every analyzer test green.",
+          "evidence": "RepositoryFiles.cs; callers: EvidenceUploadsCannotRegressTests.cs, PosixSourceIsLinkSharedTests.cs, OsSpecificFileNotCrossCompiledTests.cs. Real container source exists at src/AgentGuard.Abstractions/Contracts/ISystemServices.cs (and IFileSystem.cs)."
+        },
+        {
+          "claim": "The analyzers are wired into every non-analyzer project through Directory.Build.props, so each of those projects' compilations runs all seven rules; a project that does not see ISystemServices (no reference to Abstractions) gets inert rules with no signal. The fence is only live where the compilation references AgentGuard.Abstractions or declares ISystemServices.",
+          "evidence": "Directory.Build.props:81-85 ('Custom analyzer wiring' ItemGroup, Condition AgentGuardIsAnalyzerProject != true, ProjectReference with OutputItemType=Analyzer)."
+        },
+        {
+          "claim": "ISystemServices is also named by GuardedConstructionAnalyzer through BoundaryServices.ContainerName but it does not call Resolve or ResolveTree, so it is not one of the seven inert-fence consumers.",
+          "evidence": "GuardedConstructionAnalyzer.cs:74 uses (KnownNamespaces.AgentGuardAbstractionsContracts, BoundaryServices.ContainerName); the call-site grep does not list it."
+        },
+        {
+          "claim": "Working tree is clean for analyzers/ (git status --short analyzers returned nothing); HEAD is 032c0e6 on branch 106-silent-failure-contract. Facts above are against that tree.",
+          "evidence": "git status --short analyzers (empty); git log -1 --format=%h"
+        }
+      ],
+      "surfaces": [
+        "analyzers/AgentGuard.Analyzers/BoundaryServices.cs (ResolveTree, Resolve, ContainerInterfaces, NestedLeafInterfaces; stale 'three rules' doc comments)",
+        "analyzers/AgentGuard.Analyzers/DerivedServices.cs (Empty)",
+        "analyzers/AgentGuard.Analyzers/WellKnownType.cs (Resolve returns null when type not in scope)",
+        "The seven consuming analyzers: OneOwnerPerInterfaceAnalyzer.cs, NoServiceAsParameterAnalyzer.cs, NoStaticServiceHolderAnalyzer.cs, ContainerInterfaceSingleOwnerAnalyzer.cs, LeafPlatformSingleImplementerAnalyzer.cs, BuilderCompletenessAnalyzer.cs, SystemServicesMemberMustBeServiceAccessorAnalyzer.cs",
+        "analyzers/AgentGuard.Analyzers/SecondImplementerGuard.cs (receives the empty set from AG0022/AG0030)",
+        "analyzers/AgentGuard.Analyzers.Tests/AnalyzerRunner.cs (references only Net90) and AgentGuard.Analyzers.Tests.csproj (no Abstractions reference)",
+        "analyzers/AgentGuard.Analyzers.Tests/SharedAnalyzerSources.cs:205 RealShapeContainer (synthetic copy of the container)",
+        "analyzers/AgentGuard.Analyzers.Tests/DerivedBoundaryServicesTests.cs and BuilderCompletenessAnalyzerTests.cs:228-246 (the test that pins inert behaviour)",
+        "analyzers/AgentGuard.Analyzers.Tests/RepositoryFiles.cs (repo-root walk, reusable to locate src/AgentGuard.Abstractions)",
+        "src/AgentGuard.Abstractions/Contracts/ISystemServices.cs and IFileSystem.cs (the live container shape)",
+        "Directory.Build.props:81-85 (analyzer wiring into every non-analyzer project)",
+        "docs/silent-failure-audit.md (the audit, which says three rules where the code has seven)"
+      ],
+      "openQuestions": [
+        "What should a missing container do in each of the seven analyzers? The code cannot say: assemblies that legitimately never reference AgentGuard.Abstractions (tests, tools) also see null, so a blanket 'null means error' would break them. The issue's stated fix is only a test that resolves the container from the live Abstractions assembly; it does not say whether the analyzers themselves should also become loud. Needs Tim's decision (and BuilderCompletenessAnalyzerTests.BuilderDefinedButNoContainer_IsNotReported pins the opposite for AG0019).",
+        "How should the new test get the live assembly: add a ProjectReference from the analyzers test project to src/AgentGuard.Abstractions (a new dependency edge), or compile the real ISystemServices.cs sources located via RepositoryFiles.FindRepositoryRoot? Both are new design elements that need approval; no approved principle in the working tree picks one.",
+        "What exactly must the live-container test assert: that ResolveTree is non-null, that the derived leaf and container sets equal the expected ten leaves and three containers, and/or that each of the seven analyzers produces a diagnostic over a deliberately violating fixture compiled against the live assembly? The issue says only 'resolves the container from the live AgentGuard.Abstractions, so the rules cannot go inert unnoticed'."
+      ],
+      "autoResolved": []
+    },
+    {
+      "area": "reason-lost",
+      "facts": [
+        {
+          "claim": "GrantStore.TryLoadAsync (GrantStore.cs:~115-141) returns Task<Grant?>; null conflates five causes. IsSignatureValid false returns null; expiry (ExpiresAt <= now) returns null; catch JsonException, FormatException and IOException each `return null` with no use of the exception. At the catch the JsonException/FormatException/IOException object (message, path = `file` argument) is in scope; for invalid-signature and expired the cause is known by branch but not recorded. UnauthorizedAccessException is not caught here (only IOException), so it propagates out of GetActiveGrantsAsync.",
+          "evidence": "src/AgentGuard.Engine/GrantStore.cs:~118-141; catch list JsonException/FormatException/IOException"
+        },
+        {
+          "claim": "GrantStore's public result type cannot carry a reason: IGrantStore.GetActiveGrantsAsync returns Task<IReadOnlyList<Grant>> only (a flat list of good grants). GetActiveGrantsAsync also returns an empty list silently when _publicKey.IsEmpty or the grant directory does not exist, so 'no key', 'bad key length' (Create swallows a wrong-length key to Empty at GrantStore.Create) and 'no directory' are indistinguishable from 'no grants'. Verdict is not reachable inside GrantStore; it has no verdict-producing method. The only Verdict producers downstream are FileGuard.PrecheckWriteAsync (FileGuard.cs:358 'requires an authorizing grant') and ReconcileAsync (FileGuard.cs:236, drift reasons via DriftReason), which call GetActiveGrantsAsync at FileGuard.cs:236 and :355 and never see why grants were dropped.",
+          "evidence": "src/AgentGuard.Abstractions/Contracts/IGrantStore.cs:17; GrantStore.cs:58-62 and Create validatedKey; FileGuard.cs:236,355,358; grep shows these two are the only callers of GetActiveGrantsAsync outside the class"
+        },
+        {
+          "claim": "GuardEngine.LoadGrantPublicKey (GuardEngine.cs:143-164) returns ReadOnlyMemory<byte>.Empty for four distinct causes: key file absent (Exists false, line ~147), wrong decoded length (line ~155), FormatException, IOException, UnauthorizedAccessException (the three catches at 156-164 have no exception variable). It runs at composition time inside CreatePipeline, which returns IPipeline; no Verdict exists at that point and no tool call is being judged. An empty key flows into GrantStore, which then yields no grants. The only way a reason reaches a Verdict is to be carried from here to GrantStore/FileGuard, which needs a carrier that does not exist today.",
+          "evidence": "src/AgentGuard.Engine/GuardEngine.cs:116-119,143-164; GrantStore.Create validatedKey logic"
+        },
+        {
+          "claim": "Ed25519SignatureService.Verify returns plain bool. The catches at lines 56 (ArgumentException) and 62 (CryptoException) return false with no exception variable; line 50 also returns false for a wrong-length public key with no catch. A false from a tampered signature (VerifySignature false), a wrong-length key, and a thrown ArgumentException/CryptoException are indistinguishable to GrantStore. ISignatureService.Verify is `bool Verify(ReadOnlyMemory<byte>, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>)`; its type cannot carry a reason and Verdict is not reachable (Boundaries layer, below Abstractions' Verdict consumers). The class doc states the contract 'returns false ... and never throws'. Test coverage pins false for tamper, wrong key, short key (BoundariesEd25519SignatureServiceTests.cs:39-72).",
+          "evidence": "src/AgentGuard.Boundaries/Ed25519SignatureService.cs:44-66; src/AgentGuard.Abstractions/Contracts/ISignatureService.cs; tests/AgentGuard.Tests/BoundariesEd25519SignatureServiceTests.cs"
+        },
+        {
+          "claim": "GrantStore.IsSignatureValid is the sole caller of ISignatureService.Verify in src (GrantStore.cs:151), so a change to Verify's shape has exactly one production consumer plus the tests/EngineSystemServicesWiringTests.cs:52 and the five Boundaries tests.",
+          "evidence": "grep '\\.Verify(' over src and tests"
+        },
+        {
+          "claim": "WindowsUserPresence catches at lines 154 (IsHelloAvailableAsync, returns false) and 175 (TryVerifyWithHelloAsync, returns null) are `catch (Exception)` with no variable, both under signed-off CA1031 SuppressMessage. The methods return bool and WindowsPresenceResult? (internal enum Verified/Cancelled/NoMethod/Failed) respectively; neither can carry text, and Verdict is not reachable: presence uses PresenceResult(ApprovalReason Reason, string Detail), not Verdict. The exception message IS available at the catch. The reachable carrier is PresenceResult.Detail: WindowsPresenceCheck.Check builds it as $\"Windows user presence -> {result} -> {reason}\" from a bare enum, so the cause would have to travel from WindowsUserPresence.VerifyAsync (returns Task<WindowsPresenceResult>, internal interface IWindowsUserPresence) to WindowsPresenceCheck. Note line 154's fail-closed result is NoMethod (headless fast fail), and 175's null falls through to the credential prompt, so 175 is not a denial at all but a fallback.",
+          "evidence": "src/AgentGuard.CrossPlatform.Windows/Presence/WindowsUserPresence.cs:78-92,143-178; WindowsPresenceCheck.cs:29-37,55-61; PresenceResult.cs:13; WindowsPresenceResult.cs:10-22"
+        },
+        {
+          "claim": "BuildOutputSkipRule.ShouldSkip (BuildOutputSkipRule.cs:27-56) catches IOException (line 47) and UnauthorizedAccessException (line 51) and returns false, meaning 'do not skip, descend'. It implements IDirectorySkipRule.ShouldSkip -> bool, whose only caller is ProtectedFileScanner.ShouldSkip (ProtectedFileScanner.cs:108-109, used at :64 inside ScanAsync). Verdict is not reachable: a bool-returning predicate inside a scanner that returns IReadOnlyList<CanonicalPath>. The directory failure here is not a denial; it makes the scan walk into the bin/obj directory. The exception object is in scope. If it were allowed to propagate instead, ScanAsync's callers already convert exceptions into reasoned outcomes: FileGuard Post via TryReadCurrentAsync/Deny (FileGuard.cs:125-129) and Pre capture via CaptureFailed($\"...{exception.Message}\") (FileGuard.cs ~195-225), though that capture catch is typed to IOException/UnauthorizedAccessException.",
+          "evidence": "src/AgentGuard.Engine/BuildOutputSkipRule.cs:27-56; IDirectorySkipRule.cs:23; ProtectedFileScanner.cs:64,108-109; FileGuard.cs:125-129"
+        },
+        {
+          "claim": "FileGuard.TryReadCurrentAsync (FileGuard.cs:375-404) has four catches. The two at 383-387 (first attempt) have comment-only bodies ('First attempt failed transiently; retry once below'), i.e. exactly the empty/comment-only catch that agent-guard/CLAUDE.md rule 1 forbids; the two on the retry return null, also with no variable. Both the retry's exception and the first attempt's are in scope at the catch. The method returns Dictionary<...>? and its sole caller (FileGuard.cs:125-130) turns null into the fixed string Deny(\"Post could not scan or read the tree after a retry; failing closed with no effects.\"), where Deny (FileGuard.cs:161-162) is `new(Verdict.Deny(reason), Array.Empty<Effect>())`. So Verdict.Deny IS reachable one frame up, and PostcheckResult already carries it; the missing step is returning the exception message from TryReadCurrentAsync instead of null.",
+          "evidence": "src/AgentGuard.Engine/FileGuard.cs:125-130,161-162,375-404"
+        },
+        {
+          "claim": "Precedent inside FileGuard already carries the exception message into the result: CaptureFailed($\"A protected file could not be read: {pathValue}: {exception.Message}\") and CaptureFailed($\"The snapshot could not be written: {exception.Message}\") (FileGuard.cs ~195-225). The sibling pattern for 383-387 therefore exists in the same class; no new mechanism is needed there.",
+          "evidence": "src/AgentGuard.Engine/FileGuard.cs:~190-225"
+        },
+        {
+          "claim": "Verdict.Deny(string reason) and Verdict.Warn(string message) exist (Verdict.cs:38,46) and Message is a single nullable string. Of the six sites, Verdict is reachable at or one frame above the catch for only FileGuard 383-387 (via the Deny helper in the caller). It is not reachable at GrantStore, GuardEngine.LoadGrantPublicKey, Ed25519SignatureService, WindowsUserPresence, or BuildOutputSkipRule, whose result types are Grant?, ReadOnlyMemory<byte>, bool, bool/WindowsPresenceResult?, and bool respectively.",
+          "evidence": "src/AgentGuard.Abstractions/Verdict.cs; the six files above"
+        },
+        {
+          "claim": "The contract text for Group 3 ('At each of the six places, pass the cause into the result instead of discarding it ... carries the exception's message into Verdict.Deny') conflicts with the contract's MUST NOT 'Add a new ... result type' and with the Reuse ledger 'no new result type', because five of the six sites' result types (bool, Grant?, ReadOnlyMemory<byte>, WindowsPresenceResult?, IReadOnlyList<Grant>) cannot carry a string. Reaching Verdict.Deny from GrantStore/Ed25519/GuardEngine requires changing a public contract interface (ISignatureService.Verify or IGrantStore) or adding a carrier; this is a design choice the contract does not make.",
+          "evidence": ".dev/inprocess/106-silent-failure-cleanup/contract.md 'What the agent MUST NOT do', 'Reuse ledger', 'Group 3'; interface signatures cited above"
+        },
+        {
+          "claim": "Line numbers in issue/contract are catch lines, not return lines, and the exact ranges are live: GrantStore.cs:133-141 is the JsonException/FormatException/IOException catches; Ed25519SignatureService.cs:56,62 are the catch (ArgumentException) and catch (CryptoException) lines; WindowsUserPresence.cs:154,175 are catch (Exception) lines; GuardEngine.cs:156-164 are the three catches; BuildOutputSkipRule.cs:47,51 and FileGuard.cs:383,387 are catch lines. The working tree has no uncommitted changes to src (git status shows only untracked .DS_Store, .playwright-mcp, CLAUDE.md, docs/agent-guard-report.html).",
+          "evidence": "sed -n on each file at those lines; git status --short"
+        },
+        {
+          "claim": "The CLAUDE.md rule 1 binding on this area: 'no empty or comment-only catch, no early return that makes a check pass without checking... A fail-closed catch is fine only if the failure is surfaced to the caller.' The six sites' catches all return a fail-closed value without surfacing the failure, so each violates the 'surfaced to the caller' condition; only the FileGuard 383-387 pair is additionally comment-only.",
+          "evidence": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/CLAUDE.md rule 1; best-practices-guide.md line 84 (5a) and 86 'the message names what failed, why'"
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Engine/GrantStore.cs (TryLoadAsync catches, GetActiveGrantsAsync early returns, Create key-length validation)",
+        "src/AgentGuard.Abstractions/Contracts/IGrantStore.cs (result type Task<IReadOnlyList<Grant>>)",
+        "src/AgentGuard.Engine/GuardEngine.cs (LoadGrantPublicKey, called from CreatePipeline line 116-119)",
+        "src/AgentGuard.Boundaries/Ed25519SignatureService.cs and src/AgentGuard.Abstractions/Contracts/ISignatureService.cs (Verify returns bool)",
+        "src/AgentGuard.CrossPlatform.Windows/Presence/WindowsUserPresence.cs, WindowsPresenceResult.cs, IWindowsUserPresence.cs, WindowsPresenceCheck.cs, and src/AgentGuard.Abstractions/Contracts/PresenceResult.cs (Reason + Detail string)",
+        "src/AgentGuard.Engine/BuildOutputSkipRule.cs, IDirectorySkipRule.cs, NamedDirectorySkipRule.cs, ProtectedFileScanner.cs (sole ShouldSkip caller)",
+        "src/AgentGuard.Engine/FileGuard.cs (TryReadCurrentAsync 375-404, Deny helper 161-162, CaptureFailed precedents, grant consumers at 236 and 355)",
+        "src/AgentGuard.Abstractions/Verdict.cs (Deny/Warn, single nullable Message string)",
+        "On-disk stores read by these paths: the grant public key file (CoreSystemPaths.GrantPublicKeyRelative), the grant token directory (CoreSystemPaths.GrantStoreRelative, *.token), the project tree scanned by ProtectedFileScanner, and the per-call snapshot store (ContextStorePaths)",
+        "Tests pinning current behaviour: tests/AgentGuard.Tests/BoundariesEd25519SignatureServiceTests.cs, EngineSystemServicesWiringTests.cs:52, tests/AgentGuard.CrossPlatform.Tests/Presence/Windows/WindowsUserPresenceFlowTests.cs and FakeWindowsUserPresence.cs",
+        "docs/silent-failure-audit.md lines ~26-28 (the 'Listed, not fixed' entry for these six)"
+      ],
+      "openQuestions": [
+        "How does the cause leave GrantStore and Ed25519SignatureService? IGrantStore returns only a list of Grants and ISignatureService.Verify returns bool; the contract forbids a new result type and says the reason goes 'into Verdict.Deny', but neither interface can carry a string and Verdict is unreachable there. Options (change a public interface signature, an out/extra member, throw instead of null/false and let FileGuard catch, or leave those sites as typed-fail-closed) are a design decision the working tree and approved principles do not settle.",
+        "Is a thrown exception from Verify/GrantStore acceptable for the grant path, given Ed25519SignatureService's documented contract 'never throws' and the tests pinning false for tampered/wrong/short key? Best-practices 5a says assert and throw, but the class doc and tests currently define the opposite for Verify.",
+        "For GuardEngine.LoadGrantPublicKey (composition time, no Verdict, no tool call): where is the reason to be surfaced, and is the reason about the key (missing vs malformed vs unreadable) to be carried on the later 'requires an authorizing grant' denial at FileGuard.cs:358? The working tree gives no carrier between composition and the per-call denial.",
+        "WindowsUserPresence line 175 is a fallback to the credential prompt, not a denial, and line 154 yields NoMethod; the contract says 'fail-closed path carries the exception's message into Verdict.Deny' but Verdict is not in the presence path (PresenceResult.Detail is). Which carrier is intended, and does the contract mean line 175's fallback should also surface the cause?",
+        "BuildOutputSkipRule returns false (descend) on a directory error rather than denying, and IDirectorySkipRule.ShouldSkip returns bool inside the scanner. Letting the exception propagate changes control flow (Pre capture catches only IOException/UnauthorizedAccessException; Post converts to a static Deny); the contract says 'No place ... changes whether it denies', so whether propagation is permitted is not answered by the tree.",
+        "Whether the FileGuard first-attempt catches (383-387) should record the first failure's message alongside the retry's, or only the final failure's."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Whether a swallowed fail-closed catch in these six places is acceptable as it stands",
+          "resolution": "No: the cause must be surfaced to the caller; this is not a choice to ask Tim",
+          "principle": "Best-practices guide 5a: fail closed by throwing, never a silent ignore; the message names what failed and why. Project CLAUDE.md rule 1: a fail-closed catch is fine only if the failure is surfaced to the caller.",
+          "evidence": ".dev/reference/best-practices-guide.md:84-86; /Users/timothystockstill/code/macos/4thWAIV/agent-guard/CLAUDE.md rule 1; the six catch sites cited in facts"
+        },
+        {
+          "choice": "Which existing mechanism carries the reason in FileGuard.TryReadCurrentAsync",
+          "resolution": "Reuse the existing Deny(string) helper and the exception.Message pattern already used by CaptureFailed in the same class; no new type",
+          "principle": "Reuse an existing primitive behind its owner (memory: feedback-reuse-primitive-behind-an-owner; contract Reuse ledger 'None')",
+          "evidence": "FileGuard.cs:161-162 and ~190-225 (CaptureFailed with exception.Message)"
+        }
+      ]
+    },
+    {
+      "area": "cleanup-catches",
+      "facts": [
+        {
+          "claim": "The three product places do not share a shape. PrivilegedWriter.ExecuteAsync (src/AgentGuard.Engine/PrivilegedWriter.cs:33-52) wraps each effect in try and has two empty catches: catch (IOException) at line 43 and catch (UnauthorizedAccessException) at line 47, each holding only a comment ('Best-effort: a single failed restore or delete must not abort the remaining effects.'). It swallows any IO or access failure from ExecuteOneAsync: CreateDirectory, WriteAllBytesAsync (restore) or DeleteFile (delete). A failed restore of a protected file's pre-call bytes is therefore invisible.",
+          "evidence": "PrivilegedWriter.cs:39-50; ExecuteOneAsync lines 65-88"
+        },
+        {
+          "claim": "In PrivilegedWriter no Verdict exists at the swallow point, so a warn is not reachable there as written. IPrivilegedWriter.ExecuteAsync returns plain Task and takes only (IReadOnlyList<Effect>, CancellationToken). Its sole caller, Pipeline.RunPostAsync line 157, calls it before aggregating the verdicts. A warn is reachable only by changing the return type (a new result type, which the contract forbids) or by throwing out of the writer and letting RunPostAsync's catch-all turn it into Verdict.Deny. That would change a deny-stands/best-effort behavior and would stop the remaining effects after a failed one. The contract's wording 'Verdict.Warn where a verdict is being produced, and otherwise report it to the caller' fits PrivilegedWriter as 'report it to the caller', but the mechanism is not settled by the contract.",
+          "evidence": "IPrivilegedWriter.cs:12-26 (returns Task; doc says 'best-effort: a single effect's failure does not abort the rest'); Pipeline.cs:157-158; grep for PrivilegedWriter in src finds only PrivilegedWriter.cs, IPrivilegedWriter.cs, GuardEngine.cs and Pipeline.cs; no test file references it"
+        },
+        {
+          "claim": "Pipeline.cs:180-187 is SweepBestEffortAsync, an empty catch (IOException) and catch (UnauthorizedAccessException) around _store.SweepExpiredAsync. It runs at the very start of RunPreAsync (line 95), before any guard runs and before any verdict exists. A Verdict.Warn cannot be produced at that point; the later verdicts are computed afterward and would have to carry it. Pipeline.cs:190-204 is DeleteBestEffortAsync, around _store.DeleteAsync, called from the finally block of RunPostAsync (line 170). The try has already executed 'return VerdictAggregator.Aggregate(verdicts)' (line 158) or 'return Verdict.Deny(...)' (line 166), so the verdict is already computed and a finally cannot change the returned value without restructuring (e.g. capture the verdict in a local, run the delete after it, and fold a Warn into it). In both cases the verdict path exists in the enclosing method, so a warn is reachable only by restructuring RunPreAsync and RunPostAsync.",
+          "evidence": "Pipeline.cs:93-96 (sweep first in try), 106-123, 139-172 (finally at 168-171), 174-204. The contract lists the span as 180-200; the real catches are 180-187 and 196-203."
+        },
+        {
+          "claim": "Warn is a real, rendered verdict kind, so a Warn returned by the pipeline reaches the host. Verdict.Warn(string message) exists at src/AgentGuard.Abstractions/Verdict.cs:44. VerdictAggregator turns Warn into the aggregate Warn when no deny exists (VerdictAggregator.cs:32-34, 47-50; a Deny wins over any Warn). ClaudeCodeHostAdapter.Render maps VerdictKind.Warn to HostDecision(AllowExitCode, verdict.Message) (ClaudeCodeHostAdapter.cs:113). The Render signature takes hookEvent but the Warn branch does not branch on it, so Pre and Post render a warn the same way.",
+          "evidence": "Verdict.cs:30-44; VerdictAggregator.cs:19-57; ClaudeCodeHostAdapter.cs:107-117"
+        },
+        {
+          "claim": "PosixFileSystem.TryRemoveLink (src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs:163-177) has empty catch (IOException) at line 169 and catch (UnauthorizedAccessException) at line 173 around _shared.DeleteFile(linkPath). It is private and called twice, both inside MakeLinkTarget: line 64 (pre-clearing the temporary sibling, before Directory.CreateSymbolicLink) and line 70 (after a failed rename, immediately before MakeLinkTarget throws IOException with the errno). No Verdict exists here at all: this is the IPlatformFileSystem boundary, which returns void for MakeLinkTarget. A warn is not reachable. The reachable surfaces are the exception thrown or nothing. At line 64 a failed cleanup of a stray temporary would be followed by CreateSymbolicLink which would itself throw; at line 70 the IOException is already being thrown, so any cleanup failure must be folded into that exception (e.g. an inner or aggregated message) rather than swallowed.",
+          "evidence": "PosixFileSystem.cs:52-73 (MakeLinkTarget), 163-177; IPlatformFileSystem.MakeLinkTarget returns void (call at FixtureProject.cs:83-84 ignores a result)"
+        },
+        {
+          "claim": "PosixFileSystem.cs is a single physical file compiled into the Linux project by link, so one edit changes both OS builds. The Linux csproj has <Compile Include=\"../AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs\" Link=\"Posix/PosixFileSystem.cs\" />. There is no Windows copy of TryRemoveLink; I did not inspect the Windows project's own MakeLinkTarget catches, which are outside this area.",
+          "evidence": "src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj:30"
+        },
+        {
+          "claim": "The exact paths of the five test files, and what each catch swallows, differ from the contract's list in three cases. TestTempDirectory is tests/Shared/TestTempDirectory.cs (not under AgentGuard.TestHelpers as the contract's Surfaces list says). Its static DeleteBestEffort(string path) at lines 23-37 swallows IOException (29) and UnauthorizedAccessException (33) from raw Directory.Delete(path, recursive:true); the doc comment says 'any other exception still surfaces'. SetupHarness is tests/AgentGuard.Tests/SetupHarness.cs (not tests/Shared). Dispose at lines 207-223 swallows System.IO.IOException (215) and UnauthorizedAccessException (219) from DirectoryWriter.DeleteDirectory(_root, recursive:true) on the in-memory overlay (comment: 'overlay is discarded with the container'). FixtureProject is tests/AgentGuard.TestHelpers/FixtureProject.cs (not tests/AgentGuard.Tests). Dispose lines 87-101 swallows IOException (93) and UnauthorizedAccessException (97) from _services.FileSystem.GetDirectoryWriter().DeleteDirectory(_root, recursive:true). CliMachine is tests/AgentGuard.Cli.Tests/CliMachine.cs (not AgentGuard.Tests). Private DeleteBestEffort at 134-148, called from Dispose for Home and Project (lines 127-128), swallows IOException (140) and UnauthorizedAccessException (144). PlatformFileSystemSpecTests is tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs and the contract path is correct, but the catch at line 302 is a different type from the other four: Dispose (296-306) catches only DirectoryNotFoundException around services.FileSystem.GetDirectoryWriter().DeleteDirectory(root, recursive:true), with the comment 'Nothing to clean up.'. It is not IOException or UnauthorizedAccessException, and DirectoryNotFoundException derives from IOException. It is a narrow, already-targeted catch of a benign case and is the one least like the others. The contract's 'exact path of each test-cleanup file is to be confirmed' warning is justified.",
+          "evidence": "find on each filename; grep -n catch on the five files; file reads of tests/Shared/TestTempDirectory.cs:15-37, tests/AgentGuard.Tests/SetupHarness.cs:206-223, tests/AgentGuard.TestHelpers/FixtureProject.cs:86-101, tests/AgentGuard.Cli.Tests/CliMachine.cs:125-148, tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs:295-306"
+        },
+        {
+          "claim": "A stale second copy of SetupHarness.cs, FixtureProject.cs and PlatformFileSystemSpecTests.cs sits under .claude/worktrees/agent-ad5849648391239d1/tests/... with the same catches at different line numbers (SetupHarness 162-166, FixtureProject 73-77, PlatformFileSystemSpecTests 269). It is an old worktree, not part of the live tree, but a grep of 'catch' across the repo root hits it. Acceptance check 9's grep is stated on 'src tests', so it does not reach it.",
+          "evidence": "find . -name for each file; grep output listing .claude/worktrees/agent-ad5849648391239d1/..."
+        },
+        {
+          "claim": "The catches are not bare empty-brace catches. Every one is a typed catch with only a comment inside. Acceptance check 9's regex, grep -rn 'catch\\s*(\\s*)\\?\\s*{\\s*}' src tests --include=*.cs, matches a one-line empty-braced catch only, and the actual catch blocks span lines (catch (X) newline { newline // comment newline }). That grep is therefore a no-op against these eight places: it returns nothing now and would return nothing after a comment-only catch is left in. The check cannot prove group 4 either way, so check 9 needs a different mechanism (e.g. a multi-line match or a test).",
+          "evidence": "catch (IOException)\\n{\\n // comment\\n} shapes at PrivilegedWriter.cs:43-50, Pipeline.cs:180-187, PosixFileSystem.cs:169-176, TestTempDirectory.cs:29-36, etc. The regex requires '{' and '}' with only whitespace between, on one line with 'catch'."
+        },
+        {
+          "claim": "Every cleanup catch in the nine locations swallows exactly the same two exception types, IOException and UnauthorizedAccessException, except PlatformFileSystemSpecTests (DirectoryNotFoundException only). Seven of the nine sites (Pipeline sweep, Pipeline delete, PrivilegedWriter, TestTempDirectory, SetupHarness, FixtureProject, CliMachine) share one catch pair of (IOException, UnauthorizedAccessException) written out separately each time, plus PosixFileSystem, making the same pair appear in eight places. This is a DRY observation for the downstream design, not a decision.",
+          "evidence": "grep -n catch across the files named above"
+        }
+      ],
+      "surfaces": [
+        "src/AgentGuard.Engine/PrivilegedWriter.cs (catches 43, 47) and src/AgentGuard.Engine/IPrivilegedWriter.cs (returns Task, no verdict)",
+        "src/AgentGuard.Engine/Pipeline.cs (SweepBestEffortAsync 174-188, DeleteBestEffortAsync 190-204, RunPreAsync 88-133, RunPostAsync 139-172)",
+        "src/AgentGuard.Engine/VerdictAggregator.cs and src/AgentGuard.Engine/ClaudeCodeHostAdapter.cs:113 (where Warn is aggregated and rendered)",
+        "src/AgentGuard.Abstractions/Verdict.cs:30-44 (Allow, Deny, Warn)",
+        "src/AgentGuard.CrossPlatform.MacOS/Posix/PosixFileSystem.cs (TryRemoveLink 163-177, callers at 64 and 70), compiled into Linux via the link at src/AgentGuard.CrossPlatform.Linux/AgentGuard.CrossPlatform.Linux.csproj:30",
+        "The value each cleanup protects: the context-store snapshot (ContextStore.DeleteAsync/SweepExpiredAsync, src/AgentGuard.Engine/ContextStore.cs:72,85, the 24-hour OrphanSnapshotTimeToLive at Pipeline.cs:22), the restored protected file on disk, the stray temporary symlink sibling beside a link path",
+        "tests/Shared/TestTempDirectory.cs, tests/AgentGuard.Tests/SetupHarness.cs, tests/AgentGuard.TestHelpers/FixtureProject.cs, tests/AgentGuard.Cli.Tests/CliMachine.cs, tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs (real disk for TestTempDirectory, FixtureProject, CliMachine and the spec tests; in-memory overlay for SetupHarness)",
+        "Stale copy under .claude/worktrees/agent-ad5849648391239d1/tests/ (not live)",
+        ".dev/inprocess/106-silent-failure-cleanup/contract.md (the contract's own Surfaces list carries three wrong test paths); contract references .dev/backlog/106-silent-failure-cleanup/issue.md, which is not in the input folder I was given"
+      ],
+      "openQuestions": [
+        "PrivilegedWriter: the contract says 'Verdict.Warn where a verdict is being produced, and otherwise report it to the caller'. No verdict exists inside the writer and IPrivilegedWriter returns Task, while a new result type is forbidden. The tree cannot say how a failure is reported to the caller: throw (which makes RunPostAsync deny and stops the remaining effects, contradicting the interface's documented 'one effect's failure does not abort the rest' and the class comment 'the deny verdict stands regardless') or some other channel. Which is wanted? A throw after finishing all effects (collect, then raise) would keep best-effort semantics but is a design choice for Tim.",
+        "Pipeline sweep: it runs before any guard verdict exists in RunPreAsync, so a warn must be carried on a later verdict or a deny. Whether a failed sweep should end up as a Warn on the Pre result (and whether a warning there overrides nothing, since a Deny aggregate wins) is not answered by the contract or the tree.",
+        "Pipeline delete: it runs in a finally after the verdict is already chosen. Restructuring RunPostAsync so the cleanup result can be folded into the verdict (Warn on an Allow aggregate; what on a Deny, which would hide the warn because Deny wins) is not specified.",
+        "PosixFileSystem.TryRemoveLink: no verdict exists. The contract's 'otherwise report it to the caller' does not say how. Line 70 is followed by a throw, so the cleanup failure could be added to that IOException's message; line 64 precedes a call that fails loudly on its own. Whether the failed pre-clear at line 64 should raise at once is unanswered.",
+        "Test cleanup: the contract says 'let the exception surface, or assert on it where the test is about cleanup'. For PlatformFileSystemSpecTests.cs:302 (DirectoryNotFoundException, 'Nothing to clean up') the tree does not say whether a benign already-gone directory must now throw; the contract's 'a catch with nothing in it is removed' would remove a catch whose swallowed case is benign. Whether that case is still wanted is for Tim.",
+        "Acceptance check 9's regex does not match the multi-line comment-only catches in the tree, so it cannot prove group 4. The contract needs a different check; that is a contract edit, which only Tim makes.",
+        "The contract's Surfaces list names TestTempDirectory under AgentGuard.TestHelpers, SetupHarness under tests/Shared and FixtureProject and CliMachine under tests/AgentGuard.Tests. All wrong; the true paths are in the facts. The contract's own line says a wrong path is the list being wrong, not a reason to skip."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Whether the swallowed cleanup failures in the test files may stay swallowed",
+          "resolution": "No. Each must surface the failure or assert on it; a swallowed failure is the thing being removed",
+          "principle": "Best-practices guide 5a: 'when one does not hold, fail closed by throwing an exception \u2014 never a silent ignore. A throw is loud ... a silent failure hides'; 5b: 'Keep the original error as the cause when you wrap it; never swallow it.' Also 6a: never weaken a test to get green.",
+          "evidence": "Five test cleanup catches at tests/Shared/TestTempDirectory.cs:29,33, tests/AgentGuard.Tests/SetupHarness.cs:215,219, tests/AgentGuard.TestHelpers/FixtureProject.cs:93,97, tests/AgentGuard.Cli.Tests/CliMachine.cs:140,144, tests/AgentGuard.CrossPlatform.Tests/PlatformFileSystemSpecTests.cs:302; best-practices-guide.md category 5 and category 6"
+        },
+        {
+          "choice": "Whether the three product cleanup places may use a new exception type, result type or logging sink to carry the failure",
+          "resolution": "No. The contract rules each out, and the existing Verdict.Warn(string) and the already-thrown IOException / UnauthorizedAccessException are the only mechanisms",
+          "principle": "Contract 'What the agent MUST NOT do' and 'Reuse ledger' (a settled decision in the signed package, not an agent choice); rails-decisions boundary: adding a mechanism or interface is Tim's",
+          "evidence": ".dev/inprocess/106-silent-failure-cleanup/contract.md, sections 'Reuse ledger' and 'What the agent MUST NOT do'; Verdict.cs:44"
+        }
+      ]
+    },
+    {
+      "area": "build-release-path",
+      "facts": [
+        {
+          "claim": "win-arm64 is build and publish only; no step tests it. The windows job runs on windows-latest and its test step is named to say so.",
+          "evidence": ".github/workflows/ci.yml:241 `dotnet publish ... -r win-arm64 --self-contained $AG`; :242 `- name: Test win-x64 (win-arm64 is build-only, accepted risk)`; :244 `dotnet test -c Release $AG` has no -r. No other step names win-arm64 apart from the staging, signing and verify calls at :296,:309,:313."
+        },
+        {
+          "claim": "linux-x64 is also build and publish only. The linux job runs on ubuntu-24.04-arm, so the test step is native linux-arm64. The x64 binary is never run in CI.",
+          "evidence": ".github/workflows/ci.yml:333 `runs-on: ubuntu-24.04-arm`; :366 `dotnet publish ... -r linux-x64`; :367 `- name: Test linux-arm64 (linux-x64 is build-only, accepted risk)`; :368 `dotnet test -c Release $AG`."
+        },
+        {
+          "claim": "The sibling legs show a precedent for running the non-native RID. macOS tests osx-x64 under Rosetta with AGENTGUARD_EXPECT_ARCH=X64 so the leg fails if it did not land on x64. Windows and Linux have no such step.",
+          "evidence": ".github/workflows/ci.yml:106-115 (Test osx-x64 under Rosetta, env AGENTGUARD_EXPECT_ARCH: X64)."
+        },
+        {
+          "claim": "Signing, cosign, checksum and verify steps are guarded by `if: github.event_name == 'push'`. A pull_request run therefore never signs or verifies, and the win-arm64 and linux-x64 binaries are only built and published. The gate job needs only macos, windows, linux and typescript results.",
+          "evidence": "ci.yml:76,134,139,176,181,184,187,195 (mac); :225,265,270,307,311,315,323 (windows); :353,388,393,396,399,407 (linux); gate at :444-455 `needs: [macos, windows, linux, typescript]`. The release job is `if: github.event_name == 'push'` at :462."
+        },
+        {
+          "claim": "Three evidence uploads use `if-no-files-found: warn` together with `if: always()`: evidence-macos, evidence-windows and evidence-linux. If the build or test step produced no binlog, trx or cobertura, the step reports success with a warning only. The coverage gate scripts run before the upload and are separate steps. The push-only signed-artifact uploads already use `error` (8 occurrences).",
+          "evidence": "ci.yml:127, :258, :381 are `warn`. `error` at :192,:200,:320,:328,:404,:412 and the remaining release-path uploads (grep of if-no-files-found). Paths uploaded: evidence/*.binlog, **/TestResults/**/coverage.cobertura.xml, **/TestResults/**/*.trx (:128-132, :259-, :382-386)."
+        },
+        {
+          "claim": "One consequence of switching the three evidence uploads to `error`. The upload runs with `if: always()`, so on a leg that failed before producing files the upload would also fail. This changes a failing leg's reported cause only; the leg is already red. The paths are globs and the binlog is written by the build step, so on a healthy run all three patterns match files.",
+          "evidence": "ci.yml:123 `if: always()` (macos), :254, :377; the binlog is produced at :95-ish `-bl:evidence/macos-build.binlog`, `windows-build.binlog`, `linux-build.binlog`."
+        },
+        {
+          "claim": "eng/check-copied-modules.mjs is not run by CI or by any script, package.json entry, hook or doc. The only references to its name are comments inside .agents/workflows/*.js and its own header. It reads `process.cwd()/.agents/workflows`, exits 1 on drift or unbalanced markers, and exits 0 only after PASS. It has no skip path.",
+          "evidence": "grep -rn check-copied-modules excluding node_modules/.git returned only .agents/workflows/{design,ground,refute,refute-readiness,rule-phase,tdd,preflight-contract}.js comment lines. package.json scripts: check, render, examples, typecheck, lint, test, coverage, verify, kit; none calls it. ci.yml has no match. eng/check-copied-modules.mjs:11,35-38,65-66."
+        },
+        {
+          "claim": "The ground.js comment at line 1307 says the drift check enforces the copied blocks, but nothing runs it. The enforcement the comment asserts does not exist in CI.",
+          "evidence": ".agents/workflows/ground.js:1307 'the drift check in eng/check-copied-modules.mjs enforces it.'; no caller found."
+        },
+        {
+          "claim": "Neither tsc nor eslint covers .agents/workflows/*.js. `typecheck` is `tsc --noEmit` with include [\"ts\"] and allowJs false. `lint` is `eslint ts`. There are 11 workflow scripts in .agents/workflows.",
+          "evidence": "package.json scripts; tsconfig.json `\"include\": [\"ts\"]`, `\"allowJs\": false`; ls .agents/workflows = architecture, design, ground, hidden-decision-scan, implement, preflight-contract, prior-art-ledger, refute-readiness, refute, rule-phase, tdd (11 .js files)."
+        },
+        {
+          "claim": "eng/local-cosign.sh exits 0 without signing in three places: AGENTGUARD_COSIGN off (line 17-20), CI or GITHUB_ACTIONS set (23-26), no tty on stdin or stdout (29-32). It exits 1 when cosign is missing or the binary is absent (34-42). It prints a message in each skip case, so the skip is visible but the exit code is 0.",
+          "evidence": "eng/local-cosign.sh:17-20,23-26,29-32 `exit 0`; :34-37,39-42 `exit 1`."
+        },
+        {
+          "claim": "eng/local-cosign.ps1 has the same three exit-0 skips (opt-in off, CI, redirected console) and errors for missing cosign and missing binary. $ErrorActionPreference is Stop, so Write-Error terminates. After `cosign sign-blob` at line 37 it does not check $LASTEXITCODE, so a failed native cosign call can fall through to the `Wrote ...` message. The .sh has `set -euo pipefail`, so a failing sign-blob aborts there.",
+          "evidence": "eng/local-cosign.ps1:13,18-21,22-25,26-29,30-33,37-38; eng/local-cosign.sh:10,46."
+        },
+        {
+          "claim": "Nothing in the build calls local-cosign.*. They are invoked by hand only. The sole references outside their own headers are eng/signing/README.md:34-35, which documents `Unset (the default) it is a no-op`. So the opt-in skip is a documented design, and the CI skip is deliberate since CI signs keyless in ci.yml.",
+          "evidence": "grep -rn local-cosign: only eng/signing/README.md:34,35 and the scripts' own headers. README.md:37-38 'Unset (the default) it is a no-op.'"
+        },
+        {
+          "claim": "eng/version.compute.targets:81 runs `git rev-parse --short=7 HEAD` with IgnoreExitCode=\"true\", and line 86 turns any non-zero exit or empty output into the literal hash `local`. The build then stamps +local with no error. The CI-side mirror eng/compute-build-id.sh:19-25 does fail: it exits 1 when git fails and CI or GITHUB_OUTPUT is set, and falls back to `local` only locally.",
+          "evidence": "eng/version.compute.targets:81 and :86; eng/compute-build-id.sh:19-25 including the comment 'a CI build stamping a release as +local may not'."
+        },
+        {
+          "claim": "The MSBuild fallback is reached only when no version file exists and AgentGuardDay is empty (CallTarget Condition AgentGuardDay == ''). CI passes -p:AgentGuardDay and the hash from the version job (ci.yml AG env), so the CI path does not take the +local fallback; the fallback is the local path. The MSBuild copy has no CI guard like the shell one, so a CI run that dropped the -p args would stamp +local silently.",
+          "evidence": "eng/version.compute.targets:39 `Condition=\"'$(AgentGuardDay)' == ''\"`; ci.yml AG env at :84ish and :340 passes -p:AgentGuardDay/-p:AgentGuardHash. Inference for the last clause: no CI check exists in the targets file (grep for CI/GITHUB_ACTIONS in it returned nothing)."
+        },
+        {
+          "claim": "eslint.config.js:24-25 turns off @typescript-eslint/no-unsafe-assignment and no-unsafe-member-access for the whole lint scope (every file under ts, since `lint` is `eslint ts`). The config is not scoped by `files`; it is a global rules block. Lines 20-21 of the brief point at the comment and the rules block start.",
+          "evidence": "eslint.config.js:16-31 (no `files` key; rules at :24-25); package.json `\"lint\": \"eslint ts\"`."
+        },
+        {
+          "claim": "PROBE: with both rules set to error in a temporary config over `eslint ts` (32 files linted, no other-rule messages), exactly ONE violation appears: ts/metalang/kit.test.ts:97 no-unsafe-member-access, 'Unsafe member access .type on an `any` value.' There are zero no-unsafe-assignment violations. So if the disable were narrowed to the files that need it, the only file it must name is ts/metalang/kit.test.ts, a test file. None of the YAML-reading files (check.test.ts, app.tsx, examples.ts, cli.ts, propose.test.ts, examples.test.ts, app.test.tsx) needs it today. The comment's claim that YAML narrowing needs these rules off is not supported by the live tree.",
+          "evidence": "Probe run: `bunx eslint -c eslint.probe.tmp.js -f json ts` (temp config spreading eslint.config.js with both rules at 'error'; file removed afterwards, git status clean). Parsed output: {kit.test.ts: {no-unsafe-member-access: 1}}, line 97. Files containing yaml per grep: ts/metalang/{check.test.ts,app.tsx,examples.test.ts,propose.test.ts,app.test.tsx,examples.ts,cli.ts}."
+        },
+        {
+          "claim": "The no-unsafe disable has been in place since eslint.config.js last changed, 2026-10-19. The file is committed and clean in the working tree. Working tree has only untracked .DS_Store, .playwright-mcp/, CLAUDE.md and docs/agent-guard-report.html.",
+          "evidence": "git log -1 --format=%ci -- eslint.config.js = 2026-10-19 15:00:12 -0600; git status --short."
+        },
+        {
+          "claim": "The TypeScript job runs typecheck, lint and bun test on all three OSes; those steps fail loudly. The gate treats a skipped or failed job as red via `test ... = success`.",
+          "evidence": "ci.yml:426-441 matrix os [macos-latest, windows-latest, ubuntu-latest]; gate :444-455."
+        }
+      ],
+      "surfaces": [
+        ".github/workflows/ci.yml (jobs version, macos, windows, linux, typescript, gate, release; evidence uploads at :127,:258,:381; build-only legs at :241,:366)",
+        "eng/check-copied-modules.mjs (reads .agents/workflows/*.js)",
+        ".agents/workflows/*.js (11 scripts, carry the copied-module markers; not covered by tsc or eslint)",
+        "eng/local-cosign.sh and eng/local-cosign.ps1 (documented in eng/signing/README.md:34-38)",
+        "eng/version.compute.targets:81,86 (MSBuild hash fallback) and its mirror eng/compute-build-id.sh:19-25 (CI side, already fails loud)",
+        "eslint.config.js:24-25 (the disable), package.json scripts (lint, typecheck), tsconfig.json include",
+        "ts/metalang/kit.test.ts:97 (the only no-unsafe violation if the rules were on)",
+        "docs/silent-failure-audit.md (the contract says to update it for each of the thirteen)"
+      ],
+      "openQuestions": [
+        "win-arm64 and linux-x64: the contract's choice is 'run the tests they build, or record in docs/silent-failure-audit.md why a leg stays build-only'. The working tree cannot say which. Hosted arm64 Windows or x64 Linux runners would be new jobs or steps; the macOS Rosetta precedent exists, but no x64-on-arm emulation precedent exists for Linux or Windows. Both ci.yml step names call it an 'accepted risk' with no recorded decision found in the files read.",
+        "Where check-copied-modules.mjs should run in CI (a new step in the typescript job, which runs on three OSes, or in a single OS job) is not settled by the tree. It reads process.cwd(), so the job must run from the repo root.",
+        "The contract says to 'narrow the no-unsafe-* disable to the files that narrow YAML, named one by one', but the probe shows the only file that needs it is ts/metalang/kit.test.ts. Whether to name that one file, or to honour the contract's 'files that narrow YAML' wording, is for the worker or Tim to rule; the evidence contradicts the premise.",
+        "local-cosign: whether the opt-in-off, CI and headless skips count as 'sign nothing' failures the contract wants made loud, or as designed no-ops documented in eng/signing/README.md:37, is not answered by the tree. The README says 'Unset it is a no-op'.",
+        "version.compute.targets: whether the local `+local` hash fallback must fail loud locally too, or only in CI like compute-build-id.sh. The shell mirror allows it locally."
+      ],
+      "autoResolved": [
+        {
+          "choice": "Whether the upload steps with `if-no-files-found: warn` should become `error`.",
+          "resolution": "Change to `error`, matching the six push-only uploads already set to `error`.",
+          "principle": "Project CLAUDE.md rule 1: nothing may fail silently, no skipped checks, a step that checked nothing is reported as a failure. Also rails-real-work rail against low-signal shortcuts.",
+          "evidence": "ci.yml:127,258,381 `warn` vs. :192,:200,:320,:328,:404,:412 `error`; /Users/timothystockstill/code/macos/4thWAIV/agent-guard/CLAUDE.md item 1."
+        },
+        {
+          "choice": "Whether to apply the fix to all three evidence uploads or only the two the brief names.",
+          "resolution": "All three: macos at :127 has the same defect class as windows and linux.",
+          "principle": "Memory feedback-scope-by-behavior-not-ci: the same defect class on another platform is IN by default, and carving it out needs Tim's explicit yes.",
+          "evidence": "ci.yml:127 (macos), :258 (windows), :381 (linux), all `warn` with `if: always()`."
+        }
+      ]
+    }
+  ]
+}

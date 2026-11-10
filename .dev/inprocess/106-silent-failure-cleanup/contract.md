@@ -36,7 +36,7 @@ An unreadable symlink is raised, not flattened into "not a link". A denial carri
 
 ALL criteria met AND no errors in the system as a result of the change.
 
-This run's end state: every item in Surfaces is changed as What to do says; `dotnet build` reports 0 warnings and 0 errors; `dotnet test` reports 0 failed; `bun run typecheck`, `bun run lint` and `bun test` are clean with the 75 percent floor held; every numbered Acceptance check passes; and the thirteen findings listed in `.dev/backlog/106-silent-failure-cleanup/issue.md` are each either changed or recorded in that file as deliberately unchanged with the reason.
+This run's end state: every item in Surfaces is changed as What to do says; `dotnet build` reports 0 warnings and 0 errors; `dotnet test` reports 0 failed; `bun run typecheck`, `bun run lint` and `bun test` are clean with the 75 percent floor held; every numbered Acceptance check passes; and the thirteen findings listed in `.dev/inprocess/106-silent-failure-cleanup/issue.md` are each either changed or recorded in that file as deliberately unchanged with the reason.
 
 ## Surfaces
 

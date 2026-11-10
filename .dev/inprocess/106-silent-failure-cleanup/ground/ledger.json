@@ -1,0 +1,16 @@
+{
+  "ledger": "Two new capabilities, each ruled new, and nothing else. See the contract's Reuse ledger section, which is the authority.",
+  "note": "GROUND ran with an empty capability list because the contract said at the time that the work introduced no new capability. Tim then approved two by name on 2026-11-08, so this file is corrected to agree with the contract rather than with the state GROUND was given.",
+  "capabilities": [
+    {
+      "id": "loaded",
+      "ruling": "new",
+      "what": "record Loaded<T>(T Value, string? Why), for IGrantStore.GetActiveGrantsAsync and GuardEngine.LoadGrantPublicKey"
+    },
+    {
+      "id": "warning-sink",
+      "ruling": "new",
+      "what": "one warning sink behind ISystemServices, so a failure that stops nothing has somewhere to go"
+    }
+  ]
+}

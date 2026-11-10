@@ -1,0 +1,166 @@
+{
+  "contractPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.dev/inprocess/106-silent-failure-cleanup/contract.md",
+  "findings": [
+    {
+      "choice": "Where the new unreadable-link exception is caught at the construction-time Canonicalize calls that have no verdict to carry a reason, and what the guard does there.",
+      "whyForced": "The named catch points are in FileGuard capture and precheck only, so the throw from the other ten call sites falls through to the CLI catch-all at src/AgentGuard.Cli/Program.cs:198-202, which prints \"failing closed\" and returns 2 for every command.",
+      "options": [
+        "Let it reach the CLI catch-all: every agentguard command exits 2 while any protected root crosses an unreadable link",
+        "Catch at each construction site and skip that protected path",
+        "Catch once at engine construction and deny every guarded call with the path and cause named, leaving setup and doctor able to run",
+        "Resolve protected roots lazily at match time, where a verdict exists to carry the reason"
+      ],
+      "howItBites": "DirectoryPrefixMatcher.cs:41, ExactPathMatcher.cs:32, RegionMapRegistry.cs:65-67, GuardEngine.cs:109-111 and ProtectedFileScanner.cs:47,72 all canonicalize while the matchers, region registry and scanner are being BUILT. One unreadable link above the project root, the snapshot store, the grant store or ~/.agentguard/bin/guard then takes out every command including doctor, the one tool that would diagnose it. The other way round, a catch-and-skip silently drops a protected root from the protected set, so writes to a protected area are allowed: the exact fail-open the guard exists to prevent. Neither outcome is in the contract and nobody approved either.",
+      "recommended": "Catch once at engine construction and fail closed for guarded calls with the path and cause named, while keeping setup and doctor runnable so the user can repair it.",
+      "severity": "high"
+    },
+    {
+      "choice": "Which exception types mean \"a link I cannot read\" (and so raise) versus \"not a link\" (and so still return null) once the catch comes out of ReadLinkTarget.",
+      "whyForced": "Removing catch (IOException) wholesale is the cheap reading of the settled \"raises on a link it cannot read\", and it makes every IOException subclass propagate: FileNotFoundException, DirectoryNotFoundException, PathTooLongException.",
+      "options": [
+        "Raise only when the entry exists but its link target cannot be read; keep null for a non-link, an absent path and a missing ancestor",
+        "Raise on every IOException and UnauthorizedAccessException",
+        "Raise only on UnauthorizedAccessException and keep IOException returning null",
+        "Probe existence through a separate call first, then raise only on a read failure"
+      ],
+      "howItBites": "PathCanonicalizer.Resolve (PathCanonicalizer.cs:60-76) calls ReadLinkTarget on EVERY ancestor of every path, and FileGuard.PrecheckWriteAsync canonicalizes each write path as its first statement (FileGuard.cs:346) before any protected-set match. A wholesale raise therefore turns an ordinary write to a new file under a not-yet-created parent into a denial on an UNPROTECTED path, which breaks the contract's own MUST NOT (\"Change whether any place denies or allows\") and blocks normal agent work. Too narrow a set puts the original wrong answer back for the case Tim decided to fix. PlatformFileSystemBase.cs:36-38 documents null as covering \"a regular file, a directory, or an absent path\", so the absent and missing-ancestor cases are live, not hypothetical.",
+      "recommended": "Raise only when the entry exists and its link target cannot be read; keep null for a non-link, an absent path and a missing ancestor.",
+      "severity": "high"
+    },
+    {
+      "choice": "Whether ISignatureService.Verify keeps its documented \"never throws, returns false\" fail-closed guarantee, or may now let a malformed key, signature or message escape as an exception.",
+      "whyForced": "The contract defers this to DESIGN while banning a signature change, so the implementer either rewrites the public interface's documented guarantee or leaves the catch-and-return-false exactly as it is and reports nothing.",
+      "options": [
+        "Keep bool and never-throws; the caller that knows which check failed reports the cause",
+        "Let Verify throw and make every caller catch",
+        "Keep never-throws and add a separate cause-returning member to the interface"
+      ],
+      "howItBites": "src/AgentGuard.Abstractions/Contracts/ISignatureService.cs:15-16 states the contract in the public Abstractions assembly: \"Returns false on any malformed or wrong-length input and never throws, so a bad grant is denied rather than crashing.\" Dropping it narrows a protection that already exists (guide 3b, which never auto-resolves) and turns a clean denial into an unhandled fault on attacker-supplied grant bytes at every Verify caller with no catch, GrantStore.IsSignatureValid among them. It is also a change to a public interface other assemblies are written against.",
+      "recommended": "Keep the bool and the never-throws guarantee; report the cause from GrantStore, which already knows the signature check is the one that failed.",
+      "severity": "high"
+    },
+    {
+      "choice": "How much of a denial's cause is disclosed to the guarded agent, versus going only where the human reads it.",
+      "whyForced": "Group 3 puts \"the cause\" into the denial text and Acceptance 8 asserts the message contains it, so the implementer passes raw exception messages through and distinguishes bad-signature from expired from wrong-key-length from absent-key-file in text the guarded party reads.",
+      "options": [
+        "One undifferentiated \"grant not accepted\" to the agent, the full cause only on the trusted channel",
+        "Coarse categories to the agent (not-configured versus not-accepted), the specific cause on the trusted channel",
+        "The full specific cause, raw exception text and absolute paths included, in the hook output"
+      ],
+      "howItBites": "The agent being guarded reads the denial. Separating \"signature invalid\" from \"expired\" from \"wrong key length\" from \"no key file\" hands it an oracle for probing and forging grants against GrantStore.cs:105-125 and GuardEngine.cs:144-171, and a raw exception message leaks absolute grant-store and key paths, against the guide's own 5b rule \"never leak a secret, a token, an internal path, or a stack internal into a user-facing message.\" Acceptance 8 pins six of these strings in tests, so narrowing the disclosure afterwards is a test rewrite. This is guide 3b (what is trusted at a boundary, and a genuine security tradeoff), which never auto-resolves.",
+      "recommended": "Coarse categories to the agent, specific cause only on the trusted channel; no raw exception message and no absolute path in hook output.",
+      "severity": "high"
+    },
+    {
+      "choice": "What a build does when the git commit hash cannot be computed: fail everywhere, or keep the '+local' fallback, and for whom.",
+      "whyForced": "eng/version.compute.targets:81 runs git rev-parse with IgnoreExitCode=\"true\" and line 86 substitutes the literal 'local'; the implementer either drops both so any build without git fails, or keeps the fallback and calls it \"recorded\".",
+      "options": [
+        "Fail whenever the hash cannot be computed",
+        "Fail by default, with one explicit opt-in that stamps a hash marked as not-from-git",
+        "Keep 'local' and only print it loudly in build output",
+        "Fail for the dev and release channels, keep 'local' for a default local build"
+      ],
+      "howItBites": "Line 88 assembles _AgVersion as $(_AgTag)+$(_AgHash), which is stamped into every built binary: the signed package Tim approved this work through is named ...-local07b. Failing unconditionally breaks a source-tarball or no-git build outright. Keeping 'local' silently ships a binary that looks versioned and cannot be traced to a commit, which is the provenance a signature is supposed to back. The CI mirror was already ruled the other way (docs/silent-failure-audit.md: compute-build-id.sh \"exits 1 instead of stamping +local\"), so the two sides will disagree unless this is settled. Guide 4b puts the versioning scheme and any change to an already-shipped format with Tim, and it never auto-resolves.",
+      "recommended": "Fail by default, with one explicit opt-in property that stamps a hash plainly marked as not-from-git, so a no-git build is possible but never looks commit-traceable.",
+      "severity": "high"
+    },
+    {
+      "choice": "Whether PrivilegedWriter.ExecuteAsync stops at the first failed effect or runs every effect and then raises the failures together.",
+      "whyForced": "Removing the catch inside the foreach loop silently takes \"abort at the first failure\", which reverses the invariant the code itself states.",
+      "options": [
+        "Run every effect, then raise one aggregate naming each failure",
+        "Abort at the first failure and leave the remaining effects unrun",
+        "Run every effect and report failures as warnings without raising"
+      ],
+      "howItBites": "src/AgentGuard.Engine/PrivilegedWriter.cs:43,47 states the invariant in so many words: \"a single failed restore or delete must not abort the remaining effects.\" Those effects are the restores and deletes that roll a denied write back, so aborting at the first failure leaves the project half-restored, some files back and some not, which is worse than the silence being fixed. Reversing a stated invariant is a design element being flipped without Tim's yes, and the half-rolled-back tree is not recoverable from the denial message.",
+      "recommended": "Run every effect, then raise a single aggregate naming each failure, keeping the stated invariant intact.",
+      "severity": "high"
+    },
+    {
+      "choice": "Where a surfaced best-effort-cleanup failure actually goes, given there is no logger or diagnostic seam in the tree.",
+      "whyForced": "The audit's fix is \"surface a warning\" and guide 5b's destination is \"the full detail and stack in the developer log\", but no such channel exists: the only candidates are IConsole on ISystemServices (stderr, which every agent reads on every call) and Verdict.Warn, which only exists where a verdict is returned.",
+      "options": [
+        "Write them to stderr through the existing IConsole on ISystemServices",
+        "Add one owned warning or diagnostic interface and inject it, with the CLI choosing where it lands",
+        "Carry them as Verdict.Warn where a verdict exists and leave the adapter-level ones unreported",
+        "Aggregate them onto the returned verdict's message"
+      ],
+      "howItBites": "PrivilegedWriter.ExecuteAsync returns Task, Pipeline's cleanup runs inside a finally (Pipeline.cs:169-171), and PosixFileSystem.TryRemoveLink (MacOS/Posix/PosixFileSystem.cs:163-176) is a per-OS adapter with no verdict at all. Option 1 puts engine housekeeping noise into the hook output every agent and user reads on every tool call, with no way to turn it down. Option 2 is a new interface every layer then depends on, which rails-decisions puts with Tim and the contract never mentions. Option 3 leaves PosixFileSystem.cs:169,173 unreported, so part of group 4 ships still silent while the work is reported done.",
+      "recommended": "Add one owned warning seam reached through ISystemServices so the per-OS adapters are covered too, and let the CLI decide where it lands; it needs Tim's yes because it is a new interface.",
+      "severity": "medium"
+    },
+    {
+      "choice": "Whether an absent grant public-key file is a legitimate \"grants not configured\" state while a malformed or wrong-length key is a loud trust-configuration failure.",
+      "whyForced": "Both already return ReadOnlyMemory<byte>.Empty from GuardEngine.LoadGrantPublicKey, and the contract lists both as \"not an exception\", so the implementer changes only the wording and leaves them collapsed.",
+      "options": [
+        "Absent is configured-off; corrupt or wrong-length is a loud trust-configuration failure",
+        "Both are loud failures",
+        "Both only deny grants and the guard runs on, as today",
+        "Absent is configured-off; corrupt denies grants with a distinct reason but does not stop the guard"
+      ],
+      "howItBites": "GuardEngine.cs:147-150 returns Empty for an absent file and :156 for a wrong-length key, and GrantStore.GetActiveGrantsAsync:61 then returns NO active grants whenever _publicKey.IsEmpty. So an attacker who corrupts .agentguard's grant public key produces behaviour indistinguishable from a project that never configured grants: every grant denied, nothing said. Safe, but it hides tampering with the trust anchor. The other way, making both loud stops a project that simply never used grants from running the guard at all. Guide 3b owns this (what is trusted at a boundary) and never auto-resolves.",
+      "recommended": "Absent is configured-off; a key that exists and is corrupt or the wrong length is a loud trust-configuration failure, because a wrong anchor that exists is evidence of tampering.",
+      "severity": "medium"
+    },
+    {
+      "choice": "The mechanism a non-exception grant or key rejection uses to carry its reason out, since neither return type can hold one.",
+      "whyForced": "GrantStore.TryLoadAsync returns Grant? and GuardEngine.LoadGrantPublicKey returns ReadOnlyMemory<byte>; with no carrier, the implementer invents one (an out parameter, a result type, an exception, or a field read later) and that carrier outlives the fix.",
+      "options": [
+        "A result type carrying the outcome and a reason, returned by both",
+        "An out or Try pattern with a reason string",
+        "Throw and catch at the denial site",
+        "Collect the reason on the store and have the caller read it afterwards"
+      ],
+      "howItBites": "Whatever shape lands becomes the internal contract every future grant check is written against, and option 3 re-opens the fail-closed question for attacker-supplied grant files. It is also the surface the disclosure decision above is implemented through, so picking it before disclosure is settled bakes the full cause into a type that then reaches the hook output. Option 4 is shared mutable state across an async enumeration of grant files (GrantStore.cs:66-76) and will report the wrong file's reason.",
+      "recommended": "A result type carrying outcome plus reason, returned by both, with the denial site deciding what the agent sees.",
+      "severity": "medium"
+    }
+  ],
+  "autoResolved": [
+    {
+      "choice": "Whether the win-arm64 and linux-x64 CI legs start running the tests they build, on which runner, and under which step and check names; and which job runs eng/check-copied-modules.mjs.",
+      "resolution": "The two legs stay build-only. The recorded reason is the existing decision accepted-risk-skip-two-test-legs, which docs/silent-failure-audit.md cites rather than re-deriving; no runner, step name or required check changes. Where check-copied-modules.mjs runs is CI plumbing with no blast radius, so it goes on the existing Node/Bun job without asking.",
+      "principle": "A finalized recorded decision is answered from the record, not re-opened (rails-decisions: \"When a decision is finalized-but-not-yet-implemented, answer from the recorded decision\"), reinforced by practice-check-prior-rulings-first; and rails-decisions line 22, local work with no blast radius is the agent's.",
+      "evidence": ".dev/completed/run-records/2026-08-03-ci-cd-build-sign-release/contract.md:46, decision accepted-risk-skip-two-test-legs: \"Running the test suite on four and skipping it on `win-arm64` and `linux-x64` is an accepted risk Tim owns; no agent is to re-open or 'halt' on it.\" Tim's own words there: \"we skip 2 for tess becuase we are oky with the risk and that's my call stop letting the agent second guess my decisions.\" Five pooled candidates asked to re-open exactly this."
+    },
+    {
+      "choice": "Which of eng/local-cosign.sh's three exit 0 skips (AGENTGUARD_COSIGN off, running in CI, no interactive terminal) become failures, and whether the .ps1 matches.",
+      "resolution": "All three exit non-zero with a message naming which condition stopped the signing, and the .ps1 mirrors the codes and messages. No build breaks, because nothing in the build invokes the script: it is a manual command a developer runs only in order to cosign, so running it and getting no bundle is an expectation that did not hold.",
+      "principle": "Best-practices guide 5a (\"Fail closed is the default... when one does not hold, fail closed... never a silent ignore\") and 5b (\"Exit non-zero on failure, so scripts and CI can tell it failed\"; name what failed, why, and what the user can do).",
+      "evidence": "No .csproj, .targets, .props or workflow file references local-cosign (grep returns nothing); .github/workflows/ci.yml:182 uses the separate eng/ci-stage-and-cosign.sh for the release path. eng/signing/README.md:34-35 documents local-cosign only as a hand-run command: `AGENTGUARD_COSIGN=1 eng/local-cosign.sh <binary>`. The \"breaks every normal local or CI build\" fear in four pooled candidates rests on a caller that does not exist."
+    },
+    {
+      "choice": "The wording and shape of the cause text in the six group-3 denials and in the setup/doctor unreadable-link messages, which cause is reported when several apply, and against which clock reading expiry is judged.",
+      "resolution": "Each message is a plain sentence naming the specific thing that failed and what to do, keeping the original error as the cause, leaking no secret, token, absolute internal path or stack internal, and reusing the existing shapes (FileGuard's \"...; failing closed.\", ConditionState.Broken(detail), RepairOutcome.NotRepairable(detail)) rather than new labels or new states. Exit codes stay non-zero on failure. The first failing check reports, in the order the code already checks. No new ConditionState or RepairKind member. HOW MUCH is differentiated for the guarded agent is NOT settled here: it is the separate disclosure finding, and these strings must be written to whatever it rules.",
+      "principle": "Best-practices guide 5b, \"speak clearly, do these without asking (none of it comes to Tim)\" \u2014 all six bullets, including \"Keep the original error as the cause when you wrap it\" and \"never leak a secret, a token, an internal path, or a stack internal into a user-facing message.\"",
+      "evidence": "Guide 5b states outright that none of it comes to Tim. Existing shapes to copy: src/AgentGuard.Engine/FileGuard.cs:117,122,129; Setup/BinSymlinkCondition.cs:24,31; Setup/RepairOutcome.cs:44. The clock sub-question is not a forced choice at all: GrantStore.cs:66 reads _timeProvider.GetUtcNow() once and passes that one `now` into every TryLoadAsync at line 71. Four pooled candidates asked for message wording to be ruled."
+    },
+    {
+      "choice": "Which attempt's exception message becomes the reason in FileGuard.TryReadCurrentAsync, which tries the read twice.",
+      "resolution": "Both are reported, with the first attempt's exception kept as the cause of the second, so neither is discarded; the message says the read was retried and names both failures.",
+      "principle": "Best-practices guide 5b, \"Keep the original error as the cause when you wrap it; never swallow it.\"",
+      "evidence": "src/AgentGuard.Engine/FileGuard.cs:375-410: two attempts, each with an IOException and an UnauthorizedAccessException catch; the first pair are comment-only today (\"First attempt failed transiently; retry once below before failing closed.\"). Picking one attempt's message would swallow the other, which 5b forbids."
+    },
+    {
+      "choice": "Which failure wins when cleanup raises inside a finally or after a primary result already exists (Pipeline's finally calling DeleteBestEffortAsync, and the post-effect path).",
+      "resolution": "The cleanup failure never replaces the verdict already computed and never masks the exception already in flight: it is folded into what is in flight (as an aggregate or an added cause) and the original stays the primary. A successful denial stays a denial.",
+      "principle": "Best-practices guide 5b, \"Keep the original error as the cause when you wrap it; never swallow it\", together with the contract's own MUST NOT, \"Change whether any place denies or allows.\"",
+      "evidence": "src/AgentGuard.Engine/Pipeline.cs:157-171: the catch at :164 returns Verdict.Deny(...) and the finally at :169-171 then runs DeleteBestEffortAsync; a bare throw from that finally would discard the Deny and lose the original cause, which both the guide bullet and the contract MUST NOT forbid. The destination for the surfaced cleanup failure is a separate, unresolved choice and is in findings."
+    },
+    {
+      "choice": "Whether a Windows Hello binding or availability-probe failure must now surface loudly, removing the fall-back to the credential prompt.",
+      "resolution": "The fallback stays: a Hello binding or probe failure still falls back to the credential prompt and still returns not-available on a headless host, and the exception's cause is carried rather than discarded. An implementer may not remove the fallback as a side effect of making the cause loud; neither CA1031 suppression is touched. The channel the cause goes to is the separate warning-seam finding.",
+      "principle": "Best-practices guide 3b, \"Weakening, removing, or narrowing any protection, guard, or check that already exists\" comes to Tim and never auto-resolves \u2014 so an implementer may not narrow it; plus the existing windows-hello-or-password decision, already signed off; and 5b for carrying the cause.",
+      "evidence": "src/AgentGuard.CrossPlatform.Windows/Presence/WindowsUserPresence.cs:143-146 and :164-168 \u2014 the CA1031 justifications name the governing decision and Tim's sign-off: \"falls back to the credential prompt (windows-hello-or-password); it is never a hard fault\" and \"Interim until WebAuthn (#53); suppression signed off by Tim.\" The contract also forbids changing whether a place denies or allows."
+    },
+    {
+      "choice": "Where the reason a finding stays unchanged is recorded, given both docs/silent-failure-audit.md and the issue are named as possible homes, and in what format.",
+      "resolution": "docs/silent-failure-audit.md is the single home, because Acceptance 13 counts against that file; each unchanged finding gets one line under the existing \"## Listed, not fixed\" heading naming the reason, and the issue is not a second store. The agent does this without asking.",
+      "principle": "rails-decisions line 22: \"Recordkeeping is the agent's as well: filing a GitHub issue and moving its work folder are recordkeeping and never need the human's approval.\"",
+      "evidence": "docs/silent-failure-audit.md:5 \"## Fixed\" and :20 \"## Listed, not fixed\" are the committed layout; .dev/backlog/106-silent-failure-cleanup/issue.md is the issue text and already duplicates the audit's lists, which is why one store has to be named."
+    }
+  ],
+  "droppedAsNoise": 4,
+  "panelComplete": true,
+  "failedRoles": []
+}
