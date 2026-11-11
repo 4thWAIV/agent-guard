@@ -29,4 +29,11 @@ Attribute values are escaped. A selector that matches nothing, or matches more t
 
 ## Release
 
-A kit built from this branch gets a new digest, and JARVIS adopts it through its existing controls. Every document checked under the old kit needs revalidating and a new revision; packages already signed stay as they are. The surface to revalidate for the model case is revision `33c6c6b3800f92b66761c5927496bee70d6df716d78e90ad405755c34b7e0c47` of `document-40f2beb547b345b9b35d75d728e538c1`, whose lineage is in `.dev/inprocess/106-silent-failure-cleanup/architecture/revision-lineage.md`.
+Diagnostics asks for four things in one message to the session named `Diagnostics` when the kit is released, and JARVIS's `language_kit.stage` refuses an asset whose bytes do not match:
+
+1. the release tag or version string, as `PINNED_VERSION` carries it, for example `0.1.108172209-pre-release`;
+2. the full forty-character commit sha it was built from;
+3. the SHA-256 of the released kit asset file itself, the bytes JARVIS downloads;
+4. the asset's download URL.
+
+JARVIS keeps the kit in force — `0.1.108172209-pre-release`, commit `c918581`, digest `0112ee38` — staged for rollback. A kit built from this branch gets a new digest, and JARVIS adopts it through its existing controls. Every document checked under the old kit needs revalidating and a new revision; packages already signed stay as they are. The surface to revalidate for the model case is revision `33c6c6b3800f92b66761c5927496bee70d6df716d78e90ad405755c34b7e0c47` of `document-40f2beb547b345b9b35d75d728e538c1`, whose lineage is in `.dev/inprocess/106-silent-failure-cleanup/architecture/revision-lineage.md`.
