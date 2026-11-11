@@ -1,0 +1,559 @@
+[
+  {
+    "area": "page-shell",
+    "facts": [
+      {
+        "claim": "pageHtml(title, css, js, data) is the sole producer of the render command's HTML. It returns a template literal: `<!doctype html>`, `<html lang=\"en\">`, charset meta, viewport meta, `<title>` (escaped), `<style>${css}</style>`, `<main id=\"root\"></main>`, `<script type=\"application/json\" id=\"page-data\">`, `<script>${inlineScript(js)}</script>`, `</html>` plus a trailing newline. It emits no story-helper script tag, no <link>, no external src, and no <head>/<body> tags.",
+        "evidence": "ts/metalang/render.ts:60-72 (read live). Grep of `story.js` over ts/ and the repo (excluding completed/node_modules) hits only .dev/inprocess/114 docs, none in code. Dumped output head of `bun run ts/metalang/render.ts ts/metalang/metalang.yaml` begins `<!doctype html>\\n<html lang=\"en\">\\n<meta charset=\"utf-8\">...<title>MetaLang</title>\\n<style>`."
+      },
+      {
+        "claim": "The order of elements in the page is: title, style, #root, data-block script, bundle script. The data block comes before the bundle. client.tsx throws if the #page-data element is absent when it runs, so the data script must stay before the bundle script. A helper script tag has no existing position and nothing in the code fixes where one would go.",
+        "evidence": "render.ts:61-70; ts/metalang/client.tsx:15-16 `const block = document.getElementById(DATA_ID); if (block === null) throw new Error(...)`."
+      },
+      {
+        "claim": "escapeHtml, the only HTML escaper in render.ts, escapes only `&` and `<` (not `>` and not quotes). It is a module-private const and is used only for the title. It is therefore NOT safe for an attribute value, and render.ts has no attribute-escaper. An escaper for data-declaration / data-member values would be a new capability or would have to live in app.tsx, which the area does not cover. app.tsx is the scope of another explorer.",
+        "evidence": "render.ts:38 `const escapeHtml = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;')`; render.ts:65 sole call site. render.test.ts:54-60 asserts `</title><script>bad()</script>` becomes `&lt;/title>&lt;script>bad()&lt;/script>`."
+      },
+      {
+        "claim": "The render command writes to disk exactly once: a single writeFileSync(out, pageHtml(...)) at render.ts:174-182. Everything before it is reads and console output. Order inside renderWith: (1) loaded(file) YAML parse, returning notDrawn (exit 1, no file) on a parse failure; (2) if the doc is a highlight, resolve the target, print wrong-highlight lines and a '<n> marked' line; (3) rulebookFor, printing faults to stderr; (4) checkedAgainst, printing '<n> found, and drawn on the page' to stdout; (5) await bundle(); (6) read style.css and syntax.css, joined with '\\n'; (7) writeFileSync; (8) console.log '<out> \u2014 <KB>KB, drawn in the browser by React', returns 0. No file other than `out` is written.",
+        "evidence": "ts/metalang/render.ts:123-186. Only writeFileSync call in render.ts is at line 174."
+      },
+      {
+        "claim": "The page carries PageData {words: words ?? WORDS, doc: doc ?? null, marks: {marked: [...marks.marked], missing}, found} serialized by dataBlock = JSON.stringify(data) with every `<` replaced by `<`. The bundle contains no document: one bundle draws any document.",
+        "evidence": "render.ts:176-181; ts/metalang/page-data.ts:55-57; page-data.ts:37-47 PageData interface."
+      },
+      {
+        "claim": "inlineScript rewrites `</script` (case-insensitive) to `<\\/script` and `<!--` to `<\\!--` in the bundle. It is applied to the bundle only, not to the css and not to the title. css is interpolated raw into <style>.",
+        "evidence": "render.ts:51-53, 66 `<style>${css}</style>`, 69."
+      },
+      {
+        "claim": "Constants: PAGE_SOURCE = 'client.tsx' and PAGE_BUNDLE = 'page.js'. The consumers of the pair are cli.ts (existsSync checks, whyRenderCannotRun messages, the choice between `readFile(carried)` and `builtPageBundle`) and kit.ts (bundlePage(join(here, PAGE_SOURCE)) written to join(out, PAGE_BUNDLE)).",
+        "evidence": "render.ts:33,36; ts/metalang/cli.ts:25-31,100,106,126,132,139-140; ts/metalang/kit.ts:21,159-160."
+      },
+      {
+        "claim": "There are two paths into renderWith with different bundle sources but the same shell. Inside the repo: `render` -> renderWith(file,out,builtPageBundle), where builtPageBundle is bundlePage(here/client.tsx).code, built on the spot. In a kit (node): cli.ts main -> renderWith with `() => readFile(here/page.js)` if page.js exists. Both go through pageHtml. A change to pageHtml therefore reaches both the repo command and a kit, and the kit carries it only after a rebuild, because kit.js is a bundle of kit-entry.ts -> cli.ts -> render.ts.",
+        "evidence": "render.ts:189-196; cli.ts:125-140; kit.ts:157-160 (bundleCommand(kit-entry.ts) -> kit.js); kit-entry.ts:8; package.json:8 `\"render\": \"bun run ts/metalang/render.ts\"`; render.ts:198-201 CLI entry."
+      },
+      {
+        "claim": "A second, independent page template exists: propose.ts writes its own `<!doctype html>` page for the proposal language (ts/metalang/propose.ts:882), with its own `<title>`, `<style>`, split layout and an inline CHOOSE script. It does not call pageHtml, and propose.ts:3 says it is deliberately 'Not the renderer in ts/metalang/render.ts'. Neither render.ts nor kit.ts's carried bundle uses it for the render command. Whether it needs the story helper is outside the issue text, which names only pageHtml.",
+        "evidence": "ts/metalang/propose.ts:1-6, 882-886. Repo-wide grep for `<!doctype` outside completed/ finds only render.ts, propose.ts and the tests kit.test.ts:151, cli.test.ts:116. Grep for pageHtml finds it only in render.ts and render.test.ts."
+      },
+      {
+        "claim": "render.test.ts currently asserts about the shell: starts with `<!doctype html>`; contains `<title>A title</title>`, `<style>.a{color:red}</style>`, `<script>var x=1</script>`, `<main id=\"root\"></main>`, `<meta charset=\"utf-8\">`; title escaping (`&lt;/title>...`, `this &amp; that`); inlineScript escapes (</script, <!--, case, every occurrence, plain `<` untouched, JS value round-trip); the real page's script slice (from indexOf('<script>')+8 to lastIndexOf('</script>')) contains no `</script`; data block read back via dataFrom equals the input (also hostile doc); renderWith calls the bundle function exactly once and the page has #page-data. It does not assert a helper tag, element order, determinism across two renders, or the data-declaration / data-member attributes.",
+        "evidence": "ts/metalang/render.test.ts:44-99, 257-295. Not present: grep for `story`, `data-declaration`, `data-member` in ts/ returns nothing."
+      },
+      {
+        "claim": "The existing test at render.test.ts:94-98 locates the bundle with `html.indexOf('<script>')` and `lastIndexOf('</script>')`. `indexOf('<script>')` matches the bare `<script>` tag, not `<script type=...>` and not `<script src=...>`. Adding `<script src=\"/api/packages/story.js\"></script>` as a bare-looking `<script src` tag keeps indexOf('<script>') pointing at the bundle script only if the new tag has an attribute. But if the helper tag is placed AFTER the bundle, lastIndexOf('</script>') will land on the helper's closing tag and the slice at lines 96 would span the bundle plus the helper tag, which can break `not.toContain('</script')`. Likewise, the test at 146 has the same slice logic against the real page. The position of the new tag interacts with these two assertions.",
+        "evidence": "render.test.ts:96, 146; render.ts:68-69 (current order has the bundle script last). Inference from the code, not run against a changed file."
+      },
+      {
+        "claim": "The render output is byte-deterministic today: two renders of ts/metalang/metalang.yaml with the same working tree produced identical bytes (`cmp` gave no difference). The shell has no timestamp, random value or nonce. Page content depends on the css files, the bundle, the vocabulary and the document.",
+        "evidence": "Probe: `bun run ts/metalang/render.ts ts/metalang/metalang.yaml /tmp/x.html` twice, then `cmp /tmp/x.html /tmp/y.html && echo identical` printed `identical`. No Date/random use in render.ts."
+      },
+      {
+        "claim": "The kit tests check the shell too: kit.test.ts:151 checks `<!doctype html>` and `id=\"page-data\"` from a kit rendered under plain node; cli.test.ts:116 checks `<!doctype html>` for the cli render command.",
+        "evidence": "ts/metalang/kit.test.ts:140-155; ts/metalang/cli.test.ts:116."
+      },
+      {
+        "claim": "The kit carries style.css and syntax.css (required), and the carried-files list does not include any helper script. render.ts reads both stylesheets from `here` (its own directory) at run time, so in a kit they sit beside kit.js.",
+        "evidence": "ts/metalang/kit.ts:62-76 (beside('style.css', true), beside('syntax.css', true)); render.ts:170-173."
+      },
+      {
+        "claim": "The page's own bundle is never inspected by the shell code and the bundler is not part of this area. render.ts has no refusal path for a document it cannot draw, except an unparseable YAML file or a highlight naming a missing file, and both exit 1 with a message and write nothing.",
+        "evidence": "render.ts:1-9, 128-130, 141-142, 108-113; render.test.ts:167-175, 243-246."
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/render.ts: pageHtml (the shell template, lines 60-72), inlineScript, escapeHtml, PAGE_SOURCE, PAGE_BUNDLE, renderWith (the single writeFileSync), render, builtPageBundle, CLI entry",
+      "ts/metalang/render.test.ts: shell, title, inlineScript, data-block and renderWith assertions",
+      "ts/metalang/cli.ts: kit/repo `render` command, chooses page.js vs builtPageBundle and calls renderWith",
+      "ts/metalang/kit.ts and ts/metalang/kit-entry.ts: build kit.js (bundle of render.ts via cli.ts), page.js (bundlePage of client.tsx) and copy style.css, syntax.css and the languages",
+      "ts/metalang/kit.test.ts:140-155 and ts/metalang/cli.test.ts:116: end-to-end shell assertions",
+      "ts/metalang/page-data.ts (+ page-data.test.ts): DATA_ID 'page-data', PageData, dataBlock, dataFrom, which are the data script's content",
+      "ts/metalang/client.tsx: reads #page-data and needs it present before the bundle runs",
+      "ts/metalang/style.css and ts/metalang/syntax.css: inlined raw into <style>",
+      "ts/metalang/propose.ts:882: the second, separate HTML template (proposal language), which does not use pageHtml",
+      "package.json:8 `render` script; .gitignore:179 (rendered page ignored as build output)",
+      ".dev/backlog/104-evolang/distribution-design.md: describes render.ts and kit distribution; not code, and a hint only",
+      ".dev/inprocess/114-kit-page-narration/{issue.md,contract.md,conversation.md}: the brief inputs (the live issue and issue.md agree; the diff printed nothing)"
+    ],
+    "openQuestions": [
+      "Where in the page the story-helper tag goes (in the markup before or after #root, before or after the bundle) and its exact spelling are not stated in the issue or the working tree. The issue gives only `<script src=\"/api/packages/story.js\"></script>`. Position is observable (render.test.ts:96 and :146 use lastIndexOf('</script>')), and the contract lists these as open. Tim must decide.",
+      "Whether propose.ts's separate page (propose.ts:882) also needs the story helper. The issue names only pageHtml and the kit's document render. propose.ts shares neither the shell nor the kit render path in this tree. Not answerable from the working tree.",
+      "Whether the helper tag should be emitted unconditionally. The issue says a page opened outside JARVIS has no helper, which is 'the documented behaviour' there. The issue lists `pageHtml emits the story helper script tag` with no condition, but the working tree cannot say what a missing /api/packages/story.js does to a page opened elsewhere (a failed script load, silent in the browser). Whether that is acceptable under the fail-loud rule is for the owner to rule on.",
+      "Where the escaped attribute value for data-declaration/data-member should be produced. escapeHtml in render.ts escapes only & and <, and is private to the shell. Attribute escaping in app.tsx (another area) goes through React, which escapes attribute values; the working tree here does not show whether another escaper exists. Belongs to the app.tsx explorer.",
+      "The helper-initialisation diagnostics named in the contract Acceptance ('helper initialisation and its diagnostics') have no existing shell code to extend, and the JARVIS-side helper contract is outside this repository. Cannot be answered from here."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Whether the shell stays deterministic (identical source plus a pinned kit gives identical bytes) and is proven by a re-runnable check",
+        "resolution": "Treat byte determinism as a required, re-runnable proof, and keep any new shell content free of timestamps, random values or nonces.",
+        "principle": "best-practices-guide 6a: 'Done' means a check anyone can re-run for the same result: the exact command and its real output; and 4a: serialization is chosen deliberately and deterministically.",
+        "evidence": ".dev/reference/best-practices-guide.md:93-100 (6a), 64-74 (4a); probe: two renders of ts/metalang/metalang.yaml compared with cmp printed `identical`; the issue requires 'identical source plus a pinned kit still renders identical bytes'."
+      },
+      {
+        "choice": "What the shell/renderer does when it cannot do something (a target that matches nothing, an unreadable file)",
+        "resolution": "Fail closed and loud: report a missing target rather than widen to a substitute; exit non-zero with a message naming the thing, as renderWith already does for unparseable YAML (exit 1 with file and reason).",
+        "principle": "best-practices-guide 5a/5b (fail closed, assert every expectation, name the specific thing, exit non-zero) and the project CLAUDE.md rule 1 (nothing may fail silently).",
+        "evidence": ".dev/reference/best-practices-guide.md:82-92; ts/metalang/render.ts:108-113 notDrawn returns 1 with a named file and reason; issue #114 test line 'a target that matches nothing, which must be reported rather than silently widened'."
+      },
+      {
+        "choice": "Whether the page's script and test tooling should be proven by a test that fails before the change",
+        "resolution": "Write tests in render.test.ts for the new shell element and watch them fail first (RED), instead of asserting nothing new.",
+        "principle": "best-practices-guide 6a: prove behavior with a test and watch it fail before it passes.",
+        "evidence": ".dev/reference/best-practices-guide.md:96-97; render.test.ts currently has no assertion on a helper tag (grep for `story` in ts/ is empty)."
+      }
+    ]
+  },
+  {
+    "area": "declaration-drawing",
+    "facts": [
+      {
+        "claim": "A declaration is drawn by the exported `Declaration` component as `<section className=\"d-decl\" style={kindStyle(heads.word, heads.among)}>` and that is the only attribute set on the section: no id, no data-declaration. It is the sole place `d-decl` is written (the string `d-decl-head` is the child div).",
+        "evidence": "ts/metalang/app.tsx:1468 (`<section className=\"d-decl\" style=...>`); grep for d-decl|data-declaration in app.tsx hits only 1468-1469; no `data-declaration` string exists anywhere in app.tsx."
+      },
+      {
+        "claim": "Declaration is called from exactly one place, with `at` = `declare[i]` and `node` = the raw list item.",
+        "evidence": "ts/metalang/app.tsx:1828 `<Declaration at={`${BOOTSTRAP.declare}[${i}]`} node={d} />`"
+      },
+      {
+        "claim": "At the point the section is returned, the component has the declaration's id in hand as `body.id` (an unvalidated `unknown`; it may be absent or non-string, and the code draws a 'no id' em and an Err in that case), plus `kind`, `body`, `external`, `here` (= `${names}.${kind}`, e.g. `declare[0].constant`), `at`, `claimed`, `heads`, `bodyOf`.",
+        "evidence": "ts/metalang/app.tsx:1357-1383 (`const [kind, body] = inner`, `const here = `${names}.${kind}``), 1485-1488 (`typeof body.id === 'string' && body.id.length > 0 ? body.id : <em className=\"d-pfrom\">no id</em>`), 1496-1498 (Err when id missing)."
+      },
+      {
+        "claim": "The declaration's id is shown in a `<span className=\"d-id\">` inside `div.d-decl-head`; that span is the only thing on the page that carries the id as text. Properties receive it as `owner={typeof body.id === 'string' ? body.id : ''}`.",
+        "evidence": "ts/metalang/app.tsx:1484-1489, 1516-1520"
+      },
+      {
+        "claim": "`heads` is `{word, among, at}`: `word` is the head word (the kind, or what the declaration's own value holds in the property carrying ROLES.kind), `among` is the vocabulary for colour, `at` is the path of the head node or null. `heads.word` is NOT the declaration id; it feeds only kindStyle and the `d-kind` span.",
+        "evidence": "ts/metalang/app.tsx:1326-1337 (interface Heads), 1431-1435 (heads construction), 1468, 1478-1482."
+      },
+      {
+        "claim": "`kindStyle(kind, kinds)` is an exported function returning a CSSProperties colour/style for a kind by its position in the `kinds` list (undefined when no hue); it is style only and carries no identity.",
+        "evidence": "ts/metalang/app.tsx:272 `export function kindStyle(kind: string, kinds: readonly string[]): CSSProperties | undefined`; used at 301, 697, 1468."
+      },
+      {
+        "claim": "`Marked` wraps a node in `<div className=\"d-marked ...\" id={at}>` only when something is said about path `at` (said.get(at) non-null) and it is not already drawn by an enclosing mark; otherwise it renders its children bare. The `id` it writes is the document path (e.g. `declare[0].constant.value.form`), never a declaration id. Declarations themselves are not wrapped in Marked, so the section carries no path id even when marked (only the head kind span and inner parts do).",
+        "evidence": "ts/metalang/app.tsx:248-262; Declaration section at 1468 is not inside a Marked; Marked uses at 1478-1480, 1485-ish, 1509-1512, 1520-1535."
+      },
+      {
+        "claim": "The `r-marked` class and `id` are put on a table row only (not on declarations or members by name): in `Table`, `<tr className={says===null?undefined:classes('r-marked', colourOf(says))} id={says===null?undefined:rowAt}>` where rowAt = `${where}[${i}]` (a path like `declare[0].constant.value.members[1]`). Unmarked rows carry no attribute at all. `r-marked` has one CSS rule.",
+        "evidence": "ts/metalang/app.tsx:747-756; ts/metalang/style.css:256 `.d-table tr.r-marked>td{...}`; test at ts/metalang/app.test.tsx:1559 `id=\"declare[0].constant.value.members[1].kind\"` and :1295 `r-marked`."
+      },
+      {
+        "claim": "`data-part` already exists but only on `span.d-part` inside `Parts`, one per key of a value written as a mapping, with the value being the KEY NAME (`data-part={name}`); `data-col` is on each `<th>` and `<td>` of `Table` with the column name. Neither is scoped by declaration, so `[data-part=\"members\"]` matches across all declarations. The issue's `reach/exactness/groups/relates/sits/members` are therefore property names of the language's own types, not a fixed set in app.tsx.",
+        "evidence": "ts/metalang/app.tsx:963 `<span className=\"d-part\" data-part={name}>`; 736 `<th key={name} data-col={name}>`; 757 `<td key={name} data-col={name}>`. Tests lock the exact bytes: ts/metalang/app.test.tsx:990,992,1024,1030,1098-1099,1105-1110,1134,1544."
+      },
+      {
+        "claim": "A member row is drawn by `Table`: `members.map((member, i) => <Fragment key={i}><tr ...>{columns.map(name => <td data-col={name}>...)}</tr>...)`. In hand at that point: `of` (the shape's type name), `member` (a Mapping), index `i`, `columns` = `[...propertiesOf(bodyOf, of).keys()]`, `where` (path of the collection), `bodyOf`. The `<tr>` has no data-member and no name attribute. Table is the only place a members table is drawn, reached from `Val` via `rowsOf` (collection type of a primitive-ROOT shape, every member a mapping).",
+        "evidence": "ts/metalang/app.tsx:715-785 (Table), 600-614 (rowsOf), 832, 849-857."
+      },
+      {
+        "claim": "The language already has a rulebook-driven way to find which property of a shape carries a role: `propertiesCarrying`/`propertyCarrying(bodyOf, owner, role)` reads each property's `ROLE` field via `propertiesOf`; `ROLES = {kind, prose, name, mark}` and `ROLES.name` means 'This property holds the name the thing is shown by'. `propertyCarrying` returns undefined when none or when two carry the role. app.tsx already uses it for ROLES.name at line 683 (Rungs) and 590 (shownBy), and for kind/prose at 1427-1429. words.ts states this is 'the one place the question ... is answered'.",
+        "evidence": "ts/metalang/words.ts:181-190 (ROLES), 395-429 (propertiesCarrying/propertyCarrying); ts/metalang/app.tsx:47-49,577,590,683,1427; ts/metalang/words.test.ts:517-540."
+      },
+      {
+        "claim": "Nothing identifies a declaration on the page today by its id other than the visible `d-id` text. The section has no id/data attribute; ids on the page elsewhere are document paths (Marked, marked rows, the NotNotDrawn wrapper `<div id={at}>`, and the band's href `#<encoded path>`).",
+        "evidence": "grep `id=` in ts/metalang/app.tsx hits only 256 (Marked), 754 (row), 1669 (undrawn wrapper); ts/metalang/app.test.tsx:1431-1435 (band href/id are paths)."
+      },
+      {
+        "claim": "A declaration's id is free text from the document (any non-empty string); the component does not validate or restrict its characters, and React escapes attribute values when rendering, so punctuation/quotes in an id would be escaped by the renderer once put in an attribute. Duplicate ids across declarations are possible (the checker reads the first); the declaration-collection test says 'one id declared twice keeps the first'.",
+        "evidence": "ts/metalang/app.tsx:1485-1487 (only length check); ts/metalang/app.test.tsx:100 test 'one id declared twice keeps the first, which is the one the checker reads'. Escaping by React is inference from the renderer (react-dom/server) not verified by a probe."
+      },
+      {
+        "claim": "Test coverage for declarations in app.test.tsx: `describe('a declaration')` (:228) covers non-mapping, no kind, two kinds, non-kind word, incomplete kind, non-mapping body, drawing kind/id/property count (`expect(html).toContain('Thing')` only), singular count, missing id error, no-properties kind, unknown keyword; `describe('the document as a whole')` covers external head markup `<div class=\"d-decl-head\"><span class=\"d-extern\">external</span>`; tests assert by `toContain` substring on server-rendered HTML. No test asserts on the `<section class=\"d-decl\"...>` opening tag, so adding attributes to it breaks no existing byte assertion. Table tests assert exact `<th data-col=..>` and `<td data-col=..>` strings (:1098-1110, :1544), and those must keep passing unchanged; they do not assert on the `<tr>` opening tag for an unmarked row either (inference from the greps; the `<tr` literal was not searched in tests).",
+        "evidence": "ts/metalang/app.test.tsx:71-116,132-226,228-295,1090-1110,1544,1559; grep for `d-decl` in tests returns only :201 and :206 (d-decl-head)."
+      },
+      {
+        "claim": "The page shell `pageHtml` emits only the data block script (`<script type=\"application/json\" id=...>`) and the inline bundle script; there is no story helper tag, and the strings `story` appear nowhere in render.ts. (Outside this area, noted for the other explorer.)",
+        "evidence": "ts/metalang/render.ts:68-69; grep 'story' in render.ts returns nothing."
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/app.tsx: Declaration (1342-1544), Table (715-785), Marked (248-262), Parts (data-part, 945-975), NotOnThePage (1655-1672), kindStyle (272), rowsOf (600-614), document list call site (1828)",
+      "ts/metalang/words.ts: ROLES (181), propertiesCarrying/propertyCarrying (395-429), propertiesOf",
+      "ts/metalang/style.css: `.d-table tr.r-marked>td` (line 256) and the d-decl/d-id styles",
+      "ts/metalang/app.test.tsx: describe 'a declaration' (228), table tests (1090-1110, 1544-1559), marked/band tests (1295, 1431-1435)",
+      "ts/metalang/words.test.ts: propertyCarrying tests (517-550)",
+      "ts/metalang/render.ts: pageHtml (68-69), the shell that wraps the rendered body",
+      "the document being drawn (`declare[i]` items), where the id lives as `body.id` and a member's name lives in whichever property the language's rulebook gives ROLE `name`"
+    ],
+    "openQuestions": [
+      "What a member row's identity should be when its shape has no property carrying ROLES.name, or two carry it (propertyCarrying returns undefined for both): the working tree has no rule, and CLAUDE.md forbids silently leaving it out; is the row left without data-member with a loud report, or is it an error? Needs Tim.",
+      "What the page does for a declaration with a missing, empty or non-string id: no data-declaration, or an error? The code already draws a 'no id' marker and an Err there, but the targeting behaviour is not decided.",
+      "Where a member name repeats within one declaration or an id is declared twice (the checker keeps the first), whether the page should draw both with the same attribute value or flag it; a target must then match exactly one, which duplicates would break.",
+      "Whether `ROLES.name` ('the name the thing is shown by') is the right role for the member identity versus a new role, since a new role is a new language word (rulebook change) and needs approval; I did not verify that every `members`-style shape in the agent-guard kit declares a ROLE name property, which would need a probe against the real rulebook.",
+      "Whether the `data-part` targets the issue names (`reach`, `members` etc.) are all the `Parts` spans or also table section; the live DOM only has `data-part` on `Parts`, so the member table for IGrantStore is addressed by `[data-part=\"members\"]` only if the declaration draws its members value as parts: not confirmed against a real render of issue 106's surface."
+    ],
+    "autoResolved": []
+  },
+  {
+    "area": "member-drawing",
+    "facts": [
+      {
+        "claim": "Table is the only component that draws several-of-one-shape as rows. Its props are exactly {of: string, members: readonly Mapping[], where?: string}. It knows the shape's type id (`of`), each member mapping, and the member's path (`where`+index). It is not given a name or identity for a row.",
+        "evidence": "ts/metalang/app.tsx:719-729 (props), :730 `const columns = [...propertiesOf(bodyOf, of).keys()]`"
+      },
+      {
+        "claim": "Table is reached only from Drawn, when rowsOf returns non-null. rowsOf requires: type is a mapping holding one word deriving from SELF.collection; inner.of is a string whose primitive is ROOT; value is a non-empty array whose every element is a mapping. Otherwise it returns null and the value is drawn another way.",
+        "evidence": "ts/metalang/app.tsx:600-619 (rowsOf), :849-855 (`<Table of={rows.of} members={rows.members} where={where} />`)"
+      },
+      {
+        "claim": "Columns come from propertiesOf(bodyOf, of) in words.ts: every property of the shape, its own and inherited via `is`, as a Map keyed by property name in declaration order (parents first, own override). Every declared property becomes a column whether or not any member writes it. A cell whose member lacks the key draws an em dash.",
+        "evidence": "ts/metalang/words.ts:311-334 (propertiesOf); ts/metalang/app.tsx:756-762 (`member[name] === undefined ? <i className=\"t-none\">\u2014</i>`)"
+      },
+      {
+        "claim": "`data-col` is set on both the th (header) and each td, with the property name as value, and on nothing else (no data-col on tr).",
+        "evidence": "ts/metalang/app.tsx:736 `<th key={name} data-col={name}>`, :757 `<td key={name} data-col={name}>`; asserted by ts/metalang/app.test.tsx:1098,1105-1110,1544 (`<th data-col=\"${column}\">`)"
+      },
+      {
+        "claim": "A member `tr` carries today exactly two optional attributes and nothing else: className `r-marked <colour>` and id=<path>, both only when a mark says something about that row (`said.get(rowAt)` non-null); otherwise the tr has no attributes. The id is the document path `${where}[${i}]` (an index path, e.g. declare[0].constant.value.members[1]), not a member name.",
+        "evidence": "ts/metalang/app.tsx:746-754 (`rowAt = where===undefined ? '' : `${where}[${i}]``; `className={says === null ? undefined : classes('r-marked', colourOf(says))}`, `id={says === null ? undefined : rowAt}`); probe: server-rendering parts.yaml, metalang.yaml, arch.yaml, names.yaml, propose.yaml, stage.yaml with Page found `<tr [^>]*>` matches: [] in all six; the only d-table markup is in parts.yaml"
+      },
+      {
+        "claim": "When a row is unmarked it has no id at all, and an index-path id is unique per row in a document (path-keyed), unlike a member name, which repeats across declarations (e.g. the same member name in two elements). where is optional: with where undefined, rowAt is '' and nothing is marked.",
+        "evidence": "ts/metalang/app.tsx:746-748; ts/metalang/app.tsx:812-814 (a Val with no where asks nothing)"
+      },
+      {
+        "claim": "A second tr, `<tr className=\"r-note\">` with one td colSpan, follows a marked row to hold the notes. So a row identity attribute would have to go on the data row only, and the note row is a sibling inside the same Fragment.",
+        "evidence": "ts/metalang/app.tsx:773-779"
+      },
+      {
+        "claim": "typeOfPart(bodyOf, onProperty, owner, name) returns the type a part holds: the name under `is` if declared (via typeOfProperty), else the single written-out word beside the property keywords, else undefined. acceptsOf(bodyOf, owner, name) returns the reserved states (e.g. none, pending) the property accepts. Table passes both to each cell's Val as `type` and `accepts`; Parts does the same per part.",
+        "evidence": "ts/metalang/words.ts:449-463 (typeOfPart), :388 (acceptsOf); ts/metalang/app.tsx:765-766 (Table cell), :967-968 (Parts)"
+      },
+      {
+        "claim": "`data-part` is set only in Parts, on `<span className=\"d-part\" data-part={name}>`, where name is each key of a mapping value drawn as parts (value is a mapping whose type has primitive ROOT). So `members` is a data-part because an element's value is drawn as Parts and its `members` key is one entry; the Table sits inside that span's Val.",
+        "evidence": "ts/metalang/app.tsx:947-971 (Parts), :859-867 (parts => Parts), :963 data-part"
+      },
+      {
+        "claim": "Neither the declaration card nor the Table carry an identity attribute today: `<section className=\"d-decl\" style=...>` has no data-declaration, and the declaration's id is rendered only as text in `<span className=\"d-id\">{body.id}</span>`. grep for data-declaration and data-member across ts/metalang/app.tsx returns nothing.",
+        "evidence": "ts/metalang/app.tsx:1468 (section), :1480-1486 (d-id); `grep -n 'd-decl\\|data-part\\|data-declaration\\|data-member' ts/metalang/app.tsx` => only 963 (data-part), 1468-1469 (d-decl), no data-declaration/data-member"
+      },
+      {
+        "claim": "Nothing in the page's own generic drawing path asks the rulebook which property names a member. The generic owner of that question is propertyCarrying/propertiesCarrying(bodyOf, owner, role) in words.ts (\"the one place the question 'which property of this type carries that role' is answered\"), keyed by the `role` enum (kind, prose, name, mark). It returns undefined where zero or two properties carry the role. It is already used by shownBy/calledBy (app.tsx:570-579) to get a name for a value naming an enum member.",
+        "evidence": "ts/metalang/words.ts:181-190 (ROLES), :395-433 (propertiesCarrying, propertyCarrying); ts/metalang/app.tsx:570-579 (shownBy), ts/metalang/metalang.yaml:991-1016 (role enum values kind, prose, name, mark)"
+      },
+      {
+        "claim": "The existing `role: name` is semantically 'the name this thing is shown by' for a value naming a closed-set member, and it sits ONLY on `word.name` (arch.yaml) and `language.name` (names.yaml), not on arch's `member.name`. arch `member.name` is declared `is: name` with no role; `member` carries role kind on `kind` and role prose on `does`. So propertyCarrying(bodyOf,'member',ROLES.name) returns undefined today for the shape the issue wants identity for, and the shape's name column is found only by the property being called `name`, which the issue forbids assuming.",
+        "evidence": "ts/metalang/arch.yaml:511-545 (member entity: name `is: name`, no role; kind role: kind :527; does role: prose :543); `grep -n 'role:' ts/metalang/*.yaml` => arch.yaml:199 (mark), :211 (name, in `word`), :527, :543, :563, :567; names.yaml:51 (`language.name`, role: name); metalang.yaml:1057 is the `role` property itself. Role doc text at metalang.yaml:1011-1016 describes name as how a VALUE naming the thing is drawn, which is a different job from a row's identity."
+      },
+      {
+        "claim": "The only shape in this repository's own documents that is drawn through Table with real data is arch's `member` (list: { of: member } on element.members), in ts/metalang/parts.yaml: 4 tables, all with columns name,kind,reach,type,does. Server-rendering all six documents in ts/metalang with Page and the rulebook vocabulary gave tables: arch 0, metalang 0, names 0, parts 4, propose 0, stage 0.",
+        "evidence": "probe (temporary zz_probe.test.tsx, deleted; git status clean afterward): output lines `parts decl 7 tables 4 [[\"name,kind,reach,type,does\",4]]` and `tables 0` for arch, metalang, names, propose, stage. Rulebook sources of the `member` list: ts/metalang/arch.yaml:581-583"
+      },
+      {
+        "claim": "Other declared collection-of-object shapes exist in the language files but none is written as a list-of-mappings in a repository document, so none reaches Table today: propose.yaml declares decision.parts list<sense>, used list<inuse>, changes list<block>, refuses list<refusal> (propose.yaml:115,122,126,133) and propose.yaml documents render 0 tables; metalang.yaml declares `enum.values: list<value>` (:1217), `type.properties: list<property>` (:1182), `choice.options: set<type>`; metalang's own documents render 0 tables. Those shapes could be drawn through Table by any document that writes them as lists.",
+        "evidence": "ts/metalang/propose.yaml:111-135; ts/metalang/metalang.yaml:1178-1232; probe table counts above"
+      },
+      {
+        "claim": "A second, synthetic shape drawn through Table exists in the tests only: the `equivalent` entity with parts `language` and `name` (an `equivalents: set<equivalent>` on `form`), asserted by the tests as columns language then name. It proves Table draws a shape that has a `name` column with no role: name, and a shape whose columns need not be called name at all.",
+        "evidence": "ts/metalang/app.test.tsx:1070-1110 (entity `equivalent` properties language, name; cells csharp/interface, rust/trait)"
+      },
+      {
+        "claim": "Row identity text is escaped for free if it goes through React props: the Table renders attributes via JSX (`data-col={name}`, `id={rowAt}`), and the page is produced by React (server render in tests via renderToStaticMarkup; in the browser via the bundle). The page HTML itself is produced by pageHtml, which only writes the shell and a data block; the DOM is drawn in the browser, so the DOM-level selectors in the issue exist only after the bundle runs (rendered HTML from the cli has an empty <main id=\"root\">).",
+        "evidence": "ts/metalang/render.ts:60-70 (pageHtml writes `<main id=\"root\"></main>`), cli output `arch.html \u2014 293KB, drawn in the browser by React`; ts/metalang/app.test.tsx:17-21 (draw/renderToStaticMarkup)"
+      },
+      {
+        "claim": "Existing marks use the path as id on rows and also as id on d-marked wrappers (`<div className=\"d-marked\" id={at}>`), so any new member id attribute is a second identity beside id on the same tr and must not collide with or replace it; the mark id format is relied on by tests (`id=\"declare[0].constant.value.members[1].kind\"`).",
+        "evidence": "ts/metalang/app.tsx:252-259 (Marked id={at}), :754 (tr id); ts/metalang/app.test.tsx:1559"
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/app.tsx: Table (719-785), rowsOf (600-619), Drawn dispatch to Table (849-855), Parts and data-part (947-971), Declaration section d-decl and d-id (1468-1486), Marked wrapper (246-262), shownBy/calledBy (570-590), imports of words.ts helpers (31-63)",
+      "ts/metalang/words.ts: propertiesOf (311-334), typeOfPart (449-463), acceptsOf (388), propertiesCarrying/propertyCarrying (395-433), ROLES (181-190), typeOfProperty (436)",
+      "ts/metalang/arch.yaml: member entity (511-545), element.members list<member> (581-583), role: name only on word.name (211)",
+      "ts/metalang/names.yaml:51 (language.name role: name)",
+      "ts/metalang/metalang.yaml: role enum (991-1016), property.role (1057-1060), collection-of-shape declarations (1178-1232)",
+      "ts/metalang/propose.yaml:111-135 (list-of-shape declarations)",
+      "ts/metalang/parts.yaml: the only repository document whose rendered page contains Table output (4 member tables)",
+      "ts/metalang/app.test.tsx: Table tests (1070-1110, 1540-1560, 1698)",
+      "ts/metalang/style.css (tr/r-marked/r-note styling, not read in depth)",
+      "ts/metalang/render.ts pageHtml (60-70): not in this area but the DOM is only built in the browser, so selectors are testable by renderToStaticMarkup in app.test.tsx, not from the CLI's HTML"
+    ],
+    "openQuestions": [
+      "How a member's identity is derived for a shape with no `role: name` property. The only role-based generic owner (propertyCarrying) finds none on `member`, since `role: name` today means 'the name a value naming this thing is shown by' and is carried by word.name and language.name only. Whether to reuse role: name (changing arch.yaml, a language file and therefore the kit, and widening what that role means), add a new role to the role enum, or use another rulebook-declared mechanism is a design decision the working tree and approved principles do not answer.",
+      "What the row does when the shape has no identifying property, or two properties claim it (propertyCarrying returns undefined for both): emit no data-member, or fail loudly. CLAUDE.md rule 1 and guide 5a say not to fail silently, but whether a missing identity is an error on the page or an absent attribute is not decided.",
+      "Whether the Table needs to be told the shape-level identity by its caller or derive it itself from `of` through the rulebook; Table already has `of` and bodyOf, so the question is only where the derivation lives (the one place for the role question is words.ts)."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Escaping of the identity values written into data-declaration / data-member attributes",
+        "resolution": "Emit them as React JSX attribute props so React escapes them; never concatenate markup strings.",
+        "principle": "Best-practices guide 3a: Escape or encode output for wherever it lands (HTML, shell, SQL) so it cannot be injected.",
+        "evidence": "ts/metalang/app.tsx:736,757,754 already write attributes through JSX props (data-col, id); .dev/reference/best-practices-guide.md:3a"
+      },
+      {
+        "choice": "Whether the new selector names (data-declaration, data-member) need Tim's approval as public names",
+        "resolution": "No new approval for the spelling: the live issue states them and the approved plan authorizes them; they are names people build against (guide 4b) and are settled by the issue text, not chosen here.",
+        "principle": "Best-practices guide 4b: any public name people build against comes to Tim; here Tim's issue 114 already supplies the exact spelling.",
+        "evidence": "gh issue view 114: `[data-declaration=\"IGrantStore\"] [data-part=\"members\"]` and `[data-declaration=\"IWindowsHelloNativeOps\"] [data-member=\"BeginVerification\"]`; .dev/reference/best-practices-guide.md:4b"
+      },
+      {
+        "choice": "What the Table does where an identity cannot be derived or a target matches nothing",
+        "resolution": "Fail closed and loud, with a message naming the shape and the declaration; never silently omit or widen.",
+        "principle": "Best-practices guide 5a (fail closed by throwing, never a silent ignore) and project CLAUDE.md rule 1 (nothing may fail silently).",
+        "evidence": ".dev/reference/best-practices-guide.md:84; CLAUDE.md rule 1; issue 114 text 'must be reported rather than silently widened'. Note that the mechanism (throw vs on-page error band) is not decided and is listed as an open question."
+      },
+      {
+        "choice": "Whether to prove the rendering by test and which seam to test through",
+        "resolution": "Prove with a test through renderToStaticMarkup in app.test.tsx, written to fail before it passes; identical-bytes proof by repeated render comparison.",
+        "principle": "Best-practices guide 6a: Prove behavior with a test and watch it fail before it passes; done means a re-runnable check.",
+        "evidence": "ts/metalang/app.test.tsx:17-21 draw() uses renderToStaticMarkup; .dev/reference/best-practices-guide.md:6a"
+      }
+    ]
+  },
+  {
+    "area": "vocabulary-and-roles",
+    "facts": [
+      {
+        "claim": "ROLES is a four-entry constant: kind, prose, name, mark. `ROLE = 'role'` is the keyword on a property.",
+        "evidence": "ts/metalang/words.ts:173 (`export const ROLE = 'role'`) and words.ts:181-190 (`export const ROLES = { kind, prose, name, mark } as const`)."
+      },
+      {
+        "claim": "The `role` enum is also declared in the language itself (metalang.yaml) with the same four values, and a property may carry `role: <role>` (optional). A role is given to at most one property of a type, enforced by `distinct: { in: properties, by: role }` on entity.",
+        "evidence": "ts/metalang/metalang.yaml:991-1020 (enum id role, values kind/prose/name/mark), :1057-1060 (property `role: is: role, optional: true`), :1160-1163 (`distinct: { in: properties, by: role }`)."
+      },
+      {
+        "claim": "The generic lookup that answers 'which property of this type carries role R' exists and is the one owner: `propertiesCarrying(bodyOf, owner, role)` returns every property name carrying the role by walking `propertiesOf` and testing `property[ROLE] === role`; `propertyCarrying` returns the single name, or undefined when none or two or more carry it.",
+        "evidence": "ts/metalang/words.ts:404-415 (propertiesCarrying), words.ts:422-430 (propertyCarrying). Doc comment words.ts:395-402 says it is 'the one place the question ... is answered'."
+      },
+      {
+        "claim": "`propertiesOf(bodyOf, named)` returns a ReadonlyMap<name, property mapping> of every property of a type, including those inherited through `is` (parents read first, the type's own written properties merged over). It guards cycles with a path. Property order is Map insertion order (parents then own).",
+        "evidence": "ts/metalang/words.ts:311-336."
+      },
+      {
+        "claim": "`membersOf(bodyOf, id)` is NOT a table-row/member lookup. It returns the ids an ENUM lists (via `valuesOf(...).map(id)`), or null when the declaration is not an enum. The word 'members' here means enum values, unrelated to the arch.yaml `member` entity.",
+        "evidence": "ts/metalang/words.ts:529-531 (`membersOf` = `valuesOf(bodyOf,id)?.map(one=>one.id) ?? null`), valuesOf words.ts:~500-512 reads the `values` list."
+      },
+      {
+        "claim": "`shownBy` is not exported from words.ts. It is a module-private const in app.tsx: given a closed-set type and a value naming one of its ids, it finds the enum value's own type (`typeOfOwnValue`), asks `propertyCarrying(bodyOf, of, role)` for the carrying property, finds the enum value with that id, and returns that property's string value. It resolves a value naming an enum member, not a row of a table.",
+        "evidence": "ts/metalang/app.tsx:568-583. Callers: app.tsx:590 (calledBy, ROLES.name), :925 and :1465 (ROLES.mark)."
+      },
+      {
+        "claim": "`role: name` sits on `word.name` in arch.yaml, and on `language.name` in names.yaml. `word` is abstract and each of the forms/enums in arch.yaml inherits it; `propertyCarrying(bodyOf,'form',ROLES.name)` is asserted to equal 'name'.",
+        "evidence": "ts/metalang/arch.yaml:209-212 (`name: is: string, role: name`); ts/metalang/names.yaml:48-52; ts/metalang/words.test.ts:552."
+      },
+      {
+        "claim": "`member.name` in arch.yaml is typed `is: name` (MetaLang's identifier type, pattern [A-Za-z_][A-Za-z0-9_]*) and carries NO role. Of member's properties only `kind` (role: kind) and `does` (role: prose) carry roles. So `propertyCarrying(bodyOf,'member',ROLES.name)` is undefined today: the rulebook cannot find the member's name property generically. The only thing marking `name` is the spelling of the property.",
+        "evidence": "ts/metalang/arch.yaml:517-545 (entity member; name has only is/title). ts/metalang/metalang.yaml:873-880 (entity `name`, is: string, pattern constraint, no role). words.test.ts:551 asserts only member kind -> 'kind'."
+      },
+      {
+        "claim": "`element` in arch.yaml has no name property at all: its identity is the declaration's own id ('The name it is known by is the name it is declared under'). Its roles are `form` (kind) and `does` (prose). propertyCarrying(element, 'element', ROLES.name) is asserted undefined by a test titled 'is nothing where the type gives it to none'. The declaration id therefore is not a property the rulebook reaches by role; it is the BOOTSTRAP.id keyword on the declaration body.",
+        "evidence": "ts/metalang/arch.yaml:547-592 (element properties form/does/reach/exactness/groups/members/sits/relates), :70-73 comment; words.test.ts:521-523; app.tsx:1468 draws the card from the declaration body."
+      },
+      {
+        "claim": "The role system today has a semantic of ROLES.name = 'the name a thing is SHOWN by' (a display name beside the id), not 'the property that identifies a row'. Its documented meaning is the display name of an enum member; arch.yaml's member.name is the identifier of an unnamed-by-id row, which is a different job.",
+        "evidence": "ts/metalang/words.ts:186-187 (`name: 'This property holds the name the thing is shown by.'`); metalang.yaml:1011-1018 (role name: 'A value naming this thing is drawn with that name beside the id'); arch.yaml:70-73 and :90-96 ('a member is not declared and has no id')."
+      },
+      {
+        "claim": "Table draws any shape the language declares and derives its columns from `propertiesOf(bodyOf, of).keys()`; it never consults a role, so it has no notion of a row identity. rowsOf only accepts a collection whose element type is a declared object type (primitive ROOT) and whose members are all mappings, then hands `{of, members}` to Table.",
+        "evidence": "ts/metalang/app.tsx:600-617 (rowsOf), :730 (`const columns = [...propertiesOf(bodyOf, of).keys()]`), :854 (`<Table of={rows.of} members={rows.members} where={where} />`)."
+      },
+      {
+        "claim": "No generic row-identity lookup exists. Neither `data-declaration` nor `data-member` appears anywhere in ts/metalang; the existing attributes are `data-part` (app.tsx:963) and `data-col` (Table th/td). The declaration card is `<section className=\"d-decl\" ...>` with no id attribute.",
+        "evidence": "grep -n \"data-declaration\\|data-member\" ts/metalang/*.ts ts/metalang/*.tsx returned nothing; app.tsx:963, :1468."
+      },
+      {
+        "claim": "Roles are consumed by three code paths, none of which reads a property by spelling: app.tsx (kind/prose heading at 1428-1429, name via calledBy 590 and the ladder at 683, mark at 925/1465), propose.ts (`held(ROLES.name)`, `held(ROLES.mark)` at 379-380), and tests. check.ts uses propertiesOf (543) but only references role in a comment (1024).",
+        "evidence": "grep of ROLES/propertyCarrying across ts/metalang; app.tsx:683 uses `propertyCarrying(bodyOf, type, ROLES.name)` to name enum words; propose.ts:379-380."
+      },
+      {
+        "claim": "rulebookFor builds the vocabulary (language named by the document plus its scopes) and exposes `words`, `faults`, `documents`; WORDS is loadVocabulary(metalang.yaml) read once. Roles are not resolved here: rulebook.ts does not reference ROLE/ROLES. The vocabulary's bodies are reached through a BodyOf function that words.ts functions receive.",
+        "evidence": "ts/metalang/rulebook.ts:44-51, :57-70, :102-193; grep shows no ROLE/ROLES in rulebook.ts."
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/words.ts (ROLE, ROLES, propertiesOf, propertiesCarrying, propertyCarrying, typeOfProperty, valuesOf, membersOf, typeOfOwnValue)",
+      "ts/metalang/rulebook.ts (rulebookFor, loadVocabulary, WORDS, fileForScope; does not touch roles)",
+      "ts/metalang/metalang.yaml (role enum at ~991, role property keyword at ~1057, distinct-by-role constraint at ~1163, `name` entity at ~873, role doc comment ~602-676)",
+      "ts/metalang/arch.yaml (word.name role: name at 209-212; member entity at 517-545 with name unroled; element entity at 547-592 with no name property)",
+      "ts/metalang/names.yaml (language.name role: name at 48-52)",
+      "ts/metalang/app.tsx (private shownBy 568, calledBy 590, rowsOf 600, Table ~720-790, declaration card 1468; the only renderer of roles/tables)",
+      "ts/metalang/propose.ts (held(ROLES.name)/held(ROLES.mark) at 379-380)",
+      "ts/metalang/syntax.ts (propertiesOf/membersOf consumers at 204, 282, 370)",
+      "ts/metalang/check.ts (propertiesOf at 543)",
+      "ts/metalang/words.test.ts (roles tests at 515-552), ts/metalang/app.test.tsx (membersOf use at 1496)"
+    ],
+    "openQuestions": [
+      "The working tree gives no generic way to find member.name: it has no role, and ROLES.name documents a display name rather than a row identity. Whether the row identity should be a new fifth role, a reuse of ROLES.name on member.name, or something else, is a design decision not answerable from the tree (an approved language change; issue 114 only says the identity must be derived from the shape, not assumed to be a column called `name`).",
+      "How a row's identity is derived for a shape that has no property marked by role (for example a Table of a shape with no name-like property), and what the card does for it, is not specified in the tree or the issue.",
+      "Whether the declaration id on a card (data-declaration) can be taken from a role at all: element has no name property, the id is the BOOTSTRAP.id of the declaration body, so no role-based lookup applies to it. The issue states the attribute is the declaration's id; nothing in the tree contradicts, but nothing tests it either."
+    ],
+    "autoResolved": []
+  },
+  {
+    "area": "kit-and-release",
+    "facts": [
+      {
+        "claim": "The kit is built by `buildKit` in ts/metalang/kit.ts, invoked as `bun run ts/metalang/kit.ts [out] [version]` (default out dist/evolang-kit, default version `0.0.0-local`). It writes kit.js (bundleCommand of kit-entry.ts, node target, unminified, js-yaml inlined), page.js (bundlePage of client.tsx, browser target, minified, `define` is `{}`), package.json (`{name:'evolang-kit',version,private:true,type:'module'}`), README.md (readmeText), and copies the carried files.",
+        "evidence": "ts/metalang/kit.ts:134-176 (buildKit), :43,:49 (KIT_DIR, LOCAL_VERSION), :178-183 (import.meta.main CLI); ts/metalang/bundle.ts bundleCommand/bundlePage"
+      },
+      {
+        "claim": "Carried files are exactly: metalang.yaml, arch.yaml, propose.yaml, style.css, syntax.css (required) and evolang.yaml (optional, absent today). A missing required file throws and names the file; an absent optional one is reported in `absent` and printed.",
+        "evidence": "ts/metalang/kit.ts:72-83 (carriedFiles), :86-88 (missingOf), :141-147 (throw), :174-176 (absent print)"
+      },
+      {
+        "claim": "The kit's entry is ts/metalang/kit-entry.ts, 9 lines, which calls `process.exit(await main(process.argv.slice(2)))` from cli.ts unconditionally (Bun's import.meta.main is unavailable under node).",
+        "evidence": "ts/metalang/kit-entry.ts:1-9"
+      },
+      {
+        "claim": "`node kit.js check <file>` runs cli.ts `run(file)` (the checker; exit 0 clean, 1 findings). `node kit.js render <file> [out.html]` runs `renderWith(file,out,bundle)` where bundle reads the page.js sitting beside kit.js; when page.js is absent it falls back to builtPageBundle only if client.tsx and bun exist, else refuses with exit 2. Unknown commands/missing args exit 2 with usage.",
+        "evidence": "ts/metalang/cli.ts:65-78 (parse), :114-141 (main: carried=join(here,PAGE_BUNDLE), bundle = hasPageBundle ? readFile : builtPageBundle, whyRenderCannotRun)"
+      },
+      {
+        "claim": "`pageHtml(title, css, js, data)` in render.ts is the sole writer of the page shell: doctype, charset+viewport metas, <title> (escapeHtml escapes only & and <), <style>, <main id=root>, a JSON data block (`page-data`, via dataBlock), and the inline bundle. There is no story-helper script tag. escapeHtml does not escape quotes or >, so it is not an attribute-safe escaper.",
+        "evidence": "ts/metalang/render.ts:41,60-71; page-data.ts DATA_ID='page-data'"
+      },
+      {
+        "claim": "renderWith reads style.css and syntax.css from disk beside the module (`here`) at render time and joins them; in a kit those are the carried copies. The page bundle itself contains no document; the document, words, marks and check result travel in the data block, so one prebuilt page.js draws any document. A page's bytes therefore depend on kit.js, page.js, the two stylesheets, the language yaml files, and the document.",
+        "evidence": "ts/metalang/render.ts:170-184; page-data.ts header comment; .dev/backlog/104-evolang/distribution-design.md:84-90"
+      },
+      {
+        "claim": "Any change to app.tsx / client.tsx (where the data-declaration and data-member attributes must be added) changes page.js, and any change to render.ts changes kit.js, so the issue's change necessarily changes the kit contents and therefore the kit digest.",
+        "evidence": "ts/metalang/kit.ts:158-166 builds page.js from PAGE_SOURCE (client.tsx) and kit.js from kit-entry.ts -> cli.ts -> render.ts"
+      },
+      {
+        "claim": "installation.json and the kit digest are NOT produced in this repository. grep for installation.json finds hits in no tracked file of agent-guard other than none; kit_digest/installation.json live in the JARVIS repo. JARVIS `language_kit.stage()` computes the digest as the SHA256 of the downloaded evolang-kit.zip bytes, requires it to equal Release.digest, extracts the zip, checks package.json equals {name:'evolang-kit',version:release.version,private:true,type:'module'}, requires REQUIRED_FILES present and the folder flat, then writes installation.json = {release (version, commit, digest, repository...), files: {name: sha256 of each file}, installed_at}. So the digest covers the zip bytes; installation.json's `files` hashes cover each extracted file, and it is verified on each run via Kit.verify().",
+        "evidence": "/Users/timothystockstill/code/macos/4thWAIV/jarvis/jarvis/language_kit.py:44,66-84,94-118,187-217; `grep -rIl installation.json` in the agent-guard worktree returns no tracked source file"
+      },
+      {
+        "claim": "JARVIS pins one release: PINNED_VERSION 0.1.108172209-pre-release, PINNED_COMMIT c918581ffda7a6fad7c05dde13f54aeb5760fdfb, PINNED_DIGEST 0112ee38bec63affd08d952d249336c6dbf8602076baab94ff7982b996297ef0. The worktree base commit c918581 is that same commit, and GitHub release 0.1.108172209-pre-release (targetCommitish c918581...) carries asset evolang-kit.zip. JARVIS requires the commit to have passed checks `gate` and `release`. A changed kit therefore reaches JARVIS only by a new release, a new digest and a re-pin (stage then activate; activate refuses a different previous digest without compatibility_reviewed).",
+        "evidence": "jarvis/language_kit.py:25-30,73-82,246-277; `gh release view 0.1.108172209-pre-release --repo 4thWAIV/agent-guard` assets list and targetCommitish; git log: c918581 contains fb15d28"
+      },
+      {
+        "claim": "The kit is built and published only in the `release` job of .github/workflows/ci.yml (push to dev/main): setup-bun from .bun-version, `bun install --frozen-lockfile`, `bun run ts/metalang/kit.ts dist/evolang-kit \"$TAG\"`, a loud check that kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml are non-empty, `zip -r evolang-kit.zip evolang-kit`, then evolang-kit.zip is the last asset of `gh release create`. The version in package.json is the release tag (no +hash). Note the CI non-empty list omits style.css and syntax.css while JARVIS REQUIRED_FILES includes them.",
+        "evidence": ".github/workflows/ci.yml:577-599 and :634; jarvis/language_kit.py:30-31"
+      },
+      {
+        "claim": "Nothing in eng/ builds the kit; eng/ holds only the .NET signing/versioning/coverage scripts. The kit zip is not cosigned or checksummed by ci-stage-and-cosign.sh (only the guard binaries are); integrity is the SHA256 JARVIS pins.",
+        "evidence": "ls eng/; grep -n -i kit .github/workflows/ci.yml shows only lines 577-634; ci.yml:538-560 zips binaries only"
+      },
+      {
+        "claim": "kit.test.ts covers: carried files, missing-required refusal, readme content, building to a folder, check through the built kit under node, render through the built kit under node, non-MetaLang languages, version stamping. No test asserts two builds or two renders are byte-identical, and none asserts the kit zip is reproducible.",
+        "evidence": "ts/metalang/kit.test.ts:32-227 (describe/test titles)"
+      },
+      {
+        "claim": "The CI `gate`/PR checks are not what builds the kit; a PR build (pull_request) never runs the kit step, so kit build from a PR branch is exercised only by kit.test.ts in the TS tests, and a release kit exists only after a push to dev/main.",
+        "evidence": ".github/workflows/ci.yml header comment and `release` job (push-only signing/release); kit steps at :577-599 sit in the release job"
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/kit.ts (buildKit, carriedFiles, readmeText, LOCAL_VERSION, KIT_DIR)",
+      "ts/metalang/kit-entry.ts (bundle entry)",
+      "ts/metalang/bundle.ts (bundleCommand, bundlePage)",
+      "ts/metalang/cli.ts (check/render dispatch, whyRenderCannotRun)",
+      "ts/metalang/render.ts (pageHtml, renderWith, PAGE_BUNDLE='page.js', PAGE_SOURCE='client.tsx')",
+      "ts/metalang/page-data.ts (data block shape, DATA_ID)",
+      "ts/metalang/client.tsx and app.tsx (page bundle source; where data-declaration/data-member go)",
+      "ts/metalang/style.css, syntax.css, metalang.yaml, arch.yaml, propose.yaml (carried files)",
+      "ts/metalang/kit.test.ts (kit tests); render.test.ts, app.test.tsx",
+      "Built kit folder dist/evolang-kit/: kit.js, page.js, package.json, README.md, the three yaml languages, two stylesheets (gitignored at .gitignore:183-185)",
+      ".github/workflows/ci.yml release job lines 577-599 (build and zip) and :634 (asset on gh release create); .bun-version",
+      "GitHub release assets: evolang-kit.zip on each release (e.g. 0.1.108172209-pre-release)",
+      "JARVIS repo jarvis/language_kit.py: PINNED_VERSION/COMMIT/DIGEST, stage(), installation.json, smoke.json, active.json, versions/<digest>/",
+      "JARVIS jarvis/language_documents.py and language_projection.py (kit_digest stored per document revision; revision hash includes kit_digest)",
+      "JARVIS frontend/src/packages.ts communication.kit_digest",
+      ".dev/backlog/104-evolang/distribution-design.md (kit design record, prose only)"
+    ],
+    "openQuestions": [
+      "Is the kit zip byte-reproducible? `zip -r` stores file mtimes and ordering, so two builds of the same source may yield different digests. The issue says identical source plus a pinned kit renders identical bytes (the page, not the zip), which the tree does not contradict, but whether a release's zip digest must be reproducible is not answered by the tree.",
+      "Who bumps JARVIS's PINNED_VERSION/COMMIT/DIGEST and runs stage/activate after a new release? That code is in the JARVIS repo (jarvis#120 lane); nothing in agent-guard does it. How the 'new kit release through the existing controls' is triggered (merge to dev) and who approves the re-pin is not decided in the working tree.",
+      "Should the CI required-file list in ci.yml add style.css and syntax.css to match JARVIS REQUIRED_FILES? It is a gap in the loud check, not part of issue 114's stated needs, so adding it would be scope Tim has not approved.",
+      "The kit's data-block page has no place to carry a story-helper availability signal; whether a missing /api/packages/story.js (page opened outside JARVIS) should be diagnosed on the page or stay silent is a design choice for DESIGN, and the project rule on silent failure bears on it."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Whether the explorer should treat the kit digest / installation.json as in scope for this repository's code",
+        "resolution": "Reported them as produced by the JARVIS repo, not agent-guard, and listed JARVIS files as surfaces",
+        "principle": "rails-explorer: enumerate every surface/store and never conclude from one; trust code over prose",
+        "evidence": "grep for installation.json in the worktree finds no source; jarvis/language_kit.py:187-217 writes it"
+      },
+      {
+        "choice": "Whether to carry the issue/contract wording as fact",
+        "resolution": "The live issue wins; every fact was re-verified against live files and gh output, and the draft contract was treated as a hint only",
+        "principle": "The brief: the live issue is the authority; rails-explorer absolute rule",
+        "evidence": "gh issue view 114; ts/metalang/*.ts read from the working tree"
+      }
+    ]
+  },
+  {
+    "area": "determinism",
+    "facts": [
+      {
+        "claim": "The page's bytes are a pure string template over four inputs: title, css, js bundle text, and one JSON data block. pageHtml has no timestamp, random value, hash, counter, version string or path in it.",
+        "evidence": "ts/metalang/render.ts:58-69 (pageHtml returns a fixed template with title, css, DATA_ID block, inlineScript(js)). grep for Date|Math.random|performance|crypto|randomUUID|process.env|cwd over every non-test ts/metalang source returns only import.meta.url/here (path resolution) and import.meta.main entry guards; no clock or randomness."
+      },
+      {
+        "claim": "Rendering one document twice already produces identical bytes, in the repo path and in the kit path, and the two paths produce the same bytes as each other. Probe: render ts/metalang/arch.yaml twice via `bun run ts/metalang/render.ts` gave sha256 4b63175167d67926c49f389a85348429d669866a94a7e73bdee262205f98ca04 both times; two runs of `node k1/kit.js render` on the same file gave the same hash; the kit and repo renders compare equal (cmp).",
+        "evidence": "Command output pasted from this run (bun 1.2.14, arch.yaml, 293KB): o1.html == o2.html == n1.html == n2.html == p1.html == p2.html, all 4b631751...ca04. Rendering from a different path of the same content (copy of arch.yaml elsewhere) also gave identical bytes (`pathindep`)."
+      },
+      {
+        "claim": "Two separate kit builds from the same tree and the same version string produce byte-identical files: kit.js, page.js, style.css, syntax.css, the three yaml files, package.json, README.md (diff of per-file sha256 printed KITSAME). page.js sha256 4c772e77c1712a1e7087eb38a28a0dd05813451cc185e0e6cd43204fb4b4f80d and kit.js cfc0dcf4137dbd51a1a41d1766e816d1402106e221cbd87ff2215f1dfccb4a98 in both builds. Bundles contain no absolute paths (grep for the home dir and scratchpad path counted 0 in kit.js, page.js, and the rendered page).",
+        "evidence": "`bun run ts/metalang/kit.ts <dir> T` twice, `shasum -a 256 *` per dir, diff empty. Bundler is Bun.build with minify:true, sourcemap:'none', no define, target browser (ts/metalang/bundle.ts bundlePage, SHARED config); page bundle is built by bundlePage(join(here, PAGE_SOURCE), {}) at kit.ts:~140 and by builtPageBundle at render.ts:~187."
+      },
+      {
+        "claim": "The kit version string reaches only package.json and README.md, never kit.js, page.js, or a rendered page, so changing the version changes those two files and nothing a page is made from. Probe: build with version OTHER vs T differed only in package.json and README.md.",
+        "evidence": "kit.ts writes version via JSON.stringify({name,version,...}) and readmeText(version) only; diff of k3 vs k1 sums showed only package.json and README.md lines changed. The CI step passes the release tag as that version: .github/workflows/ci.yml:592 `bun run ts/metalang/kit.ts dist/evolang-kit \"$TAG\"`."
+      },
+      {
+        "claim": "The only things in the page that could vary are object/Map key order and array order in the JSON data block, and all of them come from deterministic sources: JSON.stringify(data) follows insertion order, which comes from yaml.load of the file, the rulebook's declared words (Map/Object built in document order), the checker's problem list, and `[...marks.marked]` which is a Map built in highlight-entry order. No Set or Map is iterated in an order set by hashes, time or the filesystem in the render path; the one sort found is words.ts:604 with a total tiebreak `y.deep - x.deep || x.at - y.at`.",
+        "evidence": "render.ts:176-186 builds the data object; page-data.ts:marksFrom/PageMarks and dataBlock = JSON.stringify(data).replace(/</g,'\\\\u003c') (page-data.ts:~57); highlight.ts:220 `new Map<string,string>()` built in entry order; words.ts:604 sort. Inference, not proven for every document: order stability rests on insertion order being stable, which was only probed on arch.yaml, not on a highlight file or a document that fails the check."
+      },
+      {
+        "claim": "No existing test asserts byte stability of a rendered page or of a kit. The tests that touch pageHtml/renderWith assert containment (title escaped, `</script` neutralised, data block escaped, renderWith writes a file), never that two renders are equal.",
+        "evidence": "grep -n -i 'byte|identical|determin|twice|same bytes|digest|sha' over render.test.ts, kit.test.ts, bundle.test.ts, page-data.test.ts, cli.test.ts returns nothing relevant (only unrelated 'shared'). pageHtml tests: render.test.ts:45,55,63,95,259,267; renderWith tests: render.test.ts:277,290. kit.test.ts:140-166 draws a page under node and checks the document is in the page and that page.js is carried, with no repeat-render comparison."
+      },
+      {
+        "claim": "Nothing named `installation.json` exists in this working tree, and there is no digest file for the kit. The issue and brief mention the kit's own `installation.json` digests, but a repo-wide grep finds no file or reference. The only kit release machinery is the CI zip step, which writes no digest.",
+        "evidence": "grep -rIl 'installation.json' (excluding node_modules/.git) returned empty; `git ls-files | grep -i installation` returned empty. ci.yml:577-599 builds dist/evolang-kit, checks required files non-empty, and runs `zip -r evolang-kit.zip evolang-kit`; no sha256 step in that block. The word `digest` in the issue's completion evidence ('kit release digest') therefore refers to something outside this tree (JARVIS side) or something not yet written."
+      },
+      {
+        "claim": "What would break byte stability for a pinned kit is the toolchain, not the page code: the bundle text depends on Bun's bundler/minifier version and on react/react-dom/js-yaml versions. Both are pinned: .bun-version is 1.2.14 and package.json pins react 19.3.0, react-dom 19.3.0, js-yaml 4.1.0; CI installs with `bun install --frozen-lockfile` and reads bun-version-file .bun-version.",
+        "evidence": ".bun-version content `1.2.14`; package.json dependencies; ci.yml:434 and :580 `bun-version-file: .bun-version`; ci.yml:591 `bun install --frozen-lockfile`. Local probe ran under bun 1.2.14, same as the pin."
+      },
+      {
+        "claim": "Adding data-declaration / data-member attributes and the story script tag changes the bytes of page.js (the bundle) and of pageHtml's template, so every previously rendered page and every kit digest changes once; after that, byte stability depends only on the new code not introducing a non-deterministic id source. Any member identity derived by walking a shape's properties must follow document order (Object.keys on yaml-loaded mappings), not a Set or sort without a total tiebreak.",
+        "evidence": "Inference from render.ts:58-69 (shell is the template) and the build path in kit.ts/bundle.ts; app.tsx draws `section.d-decl` and member `tr` rows in the Table; app.tsx uses Object.entries/Object.keys/new Map/new Set at lines 128, 342, 466, 961, 1021, 1112, 1353, 1723 (all insertion-ordered). Not yet built, so this is a forecast, not a measured fact."
+      },
+      {
+        "claim": "Escaping in the shell is narrow: escapeHtml escapes only `&` and `<` and is used for the title only. Attribute values written by React (the new data-declaration / data-member) are escaped by React's DOM, not by pageHtml, so the escaping requirement for ids with quotes lives in the bundle, and the server-side shell escape does not cover attribute context.",
+        "evidence": "render.ts:36 `const escapeHtml = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;')`; used only at render.ts:63 in <title>. A new `<script src=\"/api/packages/story.js\">` tag would be a constant string in the template, adding no variable input."
+      }
+    ],
+    "surfaces": [
+      "ts/metalang/render.ts (pageHtml template, renderWith, builtPageBundle; output file is the only store)",
+      "ts/metalang/page-data.ts (dataBlock JSON.stringify and the `<` escape; PageData shape)",
+      "ts/metalang/bundle.ts (bundlePage: Bun.build minify true, no define)",
+      "ts/metalang/kit.ts (buildKit; writes kit.js, page.js, package.json with version, README.md with version, copies yaml and css)",
+      "ts/metalang/kit-entry.ts and ts/metalang/cli.ts (the node-run `render` command path)",
+      "ts/metalang/app.tsx and client.tsx (React tree that becomes page.js; iteration over Object.keys/entries and Map/Set)",
+      "ts/metalang/highlight.ts (marks Map built in entry order)",
+      "ts/metalang/words.ts:604 (the one sort in the render path)",
+      "ts/metalang/style.css, ts/metalang/syntax.css (inlined into every page)",
+      "ts/metalang/render.test.ts, kit.test.ts, bundle.test.ts, page-data.test.ts (the tests; none asserts byte equality)",
+      "package.json, bun.lock, .bun-version (pins that fix the bundle bytes)",
+      "dist/evolang-kit/ and dist/evolang-kit.zip (CI output), .github/workflows/ci.yml:577-599",
+      "installation.json: absent from this tree; if it exists it is on the JARVIS side"
+    ],
+    "openQuestions": [
+      "Where is the kit's `installation.json` and what digests does it hold? It is not in this working tree (no file, no reference), so what it digests (kit.js, page.js, the whole zip, a rendered page) cannot be answered here. The issue's phrase 'a pinned kit' and 'kit release digest' depend on it.",
+      "Does byte stability need to hold across Bun versions or operating systems, or only under the pinned Bun 1.2.14? The probe was one macOS machine under 1.2.14; CI runs on its own runner and no cross-platform equality was tested. The zip step also stores file mtimes, so evolang-kit.zip itself is not byte-stable even though its contents are.",
+      "Is the byte-stability test to compare two renders in one process, or across separate kit builds too? The tree has neither today, and the contract only says 'a kit built from this branch renders that document to the same bytes twice'."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Whether to add a byte-equality test for repeated renders",
+        "resolution": "Yes: it is required by the issue ('identical source plus a pinned kit still renders identical bytes') and by the approved plan's completion evidence ('Deterministic render and selector tests'); no choice remains.",
+        "principle": "Approved requirement in the issue and the repo's CLAUDE.md rule that nothing may fail silently",
+        "evidence": "gh issue view 114 'What this needs' bullet 'identical source plus a pinned kit still renders identical bytes'; contract.md Acceptance 'repeated identical renders compared byte for byte'."
+      },
+      {
+        "choice": "How the existing nine-declaration page is made identity-stable for tests (fixture comes from the repo's own document vs a handwritten fixture)",
+        "resolution": "Use real documents the repo already carries (arch.yaml-based pages) for the equality probe, as kit.test.ts already does at lines 179-205, rather than inventing a second fixture format.",
+        "principle": "Reuse the existing owner; do not build a second copy (rails-dry-code)",
+        "evidence": "kit.test.ts:179-205 renders an arch document through the kit under node; probe above reused ts/metalang/arch.yaml."
+      }
+    ]
+  }
+]
