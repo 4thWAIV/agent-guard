@@ -12,7 +12,7 @@ Bridge told him the exact-signature gap stands between him and what he asked for
 
 ## Owners
 
-Planning is in neither Bridge's nor Diagnostics' peer list, and Diagnostics reports Planning reached it only by messaging in. Until Planning returns, Bridge holds this sequence and the repair Work item; Diagnostics holds the JARVIS lane.
+Planning holds this sequence and the repair Work item, confirmed on work-0ce6071af7d5. Diagnostics holds the JARVIS lane. Bridge holds the kit and the issue-106 source.
 
 ## Bridge, in the agent-guard kit
 
