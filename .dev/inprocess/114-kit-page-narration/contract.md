@@ -10,6 +10,8 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **authorize-walkthrough-repair.** Tim approved the architecture walkthrough repair as a build on 2026-11-11, answering `approve-build`; the record is `results/decisions.json` in `architecture-walkthrough-repair-authoriz-1.0.0-local61c`. That plan assigns this repository: "Add the existing story helper to the kit renderer; add stable declaration and member identities; preserve section and column targets," with completion evidence "Deterministic render and selector tests, upstream PR/CI and kit release digest."
 
+**rule-2-middle-clause.** Rule 2 keeps only its two exact bans: the strings `IGrantStore` and `IWindowsHelloNativeOps`, and any constant `data-declaration=` or `data-member=` attribute value. Its ban on any id declared in a document being drawn, and on any member name, is dropped. Tim approved this as written on 2026-11-12, answering `rule-2-middle-clause` with `drop-the-clause` in pkg-dd9cd1cb87e7; the record is `results/decisions.json` in `rule-2-s-middle-clause-1.0.0-local2d1`.
+
 **Not decided, and not in this contract.** Refusing duplicate declaration ids at check time, filed as issue 115. Reporting a shape whose language declares no name role as an on-page error at render time, filed as issue 116. Narrating a proposal page, whose shell is a second copy at `ts/metalang/propose.ts:882`, filed as issue 117.
 
 ## Rules to add
@@ -22,9 +24,9 @@ None of the three is an analyzer and none carries a diagnostic id, so no diagnos
 
    **Where it stops.** Tim set this boundary as written on 2026-11-11, answering `rule-1-boundary` with `lookups-and-renames` in pkg-a37618205163. Outside the rule: a member of the page's own union of finding kinds, English prose shown to the reader, and a comparison against a JavaScript type. Enforced on every word `words.ts` names, the rule flags twenty-four literals in `app.tsx`; fifteen are the defect and nine are these three kinds. The fifteen are the rule's impact on existing code and IMPLEMENT clears them.
 
-2. **No literal target in non-test source.** The strings `IGrantStore` and `IWindowsHelloNativeOps`, any id declared in a document being drawn, any member name, and any constant `data-declaration=` or `data-member=` attribute value are banned anywhere in non-test `ts/` source. This stops the two named targets being special-cased so the acceptance passes while the general mechanism is absent.
+2. **No literal target in non-test source.** The strings `IGrantStore` and `IWindowsHelloNativeOps`, and any constant `data-declaration=` or `data-member=` attribute value, are banned anywhere in non-test `ts/` source. This stops the two named targets being special-cased so the acceptance passes while the general mechanism is absent.
 
-   **Where it stops.** Tim set this boundary as written on 2026-11-11, answering `rule-2-boundary` with `drawn-documents` in pkg-a37618205163. A declaration id means one declared in a document being drawn. It does not mean the architecture language's own declared ids, which are its vocabulary: `ts/metalang/arch.yaml` declares twenty-one, five of which are written out in `syntax.ts`, `words.ts` and `examples.ts` today, and `words.ts:395-404` states it is their single owner. Rule 1 governs how the drawing code may reach them.
+   **Where it stops.** The rule holds those two bans and nothing wider. Tim dropped the third ban, on any id declared in a document being drawn and on any member name, on 2026-11-12, answering `rule-2-middle-clause` with `drop-the-clause`. On 2026-11-11 he had bounded that dropped ban to documents being drawn, answering `rule-2-boundary` with `drawn-documents` in pkg-a37618205163; the later answer removes the ban that boundary applied to. The dropped ban could not separate an id of a drawn document from an ordinary word of the code, because the six documents the renderer draws declare eighty-seven distinct ids, among them `string`, `object`, `name`, `value`, `language` and `part`. Rule 1 governs how the drawing code may reach a language word.
 
 3. **One owning site per identity attribute.** In `ts/metalang`, the JSX attribute `data-declaration` may be written only in the component that draws a declaration, and `data-member` only in the component that draws member rows. This stops a second hand-written copy with a different value derivation, which would make the same selector mean two things depending on which component drew the node.
 
@@ -87,7 +89,7 @@ Add test fixtures that declare shapes carrying punctuation, quotes and repeated 
 
 ## What the agent MUST NOT do
 
-Read a language property by its spelling anywhere in the drawing path. Write a declaration id or member name into non-test source. Write either identity attribute outside its one owning component. Add a second resolver, escaper, diagnostic or page shell. Weaken, skip or delete a test, or lower the coverage floor. Loosen a target assertion because the CLI output has an empty root. Write the two named literal targets into a repository fixture to make the acceptance pass. Change scope. Commit. Stop and report on any wall.
+Read a language property by its spelling anywhere in the drawing path. Write `IGrantStore` or `IWindowsHelloNativeOps`, or a constant value of either identity attribute, into non-test source. Write either identity attribute outside its one owning component. Add a second resolver, escaper, diagnostic or page shell. Weaken, skip or delete a test, or lower the coverage floor. Loosen a target assertion because the CLI output has an empty root. Write the two named literal targets into a repository fixture to make the acceptance pass. Change scope. Commit. Stop and report on any wall.
 
 ## Acceptance
 
