@@ -14,7 +14,9 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 ## Rules to add
 
-Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. **Tim approves these three before RULE-PHASE writes them.**
+Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. Tim approved all three as written on 2026-11-11, and told this session to proceed with the work.
+
+None of the three is an analyzer and none carries a diagnostic id, so no diagnostic is approved to remain a warning in any intermediate build.
 
 1. **No language word by spelling in the drawing path.** A string literal naming a property or type of a drawn language is banned in `ts/metalang/app.tsx` and `ts/metalang/client.tsx`. The only legal route to a language word is a named constant in `ts/metalang/words.ts` or a rulebook lookup. This stops a member's identity being taken from the spelling of a column — `member['name']`, `columns.includes('name')`, `=== 'name'` — instead of asking the rulebook. `app.tsx` contains no such literal today, so the rule needs no carve-out.
 
