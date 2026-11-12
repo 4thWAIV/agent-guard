@@ -27,7 +27,7 @@ A package asks every choice it describes. A package that describes a choice and 
 
 ## The fix
 
-Version 1.0.1 of `architecture-repair-the-executive-brief` carries all five votes under their existing decision ids and option keys, so it replaces pkg-d23e671bd70c in place (`jarvis/package_inbox.py:567` supersedes an open package of the same name from the same sender).
+Version 1.0.1 of `architecture-repair-the-executive-brief` carries all five votes under their existing decision ids and option keys. Delivered as pkg-9100658068f8, message 21576, 15 slides, five decisions. pkg-d23e671bd70c is closed as superseded, as `jarvis/package_inbox.py:567` closes an open package of the same name from the same sender.
 
 pkg-dedc4434d455 and pkg-34b725d6a79d keep a different name each, so neither is replaced by it and both stay open asking the same five questions. There is no sender-side way to withdraw a package: `make_package` has no such option, and `dismissed` is his own act (`jarvis/package_inbox.py:23`). He sets them aside by telling JARVIS, or they are answered in whichever package he reaches first.
 
