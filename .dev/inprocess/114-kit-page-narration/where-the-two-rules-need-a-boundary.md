@@ -24,7 +24,7 @@ Enforcing rule 1 exactly as worded flags 24 literals in `app.tsx`. Some are the 
 | `app.tsx:85`, `:96`, `:107`, `:115`, `:150`, `:1603` | `pending` | a member of the page's own union of finding kinds |
 | `app.tsx:1415` | `property`, `properties` | English prose shown to the reader: `no properties`, `1 property` |
 
-Fourteen are the defect and ten are not, and the sentence Tim approved does not say which. Writing that boundary here would be this session deciding what his rule means.
+Fifteen are the defect — thirteen key reads plus the two local constants — and nine are not, and the sentence Tim approved does not say which. Counted per literal, so `app.tsx:1415` is two because it holds both `property` and `properties`. Writing that boundary here would be this session deciding what his rule means.
 
 Rule 2 has the same shape with a sharper edge. Taken literally, "any declaration id" includes `arch.yaml`'s own vocabulary ids, so the rule would forbid `words.ts` — the single owner of the vocabulary, which `words.ts:395-404` states it is — from naming its own words. The rule would ban the owner from owning.
 
@@ -32,7 +32,7 @@ Rule 2 has the same shape with a sharper edge. Taken literally, "any declaration
 
 ## What is being asked
 
-**Rule 1's boundary.** Recommended: the ban covers a literal used to look something up in the document being drawn or in its rulebook, and a local constant renaming a word `words.ts` already names. Outside it: the page's own union members, English prose shown to the reader, and a comparison against a JavaScript type. That keeps all fourteen real instances and none of the ten others.
+**Rule 1's boundary.** Recommended: the ban covers a literal used to look something up in the document being drawn or in its rulebook, and a local constant renaming a word `words.ts` already names. Outside it: the page's own union members, English prose shown to the reader, and a comparison against a JavaScript type. That keeps all fifteen real instances and none of the nine others.
 
 **Rule 2's boundary.** Recommended: a declaration id means one declared in a document being drawn, which is what the two acceptance targets are. It does not mean the architecture language's own vocabulary ids, which `words.ts` owns and rule 1 already governs.
 
