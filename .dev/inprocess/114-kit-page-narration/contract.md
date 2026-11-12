@@ -87,7 +87,7 @@ Read a language property by its spelling anywhere in the drawing path. Write a d
 
 Each check is re-derivable by someone other than the worker.
 
-1. `make build && make test` green, and `bun test` green, from the repository root.
+1. `make build && make test` green, and `bun test` green, from the repository root. Both are named because `make test` is `dotnet test` alone and runs none of the kit's tests, which is filed as issue 118.
 2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.
 3. A selector naming one member of one declaration matches exactly one element, same command.
 4. A member name containing a double quote, a single quote and a backslash is reachable by selector in the DOM library. Same command.
