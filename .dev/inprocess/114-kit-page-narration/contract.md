@@ -6,6 +6,8 @@
 
 **selector-proof.** This repository takes one pinned, development-only DOM library so its own tests match a selector the way a browser does. Tim approved this as written on 2026-11-11, answering `selector-proof` with `add-dom-library` in the same package and record.
 
+Both decisions were asked twice, because an earlier package carrying the same two questions stayed open when the brief was rebuilt to carry them. Tim answered that one too, `kit-narration-repair-two-language-and-te-1.0.0-local6cb` at 21:03, giving `change-language` and `add-dom-library` again. The two records agree.
+
 **authorize-walkthrough-repair.** Tim approved the architecture walkthrough repair as a build on 2026-11-11, answering `approve-build`; the record is `results/decisions.json` in `architecture-walkthrough-repair-authoriz-1.0.0-local61c`. That plan assigns this repository: "Add the existing story helper to the kit renderer; add stable declaration and member identities; preserve section and column targets," with completion evidence "Deterministic render and selector tests, upstream PR/CI and kit release digest."
 
 **Not decided, and not in this contract.** Refusing duplicate declaration ids at check time, filed as issue 115. Reporting a shape whose language declares no name role as an on-page error at render time, filed as issue 116. Narrating a proposal page, whose shell is a second copy at `ts/metalang/propose.ts:882`, filed as issue 117.
