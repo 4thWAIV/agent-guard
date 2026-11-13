@@ -1,6 +1,6 @@
 # Two things stop the acceptance tests
 
-The tests are written and failing for the right reasons: fifteen of them across `ts/metalang/app.test.tsx`, `ts/metalang/render.test.ts` and `ts/metalang/kit.test.ts`, with jsdom 31.0.0 pinned in `package.json` and `bun.lock`. Two things stop the stage finishing, and each needs Tim.
+The tests are written and failing for the right reasons: fifteen of them across `ts/metalang/app.test.tsx`, `ts/metalang/render.test.ts` and `ts/metalang/kit.test.ts`, with jsdom 31.0.0 pinned in `package.json` and `bun.lock`. Two things stop the stage finishing. Tim answered the first on 13 November; the second is still with him.
 
 ## jsdom carries no type declarations
 
@@ -22,6 +22,8 @@ Checked: `@types/jsdom` 30.0.0 types jsdom 31.0.0's used surface — the `JSDOM`
 The contract's `dom-library` decision reads: "Adding it to `package.json` devDependencies and `bun.lock` at that exact version is what the answer authorizes, and nothing else." A second dependency, even a types-only one, is outside it.
 
 Recommendation: `@types/jsdom` 30.0.0. Writing our own declarations duplicates a published, maintained thing, which is what the prior-art rule exists to stop.
+
+Answered. Tim chose `types-package` on 2026-11-13 at 12:44, decision `jsdom-types` in pkg-6d9db6691d8c, recorded in `results/decisions.json` in `unblock-the-kit-acceptance-tests-1.0.1-localea7`. The contract now carries it as decision `jsdom-types`, with `@types/jsdom` 30.0.0 in Surfaces, in `What to do` item 5 and as acceptance criterion 13.
 
 ## The TDD stage demands every acceptance criterion be failing now
 

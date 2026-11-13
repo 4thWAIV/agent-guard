@@ -12,6 +12,8 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **dom-library.** The development-only DOM library this repository takes is jsdom 31.0.0. Adding it to `package.json` devDependencies and `bun.lock` at that exact version is what the answer authorizes, and nothing else. Tim approved this as written on 2026-11-12, answering `dom-library` with `jsdom-31` in pkg-eeea4f159ee9; the record is `results/decisions.json` in `choose-the-dom-library-1.0.2-localafe`.
 
+**jsdom-types.** The jsdom import is typed by the published declaration package `@types/jsdom` 30.0.0. Adding it to `package.json` devDependencies and `bun.lock` at that exact version is what the answer authorizes, and nothing else; no declaration file for jsdom is written in this repository. Tim approved this as written on 2026-11-13, answering `jsdom-types` with `types-package` in pkg-6d9db6691d8c; the record is `results/decisions.json` in `unblock-the-kit-acceptance-tests-1.0.1-localea7`.
+
 **rule-2-middle-clause.** Rule 2 keeps only its two exact bans: the strings `IGrantStore` and `IWindowsHelloNativeOps`, and any constant `data-declaration=` or `data-member=` attribute value. Its ban on any id declared in a document being drawn, and on any member name, is dropped. Tim approved this as written on 2026-11-12, answering `rule-2-middle-clause` with `drop-the-clause` in pkg-dd9cd1cb87e7; the record is `results/decisions.json` in `rule-2-s-middle-clause-1.0.0-local2d1`.
 
 **Not decided, and not in this contract.** Refusing duplicate declaration ids at check time, filed as issue 115. Reporting a shape whose language declares no name role as an on-page error at render time, filed as issue 116. Narrating a proposal page, whose shell is a second copy at `ts/metalang/propose.ts:882`, filed as issue 117.
@@ -59,7 +61,7 @@ This run: a selector naming one declaration's members matches exactly one elemen
 - `ts/metalang/kit.ts` and `ts/metalang/kit-entry.ts` — what a built kit carries.
 - `.github/workflows/ci.yml` — the kit asset's required-file check.
 - `ts/metalang/render.test.ts`, `ts/metalang/app.test.tsx`, `ts/metalang/kit.test.ts` — the tests for all of the above.
-- `package.json` and `bun.lock` — jsdom 31.0.0 as a development dependency.
+- `package.json` and `bun.lock` — jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies.
 - `bunfig.toml` — the 0.75 coverage floor the new code is held to.
 
 The list is where the work is known to be, not a boundary.
@@ -81,7 +83,7 @@ The ledger's earlier reuse verdict cited `arch.yaml:211`, which is the `word` en
 2. In the component that draws a declaration, write `data-declaration` from the declaration's own id, through the single extracted id predicate.
 3. In `Table`, resolve the member's name property once per table through `propertyCarrying` and write `data-member` on each row from the value that property holds. A table whose shape has no carrier, or two, gets no `data-member` and no new diagnostic.
 4. Load JARVIS's story helper from `pageHtml` in `ts/metalang/render.ts`, as `<script defer src="/api/packages/story.js"></script>`, after the data block and before the bundle. The helper has no order dependency on either: at load it only adds listeners and announces itself, it creates its ring layer on the first cue, and it resolves a beat's targets when that beat arrives, rechecking once after 700 milliseconds and reporting what it still cannot see. The position is forced from this side rather than by the helper: `ts/metalang/render.test.ts:96` and `:146` slice the page from the first `<script>` to the last `</script>` and assert nothing closes a script element inside, so placing the helper last lands that search on its own closing tag.
-5. Take jsdom 31.0.0 as a development dependency in `package.json` and `bun.lock`, pinned to that exact version, and prove in it that a member name containing a double quote, a single quote and a backslash is reachable by selector, that a member name repeated across two declarations resolves to the one asked for, and that two declarations sharing an id are reported as ambiguous rather than resolved to the first. Assertions run against the component render or the executed bundle, never against the CLI output, because `#root` in the written page is empty and the DOM is drawn in the browser.
+5. Take jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies in `package.json` and `bun.lock`, each pinned to that exact version, and prove in jsdom that a member name containing a double quote, a single quote and a backslash is reachable by selector, that a member name repeated across two declarations resolves to the one asked for, and that two declarations sharing an id are reported as ambiguous rather than resolved to the first. Assertions run against the component render or the executed bundle, never against the CLI output, because `#root` in the written page is empty and the DOM is drawn in the browser.
 6. Add `style.css` and `syntax.css` to the required-file check in `.github/workflows/ci.yml`, which lists seven files while `ts/metalang/kit.ts` marks nine as required.
 7. Keep every `data-part` and `data-col` target working, spelled exactly as now.
 
@@ -109,6 +111,7 @@ Each check is re-derivable by someone other than the worker.
 10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.
 11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`. The earlier command named here, `eng/coverage-gate.sh`, is the .NET gate and reads none of the kit's coverage.
 12. The rendered page loads the story helper as `<script defer src="/api/packages/story.js"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`. The standard and `What to do` item 4 both require the helper, and no numbered check named it.
+13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository. Commands: `bun run typecheck` and `bun run lint`. CI runs both, at `.github/workflows/ci.yml:437` and `:439`, and the untyped import failed each one before decision `jsdom-types`.
 
 ## Level
 
