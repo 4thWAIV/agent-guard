@@ -521,6 +521,7 @@ declare:
       properties:
         name:
           is: name
+          role: name
           title: The name it is known by.
         kind:
           is: kinds

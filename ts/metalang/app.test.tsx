@@ -1781,7 +1781,7 @@ const matched = (
   where: string,
 ): { readonly page: Document; readonly found: CheckResult } => {
   const { html, found } = pageFor(doc, where)
-  return { page: new JSDOM(html).window.document as Document, found }
+  return { page: new JSDOM(html).window.document, found }
 }
 
 describe('which property of a member carries its name', () => {

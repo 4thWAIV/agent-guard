@@ -1013,7 +1013,9 @@ declare:
           title: It holds the name this thing is shown by.
           description: >
             A value naming this thing is drawn with that name beside the id where the two differ,
-            because the id is what it is written as and the name is what it is called.
+            because the id is what it is written as and the name is what it is called. A thing that
+            has a name and no id is named by what this property holds and by nothing else, so that
+            is also what a reader points at it by.
         - id: mark
           value: mark
           title: It holds the character this thing is drawn with.

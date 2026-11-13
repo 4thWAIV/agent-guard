@@ -53,9 +53,24 @@ export function inlineScript(js: string): string {
 }
 
 /**
- * The whole page as one string of HTML: the styles, the data the page draws, and the bundle that
- * draws it. The data sits in its own element rather than inside the bundle, so one bundle built
- * once can draw any document.
+ * JARVIS's story helper, which rings a beat of a narration and points at what the beat is about.
+ * It is served by JARVIS rather than built here, so the page loads it from the path JARVIS serves
+ * it at. It has no order dependency on the data or the bundle: at load it only adds listeners and
+ * announces itself, it creates its ring layer on the first cue, and it resolves a beat's targets
+ * when that beat arrives, rechecking once after 700 milliseconds and reporting what it still
+ * cannot see.
+ *
+ * It sits after the data and BEFORE the bundle, which is forced from this side rather than by the
+ * helper: the helper carries a closing script tag of its own, and this file's tests read the
+ * bundle out of the slice from the first `<script>` to the last `</script>`, so a helper written
+ * last would land that search on its own closing tag instead of the bundle's.
+ */
+const STORY_HELPER = '<script defer src="/api/packages/story.js"></script>'
+
+/**
+ * The whole page as one string of HTML: the styles, the data the page draws, the helper that
+ * narrates it, and the bundle that draws it. The data sits in its own element rather than inside
+ * the bundle, so one bundle built once can draw any document.
  */
 export function pageHtml(title: string, css: string, js: string, data: PageData): string {
   return `<!doctype html>
@@ -66,6 +81,7 @@ export function pageHtml(title: string, css: string, js: string, data: PageData)
 <style>${css}</style>
 <main id="root"></main>
 <script type="application/json" id="${DATA_ID}">${dataBlock(data)}</script>
+${STORY_HELPER}
 <script>${inlineScript(js)}</script>
 </html>
 `

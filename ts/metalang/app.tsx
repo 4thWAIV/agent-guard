@@ -40,6 +40,7 @@ import {
   membersOf,
   NOTHING_FOUND,
   onlyWord,
+  OPTIONAL,
   primitiveOf,
   propertiesCarrying,
   propertiesOf,
@@ -360,30 +361,36 @@ const Unclaimed = ({
 // language has not said what it holds draws as the incomplete feature it is.
 const TITLE = 'title'
 const DESCRIPTION = 'description'
-const OPTIONAL = 'optional'
 
 // One line saying what a thing is, and prose explaining it. Both are written the same way on a
 // declaration, on one of its properties and on one of an enum's values, so one list names them.
 const PROSE: readonly string[] = [TITLE, DESCRIPTION]
 
 const DRAWN_ON_KIND: readonly string[] = [
-  'id',
-  'is',
+  BOOTSTRAP.id,
+  BOOTSTRAP.is,
   ...PROSE,
   'abstract',
   'primitive',
   CONSTRAINTS,
-  'properties',
+  BOOTSTRAP.properties,
   VALUE,
   'values',
-  'options',
+  BOOTSTRAP.options,
 ]
 
 // What a type says about itself rather than about its properties. Each is drawn only when the
 // declaration writes it true, because writing it false says the same as leaving it off.
 const SAID_OF_TYPE: readonly string[] = ['abstract', 'primitive']
-const DRAWN_ON_PROPERTY: readonly string[] = ['is', ...PROSE, OPTIONAL, ACCEPTS, ROLE, VALUE]
-const DRAWN_ON_VALUE: readonly string[] = ['id', ...PROSE, VALUE]
+const DRAWN_ON_PROPERTY: readonly string[] = [
+  BOOTSTRAP.is,
+  ...PROSE,
+  OPTIONAL,
+  ACCEPTS,
+  ROLE,
+  VALUE,
+]
+const DRAWN_ON_VALUE: readonly string[] = [BOOTSTRAP.id, ...PROSE, VALUE]
 
 // ── the prose a thing carries ────────────────────────────────────────────────
 //
@@ -540,7 +547,6 @@ const Written = ({ word, inside }: { word: string; inside: unknown }) => (
 // own type has parts nests. Whether a part names a property the type has is the checker's
 // question, so a part nothing says a type for still draws as what is written.
 const EXPRESSION = 'expression'
-const ROOT = 'object'
 const TEXT = 'string'
 
 /**
@@ -608,7 +614,7 @@ const rowsOf = (
   const [word, inner] = written
   if (bodyOf(word) === undefined || !derivesFrom(bodyOf, word, SELF.collection)) return null
   const of = isMapping(inner) ? inner.of : undefined
-  if (typeof of !== 'string' || primitiveOf(bodyOf, of) !== ROOT) return null
+  if (typeof of !== 'string' || primitiveOf(bodyOf, of) !== SELF.object) return null
   if (!value.every((member) => isMapping(member))) return null
   return { of, members: value as readonly Mapping[] }
 }
@@ -728,6 +734,25 @@ const Table = ({
   const { words, said, drawn } = useDrawing()
   const bodyOf = useBodyOf()
   const columns = [...propertiesOf(bodyOf, of).keys()]
+
+  // Which property of a member carries its name is the LANGUAGE's answer, asked once per table at
+  // the one place that question is answered, so the page never reads a property by its spelling
+  // and a shape naming that property otherwise is drawn by this same code. A shape no property of
+  // which carries the role, and one two properties of which do, both come back with nothing: the
+  // question has no answer, so a row carries no identity rather than the page picking a property
+  // for itself. The two-carrier case is already reported where the property is drawn, so nothing
+  // is said again here.
+  const namePart = propertyCarrying(bodyOf, of, ROLES.name)
+
+  /** The identity a narration points one member out by: the name its own shape says it has. */
+  const identityOf = (member: Mapping): string | undefined => {
+    if (namePart === undefined) return undefined
+    const held = member[namePart]
+    if (held === undefined || held === null) return undefined
+    const named = text(held)
+    return named.length === 0 ? undefined : named
+  }
+
   return (
     <table className="d-table">
       <thead>
@@ -752,6 +777,7 @@ const Table = ({
               <tr
                 className={says === null ? undefined : classes('r-marked', colourOf(says))}
                 id={says === null ? undefined : rowAt}
+                data-member={identityOf(member)}
               >
                 {columns.map((name) => (
                   <td key={name} data-col={name}>
@@ -830,7 +856,7 @@ const Drawn = ({ value, type, className = '', where, accepts = [] }: OneValue) =
   const primitive = named === null ? null : primitiveOf(bodyOf, named)
 
   const rows = rowsOf(bodyOf, type, value)
-  const parts = primitive === ROOT && named !== null && isMapping(value)
+  const parts = primitive === SELF.object && named !== null && isMapping(value)
   const expression = primitive === EXPRESSION && typeof value === 'string'
   const prose = isProse(bodyOf, named, primitive, value)
   const said = parts
@@ -1408,13 +1434,21 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
   // How many properties, said on the declaration's own line. A kind that carries the keyword
   // and writes none says "no properties" here, because no row is drawn for them below.
   const counted = (): string | null => {
-    if (!claimed.includes('properties')) return null
-    if (body.properties === undefined) return 'no properties'
-    if (!isMapping(body.properties)) return null
-    const n = Object.keys(body.properties).length
+    if (!claimed.includes(BOOTSTRAP.properties)) return null
+    const written = body[BOOTSTRAP.properties]
+    if (written === undefined) return 'no properties'
+    if (!isMapping(written)) return null
+    const n = Object.keys(written).length
     return n === 0 ? 'no properties' : `${n} ${n === 1 ? 'property' : 'properties'}`
   }
   const count = counted()
+
+  // The declaration's own id, or nothing where it writes none. Asked once, here: the id on the
+  // head line, the error band saying it is missing, the owner its properties are read against,
+  // and the identity a narration points the declaration out by are four readings of one
+  // question, and a second copy of it is how two of them come to disagree.
+  const writtenId = body[BOOTSTRAP.id]
+  const declaredId = typeof writtenId === 'string' && writtenId.length > 0 ? writtenId : null
 
   // The one value this declaration carries, and the type it is of. What that type says two of
   // its properties are to a reader is the whole of what follows: one holds the kind of the thing,
@@ -1465,7 +1499,14 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
       : shownBy(bodyOf, vocabulary, heads.word, ROLES.mark)
 
   return (
-    <section className="d-decl" style={kindStyle(heads.word, heads.among)}>
+    // The identity a narration points this declaration out by, and the one place it is written:
+    // the declaration's own id, through the one reading of it above. A declaration writing no id
+    // carries none, because there is nothing to point at it by.
+    <section
+      className="d-decl"
+      style={kindStyle(heads.word, heads.among)}
+      data-declaration={declaredId ?? undefined}
+    >
       <div className="d-decl-head">
         {external ? <span className="d-extern">{BOOTSTRAP.external}</span> : null}
         {mark === null ? null : <span className="d-mark">{mark}</span>}
@@ -1477,20 +1518,16 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
           </Marked>
         )}
         <span className="d-id">
-          {typeof body.id === 'string' && body.id.length > 0 ? (
-            body.id
-          ) : (
-            <em className="d-pfrom">no id</em>
-          )}
+          {declaredId ?? <em className="d-pfrom">no id</em>}
         </span>
         {SAID_OF_TYPE.filter((k) => claimed.includes(k) && body[k] === true).map((k) => (
           <span key={k} className={`d-said s-${k}`}>
             {k}
           </span>
         ))}
-        {claimed.includes('is') && body.is !== undefined ? (
-          <Marked at={`${here}.is`}>
-            <Types at={here} keyword="is" value={body.is} inline />
+        {claimed.includes(BOOTSTRAP.is) && body[BOOTSTRAP.is] !== undefined ? (
+          <Marked at={`${here}.${BOOTSTRAP.is}`}>
+            <Types at={here} keyword={BOOTSTRAP.is} value={body[BOOTSTRAP.is]} inline />
           </Marked>
         ) : null}
         {count !== null ? <span className="d-count">{count}</span> : null}
@@ -1498,28 +1535,24 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
 
       <Prose node={body} line={line} />
 
-      {typeof body.id !== 'string' || body.id.length === 0 ? (
-        <Err at={`${here}.id`}>every declaration carries an id, written as text.</Err>
+      {declaredId === null ? (
+        <Err at={`${here}.${BOOTSTRAP.id}`}>every declaration carries an id, written as text.</Err>
       ) : null}
 
       {claimed.includes(CONSTRAINTS) && body[CONSTRAINTS] !== undefined ? (
         <Constraints at={here} value={body[CONSTRAINTS]} />
       ) : null}
-      {claimed.includes('options') && body.options !== undefined ? (
-        <Marked at={`${here}.options`}>
-          <Types at={here} keyword="options" value={body.options} />
+      {claimed.includes(BOOTSTRAP.options) && body[BOOTSTRAP.options] !== undefined ? (
+        <Marked at={`${here}.${BOOTSTRAP.options}`}>
+          <Types at={here} keyword={BOOTSTRAP.options} value={body[BOOTSTRAP.options]} />
         </Marked>
       ) : null}
       {claimed.includes('values') && body.values !== undefined ? (
-        <Values at={here} is={body.is} value={body.values} />
+        <Values at={here} is={body[BOOTSTRAP.is]} value={body.values} />
       ) : null}
       {drawsValue ? <OwnValue at={here} type={of} value={rest} /> : null}
-      {claimed.includes('properties') ? (
-        <Properties
-          at={here}
-          owner={typeof body.id === 'string' ? body.id : ''}
-          node={body.properties}
-        />
+      {claimed.includes(BOOTSTRAP.properties) ? (
+        <Properties at={here} owner={declaredId ?? ''} node={body[BOOTSTRAP.properties]} />
       ) : null}
       {claimed
         .filter((k) => !DRAWN_ON_KIND.includes(k) && body[k] !== undefined)
@@ -1542,9 +1575,9 @@ export const Declaration = ({ at, node }: { at: string; node: unknown }) => {
 const DRAWN_AT_FILE: readonly string[] = [
   SCOPE,
   IMPORT,
-  'language',
-  'title',
-  'description',
+  LANGUAGE,
+  TITLE,
+  DESCRIPTION,
   BOOTSTRAP.declare,
 ]
 
