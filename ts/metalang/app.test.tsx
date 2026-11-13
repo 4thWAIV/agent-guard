@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 import * as yaml from 'js-yaml'
+import { JSDOM } from 'jsdom'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import { describe, expect, test } from 'bun:test'
@@ -17,15 +18,62 @@ import { kindStyle, Page, text } from './app.tsx'
 import { checkedAgainst } from './check.ts'
 import { LANGUAGE_FILE, rulebookFor, WORDS } from './rulebook.ts'
 import { marksOf, pathTo, type Entry } from './highlight.ts'
-import { declaredBodiesOf, hueOfKind, membersOf, type Fault, type Vocabulary } from './words.ts'
+import {
+  declaredBodiesOf,
+  hueOfKind,
+  membersOf,
+  propertyCarrying,
+  ROLES,
+  type CheckResult,
+  type Fault,
+  type Vocabulary,
+} from './words.ts'
 
 const draw = (doc: unknown, words: Vocabulary = WORDS): string =>
   renderToStaticMarkup(<Page words={words} doc={doc} />)
 
+/** A file of this folder, by name, so the folder is written out in one place. */
+const beside = (name: string): string => join(dirname(LANGUAGE_FILE), name)
+
+/** A document this repository holds, read as the YAML it is written as. */
+const held = (name: string): unknown => yaml.load(readFileSync(beside(name), 'utf8'))
+
+/**
+ * A document drawn the way the renderer draws it: read against the rulebook beside the file it is
+ * written as, marked with what the checker found in it, and handed to the page. The one place
+ * these tests build a page out of a document, so every test below reads the page a reader gets.
+ */
+const pageFor = (
+  doc: unknown,
+  where: string,
+  only?: string,
+): { readonly html: string; readonly found: CheckResult } => {
+  const book = rulebookFor(doc, where)
+  const found = checkedAgainst(doc, where, book)
+  return {
+    html: renderToStaticMarkup(
+      <Page
+        words={book.words ?? WORDS}
+        doc={doc}
+        found={found}
+        {...(only === undefined ? {} : { only })}
+      />,
+    ),
+    found,
+  }
+}
+
 /** A real document written in the architecture language, read from the file. */
-const parts = yaml.load(
-  readFileSync(join(dirname(LANGUAGE_FILE), 'parts.yaml'), 'utf8'),
-) as Record<string, unknown>
+const parts = held('parts.yaml') as Record<string, unknown>
+
+/** A document written in the architecture language, declaring what it is given. */
+const archDocument = (...declare: readonly unknown[]): Record<string, unknown> => ({
+  scope: ['guard'],
+  language: 'arch',
+  import: [['metalang']],
+  title: 'The parts of the guard',
+  declare,
+})
 
 const file = (extra: Record<string, unknown>): Record<string, unknown> => ({
   scope: ['metalang'],
@@ -1446,22 +1494,13 @@ describe('what the checker found, said on the document', () => {
 // the checker verified in full. These tests hold the page to the type the declaration names, which
 // is the rule the checker reads it by, so the two cannot drift apart again.
 describe('a declaration carrying one value of its own', () => {
-  const where = join(dirname(LANGUAGE_FILE), 'parts.yaml')
+  const where = beside('parts.yaml')
 
   /** A document in the architecture language, read against the live language beside it. */
-  const written = (value: Record<string, unknown>): Record<string, unknown> => ({
-    scope: ['guard'],
-    language: 'arch',
-    import: [['metalang']],
-    title: 'The parts of the guard',
-    declare: [{ constant: { id: 'IGuard', is: 'element', value } }],
-  })
+  const written = (value: Record<string, unknown>): Record<string, unknown> =>
+    archDocument({ constant: { id: 'IGuard', is: 'element', value } })
 
-  const shown = (doc: Record<string, unknown>): string => {
-    const { words } = rulebookFor(doc, where)
-    const found = checkedAgainst(doc, where, rulebookFor(doc, where))
-    return renderToStaticMarkup(<Page words={words ?? WORDS} doc={doc} found={found} />)
-  }
+  const shown = (doc: Record<string, unknown>): string => pageFor(doc, where).html
 
   const guard = (): Record<string, unknown> =>
     written({
@@ -1491,8 +1530,7 @@ describe('a declaration carrying one value of its own', () => {
   })
 
   test('the colour comes from where that word sits in its own vocabulary', () => {
-    const arch = yaml.load(readFileSync(join(dirname(LANGUAGE_FILE), 'arch.yaml'), 'utf8'))
-    const bodies = declaredBodiesOf(arch)
+    const bodies = declaredBodiesOf(held('arch.yaml'))
     const forms = membersOf((id) => bodies.get(id), 'forms') ?? []
     // `interface` is the first of the six forms and `constant` the fourth of the kinds, so the
     // hue says which vocabulary the head was taken from and not merely that a word changed.
@@ -1586,13 +1624,7 @@ describe('a declaration carrying one value of its own', () => {
 // the name is what the vocabulary calls it, so a reader of a naming dictionary wants both, and
 // which property holds the name is the vocabulary's answer rather than this page's guess.
 describe('a value naming one member of a closed set', () => {
-  const page = (name: string): string => {
-    const path = join(dirname(LANGUAGE_FILE), name)
-    const doc = yaml.load(readFileSync(path, 'utf8'))
-    const book = rulebookFor(doc, path)
-    const found = checkedAgainst(doc, path, book)
-    return renderToStaticMarkup(<Page words={book.words ?? WORDS} doc={doc} found={found} />)
-  }
+  const page = (name: string): string => pageFor(held(name), beside(name)).html
 
   test('draws with the name that set gives it where the name says what the id does not', () => {
     const html = page('names.yaml')
@@ -1621,13 +1653,7 @@ describe('every document in this repository draws whole', () => {
 
   for (const name of documents) {
     test(`${name} draws with nothing unaccounted for and nothing left undrawn`, () => {
-      const path = join(dirname(LANGUAGE_FILE), name)
-      const doc = yaml.load(readFileSync(path, 'utf8'))
-      const book = rulebookFor(doc, path)
-      const found = checkedAgainst(doc, path, book)
-      const html = renderToStaticMarkup(
-        <Page words={book.words ?? WORDS} doc={doc} found={found} />,
-      )
+      const { html, found } = pageFor(held(name), beside(name))
       expect(found.problems).toEqual([])
       expect(found.blockers).toEqual([])
       expect(html).not.toContain('y-unknown')
@@ -1642,14 +1668,10 @@ describe('every document in this repository draws whole', () => {
 // back to the text of a file, which is the thing this language exists to stop a reader having to
 // read.
 describe('a value naming another declaration', () => {
-  const where = join(dirname(LANGUAGE_FILE), 'parts.yaml')
+  const where = beside('parts.yaml')
 
-  const doc = (relates: unknown): Record<string, unknown> => ({
-    scope: ['guard'],
-    language: 'arch',
-    import: [['metalang']],
-    title: 'The parts of the guard',
-    declare: [
+  const doc = (relates: unknown): Record<string, unknown> =>
+    archDocument(
       {
         constant: {
           id: 'IGuard',
@@ -1676,18 +1698,12 @@ describe('a value naming another declaration', () => {
           },
         },
       },
-    ],
-  })
+    )
 
   const standing = { implements: ['IGuard'], answers: 'none', holds: 'none' }
 
-  const shown = (node: Record<string, unknown>, only?: string): string => {
-    const book = rulebookFor(node, where)
-    const found = checkedAgainst(node, where, book)
-    return renderToStaticMarkup(
-      <Page words={book.words ?? WORDS} doc={node} found={found} {...(only === undefined ? {} : { only })} />,
-    )
-  }
+  const shown = (node: Record<string, unknown>, only?: string): string =>
+    pageFor(node, where, only).html
 
   test('the name is drawn as the reference it is, not as the text of a file', () => {
     const html = shown(doc(standing))
@@ -1714,5 +1730,245 @@ describe('a value naming another declaration', () => {
     expect(html).toContain('FileGuard')
     expect(html).toContain('r-declared')
     expect(html).not.toContain('>The three behaviours every guard answers a tool call through.<')
+  })
+})
+
+// ── which declaration, and which member of it ────────────────────────────────
+//
+// JARVIS narrates a page one beat at a time, and a beat that says "this member" has to reach that
+// one member row. Every members table was drawn alike before this, so a selector naming members
+// reached every table on the page at once and a beat could point at the page but not at a part of
+// it. Which property of a member carries its name is the LANGUAGE's answer, asked for at the one
+// place that question is answered, so the page never reads a property by its spelling.
+
+/** One member of an element, with everything `member` asks of one written. */
+const archMember = (name: string, does: string): Record<string, unknown> => ({
+  name,
+  kind: 'property',
+  reach: 'public',
+  type: 'none',
+  does,
+})
+
+/** One element of the architecture language, declared under the id it is known by. */
+const archElement = (id: string, members: unknown): Record<string, unknown> => ({
+  constant: {
+    id,
+    is: 'element',
+    value: {
+      form: 'interface',
+      does: `What ${id} answers for, in one line.`,
+      reach: 'public',
+      exactness: 'loose',
+      groups: { concept: 'checking', job: 'container' },
+      members,
+      sits: { package: 'none', assembly: 'A.Abstractions', namespace: 'A.Abstractions' },
+      relates: { implements: 'none', answers: 'none', holds: 'none' },
+    },
+  },
+})
+
+/**
+ * The page a document draws, read by a real DOM, with what the checker found in it. A selector is
+ * matched here the way a browser matches one, which is the only way to prove a target reaches one
+ * node and not several — the written page's root is empty and the page is drawn in the browser.
+ *
+ * The one place a DOM is built out of a page, so there is one crossing into the DOM library and
+ * nothing below reads the page as text where it means to read it as a tree.
+ */
+const matched = (
+  doc: Record<string, unknown>,
+  where: string,
+): { readonly page: Document; readonly found: CheckResult } => {
+  const { html, found } = pageFor(doc, where)
+  return { page: new JSDOM(html).window.document as Document, found }
+}
+
+describe('which property of a member carries its name', () => {
+  test('the architecture language says it is the member’s own name property', () => {
+    const bodies = declaredBodiesOf(held('arch.yaml'))
+    expect(propertyCarrying((id) => bodies.get(id), 'member', ROLES.name)).toBe('name')
+  })
+
+  // A member is not declared and carries no id, which `arch.yaml` says where it declares `member`.
+  // The role's recorded meaning was written for a name drawn BESIDE an id, so it has to say what
+  // it means where there is no id to draw beside, or the language says one thing and the page
+  // another.
+  test('MetaLang’s record of the name role covers a thing that has a name and no id', () => {
+    const role = declaredBodiesOf(held('metalang.yaml')).get('role')
+    const values = Array.isArray(role?.values) ? (role.values as Record<string, unknown>[]) : []
+    const name = values.find((one) => one.id === ROLES.name)
+    expect(name).toBeDefined()
+    expect(text(name?.description)).toContain('no id')
+  })
+})
+
+describe('pointing at one declaration and at one member of it', () => {
+  const where = beside('parts.yaml')
+
+  /** Two elements, each with its own members, one member name held by both of them. */
+  const two = (): Record<string, unknown> =>
+    archDocument(
+      archElement('IGuard', [
+        archMember('Name', 'The name this guard reports itself by.'),
+        archMember('PrecheckAsync', 'Judges a tool call before it runs.'),
+      ]),
+      archElement('IStore', [archMember('Name', 'The name of this store.')]),
+    )
+
+  test('a selector naming one declaration’s members reaches that one table', () => {
+    const { page } = matched(two(), where)
+    // Both tables are drawn, so the selector below is narrowing rather than finding the only one.
+    expect(page.querySelectorAll('table.d-table').length).toBe(2)
+    expect(page.querySelectorAll('[data-declaration="IGuard"] table.d-table').length).toBe(1)
+    expect(
+      page.querySelector('[data-declaration="IGuard"] table.d-table')?.textContent,
+    ).toContain('PrecheckAsync')
+  })
+
+  test('a selector naming one member of one declaration reaches that one row', () => {
+    const rows = matched(two(), where).page.querySelectorAll(
+      '[data-declaration="IGuard"] [data-member="PrecheckAsync"]',
+    )
+    expect(rows.length).toBe(1)
+    expect(rows[0]?.tagName).toBe('TR')
+    expect(rows[0]?.textContent).toContain('Judges a tool call before it runs.')
+  })
+
+  test('a member name two declarations share resolves to the one asked for', () => {
+    const { page } = matched(two(), where)
+    expect(page.querySelectorAll('[data-member="Name"]').length).toBe(2)
+    const rows = page.querySelectorAll('[data-declaration="IStore"] [data-member="Name"]')
+    expect(rows.length).toBe(1)
+    expect(rows[0]?.textContent).toContain('The name of this store.')
+  })
+
+  // A CSS string ends at an unescaped quote of the kind it opened with, and a backslash escapes
+  // whatever follows it, so those are the two characters the selector has to carry escaped. The
+  // name itself travels through an HTML attribute on the way, which is where an unescaped quote
+  // would have ended the attribute instead.
+  test('a member name carrying a double quote, a single quote and a backslash is reachable', () => {
+    const hard = 'Quote"And\'Apostrophe\\Backslash'
+    const { page } = matched(
+      archDocument(archElement('IGuard', [archMember(hard, 'The odd one out.')])),
+      where,
+    )
+    const rows = page.querySelectorAll(
+      `[data-member="${hard.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`,
+    )
+    expect(rows.length).toBe(1)
+    expect(rows[0]?.getAttribute('data-member')).toBe(hard)
+  })
+
+  // Two declarations writing the same id is a question the document has not answered. The page
+  // says so by carrying both, so whoever asks for that id is told there are two of them rather
+  // than handed the first and left believing it was the only one.
+  test('two declarations sharing an id read as the two they are, not as the first of them', () => {
+    const sections = [
+      ...matched(
+        archDocument(
+          archElement('IGuard', [archMember('First', 'The member of the first.')]),
+          archElement('IGuard', [archMember('Second', 'The member of the second.')]),
+        ),
+        where,
+      ).page.querySelectorAll('[data-declaration="IGuard"]'),
+    ]
+    expect(sections.length).toBe(2)
+    expect(
+      sections.map((one) => one.querySelector('[data-member]')?.getAttribute('data-member')),
+    ).toEqual(['First', 'Second'])
+  })
+})
+
+describe('a shape whose language has not said which property is the name', () => {
+  // Three shapes drawn side by side in one document: one whose language gives the name role to a
+  // property, one that gives it to none, and one that gives it to two. The question has one
+  // answer or it has none, and where it has none the page draws no identity rather than picking a
+  // property for itself. The shape that DID answer, beside them, is what says the page asked.
+  const shapes = (): Record<string, unknown> =>
+    file({
+      declare: [
+        { entity: { id: 'object', primitive: true } },
+        { entity: { id: 'string', is: 'object', primitive: true } },
+        { entity: { id: 'collection', is: 'object', abstract: true } },
+        { entity: { id: 'set', is: 'collection' } },
+        {
+          entity: {
+            id: 'titled',
+            is: 'object',
+            properties: { label: { is: 'string', role: ROLES.name }, note: { is: 'string' } },
+          },
+        },
+        {
+          entity: {
+            id: 'plain',
+            is: 'object',
+            properties: { label: { is: 'string' }, note: { is: 'string' } },
+          },
+        },
+        {
+          entity: {
+            id: 'both',
+            is: 'object',
+            properties: {
+              label: { is: 'string', role: ROLES.name },
+              other: { is: 'string', role: ROLES.name },
+            },
+          },
+        },
+        {
+          entity: {
+            id: 'form',
+            is: 'object',
+            properties: {
+              titleds: { set: { of: 'titled' } },
+              plains: { set: { of: 'plain' } },
+              boths: { set: { of: 'both' } },
+            },
+          },
+        },
+        {
+          enum: {
+            id: 'forms',
+            is: 'form',
+            values: [
+              {
+                id: 'interface',
+                value: {
+                  titleds: [
+                    { label: 'One', note: 'a' },
+                    { label: 'Two', note: 'b' },
+                  ],
+                  plains: [
+                    { label: 'Three', note: 'c' },
+                    { label: 'Six', note: 'f' },
+                  ],
+                  boths: [{ label: 'Four', other: 'Five' }],
+                },
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+  /** What each row of one of the three tables carries as its identity, in the order drawn. */
+  const identities = (page: Document, part: string): (string | null)[] =>
+    [...page.querySelectorAll(`[data-part="${part}"] table.d-table tbody tr`)].map((row) =>
+      row.getAttribute('data-member'),
+    )
+
+  test('a shape no property of which carries the role draws its rows with no identity', () => {
+    const { page } = matched(shapes(), LANGUAGE_FILE)
+    expect(identities(page, 'titleds')).toEqual(['One', 'Two'])
+    expect(identities(page, 'plains')).toEqual([null, null])
+  })
+
+  test('a shape two properties of which carry the role draws its rows with no identity', () => {
+    const { page, found } = matched(shapes(), LANGUAGE_FILE)
+    expect(identities(page, 'titleds')).toEqual(['One', 'Two'])
+    expect(identities(page, 'boths')).toEqual([null])
+    // The two-carrier report already exists and says which two carry it. One of it, not two.
+    expect(found.problems.filter((one) => one.what.includes(ROLES.name))).toHaveLength(1)
   })
 })

@@ -293,3 +293,38 @@ describe('drawing with a bundle the caller already has', () => {
     expect(dataFrom(block).doc).not.toBeNull()
   })
 })
+
+// ── the story helper ─────────────────────────────────────────────────────────
+//
+// JARVIS narrates a package by ringing a beat and pointing at what the beat is about. The helper
+// that rings and points is served by JARVIS rather than built here, so the page loads it from the
+// path JARVIS serves it at, and it is loaded by every page a document is written into — including
+// the one a kit draws, because the page shell is written in one place.
+describe('the story helper a narrated page loads', () => {
+  /** The tag the contract settled, written out so the test says what a page has to carry. */
+  const HELPER = '<script defer src="/api/packages/story.js"></script>'
+
+  test('the page loads it', () => {
+    expect(pageHtml('T', '', 'var x=1', DATA)).toContain(HELPER)
+  })
+
+  test('it sits after the data the page draws and before the bundle that draws it', () => {
+    const html = pageHtml('T', '', 'var x=1', DATA)
+    const data = html.indexOf(`id="${DATA_ID}"`)
+    const helper = html.indexOf(HELPER)
+    const bundle = html.indexOf('<script>var x=1</script>')
+    expect(data).toBeGreaterThan(-1)
+    expect(helper).toBeGreaterThan(data)
+    expect(bundle).toBeGreaterThan(helper)
+  })
+
+  // The helper carries a closing script tag of its own. Written last in the page it would end the
+  // search this file reads the bundle out of, and the bundle's own closing tag would land inside
+  // that slice — which is what forces the helper to sit before the bundle rather than after it.
+  test('the slice the bundle is read out of is still the bundle and nothing else', () => {
+    const html = pageHtml('T', '', 'var a = "x"', DATA)
+    expect(html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))).toBe(
+      'var a = "x"',
+    )
+  })
+})
