@@ -107,7 +107,8 @@ Each check is re-derivable by someone other than the worker.
 8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.
 9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.
 10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.
-11. Coverage stays at or above the 0.75 floor in `bunfig.toml`. Command: `eng/coverage-gate.sh`.
+11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`. The earlier command named here, `eng/coverage-gate.sh`, is the .NET gate and reads none of the kit's coverage.
+12. The rendered page loads the story helper as `<script defer src="/api/packages/story.js"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`. The standard and `What to do` item 4 both require the helper, and no numbered check named it.
 
 ## Level
 
