@@ -22,10 +22,10 @@ jsdom also passes both cases under `bun test` itself, not only under a plain scr
 
 ## What each costs
 
-Installed fresh, as development dependencies: jsdom 28 packages and 22MB, happy-dom 7 packages and 22MB, linkedom 14 packages and 8MB. None of the three ships: the kit carries `kit.js`, `page.js`, `package.json`, `README.md`, the three languages and the two stylesheets, and `ts/metalang/kit.ts` is the one owner of that list.
+Installed fresh, as development dependencies, counted by what bun itself reports and by the size on disk: jsdom 28 packages and 22MB, linkedom 20 packages and 8MB, happy-dom 9 packages and 22MB. None of the three ships: the kit carries `kit.js`, `page.js`, `package.json`, `README.md`, the three languages and the two stylesheets, and `ts/metalang/kit.ts` is the one owner of that list.
 
 ## The recommendation
 
 jsdom 31.0.0, pinned exactly. It matches the hard name both ways, it carries `CSS.escape` so the escaping is the library's rather than ours, and its selector engine is the one that behaves like a browser — which is the whole reason the contract takes a library at all.
 
-linkedom 0.18.15 is the genuine alternative: a third of the size, it matches the hard name when the selector is hand-quoted, and it has no `CSS.escape`, so the tests would have to escape names themselves.
+linkedom 0.18.15 is the genuine alternative: a third of the size and eight fewer packages, it matches the hard name when the selector is hand-quoted, and it has no `CSS.escape`, so the tests would have to escape names themselves.
