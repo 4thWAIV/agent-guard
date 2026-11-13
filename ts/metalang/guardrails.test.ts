@@ -14,19 +14,18 @@
 // sentence, a word in an import path and a quote inside a regular expression are then not
 // mistaken for a literal naming that word.
 //
-// Nothing here is skipped, exempted or passed over on a guess. Where a rule cannot read what it
-// needs — a call handed an attribute name worked out at run time, a language that has not said
-// which property of a member carries its name — it reports that as a finding of its own rather
-// than reporting the check as made.
+// Nothing here is skipped, exempted or passed over on a guess. Each rule reports by default and
+// subtracts only what the contract puts outside it, so a shape nobody thought of is reported
+// rather than passed in silence. Where a rule cannot read what it needs — a call handed an
+// attribute name worked out at run time — it reports that as a finding of its own rather than
+// reporting the check as made.
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
 
 import { describe, expect, test } from 'bun:test'
-import * as yaml from 'js-yaml'
 import * as ts from 'typescript'
 
-import * as rulebook from './rulebook.ts'
 import * as words from './words.ts'
 
 // ── reading one file ─────────────────────────────────────────────────────────
@@ -58,14 +57,14 @@ const treeOf = ({ file, text }: Source): ts.SourceFile =>
     file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
   )
 
-/** Every node of a file, in the order the file writes them. */
-const nodesOf = (tree: ts.SourceFile): readonly ts.Node[] => {
+/** Every node written inside one node, including itself, in the order the file writes them. */
+const nodesOf = (held: ts.Node): readonly ts.Node[] => {
   const all: ts.Node[] = []
   const walk = (node: ts.Node): void => {
     all.push(node)
     ts.forEachChild(node, walk)
   }
-  walk(tree)
+  walk(held)
   return all
 }
 
@@ -128,77 +127,26 @@ const LANGUAGE_WORDS: ReadonlySet<string> = new Set<string>(
   }),
 )
 
-// ── how a literal is used ────────────────────────────────────────────────────
+// ── what the contract puts outside rule 1 ────────────────────────────────────
 //
-// Rule 1 bans a word of the language in two uses and in no others, which is the boundary Tim set
-// on 2026-11-11 answering `rule-1-boundary` with `lookups-and-renames`: "a literal used to look
-// something up in the document being drawn or in its rulebook, and a local constant renaming a
-// word `words.ts` already names". So the question this asks of a literal is what it is being used
-// FOR, never which constant happens to name the same word.
+// The contract's count is the rule's reach: "Enforced on every word `words.ts` names, the rule
+// flags twenty-four literals in `app.tsx`; fifteen are the defect and nine are these three
+// kinds." So every literal of a language word in the two drawing files is reported, and the only
+// subtraction is the three kinds the boundary Tim set on 2026-11-11 — answering `rule-1-boundary`
+// with `lookups-and-renames` — puts outside the rule: "a member of the page's own union of
+// finding kinds, English prose shown to the reader, and a comparison against a JavaScript type".
 //
-// The three kinds of literal the boundary puts outside the rule come out of that question rather
-// than out of a list of lines:
-//
-//   - English prose shown to the reader is outside because prose is in none of these uses. The
-//     branches of `n === 1 ? 'property' : 'properties'` are read by a person, not looked up.
-//   - A comparison against a JavaScript type is outside because `compared with` asks what the
-//     other side of the comparison is, and `typeof value === 'object'` compares with JavaScript's
-//     own answer rather than with anything the drawn document says.
-//   - A member of the page's own union of finding kinds is outside because the page declares that
-//     union itself, which `ownWordsOf` reads from the file being checked.
+// Each of the three is recognised by what it IS rather than by the positions it has been seen in,
+// and a literal none of them recognises is reported. A kind that cannot place a literal therefore
+// reports it, which is the safe direction: the rule over-reports rather than passing something
+// over in silence. That is the whole of the difference from a closed list of positions, where
+// anything the list did not name was passed and reported as checked.
 
-/** What a literal is being used for, where it is used for one of the things rule 1 bans. */
-type Use =
-  | 'read as a key of the drawn document'
-  | 'asked of a set of the drawn document’s keys'
-  | 'compared with a word of the drawn document'
-  | 'listed as one of the drawn document’s keys'
-  | 'handed to a drawing as the keyword it draws'
-  | 'renamed by a constant of this file'
-
-/** The calls that ask a set or a mapping about a word, which is a lookup by that word. */
-const ASKED: readonly string[] = ['includes', 'has', 'get', 'indexOf', 'lastIndexOf']
-
-/** The comparisons that ask whether something is that word. */
-const COMPARISONS: readonly ts.SyntaxKind[] = [
-  ts.SyntaxKind.EqualsEqualsEqualsToken,
-  ts.SyntaxKind.ExclamationEqualsEqualsToken,
-  ts.SyntaxKind.EqualsEqualsToken,
-  ts.SyntaxKind.ExclamationEqualsToken,
-]
-
-/**
- * What a literal is being used for, or nothing where it is used for none of the things rule 1
- * bans. A literal written as one member of a union type is used for nothing here: it declares
- * what a value of this page's own may be, and declaring is not looking up.
- */
-const useOf = (node: ts.StringLiteralLike): Use | null => {
-  const at = node.parent
-  if (ts.isElementAccessExpression(at) && at.argumentExpression === node) {
-    return 'read as a key of the drawn document'
-  }
-  if (
-    ts.isCallExpression(at) &&
-    at.arguments.includes(node) &&
-    ts.isPropertyAccessExpression(at.expression) &&
-    ASKED.includes(at.expression.name.text)
-  ) {
-    return 'asked of a set of the drawn document’s keys'
-  }
-  if (ts.isBinaryExpression(at) && COMPARISONS.includes(at.operatorToken.kind)) {
-    const other = at.left === node ? at.right : at.left
-    return ts.isTypeOfExpression(other) ? null : 'compared with a word of the drawn document'
-  }
-  if (ts.isArrayLiteralExpression(at)) return 'listed as one of the drawn document’s keys'
-  if (ts.isJsxAttribute(at)) return 'handed to a drawing as the keyword it draws'
-  if (ts.isJsxExpression(at) && ts.isJsxAttribute(at.parent)) {
-    return 'handed to a drawing as the keyword it draws'
-  }
-  if (ts.isVariableDeclaration(at) && at.initializer === node) {
-    return 'renamed by a constant of this file'
-  }
-  return null
-}
+/** What puts a literal of a language word outside rule 1, where something does. */
+type Outside =
+  | 'a member of this page’s own union of finding kinds'
+  | 'English prose shown to the reader'
+  | 'a comparison against a JavaScript type'
 
 /**
  * Every word a file declares a value of its own may be: each member of every union of text
@@ -215,6 +163,120 @@ const ownWordsOf = (tree: ts.SourceFile): ReadonlySet<string> => {
     }
   }
   return own
+}
+
+/** The comparisons that ask whether something is that word. */
+const COMPARISONS: readonly ts.SyntaxKind[] = [
+  ts.SyntaxKind.EqualsEqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsEqualsToken,
+  ts.SyntaxKind.EqualsEqualsToken,
+  ts.SyntaxKind.ExclamationEqualsToken,
+]
+
+/** A value written in brackets is the value written inside them, so the brackets are stepped over. */
+const heldBy = (node: ts.Expression): ts.Expression =>
+  ts.isParenthesizedExpression(node) ? heldBy(node.expression) : node
+
+/**
+ * Whether a literal is compared with JavaScript's own answer for what a value is. `typeof value
+ * === 'object'` compares with that answer and never with anything the drawn document says, which
+ * is why the boundary puts it outside the rule. Both spellings of the comparison are read, the
+ * literal on either side, and so is `switch (typeof value)`, because a case of that switch is the
+ * same comparison written another way.
+ */
+const comparedWithAJavaScriptType = (node: ts.Node): boolean => {
+  const at = node.parent
+  if (ts.isBinaryExpression(at) && COMPARISONS.includes(at.operatorToken.kind)) {
+    const other = at.left === node ? at.right : at.left
+    return ts.isTypeOfExpression(heldBy(other))
+  }
+  if (ts.isCaseClause(at) && at.expression === node) {
+    const switched = at.parent.parent
+    return ts.isSwitchStatement(switched) && ts.isTypeOfExpression(heldBy(switched.expression))
+  }
+  return false
+}
+
+/** The operators that choose between the two values written either side of them. */
+const CHOOSES: readonly ts.SyntaxKind[] = [
+  ts.SyntaxKind.QuestionQuestionToken,
+  ts.SyntaxKind.BarBarToken,
+]
+
+/** A run of text being assembled, and the node standing for the literal's own value inside it. */
+interface InARun {
+  readonly run: ts.TemplateExpression | ts.BinaryExpression
+  readonly held: ts.Node
+}
+
+/**
+ * The run of text a literal is written into, or nothing where it is written into none. A choice
+ * between values — `?:`, `??`, `||` — is stepped through, because what the run holds is whichever
+ * spelling the choice lands on: `n === 1 ? 'property' : 'properties'` is the value of the template
+ * span it sits in. A literal that is itself a piece of a template is not written INTO the run, it
+ * is the run, so it is not matched here and is reported.
+ */
+const runAround = (node: ts.Node): InARun | null => {
+  let held: ts.Node = node
+  while (!ts.isSourceFile(held)) {
+    const at: ts.Node = held.parent
+    if (ts.isParenthesizedExpression(at)) {
+      held = at
+      continue
+    }
+    if (ts.isConditionalExpression(at) && at.condition !== held) {
+      held = at
+      continue
+    }
+    if (ts.isBinaryExpression(at) && CHOOSES.includes(at.operatorToken.kind)) {
+      held = at
+      continue
+    }
+    if (ts.isTemplateSpan(at) && at.expression === held && ts.isTemplateExpression(at.parent)) {
+      return { run: at.parent, held }
+    }
+    if (ts.isBinaryExpression(at) && at.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+      // The outermost joining, so every piece of the phrase is inside the run that is weighed.
+      let run: ts.BinaryExpression = at
+      while (
+        ts.isBinaryExpression(run.parent) &&
+        run.parent.operatorToken.kind === ts.SyntaxKind.PlusToken
+      ) {
+        run = run.parent
+      }
+      return { run, held }
+    }
+    return null
+  }
+  return null
+}
+
+/**
+ * The text a run of text writes of its own, beside the value weighed: for a template its head and
+ * the text between and after its interpolations, and for a joining every literal it joins that is
+ * not part of the value weighed.
+ */
+const ownTextOf = ({ run, held }: InARun): readonly string[] => {
+  if (ts.isTemplateExpression(run)) {
+    return [run.head.text, ...run.templateSpans.map(({ literal }) => literal.text)]
+  }
+  const within = new Set<ts.Node>(nodesOf(held))
+  return nodesOf(run)
+    .filter(isLiteral)
+    .filter((one) => !within.has(one))
+    .map(({ text }) => text)
+}
+
+/**
+ * Whether a literal is a word of a phrase rather than a name. A run of text that writes characters
+ * of its own beside the word produces that phrase and not the word, so it can look nothing up by
+ * that word and there is nobody left to read it but the reader: `${n} ${n === 1 ? 'property' :
+ * 'properties'}` is prose. A run that writes nothing of its own produces the word itself, so it is
+ * not prose and is reported.
+ */
+const proseShownToTheReader = (node: ts.Node): boolean => {
+  const around = runAround(node)
+  return around !== null && ownTextOf(around).some((text) => text !== '')
 }
 
 // ── rule 1: no language word by spelling in the drawing path ─────────────────
@@ -234,23 +296,52 @@ const ownWordsOf = (tree: ts.SourceFile): ReadonlySet<string> => {
 /** The two files that draw a document, which is the path this rule fences. */
 const DRAWING_PATH: readonly string[] = ['ts/metalang/app.tsx', 'ts/metalang/client.tsx']
 
-const wordsBySpelling = (source: Source): readonly Found[] => {
+/** One literal of a language word, and what puts it outside the rule where something does. */
+interface Weighed {
+  readonly file: string
+  readonly line: number
+  readonly held: string
+  readonly outside: Outside | null
+}
+
+/** Every literal of a language word one file writes, each weighed against the three kinds. */
+const languageWordsIn = (source: Source): readonly Weighed[] => {
   const tree = treeOf(source)
   const own = ownWordsOf(tree)
-  const found: Found[] = []
-  for (const node of nodesOf(tree)) {
-    if (!ts.isStringLiteralLike(node)) continue
-    if (!LANGUAGE_WORDS.has(node.text) || own.has(node.text)) continue
-    const use = useOf(node)
-    if (use === null) continue
-    found.push({
-      file: source.file,
-      line: lineOf(tree, node),
-      what: `the language word ${JSON.stringify(node.text)} is written out and ${use}; reach it through the constant words.ts names it by, or ask the rulebook`,
-    })
+  const outsideOf = ({ held, node }: Literal): Outside | null => {
+    if (own.has(held)) return 'a member of this page’s own union of finding kinds'
+    if (comparedWithAJavaScriptType(node)) return 'a comparison against a JavaScript type'
+    if (proseShownToTheReader(node)) return 'English prose shown to the reader'
+    return null
   }
-  return found
+  return literalsIn(tree)
+    .filter(({ held }) => LANGUAGE_WORDS.has(held))
+    .map((one) => ({
+      file: source.file,
+      line: lineOf(tree, one.node),
+      held: one.held,
+      outside: outsideOf(one),
+    }))
 }
+
+const wordsBySpelling = (source: Source): readonly Found[] =>
+  languageWordsIn(source)
+    .filter(({ outside }) => outside === null)
+    .map(({ file, line, held }) => ({
+      file,
+      line,
+      what: `the language word ${JSON.stringify(held)} is written out; reach it through the constant words.ts names it by, or ask the rulebook`,
+    }))
+
+/** The literals of a language word the three kinds take out of the rule, said the same way. */
+const outsideTheRule = (source: Source): readonly Found[] =>
+  languageWordsIn(source)
+    .filter((one): one is Weighed & { readonly outside: Outside } => one.outside !== null)
+    .map(({ file, line, held, outside }) => ({
+      file,
+      line,
+      what: `${JSON.stringify(held)} is ${outside}`,
+    }))
 
 // ── the two attributes a narrated page is pointed at by ──────────────────────
 
@@ -393,165 +484,22 @@ const writesIn = (source: Source): Writes => {
   return { written, unreadable }
 }
 
-// ── the identities a drawn document declares ─────────────────────────────────
-//
-// Rule 2 bans "any id declared in a document being drawn, any member name" in non-test `ts/`
-// source, and the boundary Tim set on 2026-11-11, answering `rule-2-boundary` with
-// `drawn-documents`, says which ids those are: "A declaration id means one declared in a document
-// being drawn. It does not mean the architecture language's own declared ids, which are its
-// vocabulary". So the set is derived from the documents this repository holds, with every
-// language's vocabulary taken out of it.
-//
-// Three things decide it, each one read from the documents rather than listed here:
-//
-//   1. A document is a LANGUAGE when some document names its scope under `language`, when its
-//      scope is the one every document is read against by default, or when it declares the choice
-//      saying what may be written under `declare` — which is how a language says what may be
-//      declared in it. arch.yaml is the first, metalang.yaml the second, propose.yaml the third.
-//      The boundary names arch.yaml alone; the same sentence's reason, that a language's declared
-//      ids "are its vocabulary", holds for every language in the tree, and calling metalang.yaml's
-//      own ids a drawn document's identities would say the language is a document drawn against
-//      itself.
-//   2. Every id a language declares is vocabulary, and so is every word words.ts names. The
-//      boundary says so for the second: "words.ts:395-404 states it is the single owner of which
-//      property of a type carries which role, and rule 1 governs how the drawing code may reach
-//      those words." A word rule 1 governs is not rule 2's to ban, which is also what keeps the
-//      owner able to own its own words.
-//   3. Everything else is a document being drawn. Its declared ids are identities, and so is the
-//      name of each member it lists — read by asking the language which property of a member
-//      carries the name role, through `propertyCarrying`, the one owner of that question. Where
-//      the language has not said, no member name is checked and the rule reports exactly that.
-
-/** One document of this repository, read as the rules are given it. */
-interface Document {
-  readonly file: string
-  readonly doc: unknown
-}
-
-/** The shape one named piece of a drawn declaration is written as, which is what a member is. */
-const MEMBER = 'member'
-
-/** What the documents say the source may not write: each identity, and why it is one. */
-interface Identities {
-  readonly banned: ReadonlyMap<string, string>
-  readonly unreadable: readonly Found[]
-}
-
-const scopeOf = ({ doc }: Document): string =>
-  words.isMapping(doc) && Array.isArray(doc[words.SCOPE])
-    ? (doc[words.SCOPE] as readonly unknown[]).join('.')
-    : ''
-
-/** The scope every document is read against when it names no language of its own. */
-const DEFAULT_RULEBOOK = rulebook.nameOfScope(rulebook.WORDS.scope)
-
-/** Every declaration of every document given, by id, so one lookup reaches all of them. */
-const bodiesOf = (documents: readonly Document[]): words.BodyOf => {
-  const bodies = new Map<string, words.Mapping>()
-  for (const { doc } of documents) {
-    for (const [id, body] of words.declaredBodiesOf(doc)) {
-      if (!bodies.has(id)) bodies.set(id, body)
-    }
-  }
-  return (id: string) => bodies.get(id)
-}
-
-/**
- * Every identity the documents given declare, and everything about them that could not be read.
- * Fixtures are given their own documents, so the rule is proven on a language and a document of a
- * few lines and this repository's six documents are more cases to run it on.
- */
-const identitiesIn = (documents: readonly Document[]): Identities => {
-  const named = new Set(
-    documents
-      .map(({ doc }) => (words.isMapping(doc) ? doc[words.LANGUAGE] : undefined))
-      .filter((one): one is string => typeof one === 'string'),
-  )
-  const isALanguage = (one: Document): boolean =>
-    named.has(scopeOf(one)) ||
-    scopeOf(one) === DEFAULT_RULEBOOK ||
-    words.declaredBodiesOf(one.doc).has(words.SELF.declaration)
-
-  const vocabulary = new Set<string>(LANGUAGE_WORDS)
-  for (const one of documents) {
-    if (!isALanguage(one)) continue
-    for (const id of words.declaredBodiesOf(one.doc).keys()) vocabulary.add(id)
-  }
-
-  const bodyOf = bodiesOf(documents)
-  const unreadable: Found[] = []
-  const declaring = documents.find(({ doc }) => words.declaredBodiesOf(doc).has(MEMBER))
-  const carrying =
-    declaring === undefined ? undefined : words.propertyCarrying(bodyOf, MEMBER, words.ROLES.name)
-  if (declaring === undefined) {
-    unreadable.push({
-      file: documents.map(({ file }) => file).join(', '),
-      line: 1,
-      what: `no document given declares ${MEMBER}, so no member name could be checked`,
-    })
-  } else if (carrying === undefined) {
-    unreadable.push({
-      file: declaring.file,
-      line: 1,
-      what: `${MEMBER} declares no one property carrying the ${words.ROLES.name} role, so no member name could be checked`,
-    })
-  }
-  const onMember = declaring === undefined ? new Map<string, words.Mapping>() : words.propertiesOf(bodyOf, MEMBER)
-  const required = [...onMember.keys()].filter((name) => !words.mayBeLeftOut(bodyOf, MEMBER, name))
-
-  /**
-   * Whether a mapping written inside a declaration is one member: every key it writes is a
-   * property the member shape declares, and every property that may not be left out is written.
-   * A value carrying only a name is some other named thing and not a member of an element.
-   */
-  const isAMember = (held: words.Mapping): boolean => {
-    const keys = Object.keys(held)
-    return (
-      carrying !== undefined &&
-      keys.every((key) => onMember.has(key)) &&
-      required.every((name) => held[name] !== undefined)
-    )
-  }
-
-  const banned = new Map<string, string>()
-  for (const one of documents) {
-    if (isALanguage(one)) continue
-    for (const id of words.declaredBodiesOf(one.doc).keys()) {
-      if (!vocabulary.has(id)) banned.set(id, `${one.file} declares it`)
-    }
-    const walk = (held: unknown): void => {
-      if (Array.isArray(held)) {
-        for (const each of held as readonly unknown[]) walk(each)
-        return
-      }
-      if (!words.isMapping(held)) return
-      if (carrying !== undefined && isAMember(held)) {
-        const name = held[carrying]
-        if (typeof name === 'string' && !vocabulary.has(name)) {
-          banned.set(name, `${one.file} names it as a member`)
-        }
-      }
-      for (const each of Object.values(held)) walk(each)
-    }
-    walk(one.doc)
-  }
-  return { banned, unreadable }
-}
-
 // ── rule 2: no literal target in non-test source ─────────────────────────────
 //
-// The contract: "The strings `IGrantStore` and `IWindowsHelloNativeOps`, any id declared in a
-// document being drawn, any member name, and any constant `data-declaration=` or `data-member=`
-// attribute value are banned anywhere in non-test `ts/` source."
+// The contract: "The strings `IGrantStore` and `IWindowsHelloNativeOps`, and any constant
+// `data-declaration=` or `data-member=` attribute value, are banned anywhere in non-test `ts/`
+// source."
+//
+// Those two bans are the whole of the rule. Its third ban, on any id declared in a document being
+// drawn and on any member name, was dropped by Tim on 2026-11-12, answering `rule-2-middle-clause`
+// with `drop-the-clause`: the contract now says "The rule holds those two bans and nothing wider"
+// and that "Rule 1 governs how the drawing code may reach a language word". Nothing is derived
+// from the tree's documents here, and no exemption list stands between the two bans and the code.
 //
 // What it stops: the two intended targets being special-cased so the acceptance passes while the
 // general mechanism is absent or broken. No document in this tree declares either id — the
 // surface they live on is in the JARVIS document store — so writing one into the source is the
 // quickest route to a green check with nothing general behind it.
-//
-// All four parts of the sentence are checked here: the two named strings wherever a line holds
-// them, every identity the drawn documents declare wherever a literal says one, a constant given
-// to either identity attribute, and every attribute write these rules could not read.
 
 /**
  * The two declarations the narration is first pointed at. They are named here, in a test, because
@@ -559,9 +507,8 @@ const identitiesIn = (documents: readonly Document[]): Identities => {
  */
 const NAMED_TARGETS: readonly string[] = ['IGrantStore', 'IWindowsHelloNativeOps']
 
-const literalTargets = (source: Source, identities: Identities): readonly Found[] => {
+const literalTargets = (source: Source): readonly Found[] => {
   const { written, unreadable } = writesIn(source)
-  const tree = treeOf(source)
   return [
     ...source.text.split('\n').flatMap((line, at) =>
       NAMED_TARGETS.filter((target) => line.includes(target)).map((target) => ({
@@ -570,18 +517,6 @@ const literalTargets = (source: Source, identities: Identities): readonly Found[
         what: `${target} is a declaration this page draws, written into source that is not a test`,
       })),
     ),
-    ...literalsIn(tree).flatMap(({ held, node }) => {
-      const why = identities.banned.get(held)
-      return why === undefined
-        ? []
-        : [
-            {
-              file: source.file,
-              line: lineOf(tree, node),
-              what: `${JSON.stringify(held)} is an identity of a document this page draws — ${why} — written into source that is not a test`,
-            },
-          ]
-    }),
     ...written
       .filter(({ gives }) => gives === 'a constant')
       .map(({ of, line }) => ({
@@ -645,19 +580,6 @@ const NON_TEST_SOURCE: readonly string[] = readdirSync(join(root, 'ts'), {
   .filter((file) => /\.tsx?$/.test(file) && !/\.test\.tsx?$/.test(file))
   .sort()
 
-/** Every document this repository holds, which is where rule 2's identities are read from. */
-const DOCUMENTS: readonly Document[] = readdirSync(join(root, 'ts', 'metalang'), {
-  encoding: 'utf8',
-})
-  .filter((file) => /\.ya?ml$/.test(file))
-  .sort()
-  .map((file) => ({
-    file: `ts/metalang/${file}`,
-    doc: yaml.load(readFileSync(join(root, 'ts', 'metalang', file), 'utf8')),
-  }))
-
-const IN_TREE: Identities = identitiesIn(DOCUMENTS)
-
 describe('the tree the rules are run on', () => {
   // A rule that reads no file reports nothing and passes, which would be the quietest way for
   // all three of these to stop working. So the list itself is checked.
@@ -685,31 +607,17 @@ describe('the tree the rules are run on', () => {
       expect([...LANGUAGE_WORDS]).toContain(word)
     }
   })
-
-  // Rule 2's identities are read from the documents, so an empty document list would be a rule
-  // that bans nothing beyond the two named strings and passes.
-  test('every document of the tree is read, and the languages among them are known', () => {
-    expect(DOCUMENTS.map(({ file }) => file)).toEqual([
-      'ts/metalang/arch.yaml',
-      'ts/metalang/metalang.yaml',
-      'ts/metalang/names.yaml',
-      'ts/metalang/parts.yaml',
-      'ts/metalang/propose.yaml',
-      'ts/metalang/stage.yaml',
-    ])
-    // The five arch.yaml ids the boundary names as written out in non-test source today, which
-    // are its vocabulary and stay legal.
-    for (const id of ['form', 'kind', 'mark', 'member', 'word']) {
-      expect(IN_TREE.banned.has(id)).toBe(false)
-    }
-    // An id a drawn document declares, which is what the rule bans.
-    expect(IN_TREE.banned.get('Vocabulary')).toBe('ts/metalang/parts.yaml declares it')
-  })
 })
 
 // ── rule 1, proven ───────────────────────────────────────────────────────────
 
-/** Taking a member's identity from the spelling of a column, which is what rule 1 is for. */
+/**
+ * Taking a member's identity from the spelling of a column, which is what rule 1 is for, and then
+ * four more positions: a word handed to a call, a word written as the value of a property, a word
+ * returned, and a word wrapped in a template that writes nothing else so the string is still the
+ * word. None of the four is a lookup anybody listed, and every one of them is reported, because
+ * the rule's reach is every literal of a language word and not a list of positions.
+ */
 const BY_SPELLING: Source = {
   file: 'ts/metalang/app.tsx',
   text: [
@@ -719,10 +627,19 @@ const BY_SPELLING: Source = {
     'const Keyword = () => <Types keyword="is" />',
     "const DRAWN: readonly string[] = ['options', 'language']",
     "const OPTIONAL = 'optional'",
+    "const drawn = (draw: (word: string) => void): void => draw('kind')",
+    "const held = { keyword: 'entity' }",
+    "const first = (): string => 'scope'",
+    "const wrapped = (member: Record<string, unknown>): unknown => member[`${'prose'}`]",
   ].join('\n'),
 }
 
-/** The same questions asked of the language instead, and the three kinds outside the rule. */
+/**
+ * The same questions asked of the language instead, and the three kinds the boundary puts outside
+ * the rule: the page's own union of finding kinds, prose shown to the reader — assembled as a
+ * template and as a joining — and a comparison against a JavaScript type, written both as a
+ * comparison and as the switch that is the same comparison.
+ */
 const BY_THE_LANGUAGE: Source = {
   file: 'ts/metalang/app.tsx',
   text: [
@@ -738,24 +655,53 @@ const BY_THE_LANGUAGE: Source = {
     "const COUNTED: readonly (readonly [From, string])[] = [['pending', 'pending value']]",
     "const written = (value: unknown): boolean => typeof value === 'object'",
     "const counted = (n: number): string => `${n} ${n === 1 ? 'property' : 'properties'}`",
+    "const joined = (n: number): string => n + ' ' + 'properties'",
+    'const kindOf = (value: unknown): string => {',
+    '  switch (typeof value) {',
+    "    case 'object':",
+    "      return 'a structure of its own'",
+    '    default:',
+    "      return 'one run of text'",
+    '  }',
+    '}',
   ].join('\n'),
 }
 
 describe('no language word by spelling in the drawing path', () => {
-  test('a word of the language in a lookup, or renamed by a constant, is caught', () => {
+  test('every literal of a language word is caught, whatever position it is written in', () => {
     expect(wordsBySpelling(BY_SPELLING).map(reported)).toEqual([
-      'ts/metalang/app.tsx:1: the language word "name" is written out and read as a key of the drawn document; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:2: the language word "properties" is written out and asked of a set of the drawn document’s keys; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:3: the language word "id" is written out and compared with a word of the drawn document; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:4: the language word "is" is written out and handed to a drawing as the keyword it draws; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:5: the language word "options" is written out and listed as one of the drawn document’s keys; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:5: the language word "language" is written out and listed as one of the drawn document’s keys; reach it through the constant words.ts names it by, or ask the rulebook',
-      'ts/metalang/app.tsx:6: the language word "optional" is written out and renamed by a constant of this file; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:1: the language word "name" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:2: the language word "properties" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:3: the language word "id" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:4: the language word "is" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:5: the language word "options" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:5: the language word "language" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:6: the language word "optional" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:7: the language word "kind" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:8: the language word "entity" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:9: the language word "scope" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/app.tsx:10: the language word "prose" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
     ])
   })
 
   test('the language asked, the page’s own union, prose and a JavaScript type are not caught', () => {
     expect(wordsBySpelling(BY_THE_LANGUAGE).map(reported)).toEqual([])
+  })
+
+  // The three kinds are what the compliant fixture is let through BY, so each one is named rather
+  // than left to a count: a kind that stopped recognising its own shape would otherwise show up
+  // as nothing at all.
+  test('each of the three kinds is what lets its own literal through', () => {
+    expect(outsideTheRule(BY_THE_LANGUAGE).map(reported)).toEqual([
+      'ts/metalang/app.tsx:8: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:9: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:10: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:11: "object" is a comparison against a JavaScript type',
+      'ts/metalang/app.tsx:12: "property" is English prose shown to the reader',
+      'ts/metalang/app.tsx:12: "properties" is English prose shown to the reader',
+      'ts/metalang/app.tsx:13: "properties" is English prose shown to the reader',
+      'ts/metalang/app.tsx:16: "object" is a comparison against a JavaScript type',
+    ])
   })
 })
 
@@ -774,7 +720,7 @@ const LITERAL_TARGETS: Source = {
   ].join('\n'),
 }
 
-/** The same four lines with every identity coming from the document being drawn. */
+/** The same lines with every identity coming from the document being drawn, and a selector read. */
 const NO_LITERAL_TARGET: Source = {
   file: 'ts/metalang/app.tsx',
   text: [
@@ -782,88 +728,13 @@ const NO_LITERAL_TARGET: Source = {
     'const Table = ({ name }: { name: string }) => <tr data-member={name} />',
     'const shell = (id: string): string => `<section data-declaration="${id}">`',
     "const style = '.d-row[data-member] { color: red }'",
-  ].join('\n'),
-}
-
-/** Nothing the documents say, so a fixture about the named targets alone is about those alone. */
-const NO_IDENTITY: Identities = { banned: new Map<string, string>(), unreadable: [] }
-
-/**
- * A language of two declarations: the choice that says what may be declared in it, which is what
- * makes it a language, and the shape a member is, whose name property carries the name role.
- */
-const FIXTURE_LANGUAGE: Document = {
-  file: 'fixture/language.yaml',
-  doc: {
-    scope: ['fixture'],
-    declare: [
-      { choice: { id: words.SELF.declaration, options: ['entity'] } },
-      {
-        entity: {
-          id: MEMBER,
-          properties: {
-            name: { is: 'string', role: words.ROLES.name },
-            does: { is: 'string' },
-          },
-        },
-      },
-    ],
-  },
-}
-
-/** The same language with the name role left off, so it cannot say what a member's name is. */
-const FIXTURE_LANGUAGE_SAYING_NOTHING: Document = {
-  file: 'fixture/language.yaml',
-  doc: {
-    scope: ['fixture'],
-    declare: [
-      { choice: { id: words.SELF.declaration, options: ['entity'] } },
-      {
-        entity: {
-          id: MEMBER,
-          properties: { name: { is: 'string' }, does: { is: 'string' } },
-        },
-      },
-    ],
-  },
-}
-
-/** A document drawn against that language: one declaration, with one member and one other name. */
-const FIXTURE_DRAWN: Document = {
-  file: 'fixture/drawn.yaml',
-  doc: {
-    scope: ['drawn'],
-    language: 'fixture',
-    declare: [
-      {
-        entity: {
-          id: 'IRinger',
-          value: {
-            members: [{ name: 'BeginRinging', does: 'rings the node' }],
-            named: { name: 'not a member, because it writes no does' },
-          },
-        },
-      },
-    ],
-  },
-}
-
-const FIXTURE_IDENTITIES = identitiesIn([FIXTURE_LANGUAGE, FIXTURE_DRAWN])
-
-/** A drawn document's id and member name written into the source instead of read from it. */
-const DRAWN_IDENTITY_WRITTEN: Source = {
-  file: 'ts/metalang/app.tsx',
-  text: [
-    "const first = 'IRinger'",
-    "const beat = 'BeginRinging'",
-    "const says = 'the ringer checked IRinger and found nothing'",
-    "const style = '.d-row[data-member] { color: red }'",
+    "const ring = (node: Element, name: string): void => { node.setAttribute('data-member', name) }",
   ].join('\n'),
 }
 
 describe('no literal target in non-test source', () => {
   test('a target written by name, as markup or into the page shell is caught', () => {
-    expect(literalTargets(LITERAL_TARGETS, NO_IDENTITY).map(reported)).toEqual([
+    expect(literalTargets(LITERAL_TARGETS).map(reported)).toEqual([
       'ts/metalang/app.tsx:1: IGrantStore is a declaration this page draws, written into source that is not a test',
       'ts/metalang/app.tsx:2: IWindowsHelloNativeOps is a declaration this page draws, written into source that is not a test',
       'ts/metalang/app.tsx:4: IGrantStore is a declaration this page draws, written into source that is not a test',
@@ -876,51 +747,13 @@ describe('no literal target in non-test source', () => {
   })
 
   test('an identity taken from the document being drawn is not caught', () => {
-    expect(literalTargets(NO_LITERAL_TARGET, FIXTURE_IDENTITIES).map(reported)).toEqual([])
-  })
-
-  test('a declaration id and a member name of a drawn document are read from the documents', () => {
-    expect([...FIXTURE_IDENTITIES.banned.entries()].sort()).toEqual([
-      ['BeginRinging', 'fixture/drawn.yaml names it as a member'],
-      ['IRinger', 'fixture/drawn.yaml declares it'],
-    ])
-    expect(FIXTURE_IDENTITIES.unreadable.map(reported)).toEqual([])
-  })
-
-  test('either of them written into the source is caught', () => {
-    expect(literalTargets(DRAWN_IDENTITY_WRITTEN, FIXTURE_IDENTITIES).map(reported)).toEqual([
-      'ts/metalang/app.tsx:1: "IRinger" is an identity of a document this page draws — fixture/drawn.yaml declares it — written into source that is not a test',
-      'ts/metalang/app.tsx:2: "BeginRinging" is an identity of a document this page draws — fixture/drawn.yaml names it as a member — written into source that is not a test',
-    ])
-  })
-
-  // A derived identity is matched as the whole of one literal run, so a name inside a sentence is
-  // prose and not a target. The two named targets are matched anywhere on a line instead, because
-  // they are the acceptance targets and naming them in non-test source at all is what rule 2 bans.
-  test('an identity named inside a sentence is prose, not a target', () => {
-    const said = { file: 'ts/metalang/app.tsx', text: DRAWN_IDENTITY_WRITTEN.text.split('\n')[2] ?? '' }
-    expect(literalTargets(said, FIXTURE_IDENTITIES).map(reported)).toEqual([])
-  })
-
-  test('a language that has not said what a member’s name is reports that, and checks none', () => {
-    const said = identitiesIn([FIXTURE_LANGUAGE_SAYING_NOTHING, FIXTURE_DRAWN])
-    expect(said.unreadable.map(reported)).toEqual([
-      'fixture/language.yaml:1: member declares no one property carrying the name role, so no member name could be checked',
-    ])
-    expect([...said.banned.keys()]).toEqual(['IRinger'])
-  })
-
-  // The language has to have said which property of a member carries its name, or no member name
-  // is checked. That is reported here rather than passed over, because a check that cannot be
-  // made is never reported as made.
-  test('the documents say which property of a member carries its name', () => {
-    expect(IN_TREE.unreadable.map(reported)).toEqual([])
+    expect(literalTargets(NO_LITERAL_TARGET).map(reported)).toEqual([])
   })
 
   test('no file outside a test writes a target', () => {
-    expect(
-      NON_TEST_SOURCE.flatMap((file) => literalTargets(sourceOf(file), IN_TREE)).map(reported),
-    ).toEqual([])
+    expect(NON_TEST_SOURCE.flatMap((file) => literalTargets(sourceOf(file))).map(reported)).toEqual(
+      [],
+    )
   })
 })
 
@@ -994,7 +827,27 @@ describe('one owning site per identity attribute', () => {
 // the fifteen literals the contract records under `Rules to add` rule 1 as what IMPLEMENT clears.
 
 describe('the drawing path', () => {
-  test('writes no word of the language out in either banned use', () => {
+  // The contract's count, which is what says the rule's reach is its sentence and not a list of
+  // positions: "the rule flags twenty-four literals in `app.tsx`; fifteen are the defect and nine
+  // are these three kinds."
+  test('rule 1 weighs all twenty-four literals of app.tsx and leaves nine to the three kinds', () => {
+    const app = sourceOf('ts/metalang/app.tsx')
+    expect(languageWordsIn(app).length).toBe(24)
+    expect(wordsBySpelling(app).length).toBe(15)
+    expect(outsideTheRule(app).map(reported)).toEqual([
+      'ts/metalang/app.tsx:85: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:96: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:107: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:115: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:150: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:914: "object" is a comparison against a JavaScript type',
+      'ts/metalang/app.tsx:1415: "property" is English prose shown to the reader',
+      'ts/metalang/app.tsx:1415: "properties" is English prose shown to the reader',
+      'ts/metalang/app.tsx:1603: "pending" is a member of this page’s own union of finding kinds',
+    ])
+  })
+
+  test('writes no word of the language out', () => {
     expect(DRAWING_PATH.flatMap((file) => wordsBySpelling(sourceOf(file))).map(reported)).toEqual(
       [],
     )

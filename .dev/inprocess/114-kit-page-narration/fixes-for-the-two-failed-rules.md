@@ -1,10 +1,12 @@
-# Fixes for the two rules that failed review
+# Fixes the rules need
 
-Rule 3, one owning site per identity attribute, passed every lens in both rounds. Leave it alone.
+Rule 3, one owning site per identity attribute, has passed every lens in every round. Leave it alone. Rule 1's closed list of positions and rule 2's declared-id ban are both gone and neither is to come back.
+
+Two findings are confirmed against the live rule file. Both are the same defect in different places: the rule's reach is narrower than the contract's sentence, and the gap is reported as checked.
 
 Each rule below is quoted from `.dev/inprocess/114-kit-page-narration/contract.md` as it stands now. The contract is the only source of what each rule must say; nothing in this file adds to it.
 
-## Rule 1: no language word by spelling in the drawing path
+## Rule 1: the exemption is wider than the boundary
 
 ### The contract, quoted
 
@@ -14,21 +16,17 @@ Each rule below is quoted from `.dev/inprocess/114-kit-page-narration/contract.m
 
 ### The defect
 
-`useOf` at `ts/metalang/guardrails.test.ts:160-205` is a closed list of the positions the rule reports. A language word literal in any position the list does not name returns `null` and is passed in silence. That makes the rule's reach the list rather than the contract's sentence, and a position nobody thought of is reported as checked when it was never checked.
+`ownWordsOf` exempts a member of every union of text literals the file declares, in any position. The boundary exempts a member of the page's own union of finding kinds. Three lines appended to `client.tsx` — `type Col = 'name' | 'id'`, a read of `m['name']` and a comparison `c === 'id'` — leave the rule reporting nothing, and those two shapes are the ones the rule's own sentence names.
 
 ### The fix
 
-Report every literal in `ts/metalang/app.tsx` and `ts/metalang/client.tsx` whose text is a word `words.ts` names, and subtract only the three kinds the boundary puts outside the rule:
+The exemption covers the members of the page's unions of finding kinds and no other union. `app.tsx` declares two, and each says which list a thing came from: `type From = 'highlight' | 'problem' | 'blocker' | 'pending'` at `app.tsx:85`, which types `Said.from` at `app.tsx:89`, and the union typing `Finding.from` at `app.tsx:95`. `client.tsx` declares none, so nothing in that file is exempt on these grounds.
 
-- a member of the page's own union of finding kinds, which `ownWordsOf` already reads from the file being checked;
-- English prose shown to the reader;
-- a comparison against a JavaScript type.
+Where the rule cannot establish that a union is one of those, it grants no exemption. Do not identify them by a list of type names written into the rule: identify them by what the boundary says they are, so a union the page gains for some other purpose never widens the exemption.
 
-Anything the three do not cover is reported. A literal the rule cannot place in one of the three is reported, never passed over.
+The counts the contract states are unchanged by this, and they are the check: twenty-four literals weighed in `app.tsx`, fifteen reported, nine left to the three kinds. `'pending'` is a member of both finding-kinds unions, so the six `'pending'` literals stay outside the rule.
 
-The count in the contract is the check: on `app.tsx` the rule finds twenty-four language word literals, reports fifteen, and leaves nine to the three kinds above. The nine are `typeof value === 'object'` at `app.tsx:914`; `'pending'` as a union member at `app.tsx:85`, `:96`, `:107`, `:115`, `:150` and `:1603`; and `'property'` and `'properties'` in the prose at `app.tsx:1415`.
-
-## Rule 2: no literal target in non-test source
+## Rule 2: three routes write a constant identity value and are not read
 
 ### The contract, quoted
 
@@ -38,17 +36,22 @@ The count in the contract is the check: on `app.tsx` the rule finds twenty-four 
 
 ### The defect
 
-The rule as written bans every id the tree's documents declare and then exempts what it calls each language's vocabulary. That exemption is the rule's own invention: it was cited to a boundary sentence the contract did not contain, and it had to grow to cover every language document in the tree because `ts/metalang/names.yaml:45` declares `id: language` and `ts/metalang/metalang.yaml` declares `string`, `object`, `name` and `value`. An exemption written to make a ban survive its own tree is the ban being narrowed to fit the code.
+`writesIn` reads three routes: a JSX attribute, the attribute written inside a run of text, and `setAttribute`. The rule file asserts that set is complete. Three further routes write a constant value and draw no finding and no unreadable report:
+
+- a props object handed to `createElement`, which is this tree's live idiom at `ts/metalang/propose.ts:273`;
+- a props object spread into an element;
+- `dataset`, which this tree also uses, at `ts/metalang/propose.ts:786` and `:789`.
+
+`createElement('tr', { 'data-member': 'BeginVerification' })` in non-test source passes the rule today, and `BeginVerification` is the acceptance target the contract names at Acceptance 10. The result reported rule 2 green against production with those routes unread, which is reporting a check as made that was not made.
 
 ### The fix
 
-Tim has dropped that ban. Rule 2 now holds exactly two:
+Rule 2 reports a constant value given to `data-declaration` or `data-member` by any route in non-test `ts/` source, not by an enumerated three. Cover the three routes above and build the reach from what the ban says rather than from a list of the ways this tree happens to write markup today. A place the rule cannot read is reported as unreadable, as the dynamic `setAttribute` case already is. Delete the claim that the three routes are the complete set.
 
-- the strings `IGrantStore` and `IWindowsHelloNativeOps`, anywhere in non-test `ts/` source;
-- any constant value given to `data-declaration` or `data-member`, anywhere in non-test `ts/` source.
+Rule 3 reads the same writes, so its reach follows rule 2's.
 
-Delete the declared-id ban and everything that existed to serve it: the derived banned set, the vocabulary exemption, the document loading that fed it, and the fixtures that proved it. Keep the two bans above with a violating and a compliant fixture each. No exemption list remains in rule 2, and none is to be added.
+The bracket skip stays: a name inside square brackets is a selector reading the attribute, not a place writing a value, and the rule file says so where it does it.
 
-## What both rules keep
+## What every rule keeps
 
-Each rule is a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. None is an analyzer and none carries a diagnostic id. A check that cannot be made is reported, never passed over. Production RED from either rule is the rule's impact on existing code; do not clean it, and do not suppress or exempt anything to reach green.
+Each rule is a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. None is an analyzer and none carries a diagnostic id. A check that cannot be made is reported, never passed over. Production RED from a rule is the rule's impact on existing code; do not clean it, and do not suppress or exempt anything to reach green.
