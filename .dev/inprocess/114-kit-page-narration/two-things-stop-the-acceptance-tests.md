@@ -1,6 +1,6 @@
 # Two things stop the acceptance tests
 
-The tests are written and failing for the right reasons: fifteen of them across `ts/metalang/app.test.tsx`, `ts/metalang/render.test.ts` and `ts/metalang/kit.test.ts`, with jsdom 31.0.0 pinned in `package.json` and `bun.lock`. Two things stop the stage finishing. Tim answered the first on 13 November; the second is still with him.
+The tests are written and failing for the right reasons: fifteen of them across `ts/metalang/app.test.tsx`, `ts/metalang/render.test.ts` and `ts/metalang/kit.test.ts`, with jsdom 31.0.0 pinned in `package.json` and `bun.lock`. Two things stopped the stage finishing. Tim answered both on 13 November.
 
 ## jsdom carries no type declarations
 
@@ -31,19 +31,24 @@ Answered. Tim chose `types-package` on 2026-11-13 at 12:44, decision `jsdom-type
 
 The check sits inside the `stage-result-contracts` copied module, which is byte-identical in nine of the eleven files in `.agents/workflows/`, and `eng/check-copied-modules.mjs` enforces that. Changing it means making the same edit in all nine copies and rerunning that check. The other eight scripts carry the `tdd-author` case but never run it, so their behaviour does not change.
 
-Five of this contract's twelve acceptance criteria cannot honestly be made to fail:
+Seven of this contract's fifteen acceptance criteria cannot honestly be made to fail:
 
 - 6, that every `data-part` and `data-col` target passing today still passes, "by the existing assertions running unchanged" — the criterion's own words;
 - 7, that one document rendered twice under one built kit produces identical bytes, which holds today and would break the day anything non-deterministic entered the page;
 - 8, that each of the three rules has a violating and a compliant fixture, which RULE-PHASE built and proved;
 - 10, the two literal targets, which the contract itself puts on the JARVIS side after the kit release;
-- 11, the coverage floor, which is a gate run.
+- 11, the coverage floor, which is a gate run;
+- 14 and 15, which check the change this decision authorizes, made before the test stage could record its own result.
 
 The stage rejected the author's result twice on shape alone. Its second rejection was `coverage[6].red must be exactly true when testFiles is not empty`, which asks the author to record a passing guard as failing.
 
-Two ways out. Change that check, in all nine copies, so a criterion may be recorded as passing with its reason, which is what the field already claims to hold. Or leave the rails untouched and record only the criteria with new failing tests in the coverage list, naming the rest in the notes, which leaves five of twelve criteria out of the structured record the later stages read.
+Two ways out. Change that check so a criterion may be recorded as passing with its reason, which is what the field already claims to hold. Or leave the rails untouched and record only the criteria with new failing tests in the coverage list, naming the rest in the notes, which leaves seven of fifteen criteria out of the structured record the later stages read.
 
 Recommendation: change the check. A guard against breaking what works is a real acceptance criterion, and a pipeline that cannot record one pushes every future contract toward either a false record or a thinner one.
+
+Answered. Tim chose `record-it-green` on 2026-11-13 at 12:47, decision `green-criterion` in pkg-6d9db6691d8c. The change is made and the contract carries it: a coverage row is `red: false` only when `whyPassing` says why it passes, a row that claims both is refused, and acceptance criteria 14 and 15 prove it.
+
+The same sentence turned out to be written in four places, not one. The condition the result contract is checked with lives in the `required-agent-runtime` copied block, which is in all eleven workflow scripts, not the nine that carry `stage-result-contracts`; the coverage record's shape and the `tdd-author` contract are in the nine; the test author's, the reviewers' and the implementer's instructions say it in prose; and `rails-test-code` and `rails-run-a-workflow` state the all-RED requirement as a rail. All four now say the same new thing, and `eng/check-copied-modules.mjs` holds the twenty copies byte-identical.
 
 ## Two defects in the contract, found by the test author
 

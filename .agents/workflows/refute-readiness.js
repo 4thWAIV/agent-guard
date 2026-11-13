@@ -332,11 +332,20 @@ async function __requiredAgentRuntime(args) {
       for (const [field, forbidden] of Object.entries(condition.forbiddenFields || {})) {
         if (result[field] === forbidden) return `${field} must not equal ${JSON.stringify(forbidden)} when ${condition.field} is not empty`
       }
-      for (const itemsTrue of condition.itemsAllTrue || []) {
+      // An item is true, or it carries the reason it is not. A reason beside a true item is a contradiction
+      // and fails the same way, so the record can never claim both at once.
+      for (const itemsTrue of condition.itemsTrueOrExplained || []) {
         if (!Array.isArray(result[itemsTrue.field])) return `${itemsTrue.field} must be an array`
-        const invalidIndex = result[itemsTrue.field].findIndex((item) => !item || item[itemsTrue.itemField] !== true)
-        if (invalidIndex >= 0) {
-          return `${itemsTrue.field}[${invalidIndex}].${itemsTrue.itemField} must be exactly true when ${condition.field} is not empty`
+        const unexplained = result[itemsTrue.field].findIndex((item) => !item
+          || (item[itemsTrue.itemField] !== true
+            && (typeof item[itemsTrue.reasonField] !== 'string' || !item[itemsTrue.reasonField].trim())))
+        if (unexplained >= 0) {
+          return `${itemsTrue.field}[${unexplained}].${itemsTrue.itemField} must be exactly true, or ${itemsTrue.reasonField} must say why it is not, when ${condition.field} is not empty`
+        }
+        const contradicted = result[itemsTrue.field].findIndex((item) => item && item[itemsTrue.itemField] === true
+          && typeof item[itemsTrue.reasonField] === 'string' && item[itemsTrue.reasonField].trim())
+        if (contradicted >= 0) {
+          return `${itemsTrue.field}[${contradicted}].${itemsTrue.reasonField} must be empty when ${itemsTrue.itemField} is true`
         }
       }
     }

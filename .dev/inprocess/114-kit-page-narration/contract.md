@@ -14,6 +14,8 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **jsdom-types.** The jsdom import is typed by the published declaration package `@types/jsdom` 30.0.0. Adding it to `package.json` devDependencies and `bun.lock` at that exact version is what the answer authorizes, and nothing else; no declaration file for jsdom is written in this repository. Tim approved this as written on 2026-11-13, answering `jsdom-types` with `types-package` in pkg-6d9db6691d8c; the record is `results/decisions.json` in `unblock-the-kit-acceptance-tests-1.0.1-localea7`.
 
+**green-criterion.** The test stage may record an acceptance criterion that passes today, with the reason it passes. A criterion that only guards behavior this contract requires to keep working is recorded in the coverage list as `red: false` carrying the reason in `whyPassing`; every other criterion is still RED, a `red: false` row with no reason is refused, and a `red: true` row that carries one is refused. Tim approved this as written on 2026-11-13, answering `green-criterion` with `record-it-green` in pkg-6d9db6691d8c; the record is `results/decisions.json` in `unblock-the-kit-acceptance-tests-1.0.1-localea7`. The same sentence states that requirement in four places, so the change lands in all of them: the condition the result contract is checked with, in the `required-agent-runtime` block copied into eleven workflow scripts; the coverage record's shape and the `tdd-author` contract, in the `stage-result-contracts` block copied into nine; the test author's, the reviewers' and the implementer's instructions; and the two rails that state the all-RED requirement in prose.
+
 **rule-2-middle-clause.** Rule 2 keeps only its two exact bans: the strings `IGrantStore` and `IWindowsHelloNativeOps`, and any constant `data-declaration=` or `data-member=` attribute value. Its ban on any id declared in a document being drawn, and on any member name, is dropped. Tim approved this as written on 2026-11-12, answering `rule-2-middle-clause` with `drop-the-clause` in pkg-dd9cd1cb87e7; the record is `results/decisions.json` in `rule-2-s-middle-clause-1.0.0-local2d1`.
 
 **Not decided, and not in this contract.** Refusing duplicate declaration ids at check time, filed as issue 115. Reporting a shape whose language declares no name role as an on-page error at render time, filed as issue 116. Narrating a proposal page, whose shell is a second copy at `ts/metalang/propose.ts:882`, filed as issue 117.
@@ -63,6 +65,8 @@ This run: a selector naming one declaration's members matches exactly one elemen
 - `ts/metalang/render.test.ts`, `ts/metalang/app.test.tsx`, `ts/metalang/kit.test.ts` — the tests for all of the above.
 - `package.json` and `bun.lock` — jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies.
 - `bunfig.toml` — the 0.75 coverage floor the new code is held to.
+- `.agents/workflows/*.js` — the `required-agent-runtime` copied block in all eleven scripts, the `stage-result-contracts` copied block in nine, and the test author's, reviewers' and implementer's instructions in `tdd.js` and `implement.js`.
+- `.agents/skills/rails-test-code/SKILL.md` and `.agents/skills/rails-run-a-workflow/SKILL.md` — the all-RED requirement in prose.
 
 The list is where the work is known to be, not a boundary.
 
@@ -86,6 +90,7 @@ The ledger's earlier reuse verdict cited `arch.yaml:211`, which is the `word` en
 5. Take jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies in `package.json` and `bun.lock`, each pinned to that exact version, and prove in jsdom that a member name containing a double quote, a single quote and a backslash is reachable by selector, that a member name repeated across two declarations resolves to the one asked for, and that two declarations sharing an id are reported as ambiguous rather than resolved to the first. Assertions run against the component render or the executed bundle, never against the CLI output, because `#root` in the written page is empty and the DOM is drawn in the browser.
 6. Add `style.css` and `syntax.css` to the required-file check in `.github/workflows/ci.yml`, which lists seven files while `ts/metalang/kit.ts` marks nine as required.
 7. Keep every `data-part` and `data-col` target working, spelled exactly as now.
+8. Under decision `green-criterion`, let the coverage record carry a criterion that passes today with its reason, in the four places named in that decision. This one is already done, by the orchestrator, because the test stage cannot record its own result until the contract it is checked against exists. The IMPLEMENT worker does not repeat it and changes nothing under `.agents/`.
 
 ## What the agent MAY do
 
@@ -93,7 +98,7 @@ Add test fixtures that declare shapes carrying punctuation, quotes and repeated 
 
 ## What the agent MUST NOT do
 
-Read a language property by its spelling anywhere in the drawing path. Write `IGrantStore` or `IWindowsHelloNativeOps`, or a constant value of either identity attribute, into non-test source. Write either identity attribute outside its one owning component. Add a second resolver, escaper, diagnostic or page shell. Weaken, skip or delete a test, or lower the coverage floor. Loosen a target assertion because the CLI output has an empty root. Write the two named literal targets into a repository fixture to make the acceptance pass. Change scope. Commit. Stop and report on any wall.
+Read a language property by its spelling anywhere in the drawing path. Write `IGrantStore` or `IWindowsHelloNativeOps`, or a constant value of either identity attribute, into non-test source. Write either identity attribute outside its one owning component. Add a second resolver, escaper, diagnostic or page shell. Weaken, skip or delete a test, or lower the coverage floor. Loosen a target assertion because the CLI output has an empty root. Write the two named literal targets into a repository fixture to make the acceptance pass. Edit anything under `.agents/`, which `What to do` item 8 has already settled. Change scope. Commit. Stop and report on any wall.
 
 ## Acceptance
 
@@ -112,6 +117,9 @@ Each check is re-derivable by someone other than the worker.
 11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`. The earlier command named here, `eng/coverage-gate.sh`, is the .NET gate and reads none of the kit's coverage.
 12. The rendered page loads the story helper as `<script defer src="/api/packages/story.js"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`. The standard and `What to do` item 4 both require the helper, and no numbered check named it.
 13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository. Commands: `bun run typecheck` and `bun run lint`. CI runs both, at `.github/workflows/ci.yml:437` and `:439`, and the untyped import failed each one before decision `jsdom-types`.
+14. The coverage record takes a criterion that passes today only with its reason: a `red: false` row carrying a reason is accepted, the same row with an empty reason is refused, and a `red: true` row carrying a reason is refused. Re-derivable by anyone from the repository root, by slicing the three copied blocks out of `.agents/workflows/tdd.js` and validating four rows through the real result contract, which prints `[true,true,false,false]` and exits 0:
+   `node --input-type=module -e 'import fs from "fs";const s=fs.readFileSync(".agents/workflows/tdd.js","utf8");const b=(n)=>s.split("// ##COPIED-MODULE-BEGIN## "+n+"\n")[1].split("// ##COPIED-MODULE-END## "+n)[0];const F=Object.getPrototypeOf(async function(){}).constructor;const run=new F("rows",b("workflow-input")+b("required-agent-runtime")+b("stage-result-contracts")+"const out=[];for(const r of rows){try{await __stageResultContracts({name:\"tdd-author\",operation:\"validate\",result:{testFiles:[\"t\"],redProof:\"p\",coverage:[r],notes:\"n\"},context:{noTestEvidence:\"x\"}});out.push(true)}catch(e){out.push(false)}}return out;");const row=(red,why)=>({acceptanceItem:"6",tests:["t"],kind:"unit",red,whyPassing:why});const got=await run([row(true,""),row(false,"guards what works today"),row(false,""),row(true,"passes today")]);console.log(JSON.stringify(got));process.exit(JSON.stringify(got)==="[true,true,false,false]"?0:1)'`
+15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.
 
 ## Level
 

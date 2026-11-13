@@ -11,7 +11,7 @@ A rail against tests that look like coverage while proving nothing — a criteri
 - **Implementer** (IMPLEMENT stage) — turn every RED test green by GROWING THE CODE; never weaken, skip, or re-point a test to reach green.
 - **Test-quality adversary** — use every **Violation** as the PRIMARY checklist for the test files and confirm each by re-running `dotnet test`.
 
-The tests are written against the ARCHITECTURE surface. Every acceptance test MUST be RED right now — it FAILS, either because a NEW body throws `NotImplementedException`, or because EXISTING behavior being expanded returns the wrong result for the inputs the change requires (a plain expected-vs-actual failure).
+The tests are written against the ARCHITECTURE surface. Every acceptance test MUST be RED right now — it FAILS, either because a NEW body throws `NotImplementedException`, or because EXISTING behavior being expanded returns the wrong result for the inputs the change requires (a plain expected-vs-actual failure). One exception: a criterion that only guards behavior the contract requires to keep working cannot fail today. Its test is written all the same, and its row in the coverage record is `red: false` carrying, in `whyPassing`, the reason it passes now.
 
 ## The rails
 
@@ -21,8 +21,8 @@ The tests are written against the ARCHITECTURE surface. Every acceptance test MU
 - **Fix:** Write the missing test for the uncovered criterion, derived from the criterion's own words.
 
 ### 2. RED before green
-- **Practice:** Every acceptance test fails now, for the reason the criterion describes — for new code because the body throws `NotImplementedException`, for an expansion because today's behavior is wrong for the required inputs.
-- **Violation:** A test passes GREEN before the change is implemented — it exercises nothing new (it asserts a constant, a mock, the skeleton's own thrown exception as if that were success, or, for an expansion, the CURRENT wrong behavior), so it can never catch whether the change was made.
+- **Practice:** Every acceptance test fails now, for the reason the criterion describes — for new code because the body throws `NotImplementedException`, for an expansion because today's behavior is wrong for the required inputs. A criterion that only guards existing behavior from regressing is the exception: its test passes today, and its coverage row says why in `whyPassing`.
+- **Violation:** A test passes GREEN before the change is implemented — it exercises nothing new (it asserts a constant, a mock, the skeleton's own thrown exception as if that were success, or, for an expansion, the CURRENT wrong behavior), so it can never catch whether the change was made. Recording a criterion whose behavior this change builds as `red: false` is the same violation, and so is a `red: false` row whose `whyPassing` is empty or untrue.
 - **Fix:** Rewrite it to assert the REQUIRED behavior the criterion names, so it fails today and passes only once the behavior is built or corrected.
 
 ### 3. Assert the real type, not a fake of it

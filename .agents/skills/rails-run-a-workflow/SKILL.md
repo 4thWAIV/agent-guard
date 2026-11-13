@@ -166,9 +166,9 @@ The human approves the signature diff before TDD begins. `rails-decisions` owns 
 - **Outputs:** Compiling RED tests, per-criterion coverage, RED proof, and one PASS or FAIL verdict from each adversary. When the contract names no test surface and forbids test changes, the result records `testFiles: []`, `redProof: 'Not applicable — the approved contract authorizes no test files.'`, `coverage: []`, and exact contract evidence in `notes`, then runs the same adversary panel.
 - **Revoked authority:** The test author does not change an interface, fill a production body, or judge the tests. The adversaries make no code changes.
 
-`rails-test-code` owns test completeness, RED-first behavior, assertions, unit-test fakes, pointed-integration coverage, and test tampering. New behavior is RED through `NotImplementedException`; expanded behavior is RED through an expected-versus-actual failure against the required behavior.
+`rails-test-code` owns test completeness, RED-first behavior, assertions, unit-test fakes, pointed-integration coverage, and test tampering. New behavior is RED through `NotImplementedException`; expanded behavior is RED through an expected-versus-actual failure against the required behavior. A criterion that only guards behavior the contract requires to keep working cannot fail today; its test is written all the same and its coverage row carries the reason it passes.
 
-The no-test result is valid only when the approved contract names no test surface and forbids test changes. The test-quality, DRY, and Lie-catcher panel returns FAIL when the contract requires a test or the no-test claim lacks exact contract evidence. Every contract that authorizes tests retains the normal RED-first requirement and empty-result rejection.
+The no-test result is valid only when the approved contract names no test surface and forbids test changes. The test-quality, DRY, and Lie-catcher panel returns FAIL when the contract requires a test or the no-test claim lacks exact contract evidence. Every contract that authorizes tests retains the RED-first requirement for the behavior it changes, and the empty-result rejection.
 
 #### Selected RULE warnings during ARCHITECTURE and TDD
 

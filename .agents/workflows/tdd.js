@@ -333,11 +333,20 @@ async function __requiredAgentRuntime(args) {
       for (const [field, forbidden] of Object.entries(condition.forbiddenFields || {})) {
         if (result[field] === forbidden) return `${field} must not equal ${JSON.stringify(forbidden)} when ${condition.field} is not empty`
       }
-      for (const itemsTrue of condition.itemsAllTrue || []) {
+      // An item is true, or it carries the reason it is not. A reason beside a true item is a contradiction
+      // and fails the same way, so the record can never claim both at once.
+      for (const itemsTrue of condition.itemsTrueOrExplained || []) {
         if (!Array.isArray(result[itemsTrue.field])) return `${itemsTrue.field} must be an array`
-        const invalidIndex = result[itemsTrue.field].findIndex((item) => !item || item[itemsTrue.itemField] !== true)
-        if (invalidIndex >= 0) {
-          return `${itemsTrue.field}[${invalidIndex}].${itemsTrue.itemField} must be exactly true when ${condition.field} is not empty`
+        const unexplained = result[itemsTrue.field].findIndex((item) => !item
+          || (item[itemsTrue.itemField] !== true
+            && (typeof item[itemsTrue.reasonField] !== 'string' || !item[itemsTrue.reasonField].trim())))
+        if (unexplained >= 0) {
+          return `${itemsTrue.field}[${unexplained}].${itemsTrue.itemField} must be exactly true, or ${itemsTrue.reasonField} must say why it is not, when ${condition.field} is not empty`
+        }
+        const contradicted = result[itemsTrue.field].findIndex((item) => item && item[itemsTrue.itemField] === true
+          && typeof item[itemsTrue.reasonField] === 'string' && item[itemsTrue.reasonField].trim())
+        if (contradicted >= 0) {
+          return `${itemsTrue.field}[${contradicted}].${itemsTrue.reasonField} must be empty when ${itemsTrue.itemField} is true`
         }
       }
     }
@@ -882,8 +891,9 @@ async function __stageResultContracts(args) {
       tests: STRING_ARRAY,
       kind: STRING,
       red: BOOLEAN,
+      whyPassing: STRING,
     },
-    required: ['acceptanceItem', 'tests', 'kind', 'red'],
+    required: ['acceptanceItem', 'tests', 'kind', 'red', 'whyPassing'],
   }
 
   const ARCHITECTURE_AUTHOR_SCHEMA = {
@@ -1109,13 +1119,14 @@ async function __stageResultContracts(args) {
               // check never runs when testFiles is nonempty.
               containsFields: { notes: noTestEvidence },
             }],
-            // The no-test sentinel is valid ONLY on the empty result, and a real test result proves RED on every
-            // covered acceptance item.
+            // The no-test sentinel is valid ONLY on the empty result. A real test result proves RED on every covered
+            // acceptance item, except one whose criterion guards behavior that already works: that one is recorded
+            // red: false and says in whyPassing why it cannot fail today.
             whenArrayNonEmpty: [{
               field: 'testFiles',
               nonEmptyArrayFields: ['coverage'],
               forbiddenFields: { redProof: NO_TEST_PROOF },
-              itemsAllTrue: [{ field: 'coverage', itemField: 'red' }],
+              itemsTrueOrExplained: [{ field: 'coverage', itemField: 'red', reasonField: 'whyPassing' }],
             }],
           },
           values: { noTestProof: NO_TEST_PROOF },
@@ -1396,6 +1407,7 @@ The remaining write and RED-proof directions apply only to the normal test-autho
 
 WHAT YOU WRITE — TESTS AGAINST THE SKELETON, RED:
 - The ARCHITECTURE surface is already on disk: the interfaces and concrete types exist. Write your tests against those real types, so they COMPILE — and they must FAIL (RED) now: for a NEW member because its body throws \`NotImplementedException\`; for an EXPANDED existing member because today's behavior returns the wrong result for the inputs the change requires (a plain expected-vs-actual failure). That RED is the forcing function for the IMPLEMENT worker, the same role the RED rules play in RULE-PHASE. For an expansion, a test that asserts the member's CURRENT behavior passes GREEN and proves nothing — assert the REQUIRED new behavior, which today's code fails.
+- A criterion that only guards behavior the contract requires to KEEP working cannot fail today. Write its test all the same, record that row with \`red: false\`, and put in \`whyPassing\` the reason it passes now, in the criterion's own terms. Every other criterion is RED. A \`red: false\` row with an empty \`whyPassing\` is refused, and so is a \`red: true\` row that carries one; never record a criterion this way to avoid writing the test that would fail.
 - Cover EVERY acceptance criterion. Unit tests drive the real production type and use fakes for outside-world dependencies. Per-OS pointed-integration tests drive the production path through the real OS adapter when the criterion depends on actual OS behavior; those tests run on the per-OS CI legs.
 - Follow every Practice in rails-test-code. The owner rail supplies test completeness, RED-first behavior, assertions, integration coverage, and test-tampering criteria.
 
@@ -1405,7 +1417,7 @@ YOUR AUTHORITY IS LIMITED:
 
 PROVE THE RED (paste verbatim, with exit code): run \`${dotnetTestCommand}\` and show each new test failing for the required reason — \`NotImplementedException\` for a new body or expected-versus-actual for expanded existing behavior. Do NOT make the tests green.
 
-FINAL ANSWER: testFiles (every test file created/edited under tests/), redProof (the pasted failing-test output), coverage (each acceptance criterion mapped to its test(s), its kind unit/pointed-integration, and whether it is RED now), and notes.`
+FINAL ANSWER: testFiles (every test file created/edited under tests/), redProof (the pasted failing-test output), coverage (each acceptance criterion mapped to its test(s), its kind unit/pointed-integration, whether it is RED now, and whyPassing — the reason it passes today on a row that is not RED, empty on a row that is), and notes.`
 
 const roleGroups = [
   { id: 'author', roleIds: ['test-author'] },
@@ -1453,13 +1465,15 @@ log(noTestResult
 
 // The independent adversaries judge the TESTS themselves — separate agents, never the author. The tests are
 // INTENTIONALLY RED (they fail against the throwing skeleton); RED is correct here and is never a reason to fail them.
+// A criterion that only guards behavior the contract requires to keep working is recorded red: false with the reason
+// it passes in whyPassing, which the adversaries judge like any other claim.
 const TEST_ADVERSARIES = [
   { id: 'test-quality', rail: 'rails-test-code', focus: 'test quality and completeness', model: 'sonnet' },
   { id: 'dry', rail: 'rails-dry-code', focus: 'duplication across the tests', model: 'sonnet' },
   { id: 'lie-catcher', rail: 'rails-decisions', focus: 'decision and approval honesty in the test surface', model: 'opus' },
 ]
 
-const testRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the TDD result — NOT a finished implementation. Do NOT make code changes. Tests are intentionally RED when the contract authorizes tests. A contract-backed no-test result is valid only when the contract names no test surface, forbids test changes, and the result's notes contain exact contract evidence. FAIL a no-test result when the contract requires any test or the evidence is not exact.
+const testRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the TDD result — NOT a finished implementation. Do NOT make code changes. Tests are intentionally RED when the contract authorizes tests. A coverage row recorded red: false carries in whyPassing the reason its criterion passes today; FAIL that row when the reason is untrue, and FAIL it when a criterion whose behavior this change builds was recorded that way instead of being made to fail. A contract-backed no-test result is valid only when the contract names no test surface, forbids test changes, and the result's notes contain exact contract evidence. FAIL a no-test result when the contract requires any test or the evidence is not exact.
 
 Read .agents/skills/${adv.rail}/SKILL.md — it is your PASS/FAIL checklist. Read the complete contract (${contractPath}), the complete TDD result (${JSON.stringify(testGen)}), and the test files (${JSON.stringify(testGen.testFiles)}). Your lens: ${adv.focus}.
 
