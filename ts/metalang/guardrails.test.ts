@@ -16,9 +16,11 @@
 //
 // Nothing here is skipped, exempted or passed over on a guess. Each rule reports by default and
 // subtracts only what the contract puts outside it, so a shape nobody thought of is reported
-// rather than passed in silence. Where a rule cannot read what it needs — a call handed an
-// attribute name worked out at run time — it reports that as a finding of its own rather than
-// reporting the check as made.
+// rather than passed in silence. Where a rule cannot read what it needs — a name worked out at
+// run time where a node's attributes are written, or an identity attribute named somewhere the
+// reading does not place — it reports that place as a finding of its own rather than reporting
+// the check as made. No rule here claims to have read every route; each one reports what it could
+// not read.
 
 import { readdirSync, readFileSync } from 'node:fs'
 import { join, sep } from 'node:path'
@@ -141,6 +143,11 @@ const LANGUAGE_WORDS: ReadonlySet<string> = new Set<string>(
 // reports it, which is the safe direction: the rule over-reports rather than passing something
 // over in silence. That is the whole of the difference from a closed list of positions, where
 // anything the list did not name was passed and reported as checked.
+//
+// The same holds inside the first kind. It is the page's own union of FINDING KINDS, not any union
+// the page declares, so a union counts only where the page says it is one by typing with it the
+// property that says which list a thing came from. A union declared for anything else puts nothing
+// outside the rule.
 
 /** What puts a literal of a language word outside rule 1, where something does. */
 type Outside =
@@ -149,20 +156,59 @@ type Outside =
   | 'a comparison against a JavaScript type'
 
 /**
- * Every word a file declares a value of its own may be: each member of every union of text
- * literals the file writes as a type. `type From = 'highlight' | 'problem' | 'blocker' |
- * 'pending'` in app.tsx is one, which is why `pending` written anywhere in that file is the page's
- * own word for one of the lists it counts and not the language's word for a reserved state.
+ * The page's own name for the property that says which list a thing said about a node came from.
+ * It is what makes a union of text literals the page's finding kinds rather than a union it
+ * declares for something else: app.tsx writes it at `Said.from` and at `Finding.from`.
  */
-const ownWordsOf = (tree: ts.SourceFile): ReadonlySet<string> => {
-  const own = new Set<string>()
-  for (const node of nodesOf(tree)) {
-    if (!ts.isUnionTypeNode(node)) continue
-    for (const one of node.types) {
-      if (ts.isLiteralTypeNode(one) && ts.isStringLiteral(one.literal)) own.add(one.literal.text)
-    }
+const FROM = 'from'
+
+/** The members of a union of text literals, or nothing where a type is not one. */
+const literalMembersOf = (type: ts.TypeNode): readonly string[] | null => {
+  const held: string[] = []
+  for (const one of ts.isUnionTypeNode(type) ? type.types : [type]) {
+    if (!ts.isLiteralTypeNode(one) || !ts.isStringLiteral(one.literal)) return null
+    held.push(one.literal.text)
   }
-  return own
+  return held
+}
+
+/**
+ * Every word a file declares a finding kind to be: the members of each union of text literals
+ * that types the property saying which list a thing came from. That is what the boundary puts
+ * outside the rule — "a member of the page's own union of finding kinds" — and app.tsx declares
+ * two of them, `Said.from` and `Finding.from`, which is why `pending` written anywhere in that
+ * file is the page's own word for one of the lists it counts and not the language's word for a
+ * reserved state. client.tsx declares none, so nothing in that file is outside the rule on these
+ * grounds.
+ *
+ * A union is one of these only where the file says so by typing a `from` with it, written out
+ * there or through a type alias of its own. Where that cannot be established the rule grants
+ * nothing and the literal is reported, so a union the page gains for some other purpose never
+ * widens this: the exemption follows what the boundary says these unions ARE, and not a list of
+ * type names written into the rule.
+ */
+const findingKindsOf = (tree: ts.SourceFile): ReadonlySet<string> => {
+  const all = nodesOf(tree)
+  const aliased = new Map<string, readonly string[]>()
+  for (const node of all) {
+    if (!ts.isTypeAliasDeclaration(node)) continue
+    const members = literalMembersOf(node.type)
+    if (members !== null) aliased.set(node.name.text, members)
+  }
+  const kinds = new Set<string>()
+  for (const node of all) {
+    if (!ts.isPropertySignature(node) && !ts.isPropertyDeclaration(node)) continue
+    const typed = node.type
+    if (!ts.isIdentifier(node.name) || node.name.text !== FROM || typed === undefined) continue
+    const members =
+      literalMembersOf(typed) ??
+      (ts.isTypeReferenceNode(typed) && ts.isIdentifier(typed.typeName)
+        ? (aliased.get(typed.typeName.text) ?? null)
+        : null)
+    if (members === null) continue
+    for (const one of members) kinds.add(one)
+  }
+  return kinds
 }
 
 /** The comparisons that ask whether something is that word. */
@@ -307,9 +353,9 @@ interface Weighed {
 /** Every literal of a language word one file writes, each weighed against the three kinds. */
 const languageWordsIn = (source: Source): readonly Weighed[] => {
   const tree = treeOf(source)
-  const own = ownWordsOf(tree)
+  const kinds = findingKindsOf(tree)
   const outsideOf = ({ held, node }: Literal): Outside | null => {
-    if (own.has(held)) return 'a member of this page’s own union of finding kinds'
+    if (kinds.has(held)) return 'a member of this page’s own union of finding kinds'
     if (comparedWithAJavaScriptType(node)) return 'a comparison against a JavaScript type'
     if (proseShownToTheReader(node)) return 'English prose shown to the reader'
     return null
@@ -344,13 +390,56 @@ const outsideTheRule = (source: Source): readonly Found[] =>
     }))
 
 // ── the two attributes a narrated page is pointed at by ──────────────────────
+//
+// Rules 2 and 3 both turn on one question — where does this file give one of the two identity
+// attributes a value? — so the reading is written once, here, and each rule asks it for what it
+// bans. Rule 2 bans a value written out; rule 3 bans a write anywhere but the one owning site.
+//
+// The reading is built from what giving an attribute a value LOOKS LIKE, and not from the ways
+// this tree happens to write markup today, because a route nobody listed is exactly how an
+// identity written by hand arrives. An attribute has the two names the DOM gives it — the
+// attribute, `data-member`, and the property of a node's dataset, `member` — and a name can be
+// written as markup, as a property of an object a node is drawn from, as a value handed to a call,
+// as the property an assignment writes, or inside a run of text that writes markup or script.
+// Each of those is read below, and an object a node is drawn from is read wherever that object is
+// written, because these rules read every file of the non-test source rather than the file that
+// draws the node.
+//
+// Nothing here claims to have read every route. Where a name is worked out at run time, or a name
+// is written somewhere this reading does not place, the place itself is reported as one the rules
+// could not read — so a route nobody thought of arrives as a finding rather than as silence.
 
 /** One identity attribute, and the one component of the one file that may write it. */
 interface Identity {
   readonly attribute: string
+  /** The same attribute as a node's dataset spells it, which is the DOM's other name for it. */
+  readonly onADataset: string
   readonly file: string
   readonly drawnBy: string
 }
+
+/**
+ * How a `data-` attribute is spelled on a node's dataset: without the `data-`, and with the first
+ * letter of every word after the first raised. The DOM gives every data attribute both spellings
+ * and writing either one writes the attribute, so a rule reading one name reads both.
+ */
+const onADatasetAs = (attribute: string): string => {
+  const [held, ...rest] = attribute.split('-')
+  if (held !== 'data' || rest.length === 0 || rest.some((word) => word === '')) {
+    throw new Error(`${attribute} is not a data attribute, so a dataset spells it nothing`)
+  }
+  return rest
+    .map((word, at) => (at === 0 ? word : `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`))
+    .join('')
+}
+
+/** One identity attribute, under both of the names the DOM gives it. */
+const identity = (attribute: string, file: string, drawnBy: string): Identity => ({
+  attribute,
+  onADataset: onADatasetAs(attribute),
+  file,
+  drawnBy,
+})
 
 /**
  * Where each identity attribute is written. `data-declaration` is written by the component that
@@ -360,12 +449,28 @@ interface Identity {
  * that writes the `data-col` headers and cells.
  */
 const IDENTITIES: readonly Identity[] = [
-  { attribute: 'data-declaration', file: 'ts/metalang/app.tsx', drawnBy: 'Declaration' },
-  { attribute: 'data-member', file: 'ts/metalang/app.tsx', drawnBy: 'Table' },
+  identity('data-declaration', 'ts/metalang/app.tsx', 'Declaration'),
+  identity('data-member', 'ts/metalang/app.tsx', 'Table'),
 ]
 
-/** What a file gives an identity attribute where it writes one. */
-type Gives = 'a constant' | 'a value worked out' | 'nothing'
+/** The identity an attribute name names, where it names one. */
+const namedAs = (held: string): Identity | undefined =>
+  IDENTITIES.find(({ attribute }) => attribute === held)
+
+/** The identity a dataset property names, where it names one. */
+const spelledAs = (held: string): Identity | undefined =>
+  IDENTITIES.find(({ onADataset }) => onADataset === held)
+
+/** Both identity attributes, said in one phrase, for a finding that cannot say which it is. */
+const EITHER = IDENTITIES.map(({ attribute }) => attribute).join(' or ')
+
+/**
+ * What a file gives an identity attribute where it writes one. An attribute written with no value
+ * beside it carries an empty one, and an empty value is written out as much as any other, so there
+ * is no third answer here: either what the attribute holds was written in this file, or it came
+ * from somewhere this file worked out.
+ */
+type Gives = 'a constant' | 'a value worked out'
 
 /** One place a file writes an identity attribute. */
 interface Write {
@@ -377,43 +482,187 @@ interface Write {
 }
 
 /**
- * An identity attribute written inside a run of text, which is how anything writing markup as a
- * string rather than as markup would write one — the page shell is written that way. A name
- * inside square brackets is a selector READING the attribute, so the bracket is matched in order
- * to be skipped: a stylesheet and a test naming a target are not places that write one.
- *
- * The attribute names come from `IDENTITIES`, so they are written once in this file.
+ * Whether a value is written out where it is given, whichever spelling a choice between values
+ * lands on: `ok ? 'one' : 'other'` writes both of them out, and neither of them comes from the
+ * document being drawn. A value reached any other way is worked out, which is what an identity
+ * taken from the document looks like.
  */
-const IN_TEXT = new RegExp(
-  `(\\[\\s*)?(${IDENTITIES.map(({ attribute }) => attribute).join('|')})\\s*=\\s*(?:"([^"]*)"|'([^']*)')?`,
-  'g',
-)
+const writtenOut = (value: ts.Expression): boolean => {
+  const held = heldBy(value)
+  if (ts.isStringLiteralLike(held)) return true
+  if (ts.isConditionalExpression(held)) {
+    return writtenOut(held.whenTrue) && writtenOut(held.whenFalse)
+  }
+  if (ts.isBinaryExpression(held) && CHOOSES.includes(held.operatorToken.kind)) {
+    return writtenOut(held.left) && writtenOut(held.right)
+  }
+  return false
+}
+
+/** What a value given somewhere gives the attribute it is given to. */
+const given = (value: ts.Expression | undefined): Gives =>
+  value === undefined || writtenOut(value) ? 'a constant' : 'a value worked out'
+
+/** What a markup attribute is given, read from the value written beside it. */
+const givenBy = (written: ts.JsxAttribute): Gives => {
+  const value = written.initializer
+  if (value === undefined) return 'a constant'
+  return ts.isJsxExpression(value) ? given(value.expression) : given(value)
+}
 
 /**
- * The one call that puts an attribute on a node rather than reading one, which is the third way a
- * file can write one: not as markup, and not as text, but by asking the node to carry it.
+ * One of the calls the DOM gives a node to carry an attribute by its name, and where that call
+ * writes the name and the value. Each is read as the DOM declares it rather than all of them as
+ * the first: `setAttributeNS` names the attribute in its second argument, and `toggleAttribute`
+ * carries an empty value rather than one of its own, which is a value written out.
  *
  * A call handed its attribute's name through a value worked out at run time cannot be read, so
  * neither rule can tell whether it writes an identity. That is reported as something the rules
  * could not read rather than passed over: a check that cannot be made is never reported as made.
  */
-const SETS = 'setAttribute'
-
-/** Whether a call is a node being asked to carry an attribute. */
-const setsAnAttribute = (node: ts.CallExpression): boolean => {
-  const called = node.expression
-  return ts.isPropertyAccessExpression(called) && called.name.text === SETS
+interface Carries {
+  readonly call: string
+  /** Which argument names the attribute. */
+  readonly names: number
+  /** Which argument holds the value, or nothing where the call carries an empty one. */
+  readonly gives: number | null
 }
 
-/** What a markup attribute is given, read from the value written beside it. */
-const givenBy = (written: ts.JsxAttribute): Gives => {
-  const value = written.initializer
-  if (value === undefined) return 'nothing'
-  if (ts.isStringLiteral(value)) return 'a constant'
-  if (!ts.isJsxExpression(value)) return 'a value worked out'
-  const held = value.expression
-  return held !== undefined && ts.isStringLiteralLike(held) ? 'a constant' : 'a value worked out'
+const CARRY: readonly Carries[] = [
+  { call: 'setAttribute', names: 0, gives: 1 },
+  { call: 'setAttributeNS', names: 1, gives: 2 },
+  { call: 'toggleAttribute', names: 0, gives: null },
+]
+
+/** The name a call is written by, where it is written by one. */
+const calledAs = (node: ts.CallExpression): string | null => {
+  const called = heldBy(node.expression)
+  if (ts.isIdentifier(called)) return called.text
+  if (ts.isPropertyAccessExpression(called)) return called.name.text
+  return null
 }
+
+/** The way of carrying an attribute a call is, where it is one of them. */
+const carriedBy = (node: ts.CallExpression): Carries | undefined => {
+  const named = calledAs(node)
+  return named === null ? undefined : CARRY.find(({ call }) => call === named)
+}
+
+/** The call that draws a node from an object of its attributes. */
+const DRAWS_A_NODE = 'createElement'
+
+/**
+ * Whether an object is drawn into a node where it is written: spread into markup, or handed to the
+ * call that draws a node from an object of its attributes.
+ *
+ * This is what decides whether a name worked out at run time is read. The reading reports a name
+ * it knows wherever it cannot read what that name is written onto, and reports a name it cannot
+ * read wherever it knows that what is written onto is a node's attributes — a dataset, a call that
+ * carries one, or an object drawn into a node. It reports neither for a name it cannot read
+ * written onto something it does not know, because that is every record keyed by a word in the
+ * tree and says nothing about an identity attribute.
+ */
+const drawnIntoANode = (held: ts.ObjectLiteralExpression): boolean => {
+  let at: ts.Node = held
+  while (!ts.isSourceFile(at)) {
+    const up: ts.Node = at.parent
+    if (ts.isJsxSpreadAttribute(up)) return true
+    if (ts.isCallExpression(up)) return calledAs(up) === DRAWS_A_NODE
+    const stepped =
+      ts.isParenthesizedExpression(up) ||
+      ts.isSpreadAssignment(up) ||
+      ts.isSpreadElement(up) ||
+      (ts.isObjectLiteralExpression(up) && ts.isSpreadAssignment(at)) ||
+      (ts.isConditionalExpression(up) && up.condition !== at) ||
+      (ts.isBinaryExpression(up) && CHOOSES.includes(up.operatorToken.kind))
+    if (!stepped) return false
+    at = up
+  }
+  return false
+}
+
+/** The DOM's other name for a node's attributes, which writing a property of writes one. */
+const DATASET = 'dataset'
+
+/** Whether what is written onto is a node's dataset. */
+const isADataset = (node: ts.Expression): boolean => {
+  const held = heldBy(node)
+  if (ts.isPropertyAccessExpression(held)) return held.name.text === DATASET
+  if (ts.isElementAccessExpression(held)) {
+    const named = heldBy(held.argumentExpression)
+    return ts.isStringLiteralLike(named) && named.text === DATASET
+  }
+  return ts.isIdentifier(held) && held.text === DATASET
+}
+
+/**
+ * JavaScript's own call for writing properties onto a thing, which is how several attributes are
+ * written onto a node's dataset at once. The thing written onto is its first argument, so the
+ * direction is read rather than guessed: copying out OF a dataset writes no attribute.
+ */
+const ASSIGNS = { held: 'Object', call: 'assign' }
+
+/** Whether a call writes properties onto the thing it is given first. */
+const assignsOnto = (node: ts.CallExpression): boolean => {
+  const called = heldBy(node.expression)
+  if (!ts.isPropertyAccessExpression(called) || called.name.text !== ASSIGNS.call) return false
+  const held = heldBy(called.expression)
+  return ts.isIdentifier(held) && held.text === ASSIGNS.held
+}
+
+/** The name a property of an object is written under, where it is written out. */
+const keyOf = (
+  property: ts.ObjectLiteralElementLike,
+): Exclude<ts.PropertyName, ts.ComputedPropertyName | ts.PrivateIdentifier> | null => {
+  if (!ts.isPropertyAssignment(property) && !ts.isShorthandPropertyAssignment(property)) return null
+  return ts.isComputedPropertyName(property.name) || ts.isPrivateIdentifier(property.name)
+    ? null
+    : property.name
+}
+
+/** The property an access writes, where its name is written out rather than worked out. */
+const nameAccessed = (
+  held: ts.PropertyAccessExpression | ts.ElementAccessExpression,
+): ts.Identifier | ts.StringLiteralLike | null => {
+  if (ts.isPropertyAccessExpression(held)) {
+    return ts.isIdentifier(held.name) ? held.name : null
+  }
+  const named = heldBy(held.argumentExpression)
+  return ts.isStringLiteralLike(named) ? named : null
+}
+
+/**
+ * Every occurrence of an identity attribute's name inside a run of text, with the bracket that
+ * would make it a selector and the value that would make it a write. Text is how anything writing
+ * markup as a string rather than as markup writes an attribute — the page shell is written that
+ * way — and how a script carried to the browser as text writes one.
+ *
+ * A name inside square brackets is a selector READING the attribute, so the bracket is matched in
+ * order to be skipped: a stylesheet and a test naming a target are not places that write one. A
+ * name with a value beside it is a write. A name with neither bracket nor value is a place this
+ * reading does not account for, and is weighed against what the file writes rather than passed.
+ *
+ * The attribute names come from `IDENTITIES`, so they are written once in this file.
+ */
+const IN_TEXT = new RegExp(
+  `(\\[\\s*)?(${IDENTITIES.map(({ attribute }) => attribute).join('|')})(\\s*=\\s*(?:"([^"]*)"|'([^']*)')?)?`,
+  'g',
+)
+
+/** A property of a dataset written out inside a run of text, and the value it is given. */
+const ON_A_DATASET_IN_TEXT = new RegExp(
+  `${DATASET}\\s*(?:\\.\\s*([A-Za-z0-9_$]+)|\\[\\s*'([^']*)'\\s*\\]|\\[\\s*"([^"]*)"\\s*\\])\\s*=(?![=>])\\s*(?:'([^']*)'|"([^"]*)")?`,
+  'g',
+)
+
+/** A property of a dataset written inside a run of text under a name worked out at run time. */
+const WORKED_OUT_ON_A_DATASET_IN_TEXT = new RegExp(
+  `${DATASET}\\s*\\[\\s*(?!['"])[^\\]]*\\]\\s*=(?![=>])`,
+  'g',
+)
+
+/** The start of an attribute name, which a run of text ending here goes on to work out. */
+const ASSEMBLED = 'data-'
 
 /** What reading one file for identity attributes found: the writes, and what could not be read. */
 interface Writes {
@@ -422,66 +671,235 @@ interface Writes {
 }
 
 /**
- * Every place one file writes an identity attribute — as markup, inside a run of text, or by
- * asking a node to carry one — and every place it writes an attribute these rules cannot read.
+ * Every place one file gives an identity attribute a value, and every place it could be giving one
+ * that this reading cannot read.
+ *
+ * The names are read first out of what the file writes as code — markup, a property of an object,
+ * a value handed to a call, the property an assignment writes — and then out of every run of text
+ * the file holds. A literal the code read accounts for is not weighed again as text, which is what
+ * `accounted` carries between the two.
  */
 const writesIn = (source: Source): Writes => {
   const tree = treeOf(source)
   const written: Write[] = []
   const unreadable: Found[] = []
-  for (const node of nodesOf(tree)) {
+  const accounted = new Set<ts.Node>()
+  const writes = (of: Identity, node: ts.Node, gives: Gives): void => {
+    written.push({ of, line: lineOf(tree, node), gives, inside: insideOf(node) })
+  }
+  const cannotRead = (line: number, what: string): void => {
+    unreadable.push({ file: source.file, line, what })
+  }
+  const nodes = nodesOf(tree)
+
+  for (const node of nodes) {
+    // Markup, which is how the two owning components write theirs.
     if (ts.isJsxAttribute(node)) {
-      const named = node.name.getText(tree)
-      const of = IDENTITIES.find(({ attribute }) => attribute === named)
-      if (of !== undefined) {
-        written.push({ of, line: lineOf(tree, node), gives: givenBy(node), inside: insideOf(node) })
-      }
+      const of = namedAs(node.name.getText(tree))
+      if (of !== undefined) writes(of, node, givenBy(node))
     }
-    if (ts.isCallExpression(node) && setsAnAttribute(node)) {
-      const [named, value] = node.arguments
-      if (named === undefined || !ts.isStringLiteralLike(named)) {
-        unreadable.push({
-          file: source.file,
-          line: lineOf(tree, node),
-          what: `${SETS} is given a name that is worked out, so neither identity rule can read which attribute this writes`,
-        })
+
+    // A property of an object, which is how an object a node is drawn from names an attribute,
+    // whether that object is handed to the call that draws the node or spread into markup.
+    if (ts.isPropertyAssignment(node)) {
+      const key = node.name
+      if (ts.isComputedPropertyName(key)) {
+        if (ts.isObjectLiteralExpression(node.parent) && drawnIntoANode(node.parent)) {
+          cannotRead(
+            lineOf(tree, node),
+            `an object a node is drawn from is given a property name worked out at run time, so neither identity rule can read whether the name is ${EITHER}`,
+          )
+        }
       } else {
-        const of = IDENTITIES.find(({ attribute }) => attribute === named.text)
+        const of = namedAs(key.text)
         if (of !== undefined) {
-          written.push({
-            of,
-            line: lineOf(tree, node),
-            gives:
-              value !== undefined && ts.isStringLiteralLike(value)
-                ? 'a constant'
-                : 'a value worked out',
-            inside: insideOf(node),
-          })
+          accounted.add(key)
+          writes(of, node, given(node.initializer))
         }
       }
     }
+
+    // A value handed to a call: the DOM's own way of asking a node to carry an attribute, and any
+    // other call handed the name, where the value is what is written beside it.
+    if (ts.isCallExpression(node)) {
+      const carries = carriedBy(node)
+      if (carries !== undefined) {
+        const argued = node.arguments[carries.names]
+        const named = argued === undefined ? undefined : heldBy(argued)
+        if (named === undefined || !ts.isStringLiteralLike(named)) {
+          cannotRead(
+            lineOf(tree, node),
+            `${carries.call} is given a name that is worked out, so neither identity rule can read which attribute this writes`,
+          )
+        } else {
+          accounted.add(named)
+          const of = namedAs(named.text)
+          if (of !== undefined) {
+            // A call carrying no value of its own carries an empty one, which is written out here
+            // as much as any other constant.
+            const gives =
+              carries.gives === null ? 'a constant' : given(node.arguments[carries.gives])
+            writes(of, node, gives)
+          }
+        }
+      } else {
+        node.arguments.forEach((one, at) => {
+          const held = heldBy(one)
+          if (!ts.isStringLiteralLike(held)) return
+          const of = namedAs(held.text)
+          if (of === undefined) return
+          accounted.add(held)
+          const value = node.arguments[at + 1]
+          if (value === undefined) {
+            cannotRead(
+              lineOf(tree, node),
+              `${of.attribute} is named here with no value beside it, so neither identity rule can read what this writes`,
+            )
+          } else {
+            writes(of, node, given(value))
+          }
+        })
+      }
+    }
+
+    // Properties written onto a node's dataset all at once, where every name is the dataset's
+    // spelling of an attribute. A source this reading cannot read — anything but an object written
+    // out here — is reported, because what it is written onto is known to be a node's attributes.
+    if (ts.isCallExpression(node) && assignsOnto(node)) {
+      const [onto, ...sources] = node.arguments
+      if (onto !== undefined && isADataset(onto)) {
+        for (const one of sources) {
+          const held = heldBy(one)
+          if (!ts.isObjectLiteralExpression(held)) {
+            cannotRead(
+              lineOf(tree, node),
+              `properties this reading cannot read are written onto a node's dataset, so neither identity rule can read which attributes this writes`,
+            )
+            continue
+          }
+          for (const property of held.properties) {
+            const key = keyOf(property)
+            if (key === null) {
+              cannotRead(
+                lineOf(tree, property),
+                `a property name this reading cannot read is written onto a node's dataset, so neither identity rule can read which attribute this writes`,
+              )
+              continue
+            }
+            const of = spelledAs(key.text)
+            if (of === undefined) continue
+            writes(
+              of,
+              property,
+              ts.isPropertyAssignment(property) ? given(property.initializer) : 'a value worked out',
+            )
+          }
+        }
+      }
+    }
+
+    // The property an assignment writes: a node's dataset, which is the DOM's other name for the
+    // same attributes, and an attribute written straight onto an object of them.
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      const target = heldBy(node.left)
+      if (ts.isPropertyAccessExpression(target) || ts.isElementAccessExpression(target)) {
+        const onADataset = isADataset(target.expression)
+        const named = nameAccessed(target)
+        if (named === null) {
+          if (onADataset) {
+            cannotRead(
+              lineOf(tree, node),
+              `a name worked out at run time is written onto a node's dataset, so neither identity rule can read which attribute this writes`,
+            )
+          }
+        } else {
+          const byAttribute = namedAs(named.text)
+          const onTheDataset = spelledAs(named.text)
+          if (byAttribute !== undefined) {
+            accounted.add(named)
+            writes(byAttribute, node, given(node.right))
+          } else if (onTheDataset !== undefined) {
+            if (onADataset) writes(onTheDataset, node, given(node.right))
+            else {
+              cannotRead(
+                lineOf(tree, node),
+                `${named.text} is written here, and neither identity rule can read whether what it is written onto is a node's dataset, where it would be ${onTheDataset.attribute}`,
+              )
+            }
+          }
+        }
+      }
+    }
+  }
+
+  for (const node of nodes) {
     if (!isLiteral(node)) continue
     // The source text rather than what it stands for, so a line counts out exactly and a
     // template's `${` is seen where the piece ends.
     const raw = node.getText(tree)
+    const lineAt = (index: number): number =>
+      lineOf(tree, node) + raw.slice(0, index).split('\n').length - 1
+    let unplaced: Found | null = null
     for (const match of raw.matchAll(IN_TEXT)) {
-      const [, bracket, named, quoted, apostrophed] = match
-      if (bracket !== undefined || named === undefined) continue
-      const of = IDENTITIES.find(({ attribute }) => attribute === named)
+      const [, bracket, named, value, quoted, apostrophed] = match
+      if (named === undefined) continue
+      const of = namedAs(named)
       if (of === undefined) {
         throw new Error(`${source.file}: ${named} matched as an identity attribute and is not one`)
       }
-      const before = raw.slice(0, match.index)
+      if (bracket !== undefined) continue
+      if (value === undefined) {
+        unplaced ??= {
+          file: source.file,
+          line: lineAt(match.index),
+          what: `${of.attribute} is named here, in a place neither identity rule can read, so neither can read what this gives it`,
+        }
+        continue
+      }
       written.push({
         of,
-        line: lineOf(tree, node) + before.split('\n').length - 1,
+        line: lineAt(match.index),
         gives:
           quoted === undefined && apostrophed === undefined ? 'a value worked out' : 'a constant',
         inside: insideOf(node),
       })
     }
+    // A name the code read accounts for — an object's property, a call's argument, the property an
+    // assignment writes — is not weighed again here.
+    if (unplaced !== null && !accounted.has(node)) unreadable.push(unplaced)
+
+    for (const match of raw.matchAll(ON_A_DATASET_IN_TEXT)) {
+      const [, dotted, apostrophed, quoted, written1, written2] = match
+      const named = dotted ?? apostrophed ?? quoted
+      const of = named === undefined ? undefined : spelledAs(named)
+      if (of === undefined) continue
+      written.push({
+        of,
+        line: lineAt(match.index),
+        gives: written1 === undefined && written2 === undefined ? 'a value worked out' : 'a constant',
+        inside: insideOf(node),
+      })
+    }
+    for (const match of raw.matchAll(WORKED_OUT_ON_A_DATASET_IN_TEXT)) {
+      cannotRead(
+        lineAt(match.index),
+        `a name worked out at run time is written onto a node's dataset, so neither identity rule can read which attribute this writes`,
+      )
+    }
+    if (node.text.endsWith(ASSEMBLED)) {
+      cannotRead(
+        lineOf(tree, node),
+        `an attribute name is assembled here out of \`${ASSEMBLED}\` and a value worked out, so neither identity rule can read which attribute this writes`,
+      )
+    }
   }
-  return { written, unreadable }
+  // In the order the file writes them, because the code is read before the text it holds and a
+  // reader of a finding reads down the file.
+  const byLine = <Held extends { readonly line: number }>(
+    one: Held,
+    other: Held,
+  ): number => one.line - other.line
+  return { written: [...written].sort(byLine), unreadable: [...unreadable].sort(byLine) }
 }
 
 // ── rule 2: no literal target in non-test source ─────────────────────────────
@@ -542,6 +960,9 @@ const literalTargets = (source: Source): readonly Found[] => {
 // A write inside a run of text counts as a write, not only markup: the page shell in render.ts is
 // written as text, and a second site there would be the same drift by another spelling. A
 // selector reading the attribute is not a write, which is what the bracket in `IN_TEXT` is for.
+// This rule reads the same writes rule 2 does, so its reach is that reading's: a second site
+// arrives by any route one of them is given a value by, and a place that reading could not read
+// is reported here too.
 //
 // The rule says nothing about whether either attribute is written at all. Drawing them is the
 // standard's business and the acceptance tests', not this rule's.
@@ -639,6 +1060,10 @@ const BY_SPELLING: Source = {
  * the rule: the page's own union of finding kinds, prose shown to the reader — assembled as a
  * template and as a joining — and a comparison against a JavaScript type, written both as a
  * comparison and as the switch that is the same comparison.
+ *
+ * The union of finding kinds is written the way the page writes one, as the type of the property
+ * saying which list a thing came from, because that is what makes it the page's finding kinds
+ * rather than a union declared for something else.
  */
 const BY_THE_LANGUAGE: Source = {
   file: 'ts/metalang/app.tsx',
@@ -651,7 +1076,11 @@ const BY_THE_LANGUAGE: Source = {
     'const quoted = /["\']/',
     "const path = './words.ts'",
     "type From = 'highlight' | 'pending'",
-    "const worst = (from: From): boolean => from === 'pending'",
+    'interface Said {',
+    '  readonly note: string',
+    '  readonly from: From',
+    '}',
+    "const worst = (said: Said): boolean => said.from === 'pending'",
     "const COUNTED: readonly (readonly [From, string])[] = [['pending', 'pending value']]",
     "const written = (value: unknown): boolean => typeof value === 'object'",
     "const counted = (n: number): string => `${n} ${n === 1 ? 'property' : 'properties'}`",
@@ -664,6 +1093,23 @@ const BY_THE_LANGUAGE: Source = {
     "      return 'one run of text'",
     '  }',
     '}',
+  ].join('\n'),
+}
+
+/**
+ * A union of text literals that is NOT the page's finding kinds, and the two shapes rule 1's own
+ * sentence names read through it: a member read by the spelling of a column, and a column compared
+ * against one. These three lines appended to client.tsx left the rule reporting nothing while a
+ * member of any union a file declared was outside it, and every literal of them is reported now:
+ * the union says nothing about which list a thing came from, so it grants nothing, and client.tsx
+ * declares no union of finding kinds at all.
+ */
+const NOT_FINDING_KINDS: Source = {
+  file: 'ts/metalang/client.tsx',
+  text: [
+    "type Col = 'name' | 'id'",
+    "const nameOf = (m: Record<string, unknown>): unknown => m['name']",
+    "const heads = (c: Col): boolean => c === 'id'",
   ].join('\n'),
 }
 
@@ -688,26 +1134,64 @@ describe('no language word by spelling in the drawing path', () => {
     expect(wordsBySpelling(BY_THE_LANGUAGE).map(reported)).toEqual([])
   })
 
+  // The exemption is for a member of the page's own union of FINDING KINDS. A union declared for
+  // anything else grants nothing, which is what these two shapes — the two rule 1's own sentence
+  // names — turn on: with a member of any union the file declared outside the rule, all four of
+  // these literals were passed in silence.
+  test('a union that is not the page’s finding kinds puts nothing outside the rule', () => {
+    expect(wordsBySpelling(NOT_FINDING_KINDS).map(reported)).toEqual([
+      'ts/metalang/client.tsx:1: the language word "name" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/client.tsx:1: the language word "id" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/client.tsx:2: the language word "name" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+      'ts/metalang/client.tsx:3: the language word "id" is written out; reach it through the constant words.ts names it by, or ask the rulebook',
+    ])
+    expect(outsideTheRule(NOT_FINDING_KINDS)).toEqual([])
+  })
+
+  // The two unions app.tsx declares, read off the live file: `Said.from` and `Finding.from`. They
+  // are found by what the boundary says they are — the type of the property saying which list a
+  // thing came from — and not by their names, so a union the page gains for something else never
+  // widens the exemption. client.tsx declares none.
+  test('the exemption comes from the unions that say which list a thing came from', () => {
+    expect([...findingKindsOf(treeOf(sourceOf('ts/metalang/app.tsx')))].sort()).toEqual([
+      'blocker',
+      'highlight',
+      'pending',
+      'problem',
+    ])
+    expect([...findingKindsOf(treeOf(sourceOf('ts/metalang/client.tsx')))]).toEqual([])
+  })
+
   // The three kinds are what the compliant fixture is let through BY, so each one is named rather
   // than left to a count: a kind that stopped recognising its own shape would otherwise show up
   // as nothing at all.
   test('each of the three kinds is what lets its own literal through', () => {
     expect(outsideTheRule(BY_THE_LANGUAGE).map(reported)).toEqual([
       'ts/metalang/app.tsx:8: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:9: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:10: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:11: "object" is a comparison against a JavaScript type',
-      'ts/metalang/app.tsx:12: "property" is English prose shown to the reader',
-      'ts/metalang/app.tsx:12: "properties" is English prose shown to the reader',
-      'ts/metalang/app.tsx:13: "properties" is English prose shown to the reader',
-      'ts/metalang/app.tsx:16: "object" is a comparison against a JavaScript type',
+      'ts/metalang/app.tsx:13: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:14: "pending" is a member of this page’s own union of finding kinds',
+      'ts/metalang/app.tsx:15: "object" is a comparison against a JavaScript type',
+      'ts/metalang/app.tsx:16: "property" is English prose shown to the reader',
+      'ts/metalang/app.tsx:16: "properties" is English prose shown to the reader',
+      'ts/metalang/app.tsx:17: "properties" is English prose shown to the reader',
+      'ts/metalang/app.tsx:20: "object" is a comparison against a JavaScript type',
     ])
   })
 })
 
 // ── rule 2, proven ───────────────────────────────────────────────────────────
 
-/** A target written into the source: by name, as markup, and inside the page shell's text. */
+/**
+ * A target written into the source by every route a constant identity value arrives by: the name on
+ * its own, markup, the page shell's text, a node asked to carry the attribute, an object a node is
+ * drawn from — handed to the call that draws it, and built to be spread into markup somewhere else
+ * — a node's dataset by either spelling of the property and all at once, and a script written as
+ * text. Then the five places a value could be arriving that the reading cannot read: a name worked
+ * out at a call that carries one, a name worked out on a dataset, a name worked out on an object a
+ * node is drawn from, properties written onto a dataset out of something unreadable, and the
+ * attribute named somewhere this reading does not place. Last, an attribute written with no value
+ * beside it, which carries an empty one the document had no part in.
+ */
 const LITERAL_TARGETS: Source = {
   file: 'ts/metalang/app.tsx',
   text: [
@@ -716,11 +1200,27 @@ const LITERAL_TARGETS: Source = {
     'const Table = () => <tr data-member={"BeginVerification"} />',
     'const shell = (): string => `<section data-declaration="IGrantStore">`',
     "const ring = (node: Element): void => { node.setAttribute('data-member', 'BeginVerification') }",
+    "const row = () => createElement('tr', { 'data-member': 'BeginVerification' })",
+    "const props = { 'data-declaration': 'first' }",
+    'const Spread = () => <section {...props} />',
+    "const held = (node: HTMLElement): void => { node.dataset.member = 'first' }",
+    "const also = (node: HTMLElement): void => { node.dataset['declaration'] = 'first' }",
+    "const many = (node: HTMLElement): void => { Object.assign(node.dataset, { member: 'first' }) }",
+    "const script = (): string => `<script>row.dataset.member = 'first'</script>`",
     "const mark = (node: Element, word: string): void => { node.setAttribute(word, 'first') }",
+    "const worked = (node: HTMLElement, word: string): void => { node.dataset[word] = 'first' }",
+    "const keyed = (word: string) => createElement('tr', { [word]: 'first' })",
+    "const spread = (node: HTMLElement, held: object): void => { Object.assign(node.dataset, held) }",
+    "const named: readonly string[] = ['data-member']",
+    'const Bare = () => <tr data-member />',
   ].join('\n'),
 }
 
-/** The same lines with every identity coming from the document being drawn, and a selector read. */
+/**
+ * The same routes with every identity coming from the document being drawn, a selector read, and a
+ * dataset read out of rather than written onto. A spread carries whatever the object it spreads
+ * holds, and that object is read where it is written, which is the line above it here.
+ */
 const NO_LITERAL_TARGET: Source = {
   file: 'ts/metalang/app.tsx',
   text: [
@@ -729,11 +1229,18 @@ const NO_LITERAL_TARGET: Source = {
     'const shell = (id: string): string => `<section data-declaration="${id}">`',
     "const style = '.d-row[data-member] { color: red }'",
     "const ring = (node: Element, name: string): void => { node.setAttribute('data-member', name) }",
+    "const row = (name: string) => createElement('tr', { 'data-member': name })",
+    "const props = (id: string) => ({ 'data-declaration': id })",
+    'const Spread = ({ id }: { id: string }) => <section {...props(id)} />',
+    'const held = (node: HTMLElement, name: string): void => { node.dataset.member = name }',
+    "const many = (node: HTMLElement, name: string): void => { Object.assign(node.dataset, { member: name }) }",
+    'const script = (): string => `<script>row.dataset.member = rowName</script>`',
+    'const read = (node: HTMLElement): object => Object.assign({}, node.dataset)',
   ].join('\n'),
 }
 
 describe('no literal target in non-test source', () => {
-  test('a target written by name, as markup or into the page shell is caught', () => {
+  test('a constant identity value is caught by every route it is given one by', () => {
     expect(literalTargets(LITERAL_TARGETS).map(reported)).toEqual([
       'ts/metalang/app.tsx:1: IGrantStore is a declaration this page draws, written into source that is not a test',
       'ts/metalang/app.tsx:2: IWindowsHelloNativeOps is a declaration this page draws, written into source that is not a test',
@@ -742,7 +1249,18 @@ describe('no literal target in non-test source', () => {
       "ts/metalang/app.tsx:3: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
       "ts/metalang/app.tsx:4: data-declaration is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
       "ts/metalang/app.tsx:5: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
-      'ts/metalang/app.tsx:6: setAttribute is given a name that is worked out, so neither identity rule can read which attribute this writes',
+      "ts/metalang/app.tsx:6: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:7: data-declaration is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:9: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:10: data-declaration is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:11: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:12: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      "ts/metalang/app.tsx:18: data-member is given a constant value; the identity it holds is the drawn document's, so it comes from the document",
+      'ts/metalang/app.tsx:13: setAttribute is given a name that is worked out, so neither identity rule can read which attribute this writes',
+      "ts/metalang/app.tsx:14: a name worked out at run time is written onto a node's dataset, so neither identity rule can read which attribute this writes",
+      'ts/metalang/app.tsx:15: an object a node is drawn from is given a property name worked out at run time, so neither identity rule can read whether the name is data-declaration or data-member',
+      "ts/metalang/app.tsx:16: properties this reading cannot read are written onto a node's dataset, so neither identity rule can read which attributes this writes",
+      'ts/metalang/app.tsx:17: data-member is named here, in a place neither identity rule can read, so neither can read what this gives it',
     ])
   })
 
@@ -759,7 +1277,11 @@ describe('no literal target in non-test source', () => {
 
 // ── rule 3, proven ───────────────────────────────────────────────────────────
 
-/** A second site writing each identity attribute: one as markup, one into a run of text. */
+/**
+ * A second site writing each identity attribute: as markup, into a run of text, by asking a node
+ * to carry one, and onto a node's dataset. The rule reads the same writes rule 2 does, so its
+ * reach follows rule 2's and a second site arrives by any of those routes.
+ */
 const COPIED_IDENTITY: readonly Source[] = [
   {
     file: 'ts/metalang/app.tsx',
@@ -773,6 +1295,7 @@ const COPIED_IDENTITY: readonly Source[] = [
     text: [
       'const pageHtml = (id: string): string => `<section data-declaration="${id}">`',
       "const ring = (node: Element, name: string): void => { node.setAttribute('data-member', name) }",
+      'const held = (node: HTMLElement, name: string): void => { node.dataset.member = name }',
       "const mark = (node: Element, word: string): void => { node.setAttribute(word, 'first') }",
     ].join('\n'),
   },
@@ -784,13 +1307,18 @@ const ONE_OWNING_SITE: readonly Source[] = [
     file: 'ts/metalang/app.tsx',
     text: [
       'const Declaration = ({ id }: { id: string }) => <section data-declaration={id} />',
-      'const Table = ({ names }: { names: readonly string[] }) => (',
-      '  <tbody>',
-      '    {names.map((name) => (',
-      '      <tr key={name} data-member={name} />',
-      '    ))}',
-      '  </tbody>',
-      ')',
+      'const Table = ({ names }: { names: readonly string[] }) => {',
+      '  const mark = (row: HTMLElement, name: string): void => {',
+      '    row.dataset.member = name',
+      '  }',
+      '  return (',
+      '    <tbody ref={() => mark}>',
+      '      {names.map((name) => (',
+      '        <tr key={name} data-member={name} />',
+      '      ))}',
+      '    </tbody>',
+      '  )',
+      '}',
     ].join('\n'),
   },
   {
@@ -800,13 +1328,14 @@ const ONE_OWNING_SITE: readonly Source[] = [
 ]
 
 describe('one owning site per identity attribute', () => {
-  test('a second site writing an identity attribute is caught, as markup or as text', () => {
+  test('a second site writing an identity attribute is caught, by every route it writes by', () => {
     expect(COPIED_IDENTITY.flatMap(copiedIdentity).map(reported)).toEqual([
       'ts/metalang/app.tsx:1: data-member is written here, and its one owning site is Table in ts/metalang/app.tsx',
       'ts/metalang/app.tsx:2: data-declaration is written here, and its one owning site is Declaration in ts/metalang/app.tsx',
       'ts/metalang/render.ts:1: data-declaration is written here, and its one owning site is Declaration in ts/metalang/app.tsx',
       'ts/metalang/render.ts:2: data-member is written here, and its one owning site is Table in ts/metalang/app.tsx',
-      'ts/metalang/render.ts:3: setAttribute is given a name that is worked out, so neither identity rule can read which attribute this writes',
+      'ts/metalang/render.ts:3: data-member is written here, and its one owning site is Table in ts/metalang/app.tsx',
+      'ts/metalang/render.ts:4: setAttribute is given a name that is worked out, so neither identity rule can read which attribute this writes',
     ])
   })
 
