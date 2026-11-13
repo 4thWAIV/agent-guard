@@ -25,9 +25,11 @@ Recommendation: `@types/jsdom` 30.0.0. Writing our own declarations duplicates a
 
 ## The TDD stage demands every acceptance criterion be failing now
 
-`.agents/workflows/tdd.js:1118` requires every entry in the stage's coverage list to be RED whenever any test file is written: `itemsAllTrue: [{ field: 'coverage', itemField: 'red' }]`. The field it checks is described in the same file as "whether it is RED now", so the schema's own words and its check disagree.
+`.agents/workflows/tdd.js:1118` requires every entry in the test author's coverage list to be RED whenever any test file is written: `itemsAllTrue: [{ field: 'coverage', itemField: 'red' }]`. It validates the `tdd-author` result. The prompt that asks the author for that list, at `.agents/workflows/tdd.js:1408`, asks for "whether it is RED now", so the field the author is told to report truthfully is the field the check demands always be true.
 
-Four of this contract's eleven acceptance criteria are guards on behaviour that already works, and none of them can honestly be made to fail:
+The check sits inside the `stage-result-contracts` copied module, which is byte-identical in nine of the eleven files in `.agents/workflows/`, and `eng/check-copied-modules.mjs` enforces that. Changing it means making the same edit in all nine copies and rerunning that check. The other eight scripts carry the `tdd-author` case but never run it, so their behaviour does not change.
+
+Five of this contract's twelve acceptance criteria cannot honestly be made to fail:
 
 - 6, that every `data-part` and `data-col` target passing today still passes, "by the existing assertions running unchanged" — the criterion's own words;
 - 7, that one document rendered twice under one built kit produces identical bytes, which holds today and would break the day anything non-deterministic entered the page;
@@ -37,7 +39,7 @@ Four of this contract's eleven acceptance criteria are guards on behaviour that 
 
 The stage rejected the author's result twice on shape alone. Its second rejection was `coverage[6].red must be exactly true when testFiles is not empty`, which asks the author to record a passing guard as failing.
 
-Two ways out. Change that one check so a criterion may be recorded as green with its reason, which is what the field already claims to hold. Or leave the stage as it is and record only the criteria with new failing tests in the coverage list, naming the rest in the notes, which keeps the rails untouched and leaves four of eleven criteria out of the structured record the later stages read.
+Two ways out. Change that check, in all nine copies, so a criterion may be recorded as passing with its reason, which is what the field already claims to hold. Or leave the rails untouched and record only the criteria with new failing tests in the coverage list, naming the rest in the notes, which leaves five of twelve criteria out of the structured record the later stages read.
 
 Recommendation: change the check. A guard against breaking what works is a real acceptance criterion, and a pipeline that cannot record one pushes every future contract toward either a false record or a thinner one.
 
