@@ -1,0 +1,321 @@
+{
+  "testFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.test.tsx"
+  ],
+  "redProof": "THE FIX ROUND'S OWN PROOF — the assertion covers behaviour that already works, so it is GREEN the moment it is written, and `fixes-for-the-shared-id-assertion.md` says so: \"this assertion covers behaviour that already works, so it passes the moment it is written, and its row says so.\"\n\n1) `bun test` from the repository root (the command the fix file names), pasted with its exit code:\n\n$ cd /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets && bun test\n...\n(pass) pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them [126.33ms]\n...\n----------------------------|---------|---------|-------------------\nFile                        | % Funcs | % Lines | Uncovered Line #s\n----------------------------|---------|---------|-------------------\nAll files                   |   95.54 |   96.53 |\n ts/metalang/app.tsx        |   99.15 |   99.48 | 945,1746-1749\n ts/metalang/bundle.ts      |  100.00 |  100.00 |\n ts/metalang/check.ts       |  100.00 |   98.84 | 381,569-570,626-627,664-665,669-670\n ts/metalang/cli.ts         |   80.00 |   96.61 | 135-136\n ts/metalang/constraints.ts |  100.00 |  100.00 |\n ts/metalang/examples.ts    |  100.00 |   85.37 | 133-144\n ts/metalang/expression.ts  |  100.00 |  100.00 |\n ts/metalang/highlight.ts   |  100.00 |  100.00 |\n ts/metalang/kit.ts         |  100.00 |   92.31 | 189-193\n ts/metalang/page-data.ts   |   75.00 |   91.30 | 43\n ts/metalang/propose.ts     |   78.95 |   86.56 | ...\n ts/metalang/render.ts      |  100.00 |   97.98 | 227-228\n ts/metalang/rulebook.ts    |  100.00 |  100.00 |\n ts/metalang/syntax.ts      |  100.00 |   99.47 | 226\n ts/metalang/words.ts       |  100.00 |  100.00 |\n----------------------------|---------|---------|-------------------\n\n 884 pass\n 0 fail\n 1513 expect() calls\nRan 884 tests across 16 files. [34.27s]\nBUN_EXIT=0\n\n2) THE ASSERTION IS CONTINGENT, NOT DECORATION. The band read was pointed at a selector nothing draws (`.d-found li` -> `.d-found li.nothing-draws-this`), and the file was restored byte-identical afterwards (`diff` clean, `grep -c nothing-draws-this` = 0):\n\n$ bun test ts/metalang/app.test.tsx     # with the band selector pointed at nothing\n(fail) pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them [25.41ms]\nerror: expect(received).toEqual(expected)\n\n+ []\n- [\n-   [\n-     \"problem\",\n-     \"declare[1].constant.id\",\n-     \"\\\"IGuard\\\" is already the id of declare[0].constant\"\n-   ]\n- ]\n\n- Expected  - 7\n+ Received  + 1\n\n      at <anonymous> (/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.test.tsx:1889:7)\n1 tests failed\nMUT_EXIT=1\n\n3) The wording was read off the live code, not off the fixes file. `ts/metalang/check.ts:1004` is `if (already !== undefined) fail(`${where}.id`, `\"${id}\" is already the id of ${already}`)`, and the band the fixture's page actually draws is, verbatim:\n\n<section class=\"d-found has-problem\"><p class=\"d-found-head\">1 problem</p><ul><li><span class=\"f-what f-problem\">problem</span><a class=\"f-at\" href=\"#declare%5B1%5D.constant.id\">declare[1].constant.id</a><span class=\"f-says\">&quot;IGuard&quot; is already the id of declare[0].constant</span></li></ul></section>\n\n4) `make build && make test`, for acceptance check 1:\n\nPassed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 20 s - AgentGuard.Analyzers.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 1 s - AgentGuard.CrossPlatform.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 1 s - AgentGuard.Cli.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 1 s - AgentGuard.Tests.dll (net10.0)\nMAKE_EXIT=0",
+  "coverage": [
+    {
+      "acceptanceItem": "1. `make build && make test` green, and `bun test` green, from the repository root. Both are named because `make test` is `dotnet test` alone and runs none of the kit's tests, which is filed as issue 118.",
+      "tests": [
+        "`make build && make test` — the .NET suite, 619 + 56 + 11 + 148 = 834 tests across four assemblies, all Passed!, MAKE_EXIT=0",
+        "`bun test` — the whole suite from the repository root, 884 pass / 0 fail / 1513 expect() calls across 16 files, BUN_EXIT=0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, now complete on both sides: I ran both commands on this tree with this round's assertion in it. `make build && make test` is 834 passed, 0 failed, exit 0; `bun test` from the root is 884 pass, 0 fail, exit 0. The previous round recorded this row RED because its own check-18 tests were the two failures; the identity implementation has since landed, so nothing in the suite fails and this round added one assertion that passes."
+    },
+    {
+      "acceptanceItem": "2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one declaration’s members reaches that one table"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `data-declaration` is written in the component that draws a declaration, so against a page drawing TWO `table.d-table` elements the selector `[data-declaration=\"IGuard\"] table.d-table` narrows to exactly one. The test passes in the run above. This round changed nothing about it."
+    },
+    {
+      "acceptanceItem": "3. A selector naming one member of one declaration matches exactly one element, same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one member of one declaration reaches that one row",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > the architecture language says it is the member’s own name property",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > MetaLang’s record of the name role covers a thing that has a name and no id",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape no property of which carries the role draws its rows with no identity",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape two properties of which carry the role draws its rows with no identity"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `role: name` sits on `member.name` in arch.yaml, metalang.yaml's name role covers a thing with a name and no id, and `Table` resolves the carrier once through `propertyCarrying` and writes `data-member` from the value it holds, so one member of one declaration is reached by exactly one TR. All five tests pass in the run above, the zero-carrier and two-carrier cases among them."
+    },
+    {
+      "acceptanceItem": "4. A member name containing a double quote, a single quote and a backslash is reachable by selector in jsdom. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name carrying a double quote, a single quote and a backslash is reachable"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: the identity is written as a JSX prop so React escapes it through the attribute, and jsdom matches the selector the way a browser does. `package.json:30` pins `\"jsdom\": \"31.0.0\"` and `bun.lock:19` agrees, and the name `Quote\"And'Apostrophe\\Backslash` is matched by its escaped selector and read back off the row unchanged. The test passes in the run above."
+    },
+    {
+      "acceptanceItem": "5. A member name repeated across two declarations resolves to the one asked for, and two declarations sharing an id are reported as ambiguous rather than resolved to the first. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name two declarations share resolves to the one asked for",
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "Both clauses are behaviour that already works, which is why this round could only add the missing assertion. First clause — an implementation this contract has already built: `data-member=\"Name\"` matches two rows across the page and exactly one under `[data-declaration=\"IStore\"]`. Second clause — a guard on behaviour the contract requires to keep working, built before this contract and now PROVEN on the page rather than assumed: `ts/metalang/check.ts:1004` fails the second declaration with `\"IGuard\" is already the id of declare[0].constant`, and the page's `Found` band draws that problem, so the assertion added this round (the whole band read as `['problem', 'declare[1].constant.id', '\"IGuard\" is already the id of declare[0].constant']`) passed the moment it was written. It is not a tautology: pointed at a selector nothing draws it fails with Received `[]`, pasted in redProof."
+    },
+    {
+      "acceptanceItem": "6. Every `data-part` and `data-col` target that passes today still passes, by the existing assertions running unchanged.",
+      "tests": [
+        "ts/metalang/app.test.tsx > a value of a type with properties > each part draws its name and its own value",
+        "ts/metalang/app.test.tsx > a value of a type with properties > a part whose own type has parts nests",
+        "ts/metalang/app.test.tsx > a value of a type with properties > a part nothing says a type for still draws as what is written",
+        "ts/metalang/app.test.tsx > several of one shape > a column carries each part name once, in the order the shape declares them",
+        "ts/metalang/app.test.tsx > several of one shape > a row carries each member",
+        "ts/metalang/app.test.tsx > several of one shape > one of the shape on its own is parts rather than a table",
+        "ts/metalang/app.test.tsx > a declaration carrying one value of its own > the table names each column once, from the type the parts are of",
+        "ts/metalang/propose.test.ts > the word in use, drawn inside the decision that adds it > marks the part the example says is the word, with a rule written beside it"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "A guard on behaviour the contract requires to keep working, and the criterion's own words are that it passes \"by the existing assertions running unchanged\". `git status --porcelain` shows one modified file, `ts/metalang/app.test.tsx`, and `git diff` on it is 21 insertions / 9 deletions all inside the single test `two declarations sharing an id read as the two they are, not as the first of them` (lines 1864-1894): the nine deletions are that test's own `const sections = [...matched(...).page.querySelectorAll(...)]` being split into `const { page } = matched(...)` plus the same `querySelectorAll`, with its two original expectations kept verbatim. No `data-part` or `data-col` assertion was touched, and every one of these tests passes in the run above."
+    },
+    {
+      "acceptanceItem": "7. The same document rendered twice under one built kit produces identical bytes per file. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > is drawn twice from one kit as the same bytes, so what a kit draws is reproducible"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A guard on behaviour the contract requires to keep working: the test builds a real kit, copies a document away from the repository, runs `node kit.js render` on it twice and compares the bytes. Nothing the page now draws varies between two renders, so it passes in the run above (493.13ms). This round touched only a test file, so no byte the renderer writes changed."
+    },
+    {
+      "acceptanceItem": "8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > every literal of a language word is caught, whatever position it is written in",
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > the language asked, the page’s own union, prose and a JavaScript type are not caught",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > a constant identity value is caught by every route it is given one by",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > an identity taken from the document being drawn is not caught",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > a second site writing an identity attribute is caught, by every route it writes by",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > the owning site writing it, and a selector reading it, are not caught"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "A prior stage's finished work: RULE-PHASE wrote all three rules with a violating and a compliant fixture each, and this round touched nothing in `ts/metalang/guardrails.test.ts` — `git status --porcelain` lists only `ts/metalang/app.test.tsx`. All six pass in the run above, alongside the two whole-tree rule tests at 105.68ms and 90.80ms."
+    },
+    {
+      "acceptanceItem": "9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with style.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with syntax.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > names every file the kit marks as required, so neither list can drift from the other",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > passes a kit asset carrying every file it names"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `.github/workflows/ci.yml:593` now loops over nine files — `for required in kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml style.css syntax.css; do` — and the four tests run that very check against a built kit with each stylesheet removed and with every file present. All four pass in the run above (56.14ms, 55.33ms, 2.17ms, 50.40ms)."
+    },
+    {
+      "acceptanceItem": "10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > no file outside a test writes a target",
+        "`grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` — one file, `ts/metalang/guardrails.test.ts`, which is the rule's own ban list"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "The two conditions the criterion puts in THIS repository both hold on this tree: the grep returns only `ts/metalang/guardrails.test.ts`, so no document here declares either id, and rule 2's whole-tree test passes in the run above (105.68ms). This row must not be read as the on-page verification having happened here — the criterion's own words put that \"on the JARVIS side against the re-cut revision after the kit release, not in this repository\", and this round, authorized to touch one assertion, did nothing on the JARVIS side."
+    },
+    {
+      "acceptanceItem": "11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`.",
+      "tests": [
+        "`bun test` — the coverage table it prints and the floor it enforces itself from `bunfig.toml` (`coverage = true`, `coverageThreshold = 0.75`)"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A guard bun enforces itself, and it passes on this tree: the root run reports All files at 95.54% of functions and 96.53% of lines, both far above the 0.75 floor, with `ts/metalang/app.tsx` at 99.15% / 99.48%, and bun printed no threshold failure and exited 0. This round added assertions to an existing test and no production line, so no uncovered line was introduced."
+    },
+    {
+      "acceptanceItem": "12. The rendered page loads the story helper as `<script defer src=\"/api/packages/story.js\"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the page loads it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > it sits after the data the page draws and before the bundle that draws it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the slice the bundle is read out of is still the bundle and nothing else",
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > the page it draws loads the story helper, so a released kit can be narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `pageHtml` writes the helper tag after the data block and before the bundle, and the kit test builds a real kit and draws a page from it under plain node and finds the tag there too. All four pass in the run above. This round touched no renderer line, so the tag's position is where the earlier round left it."
+    },
+    {
+      "acceptanceItem": "13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository. Commands: `bun run typecheck` and `bun run lint`.",
+      "tests": [
+        "`bun run typecheck` — `tsc --noEmit`, exit 0, run on this tree with this round's assertion in it",
+        "`bun run lint` — `eslint ts`, exit 0, run on this tree with this round's assertion in it",
+        "`package.json:26` `\"@types/jsdom\": \"30.0.0\"` with `bun.lock:15` agreeing, jsdom itself pinned at 31.0.0, and `find . -name '*.d.ts'` outside node_modules and coverage returning nothing"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, and still clean with this round's assertion in the tree: I ran both commands on this tree and both exit 0. `@types/jsdom` 30.0.0 is the only typing for jsdom, and the find returns no declaration file anywhere outside node_modules. The assertion added this round introduces no import and no cast — it reads `.d-found li`, `.f-what`, `.f-at` and `.f-says` off the `Document` the existing `matched` helper already returns — so neither command was handed anything new to complain about."
+    },
+    {
+      "acceptanceItem": "14. The coverage record takes a criterion that passes today only with its reason: a `red: false` row carrying a reason is accepted, the same row with an empty reason is refused, and a `red: true` row carrying a reason is refused. Re-derivable by anyone from the repository root, by slicing the three copied blocks out of `.agents/workflows/tdd.js` and validating four rows through the real result contract, which prints `[true,true,false,false]` and exits 0.",
+      "tests": [
+        "the contract's own Acceptance-14 command, run verbatim from the repository root against the live `.agents/workflows/tdd.js`: printed `[true,true,false,false]`, ACC14_EXIT=0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A prior stage's finished work: `What to do` item 8 says this one \"is already done, by the orchestrator, because the test stage cannot record its own result until the contract it is checked against exists\". I ran the criterion's own one-liner verbatim on this tree and it printed `[true,true,false,false]` and exited 0, so the live `tdd-author` contract accepts a reasoned passing row and refuses both an unreasoned passing row and a reasoned failing one — which is also what lets every row of THIS record be `red: false` with its reason. This round edited nothing under `.agents/`."
+    },
+    {
+      "acceptanceItem": "15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.",
+      "tests": [
+        "`node eng/check-copied-modules.mjs` — 11 workflow files, 41 copied blocks, 7 distinct block names, `PASS — every duplicated block is byte-identical across all copies`, COPIED_EXIT=0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A prior stage's finished work, still intact: the only changed blocks are the ones `What to do` item 8 landed, this round edited nothing under `.agents/` (`git status --porcelain` lists one test file), and the check reports all 41 copies of all 7 block names byte-identical — `required-agent-runtime` 11 copies identical, `stage-result-contracts` 9 copies identical — with exit 0 on this tree."
+    },
+    {
+      "acceptanceItem": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.",
+      "tests": [
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once",
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, under decision `helper-absent`: the two tests write the real page to disk and run the real bundle entry over it in a real DOM, one process per case, and both pass in the run above (1289.89ms and 1102.57ms), with both cases named in the output as the criterion requires. This round touched neither the bundle entry nor those tests."
+    },
+    {
+      "acceptanceItem": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: the readme in `ts/metalang/kit.ts` carries the sentence and names the script, and the test finds the paragraph that both reads as narration and names the script. It passes in the run above. This round changed no readme text."
+    },
+    {
+      "acceptanceItem": "18. A declaration with two members both named `PrecheckAsync` draws one row with `data-member=\"PrecheckAsync#1\"` and one with `data-member=\"PrecheckAsync#2\"`, each selector matching exactly one element, while a selector naming `PrecheckAsync` alone matches none. A declaration with no repeated name is drawn exactly as before. All three cases named in the output.",
+      "tests": [
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > each of the two is reached by its place among the members sharing the name",
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > the shared name on its own reaches no row, because it names neither of them",
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > a declaration naming each of its members once is drawn as it was"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, since the round that recorded this row RED: the member identity now numbers a repeated name among the rows sharing it, per decision `identity-spelling`, so `PrecheckAsync#1` and `PrecheckAsync#2` each reach exactly one TR, bare `PrecheckAsync` reaches none, and a declaration naming each member once is drawn as before. All three cases pass in the run above (26.36ms, 31.07ms, 18.46ms) and are named in the output. This round did not touch these three tests."
+    }
+  ],
+  "notes": "WHAT I CHANGED — one assertion, in the one test the fixes file names, and nothing else. `git status --porcelain` is a single modified file:\n\n/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.test.tsx — the test `pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them` (now lines 1866-1894). Its two original expectations are kept verbatim; the only structural edit is holding the page in a name (`const { page } = matched(...)`) so the band can be read off the same render instead of spreading the `querySelectorAll` inline. The added expectation reads the whole problems band:\n\n    expect(\n      [...page.querySelectorAll('.d-found li')].map((one) => [\n        one.querySelector('.f-what')?.textContent,\n        one.querySelector('.f-at')?.textContent,\n        one.querySelector('.f-says')?.textContent,\n      ]),\n    ).toEqual([\n      ['problem', 'declare[1].constant.id', '\"IGuard\" is already the id of declare[0].constant'],\n    ])\n\nNo fixture changed, no other test changed, nothing under `.agents/` changed, no production line changed, no rule changed.\n\nDOES THE REPORT SATISFY THE CLAUSE AS THE CONTRACT WORDS IT — the fixes file told me to read the wording off the live code and to say so here rather than bend the assertion. My ruling: YES, with one wording difference the reviewers should see.\n\n- The code's words, `ts/metalang/check.ts:1004`: `if (already !== undefined) fail(`${where}.id`, `\"${id}\" is already the id of ${already}`)`. For this fixture that is `declare[1].constant.id` — `\"IGuard\" is already the id of declare[0].constant`, drawn in the page's band as `problem`.\n- The clause's words, Acceptance 5: \"two declarations sharing an id are reported as ambiguous rather than resolved to the first\". The report nowhere uses the word \"ambiguous\". It states the clash from the other end — this id is already the first declaration's — and names where the first was. That IS the ambiguity reported: whoever asks for `IGuard` is told the id names two declarations and where the other one is, so nothing is resolved to the first. The \"rather than resolved to the first\" half is the two existing expectations, which show both sections drawn with their members reading `First` and `Second`.\n- It is reported as a `problem`, not a blocker, and the page still draws both declarations. That is the approved shape, not a weakness: this contract's Decisions put \"Refusing duplicate declaration ids at check time, filed as issue 115\" explicitly out of scope, so a problem on the page is the behaviour the contract wants and a blocker would be scope this round has no authority for.\n\nI asserted the WHOLE band rather than a substring, so the row also proves the page reports exactly this and nothing else — a second report appearing, which the reuse ledger's \"Add no second report\" guards against, would fail it.\n\nTHE ASSERTION CAN FAIL. The fix covers behaviour that already works, so it is green on arrival; to show it is not decoration I pointed the band selector at a class nothing draws and the expectation failed with Received `[]` against the three-field Expected (pasted in redProof), then restored the file byte-identical — `diff` clean, `grep -c 'nothing-draws-this'` = 0, and the file green again at 210 pass / 0 fail.\n\nEVERY ROW IS RECORDED PASSING, AND THAT IS THE TRUE STATE OF THIS TREE, not a way out of writing a failing test. Decision `passing-row-reason` is what allows it: \"Any acceptance check that passes today is recorded as passing, carrying the reason it passes, whatever makes it pass — a guard on behaviour that must keep working, a prior stage's finished work, or an implementation this contract has already built.\" I verified each row by running its own command on this tree rather than copying the previous round's record: `make build && make test` (834 passed, exit 0), `bun test` (884 pass / 0 fail, exit 0), `bun run typecheck` (exit 0), `bun run lint` (exit 0), `node eng/check-copied-modules.mjs` (41 copies identical, exit 0), Acceptance-14's own one-liner (`[true,true,false,false]`, exit 0), and the `IGrantStore|IWindowsHelloNativeOps` grep (one hit, the rule's own ban list). Two rows moved since the last record, both because work landed in between: checks 1 and 18, which were RED when check 18 had no implementation behind it. I confirmed the validator accepts an all-passing record — `itemsTrueOrExplained` in the `stage-result-contracts` block requires `red: true` OR a non-empty `whyPassing` per row, with no \"at least one RED\" condition — and Acceptance 14's run re-proves both bans still hold.\n\nONE PRE-EXISTING FACT A RE-DERIVING REVIEWER WILL HIT, flagged rather than papered over, and NOT fixed here because this round may touch one assertion. Every per-file command the contract names — `bun test ts/metalang/app.test.tsx`, `bun test ts/metalang/kit.test.ts`, `bun test ts/metalang/render.test.ts` — exits 1 with ZERO test failures, because `bunfig.toml` sets `coverage = true` with `coverageThreshold = 0.75` and a one-file run leaves the rest of the tree uncovered. Proof on this tree: `bun test ts/metalang/app.test.tsx` is 210 pass / 0 fail, exit 1; `bun test ts/metalang/kit.test.ts` is 28 pass / 0 fail, exit 1 (All files 21.40% / 26.88%). It predates this round and is not caused by my change — it is a property of running one file under a global coverage floor. The suite-wide `bun test` that checks 1, 11 and 16 name exits 0. So a reviewer must read a per-file command's verdict off its `0 fail`, not off its exit code; whether that is worth a contract or bunfig change is the human's call, not mine.\n\nAUTHORITY I DID NOT USE. I wrote no new test, changed no interface or signature, implemented nothing, touched no fixture, and did not commit or push. The working tree is left with the one modified test file.",
+  "verdicts": [
+    {
+      "lens": "test-quality",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Per-file commands named in the contract exit 1 under the global coverage floor despite 0 failures.",
+          "evidence": "The notes report that `bun test ts/metalang/app.test.tsx` has 0 fail but exits 1 because bunfig.toml sets coverageThreshold 0.75. My re-run of that file showed 210 pass / 0 fail.",
+          "nonBlockingReason": "This predates the round and is not a test defect; the suite-wide `bun test` exits 0. It is a bunfig or contract matter for the human."
+        },
+        {
+          "summary": "The shared-id report is worded as a problem, not as the word 'ambiguous'.",
+          "evidence": "check.ts:1004 emits '\"IGuard\" is already the id of declare[0].constant'. The assertion pins exactly that wording, and the notes disclose the difference.",
+          "nonBlockingReason": "The report names the clash and where the first declaration was, and both declarations still draw. Contract Decisions put refusing duplicate ids (issue 115) out of scope."
+        }
+      ],
+      "refutationAttempts": [
+        "Checked whether the added assertion is tautological. It reads the whole `.d-found li` band and compares three fields to an exact value. The redProof shows it failing with Received [] when the selector is pointed at nothing, and I confirmed the live wording at check.ts:1004.",
+        "Checked whether the diff weakened existing expectations. `git diff` shows the two original expectations kept verbatim; the only change is splitting `matched(...).page` into a named `page`. `git status` shows only app.test.tsx modified.",
+        "Checked whether any red:false row builds new behavior in this change. Every row is already built by an earlier round or is a guard or a prior stage's work, and no criterion is left unbuilt. The contract authorizes tests, so the no-test path does not apply.",
+        "Re-ran `bun test ts/metalang/app.test.tsx` myself. The shared-id test passes, with 210 pass and 0 fail."
+      ],
+      "proofChecked": [
+        "rails-test-code SKILL violations 1-9",
+        "git diff of app.test.tsx (21 insertions, 9 deletions, all inside the one test)",
+        "check.ts:1004 wording matches the asserted band text",
+        "contract acceptance 5 and decisions identity-spelling and passing-row-reason",
+        "fixes-for-the-shared-id-assertion.md scope: one assertion, nothing else touched"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [],
+      "refutationAttempts": [
+        "Searched every test file in ts/metalang for another reader of the problems band (d-found, f-says, f-at). The only row-level read is the new one at app.test.tsx:1884-1887. Other d-found hits (1383, 1441, 1447, 1476) are substring checks on the rendered HTML, not the same logic.",
+        "Checked whether the added assertion repeats an existing helper's job. The only edit is holding `page` in a name, which reuses the existing `matched` helper, so no copy of its logic is introduced.",
+        "Checked for fixture duplication. The two archElement('IGuard', ...) calls are the test's own pre-existing fixture, left unchanged, and they reuse the shared archDocument, archElement and archMember builders."
+      ],
+      "proofChecked": [
+        "git diff of ts/metalang/app.test.tsx: a single test changed (lines 1866-1894), 21 insertions and 9 deletions, with no new helper and no new fixture.",
+        "grep of ts/metalang test files for d-found, f-says and f-at: one structured band read, no second copy.",
+        "rails-dry-code rails 5 and 6: repeated literals in a test expectation are independent expectations, not duplicated knowledge. The expected text is deliberately not derived from check.ts."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "The coverage record claims all eighteen acceptance checks pass today, but on this exact tree — with this round's assertion in it, no other change, and the file restored byte-identical — `bun test` exits 1 with acceptance 16's announced case failing, so rows 1 and 16 record as passing a criterion whose proof is not reproducible.",
+          "evidence": "Rows 1 and 16 are `red: false`. Row 1's reason: \"`bun test` from the root is 884 pass, 0 fail, exit 0\". Row 16's reason: \"the two tests write the real page to disk and run the real bundle entry over it in a real DOM, one process per case, and both pass in the run above (1289.89ms and 1102.57ms)\". Live counterexample, run from /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets with `make build && make test` running concurrently and no file changed (git status = one modified file, HEAD eaa0224): BUN_UNDER_LOAD_EXIT=1, `(fail) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [3294.62ms]`, `error: expect(received).toEqual(expected)` with Received `[\"This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points at what the beat is about, and nothing answered for it at this page's origin.\"]` at /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:468. It is a plain assertion failure at 3.3s, not the 5s timeout the earlier Prove-It round fixed (READING_A_PAGE = 60_000 at render.test.ts). The mechanism is in the test surface itself: /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/client.tsx:65 registers `document.addEventListener('DOMContentLoaded', read, { once: true })` during the harness's `await import(entry)`, while the harness sets `dom.window.__jarvisStory = true` only AFTER its wait-for-first-render loop, on the written claim that this is \"the order a browser puts them in\" (HARNESS comment, render.test.ts). jsdom fires its OWN DOMContentLoaded independently of the harness's manual dispatch — proved directly with the repo's pinned jsdom 31.0.0: a listener registered immediately after `new JSDOM(...)` fired on its own within a 50ms await, readyState `complete` (probe at /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/probe.mjs). So when that natural event lands before the announcement is written, the announced case reads no helper and draws the line, and acceptance 16 (\"a page where the helper announced itself shows none\") and acceptance 1 (\"`bun test` green\") go red with correct production code. Required evidence that remains unproven: acceptance 1 and 16 green reproducibly rather than on one run. Five solo `bun test` runs on this tree were 884 pass / 0 fail exit 0, and `make build && make test` was 834 passed exit 0, which is why this is a reproducibility defect in the recorded proof and not a disagreement about the numbers.",
+          "fix": ""
+        }
+      ],
+      "observations": [
+        {
+          "summary": "The round's authorization rests on a gap three reviewer records had filed as a NON-BLOCKING observation, plus a readiness finding whose central claim the orchestrator itself documented as false; the direction file asserts \"One confirmed gap\" without naming who confirmed it.",
+          "evidence": ".dev/inprocess/114-kit-page-narration/rounds/refute-first-panel.json records it at verdicts/4/observations/2 with nonBlockingReason \"no requirement remains unmet and no proof is missing\", on the evidence \"`grep -rn ambiguous ts/metalang` finds no report\"; tdd/result.json repeats it as observations under verdicts/0 and verdicts/2. .dev/inprocess/114-kit-page-narration/the-shared-id-is-already-reported.md states the readiness check's claim \"nothing here reports anything about a shared id\" was false and that the author refused the package built on it. .dev/inprocess/114-kit-page-narration/fixes-for-the-shared-id-assertion.md opens \"One confirmed gap.\"",
+          "nonBlockingReason": "The gap is real and the earlier non-blocking reasoning rested on a literal grep for the word \"ambiguous\" while the report is worded \"is already the id of\" (ts/metalang/check.ts:1004-1005). Tim's approved decision `fix-round-authority` (contract.md:35) covers re-entry of the stage owning the file for exactly such a finding \"with no new behaviour and no new check\", and this round added neither: git status is one modified test file, contract.md is unmodified, HEAD is unchanged at eaa0224, nothing under .agents/ and no production line was touched."
+        },
+        {
+          "summary": "Row 10 records acceptance 10 as passing today although its substance — the two literal targets verified on the JARVIS side against the re-cut revision after the kit release — cannot have happened yet; the row's own reason says so.",
+          "evidence": "Coverage row 10 is `red: false` with \"This row must not be read as the on-page verification having happened here... this round, authorized to touch one assertion, did nothing on the JARVIS side.\" Acceptance 10 (contract.md:136) itself scopes the in-repo part to \"no document here declares either id\", which I re-derived: `grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` returns only ts/metalang/guardrails.test.ts, the rule's own ban list.",
+          "nonBlockingReason": "The criterion's own words put that verification \"not in this repository\", the row states what did not happen here instead of claiming it, and the approved record shape (`green-criterion`, `passing-row-reason`) offers no third state — a `red: true` row must carry an empty reason, which would assert a failure that does not exist."
+        },
+        {
+          "summary": "The notes justify the whole-band assertion by citing the reuse ledger's \"Add no second report\", but that clause governs the two-carrier name-role report, not the duplicate-id report the assertion reads.",
+          "evidence": "Notes: \"a second report appearing, which the reuse ledger's 'Add no second report' guards against, would fail it.\" The clause sits in contract.md:94 under \"**The zero-carrier and two-carrier behaviour**\", citing words.ts:425-428, app.tsx:1087-1093 and the `distinct` constraint at metalang.yaml:1163 — all about which property carries the name role, nothing about a shared declaration id.",
+          "nonBlockingReason": "The assertion's strength is grounded elsewhere in the same contract: \"What the agent MUST NOT do\" (contract.md:121) forbids adding \"a second resolver, escaper, diagnostic or page shell\". Only the citation is misplaced; nothing the test does depends on it, and the assertion is contingent — pointing `.d-found li` at `.d-found li.nothing-draws-this` failed it with Received `[]`, and the file was restored byte-identical (`diff` clean against my own backup)."
+        },
+        {
+          "summary": "The author's ruling that the page's report satisfies acceptance 5's \"reported as ambiguous\" holds, and the wording difference was surfaced rather than papered over, as the direction required.",
+          "evidence": "ts/metalang/check.ts:1004-1005 is `if (already !== undefined) fail(`${where}.id`, `\"${id}\" is already the id of ${already}`)`, first committed in fc5fa76 (2026-10-19), before this contract; ts/metalang/check.test.ts:216 already pins that wording. The page draws it as `problem | declare[1].constant.id | \"IGuard\" is already the id of declare[0].constant` beside both declarations' own sections, so the clash is reported and nothing resolves to the first. The word \"ambiguous\" appears nowhere in the report, which the notes state outright.",
+          "nonBlockingReason": "The clause asks that the pair be \"reported... rather than resolved to the first\", not that the report use the word \"ambiguous\"; refusing a duplicate id at check time is explicitly out of this contract (contract.md:21, issue 115). The direction told the author to rule and say so in the notes rather than bend the assertion, and it did."
+        },
+        {
+          "summary": "The disclosed per-file exit-code fact is accurate: every per-file command the contract names exits 1 with zero test failures because of the global coverage floor.",
+          "evidence": "Reproduced on this tree: `bun test ts/metalang/render.test.ts` is 38 pass / 0 fail with exit 1 (three further runs the same), while suite-wide `bun test` is 884 pass / 0 fail exit 0 and bunfig.toml sets `coverage = true` with `coverageThreshold = 0.75`. Acceptance 2-5, 7, 12, 17 and 18 all name a per-file command.",
+          "nonBlockingReason": "Pre-existing, not caused by this round, disclosed in the notes rather than hidden, and left to the human as a contract-or-bunfig question — which is the correct route for a round authorized to touch one assertion."
+        }
+      ],
+      "refutationAttempts": [
+        "Tried to find an unapproved decision in the added assertion: it reads only page classes already asserted in the same file (app.test.tsx:1383, :1438, :1441, :1447, :1459, :1476 use d-found / f-what / d-found has-problem), adds no interface, no fixture, no dependency and no production line. Rejected.",
+        "Tried to find invented or paraphrased approval: checked every decision the notes lean on against contract.md — `passing-row-reason` (:33), `green-criterion` (:17), `helper-absent` (:25), `identity-spelling` (:37), `fix-round-authority` (:35), `What to do` item 8 (:113). Each exists, and the notes' quote of `passing-row-reason` is word for word contract.md:33. Rejected.",
+        "Tried to show the round exceeded its authority or expanded scope: git status --porcelain is `M ts/metalang/app.test.tsx` alone, git diff is 21 insertions / 9 deletions all inside the one named test with its two original expectations verbatim, contract.md is unmodified, HEAD is eaa0224 (uncommitted), nothing under .agents/ and guardrails.test.ts untouched. Rejected.",
+        "Tried to show the new assertion is decoration that cannot fail: pointed `.d-found li` at `.d-found li.nothing-draws-this`, ran `bun test ts/metalang/app.test.tsx` and got 209 pass / 1 fail on that test, then restored the file byte-identical (diff clean against my own pre-mutation copy, grep for the marker 0). Rejected.",
+        "Tried to show the assertion covers behaviour this change builds, so it should have been recorded RED: the report dates to fc5fa76 (2026-10-19), before this contract, and check.test.ts:216 already covered its wording; this round added no production line. Rejected.",
+        "Tried to show an all-passing coverage record is invalid: read the live tdd-author contract (.agents/workflows/tdd.js:1130 and the itemsTrueOrExplained block at :338-351) — it requires red===true OR a non-empty whyPassing per row and refuses a reasoned RED row, with no at-least-one-RED condition; the contract's Acceptance-14 one-liner printed [true,true,false,false] exit 0 on this tree. Rejected.",
+        "Tried every whyPassing against its own command: make build && make test exit 0 (619 + 56 + 11 + 148 Passed!), bun test solo 884 pass / 0 fail exit 0 five times, bun run typecheck exit 0, bun run lint exit 0, node eng/check-copied-modules.mjs 11 files / 41 blocks / 7 names PASS exit 0, Acceptance-14 one-liner exit 0, the literal-target grep one hit. Sixteen rows held; rows 1 and 16 did not hold reproducibly, which is the confirmed finding.",
+        "Tried to show the identity spelling encoded in the tests differs from the wording Tim approved: app.test.tsx:1937-1947 asserts PrecheckAsync#1 and PrecheckAsync#2 each reaching exactly one TR with the bare name reaching none, and :1949-1964 asserts an unrepeated name keeps its plain name with no `#` anywhere — matching member-identity-unique (contract.md:29) and identity-spelling (:37), including counting among the rows sharing the name under an unrelated member. Rejected.",
+        "Tried to show an unapproved dependency or version crept in with the jsdom work: package.json:26 `\"@types/jsdom\": \"30.0.0\"` and :30 `\"jsdom\": \"31.0.0\"`, bun.lock:15 and :19 agreeing at those exact versions, and no *.d.ts anywhere outside node_modules and coverage — exactly what `dom-library` and `jsdom-types` authorize and nothing else. Rejected.",
+        "Tried to attribute the load-induced failure to my own environment rather than the tree: the test file was restored byte-identical before that run, git status showed one modified file, and the jsdom probe reproduces the underlying race deterministically, independent of load. Rejected."
+      ],
+      "proofChecked": [
+        ".agents/skills/rails-decisions/SKILL.md — every Violation ruled against each decision-level item in the diff, the coverage record and the notes",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md — all nineteen Decisions, Rules to add, Reuse ledger, What to do, What the agent MUST NOT do, and Acceptance 1-18",
+        "git status --porcelain, git diff ts/metalang/app.test.tsx (21 insertions / 9 deletions), git log -1 (eaa0224, nothing committed)",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.test.tsx — the changed test at 1866-1894, the check-18 tests at 1904-1965, and the pre-existing d-found / f-what assertions at 1383-1476",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/check.ts:995-1012 and its first commit fc5fa76 (2026-10-19); /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/check.test.ts:216",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.tsx:1677-1694 — the problems band classes the new assertion reads",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/client.tsx:1-70 and /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:330-470 — the DOMContentLoaded read and the jsdom harness order",
+        "Mutation test of the new assertion (band selector pointed at a class nothing draws) and byte-identical restore",
+        "bun test solo x5 (884 pass / 0 fail, exit 0) and bun test under concurrent make build && make test (exit 1, render.test.ts announced case failing)",
+        "jsdom 31.0.0 DOMContentLoaded probe showing jsdom fires the event itself, readyState complete",
+        "make build && make test (619 + 56 + 11 + 148 Passed!, MAKE_EXIT=0)",
+        "bun run typecheck (exit 0), bun run lint (exit 0), node eng/check-copied-modules.mjs (41 copies identical, exit 0)",
+        "The contract's Acceptance-14 one-liner verbatim ([true,true,false,false], exit 0) and the live validator block .agents/workflows/tdd.js:338-351, :1130",
+        "package.json:26,30; bun.lock:15,19,68,218; find for *.d.ts outside node_modules and coverage",
+        ".github/workflows/ci.yml:593 nine-file required loop; ts/metalang/render.ts:62 STORY_SCRIPT; ts/metalang/kit.ts:109 readme sentence",
+        "grep -rln 'IGrantStore|IWindowsHelloNativeOps' ts/ — only ts/metalang/guardrails.test.ts",
+        ".dev/inprocess/114-kit-page-narration/fixes-for-the-shared-id-assertion.md, the-shared-id-is-already-reported.md, fixes-for-the-flaky-test.md, rounds/README.md, rounds/refute-first-panel.json, tdd/result.json, tdd/result-identity.json"
+      ]
+    }
+  ],
+  "anyFail": true,
+  "panelComplete": true,
+  "failedRoles": []
+}
