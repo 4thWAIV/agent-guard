@@ -24,7 +24,7 @@ That number is the completion evidence this whole lane turns on, and nobody but 
 
 The contract's acceptance checks 3 and 5 cover a member name repeated across two declarations, which the tests prove. Inside one declaration is outside what the contract asked for, so the work meets its checks. What it does not meet is the Success definition's general sentence, because a beat pointing at an overloaded member matches two rows, the helper reports the target as ambiguous, and the beat points at nothing.
 
-This one is filed as an issue rather than put to Tim: the contract's checks do not require it, the fix changes the published identity format, and the scan's own recommendation is to accept the ambiguous-target report now and choose the format deliberately later.
+This one is filed as issue 120, whose folder is `.dev/backlog/120-overloaded-member-identity/`, rather than put to Tim: the contract's checks do not require it, the fix changes the published identity format, and the scan's own recommendation is to accept the ambiguous-target report now and choose the format deliberately later.
 
 ## What is being done with them
 
