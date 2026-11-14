@@ -34,6 +34,8 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **fix-round-authority.** A finding a reviewer confirms against a file lets the stage that owns that file run again to fix exactly that finding, with no new behaviour and no new check, and the reviewers judge the result as they judge every round. Tim approved this as written on 2026-11-13, answering `fix-round-authority` with `confirmed-finding-opens-it` in pkg-e560286af329. It also ratifies the round that gave the two page-reading cases a stated time budget, which ran before this answer and without an authorization. The alternative, each re-entry coming to him as its own yes, was put to him and he chose against it.
 
+**identity-spelling.** The number in a repeated member's identity counts only the rows carrying that same name, starting at one, so two members of one declaration both named `PrecheckAsync` are `PrecheckAsync#1` and `PrecheckAsync#2` however many other members the declaration holds, and adding an unrelated member above them changes neither. Tim approved this as written on 2026-11-13, answering `identity-spelling` with `among-the-shared` in pkg-f1d7e85abb9f. The alternative, numbering by the row's place among all of the declaration's members, was put to him and he chose against it, because adding any member above a repeated pair would then change both identities and break every beat written against the old numbers. A member whose name is not repeated keeps its plain name, unchanged.
+
 ## Rules to add
 
 Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. Tim approved all three as written on 2026-11-11, and told this session to proceed with the work.
