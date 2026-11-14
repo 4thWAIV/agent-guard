@@ -26,6 +26,10 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **when-the-page-says-so.** That behaviour is built into this work before the kit is released, rather than following it as its own issue. Tim approved this as written on 2026-11-13, answering `when-the-page-says-so` with `fold-it-in` in pkg-d785acd7ea59, and that answer is also his authorization for one test round writing the checks it needs, which `rails-run-a-workflow` reserves to him: "Re-running any completed stage is the human's decision and needs their explicit yes."
 
+**member-identity-unique.** Every member row carries an identity that names one member and no other. A member name that occurs once among its declaration's members is that row's identity, exactly as now. A name that occurs more than once gives each of those rows an identity of that name and the row's position among the declaration's members, in the order the source declares them, and no row carries the shared name on its own — a name that identifies one member identifies it, and a name several members share identifies none of them alone. Tim ordered this on 2026-11-13, answering `overload-target` with none of the choices offered and the instruction to fix it correctly now, refusing the acceptance, the language ban, the issue it had been filed as, and any delay. A document that declares no repeated member name is unchanged by this, so every target written against the kit today keeps working.
+
+**scan-ran-late.** The stages that ran before the hidden-decision scan existed run again with its result in hand: the rule round, the architecture stage, the test rounds and the implementation rounds. Tim approved this as written on 2026-11-13, answering `scan-ran-late` with `re-run-the-stages` in pkg-b0dad98888f2. The alternative, recording what happened and taking the work to its gate as it stood, was put to him and he chose against it.
+
 ## Rules to add
 
 Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. Tim approved all three as written on 2026-11-11, and told this session to proceed with the work.
@@ -132,6 +136,7 @@ Each check is re-derivable by someone other than the worker.
 15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.
 16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.
 17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.
+18. A declaration with two members of the same name gives each row an identity of its own: a selector naming either one matches exactly one element, and a selector naming the shared name alone matches none. A declaration with no repeated name is drawn exactly as before. All three cases named in the output. Command: `bun test ts/metalang/app.test.tsx`.
 
 ## Level
 
