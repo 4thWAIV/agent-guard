@@ -1,0 +1,99 @@
+{
+  "changedFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/client.tsx",
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.tsx",
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.ts",
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.ts"
+  ],
+  "buildProof": "$ dotnet build -c Release   (worktree root, after the final edit)\nEXIT CODE: 0\n\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n\nTime Elapsed 00:00:12.57\n\n$ make build && make test\nEXIT CODE: 0\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\nPassed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 10 s - AgentGuard.Analyzers.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 608 ms - AgentGuard.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 450 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 430 ms - AgentGuard.Cli.Tests.dll (net10.0)\n\n$ bun run typecheck\n$ tsc --noEmit\nEXIT CODE: 0\n\n$ bun run lint\n$ eslint ts\nEXIT CODE: 0",
+  "testProof": "OBSERVED RED FIRST (before any edit of mine, clean tree at 033f169):\n\n$ bun test\n2 tests failed:\n(fail) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [1.21ms]\n(fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [4433.66ms]\n 879 pass\n 2 fail\n 1501 expect() calls\nRan 881 tests across 16 files. [24.57s]\nEXIT=1\n(No RULE-PHASE red: rule 1's fifteen-literal impact was already cleared in cfbbbf5, so guardrails.test.ts was green in this run. No rule, interface or test was touched to clear anything.)\n\nGREEN AFTER (same commands):\n\n$ dotnet test -c Release\nEXIT CODE: 0\nPassed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619 - AgentGuard.Analyzers.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56 - AgentGuard.CrossPlatform.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148 - AgentGuard.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11 - AgentGuard.Cli.Tests.dll (net10.0)\n\n$ bun test\nAll files                   |   95.54 |   96.53 |\n 881 pass\n 0 fail\n 1502 expect() calls\nRan 881 tests across 16 files. [11.97s]\nEXIT CODE: 0\n\nThe two TDD tests, by name, in that run — neither skipped, weakened nor re-pointed (no test file is modified; `git diff --name-only | grep test` is empty):\n(pass) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.20ms]\n(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1927.42ms]\n(pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [1780.92ms]\n\n$ bun test ts/metalang/render.test.ts    ->  38 pass, 0 fail  (EXIT 1 is the repo-wide 0.75 coverage floor on a single-file run: \"All files 0.25 % lines\" on the smallest file proves the exit code is the floor, not a failure)\n$ bun test ts/metalang/app.test.tsx      ->  207 pass, 0 fail (same single-file floor)\n$ bun test ts/metalang/kit.test.ts       ->  28 pass, 0 fail  (same)\n$ bun test ts/metalang/guardrails.test.ts -> 17 pass, 0 fail  (same)\n\nINDEPENDENT PROOF OF THE BEHAVIOUR ON A REAL PAGE (a scratchpad probe, no repo file added): the page a built kit drew, with its own bundle inline, parsed and RUN by jsdom under node 22 — the inline bundle during the parse, jsdom's own natural DOMContentLoaded after it, no manual event dispatch:\n$ probe silent     -> root children drawn: 2  lines: [\"This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points at what the beat is about, and nothing answered for it at this page’s origin.\"]  EXIT CODE: 0\n$ probe announced  -> root children drawn: 1  lines: []  EXIT CODE: 0",
+  "acceptance": [
+    {
+      "item": "1. `make build && make test` green, and `bun test` green, from the repository root.",
+      "met": true,
+      "evidence": "`make build && make test` EXIT CODE 0 (two builds 0 warnings/0 errors; 619+148+56+11 passed, 0 failed). `bun test` EXIT CODE 0, 881 pass / 0 fail / 1502 expect() calls across 16 files."
+    },
+    {
+      "item": "2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.",
+      "met": true,
+      "evidence": "`bun test ts/metalang/app.test.tsx` 207 pass / 0 fail, including (pass) pointing at one declaration and at one member of it > a selector naming one declaration’s members reaches that one table [194.05ms]. Built in cfbbbf5 before this round; unchanged by this fix and still passing."
+    },
+    {
+      "item": "3. A selector naming one member of one declaration matches exactly one element, same command.",
+      "met": true,
+      "evidence": "(pass) pointing at one declaration and at one member of it > a selector naming one member of one declaration reaches that one row [58.85ms], in the 207 pass / 0 fail run."
+    },
+    {
+      "item": "4. A member name containing a double quote, a single quote and a backslash is reachable by selector in jsdom. Same command.",
+      "met": true,
+      "evidence": "(pass) pointing at one declaration and at one member of it > a member name carrying a double quote, a single quote and a backslash is reachable [51.19ms]."
+    },
+    {
+      "item": "5. A member name repeated across two declarations resolves to the one asked for, and two declarations sharing an id are reported as ambiguous rather than resolved to the first. Same command.",
+      "met": true,
+      "evidence": "(pass) a member name two declarations share resolves to the one asked for [65.76ms] and (pass) two declarations sharing an id read as the two they are, not as the first of them [48.63ms]."
+    },
+    {
+      "item": "6. Every `data-part` and `data-col` target that passes today still passes, by the existing assertions running unchanged.",
+      "met": true,
+      "evidence": "No test file is modified: `git status --porcelain --untracked-files=all` lists only ts/metalang/app.tsx, client.tsx, kit.ts, render.ts, and `git diff --name-only | grep -E '^\\.agents/|^analyzers/|test'` returns 0 lines. The existing assertions ran unchanged inside the 881 pass / 0 fail whole-suite run."
+    },
+    {
+      "item": "7. The same document rendered twice under one built kit produces identical bytes per file. Command: `bun test ts/metalang/kit.test.ts`.",
+      "met": true,
+      "evidence": "`bun test ts/metalang/kit.test.ts` 28 pass / 0 fail, including the twice-rendered byte-equality test; also green inside the whole-suite run."
+    },
+    {
+      "item": "8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.",
+      "met": true,
+      "evidence": "`bun test ts/metalang/guardrails.test.ts` 17 pass / 0 fail. The rules read the live non-test source from disk, so they were re-run against my edited app.tsx and client.tsx: no language word is written by spelling in the drawing path, neither named target nor a constant identity-attribute value is in non-test source, and no identity attribute is written outside its one owning component. No analyzer, rule or fixture was edited."
+    },
+    {
+      "item": "9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.",
+      "met": true,
+      "evidence": "Re-derived the loop at .github/workflows/ci.yml:593-598 verbatim over a kit built by `bun run ts/metalang/kit.ts`: whole kit -> \"every required file is there\", EXIT CODE 0; with style.css removed -> \"::error::evolang-kit/style.css is missing or empty — the kit would ship unusable\", EXIT CODE 1; with syntax.css removed -> the same error for syntax.css, EXIT CODE 1."
+    },
+    {
+      "item": "10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository.",
+      "met": true,
+      "evidence": "Everything this criterion requires OF this repository holds: `grep -rn 'IGrantStore\\|IWindowsHelloNativeOps' ts/` returns hits only inside ts/metalang/guardrails.test.ts (rule 2's own fixtures and expectations, lines 907, 926, 1198-1201, 1245-1247), so no document here declares either id and neither string is in non-test source. The verification itself is placed by the criterion on the JARVIS side after the kit release, which is outside this repository and after this stage — IMPLEMENT neither ran it nor could."
+    },
+    {
+      "item": "11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets. Command: `bun test`.",
+      "met": true,
+      "evidence": "`bun test` EXIT CODE 0 with \"All files | 95.54 | 96.53\" — bun enforces coverageThreshold = 0.75 itself, so exit 0 is the floor being met. app.tsx reads 99.14 % funcs / 99.48 % lines (the new component's lines 1724-1727 are drawn by the child-process harness rather than in-process)."
+    },
+    {
+      "item": "12. The rendered page loads the story helper as `<script defer src=\"/api/packages/story.js\"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too.",
+      "met": true,
+      "evidence": "render.test.ts: (pass) the story helper a narrated page loads > the page loads it; > it sits after the data the page draws and before the bundle that draws it; > the slice the bundle is read out of is still the bundle and nothing else. kit.test.ts: (pass) the page it draws loads the story helper, so a released kit can be narrated [429.82ms]. Also re-derived by hand: `node <kit>/kit.js render` on a copied document produced a page containing the exact tag. The tag is now built from the new STORY_SCRIPT owner and its bytes are unchanged."
+    },
+    {
+      "item": "13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository.",
+      "met": true,
+      "evidence": "`bun run typecheck` (tsc --noEmit) EXIT CODE 0; `bun run lint` (eslint ts) EXIT CODE 0. `find ts -name '*.d.ts' | wc -l` is 0; package.json still pins \"@types/jsdom\": \"30.0.0\" and \"jsdom\": \"31.0.0\", and `git diff --name-only` does not include package.json or bun.lock. The one type declaration I added is a `declare global { interface Window { __jarvisStory?: unknown } }` in client.tsx for JARVIS's helper announcement — not a typing for jsdom."
+    },
+    {
+      "item": "14. The coverage record takes a criterion that passes today only with its reason, re-derivable by slicing the three copied blocks out of `.agents/workflows/tdd.js` and validating four rows through the real result contract.",
+      "met": true,
+      "evidence": "Ran the contract's own one-liner verbatim: printed [true,true,false,false], EXIT CODE 0. Nothing under .agents/ was touched by this round (`git status` lists four ts/metalang files only)."
+    },
+    {
+      "item": "15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.",
+      "met": true,
+      "evidence": "`node eng/check-copied-modules.mjs` EXIT CODE 0 — \"11 workflow files, 41 copied blocks, 7 distinct block names / PASS — every duplicated block is byte-identical across all copies\"."
+    },
+    {
+      "item": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.",
+      "met": true,
+      "evidence": "In the `bun test` run (EXIT CODE 0): (pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1927.42ms] and (pass) ... > a page the helper announced itself on says nothing about not being narrated [1780.92ms]. Both were RED before the change (the silent case failed \"Expected length: 1 / Received length: 0\"; the announced case was the ordering guard). Independently re-derived on a real page: the kit-drawn page with its bundle inline, run by jsdom under node 22 with no manual event dispatch, shows exactly that one line when the helper is silent and nothing when it announced itself."
+    },
+    {
+      "item": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "met": true,
+      "evidence": "(pass) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.20ms], RED before the change. The shipped README.md of a freshly built kit carries the paragraph: \"The one thing it reaches outside itself for is narration: it asks its own origin for `/api/packages/story.js`, the script JARVIS serves to ring a beat of a story and point at what that beat is about, so a page opened anywhere else says on itself that it cannot be narrated there.\""
+    }
+  ],
+  "walls": [],
+  "complete": true
+}

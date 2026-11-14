@@ -1,0 +1,236 @@
+{
+  "contractPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md",
+  "verdicts": [
+    {
+      "lens": "prove-it",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "Acceptance 1 and 16 require `bun test` green, but the acceptance-16 test failed on a live re-run. The test 'a page the helper never announced itself on says it cannot be narrated here, once' timed out. Green is not reliably reproducible, so CI on the slower macOS, Windows and Linux runners can go red.",
+          "evidence": "Second full `bun test` run in the worktree exited 1: `error: Test \"a page the helper never announced itself on says it cannot be narrated here, once\" timed out after 5392ms (killed 1 dangling process)`, at ts/metalang/render.test.ts:429 (`shownBy`), result `880 pass, 1 fail`. The first run passed 881 and three later full runs passed. In those later runs the same test took 1.7-2.2s and its sibling took 1.5-2.5s, so the 5s default leaves little headroom. `shownBy` uses `Bun.spawnSync`, which blocks the event loop, and each of the two tests starts a jsdom subprocess. Neither test sets an explicit timeout.",
+          "fix": "Give both `shownBy` tests (render.test.ts:446 and :450) an explicit generous per-test timeout, or run the subprocess asynchronously, without weakening any assertion. Then re-run `bun test` several times and show every run exits 0."
+        }
+      ],
+      "observations": [
+        {
+          "summary": "Acceptance 9 asks for proof by a run with the file removed. The ci.yml loop is correct, but no pasted proof was in what I was given. I re-derived it myself.",
+          "evidence": "I built the kit with `bun run ts/metalang/kit.ts <dir> v1`, removed style.css and then syntax.css in turn, and ran the exact `for required in ...` loop from ci.yml:593. Each run printed a 'missing' line and exited 1. ci.yml lists all nine files that kit.ts marks required.",
+          "nonBlockingReason": "Independent evidence establishes the required result, so only the narrative is missing."
+        },
+        {
+          "summary": "Item 8 says IMPLEMENT changes nothing under .agents/. The branch diff touches .agents/workflows and two skills, but those are the orchestrator's decided green-criterion change, not the worker's.",
+          "evidence": "Acceptance 14 re-run printed [true,true,false,false] with exit 0. `node eng/check-copied-modules.mjs` printed PASS: 11 workflow files, 41 blocks, all copies identical, exit 0.",
+          "nonBlockingReason": "The `green-criterion` decision authorizes this change and both of its proofs pass."
+        }
+      ],
+      "refutationAttempts": [
+        "Re-ran `bun test` five times in full. Four runs were green (881 pass, coverage floor met), and one failed on the 5s timeout in the acceptance-16 test.",
+        "Checked for weakening: jsdom is pinned at 31.0.0 and @types/jsdom at 30.0.0 in package.json and bun.lock, and no declaration file for jsdom exists in the repository (`ls ts/metalang | grep -i d.ts` found none).",
+        "Checked whether the helper-absent behaviour was narrowed. client.tsx reads `window.__jarvisStory` after the deferred scripts, the harness writes the announcement after the bundle runs so the announced case can fail, and both cases are named in the test output.",
+        "Re-derived acceptance 9 by removing style.css and syntax.css from a freshly built kit and running the ci.yml loop (both runs exit 1). Re-derived acceptance 14 (`[true,true,false,false]`, exit 0).",
+        "Checked the live code for the identity attributes. `data-member` is written once at app.tsx:780 and `data-declaration` once at app.tsx:1508. The `STORY_SCRIPT` constant is in render.ts, and the kit.ts README names the narration script and its origin."
+      ],
+      "proofChecked": [
+        "bun test: run 1 exit 1 (880 pass, 1 timeout fail), runs 2-4 exit 0 with 881 pass, run 5 exit 0",
+        "bun run typecheck exit 0",
+        "bun run lint exit 0",
+        "node eng/check-copied-modules.mjs exit 0, PASS",
+        "acceptance 14 one-liner: [true,true,false,false], exit 0",
+        "ci.yml required-file loop: lists all nine kit files, and fails (exit 1) when style.css or syntax.css is removed",
+        "jsdom 31.0.0 and @types/jsdom 30.0.0 in package.json and bun.lock",
+        "kit.test.ts readme assertion exists (names the story script and 'origin'); render.test.ts story-helper tests pass",
+        "contract.md read in full; ground, hidden-decision-scan and tdd result files exist in the work item folder"
+      ]
+    },
+    {
+      "lens": "solid",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "app.tsx idOf (about line 1743) still reads a declaration id separately from the extracted declaredId.",
+          "evidence": "declaredId (app.tsx:1450-1451) feeds data-declaration, the id span (1521), the error band (1538) and the properties owner (1555). idOf at :1743 reads BOOTSTRAP.id from a differently shaped item (an item under declare, including the external wrapper).",
+          "nonBlockingReason": "The contract's ledger names only the predicate written twice at the old :1480 and :1500, both of which now use declaredId. idOf reads a different input and predates this change."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second owner of the member-name question. Table resolves it once through propertyCarrying(bodyOf, of, ROLES.name) (app.tsx:745) and identityOf never reads a property by its spelling. Nothing refuted.",
+        "Looked for a second writer of data-declaration or data-member. grep over ts/metalang non-test source finds one each: app.tsx:1508 in the declaration component and app.tsx:780 in Table. Nothing refuted.",
+        "Looked for a second path or a hardcoded helper path. The story path is the single constant STORY_SCRIPT in render.ts:62, and both the page tag (render.ts:80) and the kit readme (kit.ts:110) read it. Nothing refuted.",
+        "Checked whether the page-says-so check in client.tsx is a hardcoded one-off. client.tsx reads one announcement (window.__jarvisStory) at DOMContentLoaded and draws NotNarratedHere, which is the only place the page draws that line. Nothing refuted.",
+        "Looked for a language escape hatch such as any. client.tsx declares __jarvisStory as unknown and does not use any. Nothing refuted.",
+        "Ran the gates myself. bun test gave 881 pass, 0 fail with coverage printed. bun run typecheck and bun run lint ran clean. node eng/check-copied-modules.mjs printed PASS with every block identical across 41 copies."
+      ],
+      "proofChecked": [
+        "rails-solid-code SKILL.md rails 1-9 ruled against the diff",
+        "contract.md read in full",
+        "ts/metalang/app.tsx Table, declaration component and NotNarratedHere",
+        "ts/metalang/client.tsx",
+        "ts/metalang/render.ts STORY_SCRIPT and pageHtml",
+        "ts/metalang/kit.ts readme sentence",
+        "bun test, typecheck, lint, copied-module check re-run in the working tree"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "idOf (app.tsx:1739) reads a declaration's name with `typeof id === 'string'` and no length check, while the extracted declaredId (app.tsx:1451) requires a non-empty string. The two answer different questions: idOf is a recursive lookup through `external`, and declaredId is the head line's reading of one declaration's own id.",
+          "evidence": "app.tsx:1451 `typeof writtenId === 'string' && writtenId.length > 0`; app.tsx:1744-1745 `typeof id === 'string'`. idOf predates this change, and the contract's ledger names only the two copies at the old app.tsx:1480/1500, both now routed through declaredId.",
+          "nonBlockingReason": "The two readings are not the same knowledge, since idOf searches nested kinds and declaredId reads one declaration. Neither must change with the other. The contract's extraction scope is met."
+        },
+        {
+          "summary": "Literal `/api/packages/story.js` appears in render.test.ts:306, kit.test.ts:83 and kit.test.ts:245, beside the owner STORY_SCRIPT in render.ts:62.",
+          "evidence": "grep of ts/metalang/*.test.*. kit.ts:21 imports STORY_SCRIPT from render.ts for the readme, so production code has one owner.",
+          "nonBlockingReason": "These are independent test expectations. The DRY rail says to preserve them rather than derive the expected result from the code under test, and acceptance check 12 requires the exact tag."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second copy of the declaration-id predicate that the contract's ledger said was written twice. Only declaredId (app.tsx:1451) remains. It feeds the id span, the missing-id error band, the properties owner and data-declaration, with no other copy. The `typeof id === 'string' && id.length > 0` at app.tsx:1204 is an enum value's id in the Value component, a different concept.",
+        "Looked for a second member-name resolver. Table calls propertyCarrying(bodyOf, of, ROLES.name) once (app.tsx:743). A grep of the drawing path found no second resolver, fallback chain or spelling read.",
+        "Checked whether data-declaration and data-member are written in more than one component. Each appears once, at app.tsx:1508 and app.tsx:780.",
+        "Checked whether the story script path is written in more than one production place. STORY_SCRIPT is owned in render.ts:62 and used by STORY_HELPER and the kit readme (kit.ts:21). No second production literal exists.",
+        "Checked whether the ci.yml required-file list duplicates the kit.ts required flags without a tie. kit.test.ts:294 reads the list out of the workflow and holds it to kit.ts, so the two cannot drift silently.",
+        "Re-ran `node eng/check-copied-modules.mjs`: exit 0, 41 copied blocks across 11 workflow files, all byte-identical. This covers the green-criterion change copied into required-agent-runtime and stage-result-contracts.",
+        "Checked for a second page shell or escaper. pageHtml is the only shell. No new escaper was added, and attributes go through React JSX props."
+      ],
+      "proofChecked": [
+        "rails-dry-code SKILL.md, read in full",
+        "contract.md, read in full, including the reuse ledger and What to do items 1-9",
+        "app.tsx lines 730-800, 1190-1210, 1440-1555 and 1700-1760",
+        "client.tsx, read in full",
+        "render.ts, STORY_SCRIPT and STORY_HELPER",
+        "ci.yml:593 required-file loop against the kit.ts required flags",
+        "kit.test.ts:294-330, the tie between ci.yml and kit.ts",
+        "`node eng/check-copied-modules.mjs`: PASS, exit 0",
+        "grep for data-declaration, data-member, __jarvisStory and story.js across ts and .github"
+      ]
+    },
+    {
+      "lens": "laziness",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "rails-real-work rail 11 (out-of-repo-root and work-item-folder references): new code in the repository names a path under .dev/inprocess/. The comment is not documenting where a run record lives. It cites the contract as a source, and that path stops existing when the folder moves to .dev/completed/run-records/ on shipping.",
+          "evidence": "ts/metalang/guardrails.test.ts line 3 reads: 'approved as written in `.dev/inprocess/114-kit-page-narration/contract.md` under `Rules to add`'. It was introduced by commit 00ff5cd (git log -S) in this change. The rail's Violation text: 'shipped code or a workflow script names a path under `.dev/inprocess/` or `.dev/completed/`. Workers never add one; adversaries flag any found.' `grep -rnE '\\.dev/(inprocess|completed)' ts` finds this line and the older ts/metalang/metalang.yaml:712, which predates this change (commit 41a084c).",
+          "fix": "Reword the header comment in ts/metalang/guardrails.test.ts so it quotes the contract's 'Rules to add' wording without naming the .dev/inprocess path, then re-run `bun test` and `bun run lint`."
+        }
+      ],
+      "observations": [
+        {
+          "summary": "ts/metalang/metalang.yaml:712 also names .dev/inprocess/82-guard-process-workflow/ROAD.md. It is a comment on a file this change touches, but it came from commit 41a084c, not this work.",
+          "evidence": "git log -S for that string in metalang.yaml shows only 41a084c, 'Record the vocabulary approved on 27 October...'.",
+          "nonBlockingReason": "The reference was not added by this change. It is worth cleaning up under the same rail, but it does not show the contract unmet."
+        }
+      ],
+      "refutationAttempts": [
+        "Re-ran `bun test` from the worktree root. 881 pass, 0 fail, 1502 expect calls. Coverage is 95.54% functions and 96.53% lines, above the 0.75 floor, and the run was clean.",
+        "Re-ran `bun run typecheck` and `bun run lint`. Both completed without errors. Only the 'Now using node' banner printed, and the exit code printed empty because of how I piped it. The failure scenarios in the contract (untyped jsdom import) are not present.",
+        "Ran the acceptance 14 command verbatim. It printed [true,true,false,false] and exited 0. Ran `node eng/check-copied-modules.mjs` (acceptance 15). It reported all 41 copied blocks across 11 workflow files identical.",
+        "Looked for a silent-failure hack in the helper-absent behaviour (acceptance 16). ts/metalang/client.tsx reads window.__jarvisStory on DOMContentLoaded and draws NotNarratedHere through the existing d-nothing class. render.test.ts covers both the announced and silent cases and forces the announced case to be able to fail. Found no gaming.",
+        "Checked the CI required-file list. ci.yml line 593 now names style.css and syntax.css. kit.test.ts line 294 ('the required-file check the release job runs') runs that check, which covers acceptance 9.",
+        "Checked the jsdom pins. package.json has jsdom 31.0.0 and @types/jsdom 30.0.0, and bun.lock resolves both at those versions. No jsdom declaration file exists in ts/.",
+        "Checked the story helper tag (acceptance 12). render.test.ts:306 and kit.test.ts:245 assert the exact tag `<script defer src=\"/api/packages/story.js\"></script>`.",
+        "Checked the kit readme sentence (acceptance 17). ts/metalang/kit.ts lines 109-111 say the page asks its own origin for the narration script. kit.test.ts:83 has a NARRATION_SCRIPT constant for this."
+      ],
+      "proofChecked": [
+        "bun test: 881 pass, 0 fail, coverage above 0.75",
+        "bun run typecheck and bun run lint clean",
+        "acceptance 14 command output [true,true,false,false], exit 0",
+        "node eng/check-copied-modules.mjs: PASS, 41 blocks identical",
+        "ci.yml required-file loop lists style.css and syntax.css",
+        "package.json and bun.lock pins for jsdom 31.0.0 and @types/jsdom 30.0.0",
+        "client.tsx and app.tsx NotNarratedHere implementation read",
+        "render.test.ts and kit.test.ts helper tag and readme assertions present",
+        "grep for .dev/inprocess and .dev/completed under ts/: found the finding above"
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "A Success-definition criterion is unmet on the live tree and the gap was accepted by the orchestrator, not Tim: \"a selector naming one member of one declaration matches exactly one element\" matches TWO elements for a clean-checking document whose declaration has two members of the same name, and no Decision carves that case out.",
+          "evidence": "Contract /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md:61 (Success definition, \"This run:\") states the criterion unconditionally. I reproduced the failure myself against the live working tree, not against a record: a document in the architecture language declaring one element `IGuard` with two members both named `Name` checks clean (`found.problems` [], `found.blockers` []) and the rendered page gives `[data-declaration=\"IGuard\"] [data-member=\"Name\"]` 2 matches. Probe script and output: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/probe/overload.tsx, printing `problems []`, `blockers []`, `matches ... : 2`. Cause in the live code: ts/metalang/app.tsx:746-755, where `identityOf` writes each row's own name value with no uniqueness handling; ts/metalang/arch.yaml puts no `distinct` constraint on `element.members`, so the duplicate is a valid document. The work's own record admits the gap and admits who decided it: .dev/inprocess/114-kit-page-narration/three-choices-nobody-made.md — \"What it does not meet is the Success definition's general sentence, because a beat pointing at an overloaded member matches two rows ... which is the walkthrough hole this work exists to close\" and \"This one is filed as issue 120 ... rather than put to Tim\". The hidden-decision scan itself ruled it a forced choice for the human, not an auto-resolvable one: ground/hidden-decision-scan.json places it in `judged.findings` (severity \"medium\", category wire-format/invariant) and not in `judged.autoResolved`. Authorization check: the contract has an explicit mechanism for recording a carve-out — \"**Not decided, and not in this contract.**\" at contract.md:21 — and it still names only issues 115, 116 and 117, although the contract was edited at 2026-11-13 19:53:19 -0600 (commit 762d254) AFTER issue 120 was filed at 2026-11-14T01:15:02Z (= 19:15 local, `gh issue view 120`). I searched every decision record in the live store (/Users/timothystockstill/code/macos/4thWAIV/jarvis/data/packages/*/results/decisions.json, which holds answers through 2026-11-13T21:00:50-06:00) and no answer of Tim's covers this case. Governing requirements violated: rails-run-a-workflow \"Never weaken a requirement to fit the code — The change narrows, softens, or reinterprets a requirement so it matches what the code already does. This is a top-line finding\"; rails-run-a-workflow/contract.md:142 \"Scope changes ONLY by the human editing the contract. There is no second path\" (a GitHub issue plus a work-folder note is a second path); best-practices guide 6b, \"these come to Tim: ... Waiving or accepting a known-failing or deferred check\"; guide 4b, which reserves the shipped format people build against — `data-member`'s value is the published target format every JARVIS beat is written against, and adding a disambiguator later changes a shipped format. What remains unproven: that Tim accepted this criterion being unmet in the general case, in any wording.",
+          "fix": ""
+        },
+        {
+          "summary": "The hidden-decision scan, a required GROUND-stage step at L1, did not run until after the contract locked and after the implementation was committed, so RULE-PHASE, ARCHITECTURE, TDD and the first IMPLEMENT round all ran with unresolved forced choices present — including one that had already shipped into the tree the silent failure CLAUDE.md rule 1 bans.",
+          "evidence": "The orchestrator's own provenance file states it: .dev/inprocess/114-kit-page-narration/ground/hidden-decision-scan-provenance.md — \"`hidden-decision-scan.json` is the run of 2026-11-13, `wf_b3bc586a-943`\" and \"The scan has no earlier result anywhere for this contract — not in this folder and not in any workflow journal — so it was run before the adversary panel rather than pointing the panel at a file that is not that stage's result.\" I confirmed the timing independently from the workflow journals rather than from that note: /Users/timothystockstill/.claude/projects/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/subagents/workflows/wf_b3bc586a-943 is stamped 11-13 19:05 and its journal holds the five `hunt:` lens agents, while the stages it was supposed to precede all ran earlier — rule-gen rounds wf_216a22de-117 (11-11 21:42), wf_e54fd084-d45 (11-11 23:13), wf_81d47f52-ab1 (11-12 08:58), wf_8b2bb354-cde (11-12 18:42), wf_65e741e9-f59 (11-12 19:27); architecture wf_2fc73158-2ba (11-12 19:44) and wf_4e167d5b-aae (11-12 21:10); test-author wf_ed3b5d13-8a0 (11-12 21:42) and wf_453d9fce-e9f (11-13 13:13); implement wf_5f313c34-188 (11-13 13:30) and wf_e136ac55-edf (11-13 17:09). The implementation commit cfbbbf5 \"Implement the kit page narration targets\" predates the scan, and it is the commit that put `<script defer src=\"/api/packages/story.js\"></script>` into every page the kit draws (ts/metalang/render.ts STORY_HELPER, written at render.ts:96 inside `pageHtml`) with nothing reporting its absence — the exact silent failure the scan then raised as its first, high-severity finding and which /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/CLAUDE.md rule 1 bans outright. Governing requirements violated: rails-run-a-workflow GROUND, \"The orchestrator runs the hidden-decision scan before the contract locks\"; the same skill's CONTRACT stage, \"No mutating stage starts before the contract is written, every forced decision is resolved, and the opening bracket is green\" and \"A forced choice that no approved principle answers stays unresolved for the human. No contract advances past CONTRACT with an unresolved forced choice\"; and the launch precondition \"The stage is the one that should run.\" What remains unresolved rather than merely late: of the scan's three findings, `helper-absent` was carried to Tim and is now built and proven (I verified both cases myself, see proofChecked), the release-digest one was corrected and left as issue 121, and the third — the overloaded member — is the unapproved narrowing in the finding above. Running the stage out of sequence is also the orchestrator's own call, which rails-run-a-workflow reserves against: \"Re-running any completed stage is the human's decision and needs their explicit yes — never the orchestrator's own call, and never as a way to refresh an input.\"",
+          "fix": ""
+        }
+      ],
+      "observations": [
+        {
+          "summary": "The three rules in `Rules to add` are the only decision-level items in this contract whose approval cannot be re-derived against any record; rule 3 has no corroboration at all.",
+          "evidence": "contract.md:31 records \"Tim approved all three as written on 2026-11-11, and told this session to proceed with the work\" — no package, no answer id, no `results/decisions.json`, unlike every other Decision in the contract, each of which names both (member-identity/selector-proof in architecture-repair-the-executive-brief-1.0.3-local156 and kit-narration-repair-two-language-and-te-1.0.0-local6cb; authorize-walkthrough-repair in architecture-walkthrough-repair-authoriz-1.0.0-local61c; dom-library in choose-the-dom-library-1.0.2-localafe; jsdom-types and green-criterion in unblock-the-kit-acceptance-tests-1.0.1-localea7; rule-2-middle-clause in rule-2-s-middle-clause-1.0.0-local2d1; impact-test in clear-the-last-kit-test-1.0.2-localfe2; when-the-page-says-so in when-the-page-says-so-1.0.0-localb6b; helper-absent in pages-away-from-jarvis-1.0.0-locale6d; rule-1-boundary/rule-2-boundary in where-two-approved-rules-stop-1.0.0-local9b6 — I opened and read every one of those files and each matches the contract's recorded answer id). I also read the brief that was put to him, .dev/inprocess/114-kit-page-narration/executive-brief.md: its five choices are the interface signature, Loaded<T>, the grant cause, member-identity and selector-proof — the rules are not among them.",
+          "nonBlockingReason": "rails-write-a-contract requires only that each rule be \"recorded as an approved decision\" in the approved wording, which contract.md:35-43 does, and no rail requires a provenance citation; I could not establish that the approval is absent rather than uncited, and for rules 1 and 2 there is independent corroboration — Tim's recorded answers `rule-1-boundary: lookups-and-renames` and `rule-2-boundary: drawn-documents` at 22:39 and 22:41 the same evening, in a package titled \"Where two approved rules stop\", presuppose the rules as approved items, and both answers' wording matches what the contract records. Rule 3's wording has not changed since the commit that claimed its approval (99533a8). The stores that would hold a conversational yes are incomplete on this machine (jarvis.db `conversation_items` ends 2026-11-11T16:20 and `messages` for this project ends 15:50), so absence of a hit there is not evidence."
+        },
+        {
+          "summary": "The work item's folder is missing the ARCHITECTURE result and its panel verdicts, the RULE-PHASE panel verdicts, the IMPLEMENT proof and the READINESS results, although the rails require every stage's agent outputs, adversary verdicts and proof to live in it.",
+          "evidence": "`find .dev/inprocess/114-kit-page-narration -type f` holds ground/ (facts.json, ledger.json, hidden-decision-scan.json), design/ (proposals.json, verdict.json), rule-phase/author-result.json and tdd/ (result.json, result-page-says-so.json) and nothing else; rails-run-a-workflow Provenance requires \"its contract, agent outputs, adversary verdicts, and final proof inside the work item's folder.\" I recovered each missing result from the workflow journals myself: architecture ran twice and both times returned `skeletonFiles: []` with \"NO SIGNATURE CHANGES\" / \"No signature changes\" (wf_2fc73158-2ba, wf_4e167d5b-aae); the impact-test RULE-PHASE round wf_843fbbeb-a51 ran rule-gen plus a three-adversary panel that returned PASS with 0 findings each; READINESS wf_9414eb96-ce4 returned `ready: true` with 0 mismatches; IMPLEMENT wf_c4abde7c-a34 returned a complete result with `walls: []`.",
+          "nonBlockingReason": "The required stages did run and their required proof exists — I read each one and re-ran the substance in the live tree rather than taking the records' word — so this is an administrative omission in where the records sit, not a missing stage or missing proof. It is not a contract deliverable: the contract's Surfaces and What-to-do name no run-record file."
+        },
+        {
+          "summary": "Nothing in this repository reports two declarations sharing an id as ambiguous; the acceptance test proves only that both sections are addressable and that the member selector matches two.",
+          "evidence": "contract.md:61 and Acceptance 5 (contract.md:121) say \"two declarations sharing an id are reported as ambiguous rather than resolved to the first.\" The live test, ts/metalang/app.test.tsx \"two declarations sharing an id read as the two they are, not as the first of them\", asserts `querySelectorAll('[data-declaration=\"IGuard\"]').length === 2` and that each section's first member row carries its own identity. `grep -rn ambiguous ts/metalang` finds no report in the renderer or the checker; a consumer calling `querySelector` still gets the first.",
+          "nonBlockingReason": "Read whole, the contract never asks for an in-repo report: the Reuse ledger says \"Add no second report\", \"**Not decided, and not in this contract**\" files the check-time refusal as issue 115, and Acceptance 10 puts the consumer-side verification on the JARVIS side after release, where the helper is the thing that reports a multi-match target. The in-repo requirement therefore reduces to \"not resolved to the first\", and the test does prove that, so no requirement remains unmet and no proof is missing."
+        },
+        {
+          "summary": "READINESS returned `ready: true` while reporting that two of its six checks were not runnable, because no orchestrator panel instruction was supplied to it.",
+          "evidence": "wf_9414eb96-ce4 `checksRun`: \"5. EXCLUSION — NOT RUNNABLE, and that is worth reporting. No orchestrator instruction was supplied to this agent, so the one artifact this check exists to read does not exist here\" and \"6. OPEN ITEM — ran the contract-and-tree half; the instruction half is unrunnable for the same reason as check 5.\" rails-run-a-workflow gives that stage the revoked authority \"never returns ready with a mismatch present.\"",
+          "nonBlockingReason": "The agent reported the gap in writing instead of recording the check as made, which is the opposite of the silent pass the rule guards against, and I ran the equivalent myself: every carve-out in the contract traces to a Decision or to the contract's own words, and the one exclusion that does not — the overloaded-member case — is raised as a blocking finding above rather than left here."
+        },
+        {
+          "summary": "Issue 121, the second of the late scan's three findings, is also absent from the contract's \"Not decided, and not in this contract\" section.",
+          "evidence": "`gh issue view 121` shows \"Publish a build-produced digest beside the released kit zip\", filed 2026-11-14T01:19:39Z; contract.md:21 still names only 115, 116 and 117. The orchestrator's record .dev/inprocess/114-kit-page-narration/three-choices-nobody-made.md states the scan's claim was wrong on its facts and cites jarvis/language_kit_updates.py:89-91 and jarvis/language_kit.py:194 as already verifying a released asset's digest.",
+          "nonBlockingReason": "Nothing in the contract's Standard, Success definition, Acceptance or What-to-do turns on a published digest file, so no requirement of this contract is narrowed by leaving it out, and the correction plus the filed issue are recorded. The orchestrator also flagged its own earlier unverified claim in writing rather than letting it stand."
+        }
+      ],
+      "refutationAttempts": [
+        "Tried to refute that the two page-says-so acceptance tests can fail at all. Extracted the harness from ts/metalang/render.test.ts into the scratchpad, rendered the page the way the test does (renderWith with an empty bundle), and ran it against (a) the real ts/metalang/client.tsx and (b) a scratch entry I wrote that reads window.__jarvisStory at mount instead of after the deferred scripts. Real entry: silent = 1 line, announced = 0 lines. Mount-time entry: silent = 1 line, announced = 1 line, i.e. the announced test would fail. The announced case is genuinely able to fail, so the fix-round finding was really applied; refutation failed.",
+        "Tried to refute the claim that the renderer never reads a member's name property by spelling, by looking for words of the drawn language still written as literals in app.tsx. Enumerated the rule's banned set from the live module (31 words) and confirmed the rule's own tree-wide test 'writes no word of the language out' passes over app.tsx and client.tsx. Found that 'values', 'abstract', 'primitive', 'title', 'description', 'string' and 'expression' are still literals in app.tsx — but words.ts names none of them, and contract.md:37 fixes the rule's reach as \"Enforced on every word `words.ts` names\", which Tim's recorded `rule-1-boundary` answer governs. Not a deviation; refutation failed.",
+        "Tried to refute rule 3 ('one owning site per identity attribute') as satisfied only by construction, since `Table` is generic and draws any collection-of-object table, not only member rows. Confirmed from ts/metalang/app.test.tsx that `data-member` does appear on rows of a non-member shape ('titleds' rows carry One/Two). But contract.md:96 orders exactly that — \"In `Table`, resolve the member's name property once per table through `propertyCarrying`\" — and settles the zero- and two-carrier cases, so the generic reach is the approved design. Refutation failed.",
+        "Tried to refute the claim that no suppression was used to reach green. Grepped ts/, package.json, bunfig.toml and .github/workflows/ci.yml for `#pragma warning disable`, `[SuppressMessage]`, `NoWarn`, `severity = none`, `@ts-ignore`, `@ts-expect-error`, `@ts-nocheck`, `eslint-disable` and `biome-ignore`, and grepped the whole diff for newly added ones. The only hit, render.test.ts:77, is pre-existing and untouched by this change. Also grepped the diff for `|| true`, `continue-on-error` and empty catch blocks: none. Refutation failed.",
+        "Tried to refute the test surface as weakened. Diffed every changed test file against the merge base c918581 and compared the set of test titles before and after: zero titles removed or renamed in app.test.tsx, render.test.ts or kit.test.ts; counts rose 194 to 203, 33 to 38 and 21 to 27. `data-part` assertions 5 to 6 and `data-col` 7 to 7. No test.skip / test.todo / test.only / xit / .failing anywhere in ts/. Refutation failed.",
+        "Tried to refute the one test the implementation could not clear as an illegal re-pin. Read Tim's recorded answer (`impact-test: pin-what-not-where`, 2026-11-13T18:34:35-06:00, clear-the-last-kit-test-1.0.2-localfe2) and the decision as the contract records it at contract.md:23, then read the rewritten test at ts/metalang/guardrails.test.ts:1365: nine entries, each a word plus its reason, sorted, with no total of weighed or flagged literals and no line number anywhere in it. It matches the approved wording, and the companion test 'writes no word of the language out' still pins zero flagged. Refutation failed.",
+        "Tried to refute the renaming of the result-contract key `itemsAllTrue` to `itemsTrueOrExplained` as a silent disabling of some other stage's all-true check. Grepped .agents/ for both names: eleven `itemsTrueOrExplained` loop copies and nine call sites, zero remaining `itemsAllTrue`, and the only call site is the coverage/red pair. `node eng/check-copied-modules.mjs` exits 0 with every copy byte-identical. Refutation failed.",
+        "Tried to refute the determinism and helper-position claims without relying on the tests. Rendered ts/metalang/parts.yaml twice through the live renderer and compared bytes with `cmp`: identical. On a freshly rendered page, the exact tag `<script defer src=\"/api/packages/story.js\"></script>` occurs once, at index 64986, after the data block at 23219 and before the bundle's `<script>` at 65039, and the last `</script>` in the page is the bundle's — which is what keeps the pre-existing bundle-slicing assertions meaningful. Refutation failed.",
+        "Tried to refute the two named literal targets as having been smuggled into the tree or a fixture to make the acceptance pass. Grepped ts/ for IGrantStore and IWindowsHelloNativeOps: hits only inside ts/metalang/guardrails.test.ts, where the rule names what it bans, and the rule's own tree-wide test 'no file outside a test writes a target' passes over all non-test ts/ files. Refutation failed.",
+        "Tried to refute the claim that ARCHITECTURE never ran, after finding no architecture record in the work folder. Searched the workflow journals and found two architecture runs for this contract (wf_2fc73158-2ba, wf_4e167d5b-aae), both returning empty skeletonFiles with an explicit no-signature-change explanation. The stage ran; only its record is missing, so this is an observation and not a skipped stage. Refutation succeeded only in downgrading my own suspicion.",
+        "Tried to refute the overloaded-member gap as unreachable, on the theory that the checker or the language refuses two members of the same name in one declaration. Built such a document and ran the live rulebook and checker over it: problems [] and blockers [], so it is a valid document, and the rendered page gives the member selector two matches. The gap is reachable; this refutation succeeded and became the first blocking finding."
+      ],
+      "proofChecked": [
+        "`make build` — exit 0, Build succeeded, 0 Warning(s), 0 Error(s) (log at /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/makebuild.log)",
+        "`make test` — exit 0; 619 + 56 + 148 + 11 passed, 0 failed, 0 skipped (log at /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/maketest.log)",
+        "`bun test` from the worktree root — exit 0; 881 pass, 0 fail, 1502 expect() calls across 16 files; coverage 95.54% funcs / 96.53% lines against the 0.75 floor in bunfig.toml (log at /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/buntest.log)",
+        "`bun run typecheck` — exit 0, no diagnostics; `bun run lint` — exit 0, no findings (Acceptance 13)",
+        "`node eng/check-copied-modules.mjs` — exit 0; 11 workflow files, 41 copied blocks, 7 distinct names, every copy byte-identical: required-agent-runtime 11, stage-result-contracts 9 (Acceptance 15)",
+        "Acceptance 14's own command, run verbatim from the contract — printed [true,true,false,false] and exited 0, so a red:false row with a reason is accepted, the same row with an empty reason is refused, and a red:true row carrying a reason is refused",
+        "Acceptance 2, 3, 4, 5 named tests, all pass in the full run: 'a selector naming one declaration’s members reaches that one table', 'a selector naming one member of one declaration reaches that one row', 'a member name carrying a double quote, a single quote and a backslash is reachable', 'a member name two declarations share resolves to the one asked for', 'two declarations sharing an id read as the two they are, not as the first of them'",
+        "Acceptance 7, 9, 12, 16, 17 named tests, all pass: 'is drawn twice from one kit as the same bytes', 'refuses a kit asset with style.css taken out of it', 'refuses a kit asset with syntax.css taken out of it', 'passes a kit asset carrying every file it names', 'names every file the kit marks as required', 'the page it draws loads the story helper', 'a page the helper never announced itself on says it cannot be narrated here, once', 'a page the helper announced itself on says nothing about not being narrated', 'says a drawn page asks its origin for the narration script, and names it'",
+        "Acceptance 8 — each of the three rules has a violating and a compliant fixture that both pass: BY_SPELLING / NOT_FINDING_KINDS against BY_THE_LANGUAGE for rule 1, LITERAL_TARGETS against NO_LITERAL_TARGET for rule 2, COPIED_IDENTITY against ONE_OWNING_SITE for rule 3, in ts/metalang/guardrails.test.ts",
+        "My own determinism check, independent of the test: ts/metalang/parts.yaml rendered twice through the live renderer, `cmp` reports identical bytes",
+        "My own helper-position check on a freshly rendered page: the exact contract tag appears once, after the data block and before the bundle, and the last `</script>` is the bundle's",
+        "My own page-says-so check, running the real bundle entry in jsdom out-of-process against a real rendered page: silent = exactly 1 line, announced = 0 lines; the same harness with a mount-time reader = 1 line in both cases, proving the announced case can fail",
+        "My own overloaded-member probe: a clean-checking arch document with two members named `Name` in one declaration gives `[data-declaration=\"IGuard\"] [data-member=\"Name\"]` 2 matches, with no problem and no blocker reported",
+        "Every decision record the contract cites, opened and compared field by field against the contract's recorded answer id: architecture-repair-the-executive-brief-1.0.3-local156, kit-narration-repair-two-language-and-te-1.0.0-local6cb, architecture-walkthrough-repair-authoriz-1.0.0-local61c, choose-the-dom-library-1.0.2-localafe, unblock-the-kit-acceptance-tests-1.0.1-localea7, rule-2-s-middle-clause-1.0.0-local2d1, clear-the-last-kit-test-1.0.2-localfe2, when-the-page-says-so-1.0.0-localb6b, pages-away-from-jarvis-1.0.0-locale6d (helper-absent), where-two-approved-rules-stop-1.0.0-local9b6 (rule-1-boundary, rule-2-boundary) — all ten match",
+        "Every supplied autoResolved array: ground/facts.json, six areas, 11 entries, every one carrying choice, resolution, principle and evidence; design/proposals.json, three angles, 17 entries, all four fields; design/verdict.json, 10 entries, all four fields; ground/hidden-decision-scan.json, 4 entries, all four fields. I checked each scan entry's cited principle against .dev/reference/best-practices-guide.md 3a, 5a and 5b and against the contract text it quotes, and each one resolves the choice it records",
+        "The 17 coverage rows across tdd/result.json (15) and tdd/result-page-says-so.json (2): every acceptance item 1 to 17 covered exactly once, every red:false row carrying a nonempty reason, no red:true row carrying one, and all six adversary verdicts PASS with zero findings",
+        "The recovered stage results the work folder omits: architecture wf_2fc73158-2ba and wf_4e167d5b-aae (no signature change), rule-phase panel wf_843fbbeb-a51 (three PASS, zero findings), readiness wf_9414eb96-ce4 (ready true, zero mismatches), implement wf_c4abde7c-a34 (complete, no walls)",
+        "`git status --porcelain` — empty, so everything I ruled against is committed on kit-walkthrough-targets above merge-base c918581",
+        "gh issue state for 115, 116, 117, 118, 120, 121 — all OPEN; 120 created 2026-11-14T01:15:02Z and 121 at 01:19:39Z, both after the contract's \"Not decided\" section was last written and before the contract's final edit at 19:53 local"
+      ]
+    }
+  ],
+  "anyFail": true,
+  "failedLenses": [
+    "prove-it",
+    "laziness",
+    "lie-catcher"
+  ],
+  "panelComplete": true,
+  "failedRoles": []
+}

@@ -1,0 +1,101 @@
+{
+  "changedFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.tsx"
+  ],
+  "buildProof": "RED OBSERVED FIRST (before the change, live tree clean at 5c73cc9, `git status --short` empty):\n\n$ bun test ts/metalang/app.test.tsx\nerror: expect(received).toEqual(expected)\n(fail) two members of one declaration carrying one name > each of the two is reached by its place among the members sharing the name [19.43ms]\nerror: expect(received).toBe(expected)\n(fail) two members of one declaration carrying one name > the shared name on its own reaches no row, because it names neither of them [18.86ms]\n(pass) two members of one declaration carrying one name > a declaration naming each of its members once is drawn as it was [26.27ms]\n 208 pass\n 2 fail\n\nExactly the two reds the fix direction names, and the third case passing, as it must keep doing. RULE-PHASE added no analyzer (`.dev/inprocess/114-kit-page-narration/rule-phase/author-result.json` lists one rule file, `ts/metalang/guardrails.test.ts`, and no diagnostic id), so there is no analyzer RED to clear; rule 1's fifteen-literal production impact was already cleared by an earlier IMPLEMENT round — `(pass) the drawing path > writes no word of the language out` in the full run below.\n\n--------------------------------------------------------------------\n$ dotnet build -c Release          (from the worktree root)\n  AgentGuard.Analyzers -> .../analyzers/AgentGuard.Analyzers/bin/Release/netstandard2.0/AgentGuard.Analyzers.dll\n  AgentGuard.Abstractions -> .../src/AgentGuard.Abstractions/bin/Release/net10.0/AgentGuard.Abstractions.dll\n  AgentGuard.Boundaries -> .../src/AgentGuard.Boundaries/bin/Release/net10.0/AgentGuard.Boundaries.dll\n  AgentGuard.CrossPlatform -> .../src/AgentGuard.CrossPlatform/bin/Release/net10.0/AgentGuard.CrossPlatform.dll\n  AgentGuard.Analyzers.Tests -> .../analyzers/AgentGuard.Analyzers.Tests/bin/Release/net10.0/AgentGuard.Analyzers.Tests.dll\n  AgentGuard.CrossPlatform.Linux -> .../src/AgentGuard.CrossPlatform.Linux/bin/Release/net10.0/AgentGuard.CrossPlatform.Linux.dll\n  AgentGuard.CrossPlatform.MacOS -> .../src/AgentGuard.CrossPlatform.MacOS/bin/Release/net10.0/AgentGuard.CrossPlatform.MacOS.dll\n  AgentGuard.CrossPlatform.Windows -> .../src/AgentGuard.CrossPlatform.Windows/bin/Release/net10.0/AgentGuard.CrossPlatform.Windows.dll\n  AgentGuard.Engine -> .../src/AgentGuard.Engine/bin/Release/net10.0/AgentGuard.Engine.dll\n  AgentGuard.Cli -> .../src/AgentGuard.Cli/bin/Release/net10.0/guard.dll\n  AgentGuard.TestHelpers -> .../tests/AgentGuard.TestHelpers/bin/Release/net10.0/AgentGuard.TestHelpers.dll\n  AgentGuard.CrossPlatform.Tests -> .../tests/AgentGuard.CrossPlatform.Tests/bin/Release/net10.0/AgentGuard.CrossPlatform.Tests.dll\n  AgentGuard.Cli.Tests -> .../tests/AgentGuard.Cli.Tests/bin/Release/net10.0/AgentGuard.Cli.Tests.dll\n  AgentGuard.Tests -> .../tests/AgentGuard.Tests/bin/Release/net10.0/AgentGuard.Tests.dll\n\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\n\nTime Elapsed 00:00:27.20\nBUILD EXIT: 0\n(full output: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/dotnet-build-implement.txt)\n\n--------------------------------------------------------------------\n$ make build && make test          (the contract's Acceptance 1 commands)\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\nBuild succeeded.\n    0 Warning(s)\n    0 Error(s)\nPassed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 5 s - AgentGuard.Analyzers.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 312 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 374 ms - AgentGuard.Cli.Tests.dll (net10.0)\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 465 ms - AgentGuard.Tests.dll (net10.0)\nMAKE EXIT: 0\n(full output: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/make-implement.txt)\n\n--------------------------------------------------------------------\n$ bun run typecheck\n$ tsc --noEmit\nTYPECHECK EXIT: 0\n\n$ bun run lint\n$ eslint ts\nLINT EXIT: 0",
+  "testProof": "$ dotnet test -c Release           (from the worktree root)\nA total of 1 test files matched the specified pattern.\n\nPassed!  - Failed:     0, Passed:   619, Skipped:     0, Total:   619, Duration: 5 s - AgentGuard.Analyzers.Tests.dll (net10.0)\n\nPassed!  - Failed:     0, Passed:    56, Skipped:     0, Total:    56, Duration: 299 ms - AgentGuard.CrossPlatform.Tests.dll (net10.0)\n\nPassed!  - Failed:     0, Passed:   148, Skipped:     0, Total:   148, Duration: 454 ms - AgentGuard.Tests.dll (net10.0)\n\nPassed!  - Failed:     0, Passed:    11, Skipped:     0, Total:    11, Duration: 291 ms - AgentGuard.Cli.Tests.dll (net10.0)\nTEST EXIT: 0\n0 failed, 0 skipped, 834 passed across four assemblies.\n(full output: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/dotnet-test-implement.txt)\n\n--------------------------------------------------------------------\n$ bun test                         (whole suite, worktree root — the kit's tests)\n----------------------------|---------|---------|-------------------\nFile                        | % Funcs | % Lines | Uncovered Line #s\n----------------------------|---------|---------|-------------------\nAll files                   |   95.54 |   96.53 |\n ts/metalang/app.tsx        |   99.15 |   99.48 | 945,1746-1749\n ts/metalang/bundle.ts      |  100.00 |  100.00 |\n ts/metalang/check.ts       |  100.00 |   98.84 | 381,569-570,626-627,664-665,669-670\n ts/metalang/cli.ts         |   80.00 |   96.61 | 135-136\n ts/metalang/constraints.ts |  100.00 |  100.00 |\n ts/metalang/examples.ts    |  100.00 |   85.37 | 133-144\n ts/metalang/expression.ts  |  100.00 |  100.00 |\n ts/metalang/highlight.ts   |  100.00 |  100.00 |\n ts/metalang/kit.ts         |  100.00 |   92.31 | 189-193\n ts/metalang/page-data.ts   |   75.00 |   91.30 | 43\n ts/metalang/propose.ts     |   78.95 |   86.56 | ...\n ts/metalang/render.ts      |  100.00 |   97.98 | 227-228\n ts/metalang/rulebook.ts    |  100.00 |  100.00 |\n ts/metalang/syntax.ts      |  100.00 |   99.47 | 226\n ts/metalang/words.ts       |  100.00 |  100.00 |\n----------------------------|---------|---------|-------------------\n\n 884 pass\n 0 fail\n 1512 expect() calls\nRan 884 tests across 16 files. [8.33s]\nBUN TEST EXIT: 0\n(full output: /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/bun-test-implement.txt)\n\nTHE TWO REDS, NOW GREEN, AND THE THIRD CASE STILL GREEN (lines 577-579 of that run; no test file was edited — `git diff --stat` is `ts/metalang/app.tsx | 28 +++---`, one file):\n(pass) two members of one declaration carrying one name > each of the two is reached by its place among the members sharing the name [25.87ms]\n(pass) two members of one declaration carrying one name > the shared name on its own reaches no row, because it names neither of them [23.21ms]\n(pass) two members of one declaration carrying one name > a declaration naming each of its members once is drawn as it was [22.53ms]\n\nNo test was weakened, skipped, deleted or re-pointed; no rule was suppressed, NoWarn'd or lowered. 884 of 884 kit tests and 834 of 834 .NET tests pass.\n\n--------------------------------------------------------------------\nPER-FILE RUNS THE CONTRACT NAMES\n$ bun test ts/metalang/app.test.tsx       → 210 pass, 0 fail, EXIT 1\n$ bun test ts/metalang/render.test.ts     → 38 pass, 0 fail, EXIT 1\n$ bun test ts/metalang/kit.test.ts        → 28 pass, 0 fail, EXIT 1\n$ bun test ts/metalang/guardrails.test.ts → 17 pass, 0 fail, EXIT 1\n\nThe exit 1 on a single-file run is bunfig.toml's coverage floor, not a failure, and I proved that on a file this round never touched:\n$ bun test ts/metalang/words.test.ts\n 77 pass\n 0 fail\nEXIT: 1\nbunfig.toml:4-5 is `coverage = true` / `coverageThreshold = 0.75`, and one file cannot reach the floor. The whole-suite run above exits 0.\n\n--------------------------------------------------------------------\n$ node eng/check-copied-modules.mjs\n11 workflow files, 41 copied blocks, 7 distinct block names\nPASS — every duplicated block is byte-identical across all copies\nEXIT: 0\n\n$ node --input-type=module -e '<the contract's Acceptance 14 command, verbatim>'\n[true,true,false,false]\nEXIT: 0\n\n$ grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/\nts/metalang/guardrails.test.ts\n(only the rule's own ban list; no document here declares either id)",
+  "acceptance": [
+    {
+      "item": "1. `make build && make test` green, and `bun test` green, from the repository root.",
+      "met": true,
+      "evidence": "`make build && make test` exit 0, 0 Warning(s) / 0 Error(s), 619 + 56 + 11 + 148 = 834 .NET tests passed, 0 failed, 0 skipped. `bun test` exit 0: 884 pass, 0 fail across 16 files. Also `dotnet build -c Release` exit 0 with 0 warnings / 0 errors and `dotnet test -c Release` exit 0 with 0 failed."
+    },
+    {
+      "item": "2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.",
+      "met": true,
+      "evidence": "`(pass) pointing at one declaration and at one member of it > a selector naming one declaration’s members reaches that one table [130.86ms]` (line 572 of the full `bun test` run); app.test.tsx on its own is 210 pass / 0 fail. Unchanged by this round."
+    },
+    {
+      "item": "3. A selector naming one member of one declaration matches exactly one element, same command.",
+      "met": true,
+      "evidence": "`(pass) ... a selector naming one member of one declaration reaches that one row [42.93ms]` (line 573), plus the four supporting cases: `which property of a member carries its name` (two) and `a shape whose language has not said which property is the name` (two) — the zero-carrier and two-carrier rows still draw no identity, which my change preserves: `nameHeldBy` returns undefined when `namePart` is undefined, and an undefined name is passed through untouched by the numbering."
+    },
+    {
+      "item": "4. A member name containing a double quote, a single quote and a backslash is reachable by selector in jsdom. Same command.",
+      "met": true,
+      "evidence": "`(pass) ... a member name carrying a double quote, a single quote and a backslash is reachable [20.32ms]` (line 575). The identity is still written as a JSX prop (`data-member={identities[i]}`), so React does the escaping and no second escaper exists."
+    },
+    {
+      "item": "5. A member name repeated across two declarations resolves to the one asked for, and two declarations sharing an id are reported as ambiguous rather than resolved to the first. Same command.",
+      "met": true,
+      "evidence": "`(pass) ... a member name two declarations share resolves to the one asked for [40.21ms]` (line 574) and `(pass) ... two declarations sharing an id read as the two they are, not as the first of them [23.87ms]` (line 576). A name shared ACROSS declarations is carried by one row in each table, so each table's count for it is 1 and both keep their plain name — the across-declarations behaviour is unchanged, as the contract requires."
+    },
+    {
+      "item": "6. Every `data-part` and `data-col` target that passes today still passes, by the existing assertions running unchanged.",
+      "met": true,
+      "evidence": "No test file was edited: `git status --short` is one line, ` M ts/metalang/app.tsx`, and `git diff --stat` is `1 file changed, 25 insertions(+), 3 deletions(-)`. The eight data-part/data-col tests all pass in the full run: lines 492, 495, 496, 501, 502, 507, 553 of app.test.tsx and line 365 of propose.test.ts (`marks the part the example says is the word, with a rule written beside it`). The `data-col` props in `Table` are untouched by the diff."
+    },
+    {
+      "item": "7. The same document rendered twice under one built kit produces identical bytes per file. Command: `bun test ts/metalang/kit.test.ts`.",
+      "met": true,
+      "evidence": "`(pass) a document written in a language other than MetaLang > is drawn twice from one kit as the same bytes, so what a kit draws is reproducible [540.48ms]` (line 793); kit.test.ts is 28 pass / 0 fail. The numbering is a pure function of the member list in source order — two Maps filled by one forward pass — so it cannot vary between renders."
+    },
+    {
+      "item": "8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.",
+      "met": true,
+      "evidence": "guardrails.test.ts is 17 pass / 0 fail. Rule 1: lines 667-671; rule 2: lines 672-674; rule 3: lines 675-677 of the full run, each with its violating and its compliant case. I changed nothing in `analyzers/**` and nothing in guardrails.test.ts."
+    },
+    {
+      "item": "9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.",
+      "met": true,
+      "evidence": "`(pass) the required-file check the release job runs > refuses a kit asset with style.css taken out of it [61.74ms]`, `... with syntax.css taken out of it [62.08ms]`, `... names every file the kit marks as required [1.09ms]`, `... passes a kit asset carrying every file it names [62.77ms]` (lines 799-802), each running the real ci.yml check against a built kit."
+    },
+    {
+      "item": "10. The two literal targets are verified on the JARVIS side after the kit release, not in this repository.",
+      "met": true,
+      "evidence": "Both conditions this criterion puts in this repository hold: `grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` returns only `ts/metalang/guardrails.test.ts`, the rule's own ban list, so no document here declares either id; and rule 2's whole-tree test `no file outside a test writes a target [130.34ms]` passes (line 674). The on-page verification itself has NOT happened and by the criterion's own words happens on the JARVIS side against the re-cut revision after the kit release — I wrote neither literal into any fixture or source file."
+    },
+    {
+      "item": "11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets. Command: `bun test`.",
+      "met": true,
+      "evidence": "The full `bun test` run prints `All files | 95.54 | 96.53` (funcs / lines), with `ts/metalang/app.tsx | 99.15 | 99.48`, and exits 0 with no threshold failure printed. bunfig.toml:4-5 holds `coverage = true` and `coverageThreshold = 0.75`; I did not touch bunfig.toml."
+    },
+    {
+      "item": "12. The rendered page loads the story helper as `<script defer src=\"/api/packages/story.js\"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too.",
+      "met": true,
+      "evidence": "`(pass) the story helper a narrated page loads > the page loads it`, `> it sits after the data the page draws and before the bundle that draws it`, `> the slice the bundle is read out of is still the bundle and nothing else` (lines 868-870) and `(pass) ... the page it draws loads the story helper, so a released kit can be narrated [286.11ms]` (line 794). render.test.ts 38 pass / 0 fail, kit.test.ts 28 pass / 0 fail. I did not touch render.ts."
+    },
+    {
+      "item": "13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository.",
+      "met": true,
+      "evidence": "`bun run typecheck` (`tsc --noEmit`) exit 0 and `bun run lint` (`eslint ts`) exit 0 on the edited tree. My change adds no import, no cast and no type assertion; it uses two `Map<string, number>` locals and a template literal with a number, which `restrict-template-expressions` allows via `allowNumber: true` in eslint.config.js. package.json and bun.lock are untouched, so jsdom 31.0.0 and @types/jsdom 30.0.0 stand as they were."
+    },
+    {
+      "item": "14. The coverage record takes a criterion that passes today only with its reason (the contract's own node command prints `[true,true,false,false]` and exits 0).",
+      "met": true,
+      "evidence": "I ran the criterion's command verbatim from the worktree root against the live `.agents/workflows/tdd.js`: printed `[true,true,false,false]`, exit 0. I edited nothing under `.agents/`."
+    },
+    {
+      "item": "15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.",
+      "met": true,
+      "evidence": "`11 workflow files, 41 copied blocks, 7 distinct block names` / `PASS — every duplicated block is byte-identical across all copies`, exit 0. Nothing under `.agents/` changed this round."
+    },
+    {
+      "item": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases named in the output. Command: `bun test`.",
+      "met": true,
+      "evidence": "`(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1424.88ms]` and `> a page the helper announced itself on says nothing about not being narrated [1239.52ms]` (lines 871-872 of the full run), both named in the output. I did not touch client.tsx or render.ts."
+    },
+    {
+      "item": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "met": true,
+      "evidence": "`(pass) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.10ms]` (line 784); kit.test.ts 28 pass / 0 fail. kit.ts untouched."
+    },
+    {
+      "item": "18. A declaration with two members both named `PrecheckAsync` draws one row with `data-member=\"PrecheckAsync#1\"` and one with `data-member=\"PrecheckAsync#2\"`, each selector matching exactly one element, while a selector naming `PrecheckAsync` alone matches none. A declaration with no repeated name is drawn exactly as before. All three cases named in the output.",
+      "met": true,
+      "evidence": "This is the work of this round, and all three cases are named and passing in the full run (lines 577-579): `each of the two is reached by its place among the members sharing the name [25.87ms]`, `the shared name on its own reaches no row, because it names neither of them [23.21ms]`, `a declaration naming each of its members once is drawn as it was [22.53ms]`. Before the change the first two failed and the third passed (the RED pasted in buildProof). The code is `ts/metalang/app.tsx:756-776` inside `Table`, the one component that draws member rows: `members.map` reads each member's name through the existing `propertyCarrying(bodyOf, of, ROLES.name)` answer, one Map counts how many rows carry each name, a second Map walks the rows in source order, and a name only one row carries is returned unchanged while a shared one becomes `${name}#${place}` with the place counted among the rows sharing the name — so the unrelated `Name` member above the pair in the fixture leaves them `#1` and `#2`, which is decision `identity-spelling` and not the numbering Tim refused."
+    }
+  ],
+  "walls": [],
+  "complete": true
+}
