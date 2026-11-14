@@ -79,6 +79,9 @@ describe('a file the kit must carry and cannot find', () => {
 })
 
 describe('the readme the kit ships with', () => {
+  /** The script a drawn page asks its origin for, which JARVIS serves and the kit does not carry. */
+  const NARRATION_SCRIPT = '/api/packages/story.js'
+
   test('shows both commands, because a consumer calls a command', () => {
     const text = readmeText()
     expect(text).toContain('check')
@@ -89,6 +92,23 @@ describe('the readme the kit ships with', () => {
     const text = readmeText()
     expect(text).toContain('bun')
     expect(text.toLowerCase()).toContain('node')
+  })
+
+  // A drawn page carries its own styles and its own script, so the readme tells whoever takes the
+  // kit that a drawn page travels on its own. The one thing it does reach for is the narration
+  // script, which JARVIS serves rather than the kit carrying it, so a page drawn here and opened
+  // somewhere else is not narrated. The readme has to say that, or the one thing a drawn page
+  // needs from outside itself is the one thing the readme leaves out.
+  //
+  // The script's path is written out here rather than read from the renderer, the same way the
+  // kit's own story-helper test writes it out: this says what the readme has to name, not whatever
+  // the renderer happens to be writing today.
+  test('says a drawn page asks its origin for the narration script, and names it', () => {
+    const narration = readmeText()
+      .split('\n\n')
+      .find((paragraph) => /narrat/i.test(paragraph) && paragraph.includes(NARRATION_SCRIPT))
+    expect(narration).toBeDefined()
+    expect(narration?.toLowerCase()).toContain('origin')
   })
 })
 
