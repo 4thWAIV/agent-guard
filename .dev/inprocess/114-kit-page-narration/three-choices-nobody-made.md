@@ -33,3 +33,13 @@ This one is filed as issue 120, whose folder is `.dev/backlog/120-overloaded-mem
 ## What is being done with them
 
 The first goes to Tim as a decision, because it changes what every page the kit draws does. The second was wrong as reported and leaves an improvement filed as an issue. The third is issue 120. The adversary panel waits until the first is answered: it would otherwise judge a surface that is about to move.
+
+## The answer, and what it needs
+
+Tim answered `helper-absent` with `page-says-so` on 2026-11-13 at 19:28, in pkg-fac2f7a24fe3: the page's own bundle waits for the helper to announce itself and draws one plain line when it did not arrive, and the kit readme gains a sentence saying the page reaches out for that script.
+
+That is new behaviour, so it needs an acceptance check, and a check needs a test. The only agent allowed to write a test is the test stage, which has finished for this contract, and `rails-run-a-workflow` reserves restarting a finished stage to him: "Re-running any completed stage is the human's decision and needs their explicit yes — never the orchestrator's own call." The implementation worker cannot write it; neither can the orchestrator.
+
+So one thing is left for him, and it is about timing rather than design: the behaviour is folded into this work before the release, or the kit releases as it stands and the behaviour becomes its own issue immediately after. Folding it in holds the release by roughly the length of a test round and an implementation round. Releasing first unblocks Diagnostics and the architecture package now, and leaves every page the kit draws silent about a narration it cannot do until the follow-up ships.
+
+Asked as decision `when-the-page-says-so` in a package on `work-0ce6071af7d5`.
