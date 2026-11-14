@@ -20,6 +20,8 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **Not decided, and not in this contract.** Refusing duplicate declaration ids at check time, filed as issue 115. Reporting a shape whose language declares no name role as an on-page error at render time, filed as issue 116. Narrating a proposal page, whose shell is a second copy at `ts/metalang/propose.ts:882`, filed as issue 117.
 
+**impact-test.** The test that records rule 1's impact on existing code stops pinning what that impact was. It asserts the exemptions by the word and the reason, with no totals and no line numbers, so a tenth exemption or a changed reason still fails it while moving code does not. Tim approved this as written on 2026-11-13, answering `impact-test` with `pin-what-not-where` in pkg-fc1d5afd07c9; the record is `results/decisions.json` in `clear-the-last-kit-test-1.0.2-localfe2`. The answer authorizes one RULE-PHASE round touching that one test and nothing else, which is the authorization `rails-run-a-workflow` reserves to him: "Re-running any completed stage is the human's decision and needs their explicit yes."
+
 ## Rules to add
 
 Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. Tim approved all three as written on 2026-11-11, and told this session to proceed with the work.
