@@ -1356,23 +1356,28 @@ describe('one owning site per identity attribute', () => {
 // the fifteen literals the contract records under `Rules to add` rule 1 as what IMPLEMENT clears.
 
 describe('the drawing path', () => {
-  // The contract's count, which is what says the rule's reach is its sentence and not a list of
-  // positions: "the rule flags twenty-four literals in `app.tsx`; fifteen are the defect and nine
-  // are these three kinds."
-  test('rule 1 weighs all twenty-four literals of app.tsx and leaves nine to the three kinds', () => {
+  // The contract, under decision `impact-test`: "It asserts the exemptions by the word and the
+  // reason, with no totals and no line numbers, so a tenth exemption or a changed reason still
+  // fails it while moving code does not." No total of what the rule weighs and no total of what it
+  // flags, because the test below already requires nothing flagged anywhere on the drawing path;
+  // no line and no order, so every word is pinned by what it is and never by where it sits; and
+  // one entry per literal rather than one per distinct word, so a tenth exemption fails this.
+  test('rule 1 leaves app.tsx these words, each to the kind that puts it outside the rule', () => {
     const app = sourceOf('ts/metalang/app.tsx')
-    expect(languageWordsIn(app).length).toBe(24)
-    expect(wordsBySpelling(app).length).toBe(15)
-    expect(outsideTheRule(app).map(reported)).toEqual([
-      'ts/metalang/app.tsx:85: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:96: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:107: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:115: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:150: "pending" is a member of this page’s own union of finding kinds',
-      'ts/metalang/app.tsx:914: "object" is a comparison against a JavaScript type',
-      'ts/metalang/app.tsx:1415: "property" is English prose shown to the reader',
-      'ts/metalang/app.tsx:1415: "properties" is English prose shown to the reader',
-      'ts/metalang/app.tsx:1603: "pending" is a member of this page’s own union of finding kinds',
+    expect(
+      outsideTheRule(app)
+        .map(({ what }) => what)
+        .sort(),
+    ).toEqual([
+      '"object" is a comparison against a JavaScript type',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"pending" is a member of this page’s own union of finding kinds',
+      '"properties" is English prose shown to the reader',
+      '"property" is English prose shown to the reader',
     ])
   })
 
