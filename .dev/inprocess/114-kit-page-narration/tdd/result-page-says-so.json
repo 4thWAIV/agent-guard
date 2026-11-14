@@ -1,0 +1,137 @@
+{
+  "testFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts"
+  ],
+  "redProof": "$ bun test            # repository root, after the harness fix\n\nts/metalang/kit.test.ts:\n105 |   // the renderer happens to be writing today.\n106 |   test('says a drawn page asks its origin for the narration script, and names it', () => {\n107 |     const narration = readmeText()\n108 |       .split('\\n\\n')\n109 |       .find((paragraph) => /narrat/i.test(paragraph) && paragraph.includes(NARRATION_SCRIPT))\n110 |     expect(narration).toBeDefined()\n                            ^\nerror: expect(received).toBeDefined()\n\nReceived: undefined\n\n      at <anonymous> (/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.test.ts:110:23)\n(fail) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.01ms]\n\nts/metalang/render.test.ts:\n442 |     }\n443 |     return JSON.parse(out) as Shown\n444 |   }\n445 | \n446 |   test('a page the helper never announced itself on says it cannot be narrated here, once', () => {\n447 |     expect(shownBy('silent').lines).toHaveLength(1)\n                                          ^\nerror: expect(received).toHaveLength(expected)\n\nExpected length: 1\nReceived length: 0\n\n      at <anonymous> (/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:447:37)\n(fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [2785.02ms]\n\n2 tests failed:\n(fail) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.87ms]\n(fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [3255.73ms]\n----------------------------|---------|---------|-------------------\nFile                        | % Funcs | % Lines | Uncovered Line #s\n----------------------------|---------|---------|-------------------\nAll files                   |   95.60 |   96.54 |\n ts/metalang/app.tsx        |  100.00 |   99.83 | 923\n ts/metalang/bundle.ts      |  100.00 |  100.00 | \n ts/metalang/check.ts       |  100.00 |   98.84 | 381,569-570,626-627,664-665,669-670\n ts/metalang/cli.ts         |   80.00 |   96.61 | 135-136\n ts/metalang/constraints.ts |  100.00 |  100.00 | \n ts/metalang/examples.ts    |  100.00 |   85.37 | 133-144\n ts/metalang/expression.ts  |  100.00 |  100.00 | \n ts/metalang/highlight.ts   |  100.00 |  100.00 | \n ts/metalang/kit.ts         |  100.00 |   92.19 | 185-189\n ts/metalang/page-data.ts   |   75.00 |   91.30 | 43\n ts/metalang/propose.ts     |   78.95 |   86.56 | 112,117-119,128,137-139,198,232-246,269,280,376,461,500-505,507,513-516,518,555-558,560,642-643,809,856-862,906-909\n ts/metalang/render.ts      |  100.00 |   97.96 | 215-216\n ts/metalang/rulebook.ts    |  100.00 |  100.00 | \n ts/metalang/syntax.ts      |  100.00 |   99.47 | 226\n ts/metalang/words.ts       |  100.00 |  100.00 | \n----------------------------|---------|---------|-------------------\n\n 879 pass\n 2 fail\n 1501 expect() calls\nRan 881 tests across 16 files. [22.27s]\nEXIT=1\n\nThe only two failures in the whole run are the two tests for criteria 16 and 17.\n\nSATISFIABILITY PROBE, and the tree put back (finding one asked for both):\n\n$ # throwaway in ts/metalang/client.tsx: reads window.__jarvisStory on 'load' and appends one line\n$ bun test ts/metalang/render.test.ts\n(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [2331.35ms]\n(pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [2236.77ms]\n\n$ # same throwaway changed to read at mount instead of on 'load' — the FIXED harness order catches it\n$ bun test ts/metalang/render.test.ts\n(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [3147.41ms]\n(fail) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [3027.38ms]\n 37 pass\n 1 fail\n\n$ # mount-time throwaway again, with the harness announcement moved back BEFORE the import (the order the reviewer refused)\n$ bun test ts/metalang/render.test.ts\n(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [2654.61ms]\n(pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [2945.34ms]\n 38 pass\n 0 fail\n\n$ git status --short\n M ts/metalang/render.test.ts\n$ git diff --stat HEAD -- ts/metalang/client.tsx\n$ bun run typecheck   # tsc --noEmit, exit 0\n$ bun run lint        # eslint ts,    exit 0",
+  "coverage": [
+    {
+      "acceptanceItem": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.",
+      "tests": [
+        "ts/metalang/render.test.ts — what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once",
+        "ts/metalang/render.test.ts — what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts — the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    }
+  ],
+  "notes": "This coverage record holds only the two criteria this round is for, 16 and 17; the other fifteen are recorded in .dev/inprocess/114-kit-page-narration/tdd/result.json, which describes the tree as it stood before commit cfbbbf5 landed their implementation, and that record is not reopened here — so these two rows are not the contract's whole coverage.\n\nFINDING ONE, applied. One change, in the harness string inside ts/metalang/render.test.ts: the `if (helper === 'announced')` block that sets `dom.window.__jarvisStory` and `globalThis.__jarvisStory` moved from before `await import(entry)` to after the root-has-drawn wait and before the `DOMContentLoaded` and `load` dispatch — the real browser order, an inline bundle followed by the deferred helper announcing itself. The silent case is untouched: it never announces either way. The comment beside it now says why the position is load-bearing. Nothing else in the file changed, and no test, rule or fixture from any earlier round was touched: `git diff` is that one moved block plus its comment.\n\nThe order now decides the announced case, proven three ways with a throwaway implementation in ts/metalang/client.tsx: reading `window.__jarvisStory` on `load` makes both cases pass (satisfiable); reading it at mount makes the announced case FAIL under the fixed order (37 pass, 1 fail); the same mount-time reader under the old order passes both (38 pass, 0 fail), which is the reviewer's finding reproduced. The throwaway was then removed and `git diff --stat HEAD -- ts/metalang/client.tsx` is empty — the tree is back as I found it, with ts/metalang/render.test.ts the only modified file.\n\nFINDING TWO, applied: no row restates a criterion that passes in this tree, every `whyPassing` is empty, and both rows are `red: true` because both are failing in the run above.\n\nCriterion 16's kind is pointed-integration rather than unit: the harness writes the real page with `renderWith`, parses it in jsdom with its own scripts unrun, then runs the real bundle entry (`ts/metalang/client.tsx` via PAGE_SOURCE) over it in a child process, one process per case. It drives the production path through a real DOM, not a fake of it. Criterion 16's announced case cannot fail against a tree with no implementation at all (no line is drawn, so none is found) — it is the case that pins WHEN the reading happens, and criterion 16's row is RED on the silent case, which fails with `Expected length: 1 / Received length: 0`.\n\nCriterion 17 is RED because `readmeText()` in ts/metalang/kit.ts has no paragraph naming narration and `/api/packages/story.js`, so the `.find` returns undefined.\n\n`bun run typecheck` and `bun run lint` are both clean, exit 0. Nothing committed and nothing pushed.",
+  "verdicts": [
+    {
+      "lens": "test-quality",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The announced case of criterion 16 passes today and cannot fail until an implementation exists that reads the helper too early.",
+          "evidence": "render.test.ts:~446-452 test 'a page the helper announced itself on says nothing...' passes against the current tree; the row is red:true with empty whyPassing, covered by the row's silent test failing (Expected length 1, Received 0).",
+          "nonBlockingReason": "The row is genuinely RED through the silent case, and the announced case is a guard that pins when the reading happens. The harness now announces after the bundle draws and before DOMContentLoaded/load, and a mount-time reader was shown to fail it (37 pass, 1 fail). Criterion 16 requires both cases and both are present."
+        }
+      ],
+      "refutationAttempts": [
+        "Re-ran bun test on render.test.ts and kit.test.ts: exactly 2 fail (silent-case narration line, readme narration paragraph), 64 pass, matching the recorded red proof.",
+        "Checked whether the announced case is vacuous: the harness diff shows the announcement moved after the root has drawn, so a mount-time reader draws the line and fails; a load-time reader passes both, so the pair is satisfiable and order-sensitive.",
+        "Checked git diff HEAD: only render.test.ts is modified, and the diff is just the moved announcement block plus its comment. No test was skipped, deleted or loosened.",
+        "Checked for red:false rows with empty or false whyPassing: both rows are red:true with empty whyPassing, and both criteria have a failing test now, so none is mis-recorded as passing.",
+        "Checked that the assertions can fail: toHaveLength(1) on the innermost matching elements catches both zero lines and a duplicated line, and toEqual([]) catches any line in the announced case. The page is read through a real jsdom DOM over the real bundle entry, with no fake of the production type.",
+        "Checked coverage of criterion 17: kit.test.ts:106 asserts a readme paragraph mentioning narration and the script path and 'origin', and it is RED."
+      ],
+      "proofChecked": [
+        "rails-test-code rails 1 to 9 applied to criteria 16 and 17",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:446-452",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.test.ts:106-111",
+        "contract Acceptance items 16 and 17 and decision helper-absent",
+        "live bun test run: 2 fail, 64 pass on the two files"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The helper path literal /api/packages/story.js is written independently in three test sites besides its owner render.ts:68.",
+          "evidence": "ts/metalang/render.test.ts:306 (HELPER), ts/metalang/kit.test.ts:83 (NARRATION_SCRIPT), ts/metalang/kit.test.ts:245 (full script tag); production owner is ts/metalang/render.ts:68 (STORY_HELPER). Only render.test.ts:306 predates nothing in this round's diff; this round's diff touches only the harness block.",
+          "nonBlockingReason": "rails-dry-code rail 5 says equal literals in independent test expectations are not a finding and expected results must not be derived from the implementation under test; the contract-fixed path is intentionally pinned per file. Importing STORY_HELPER from render.ts would weaken the oracle."
+        }
+      ],
+      "refutationAttempts": [
+        "Searched ts/ for api/packages/story.js to find copied knowledge: only render.ts:68 (owner) plus independent test expectations; no duplicated production logic.",
+        "Checked whether the harness string, shownBy helper, or Shown/Helper types copy an existing helper in other test files (grep for spawnSync/mkdtemp/JSDOM patterns across ts/metalang/*.test.ts): kit.test.ts and render.test.ts use different scaffolding with no shared jsdom harness; no duplicate found.",
+        "Checked whether the two criterion-16 cases duplicate a block: both are one-line asserts over one shared shownBy(helper) parameterised function, so scenarios are separate and setup is single-sourced.",
+        "Read the git diff for this round: it only moves one block (announcement) plus its comment inside the harness string; the moved block exists once, the old position was removed, so no duplicate remains.",
+        "Checked the globalThis/dom.window double-write of __jarvisStory: one block, written once in the harness, not repeated elsewhere."
+      ],
+      "proofChecked": [
+        "rails-dry-code SKILL.md rails 5, 6, 7 applied against ts/metalang/render.test.ts",
+        "git diff HEAD -- ts/metalang/render.test.ts (one block moved, none duplicated)",
+        "render.test.ts:300-420 harness and shownBy read in full",
+        "grep of ts/ for the story helper path and __jarvisStory"
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The result's testFiles declares only ts/metalang/render.test.ts, although its own coverage row for criterion 17 cites a test in ts/metalang/kit.test.ts, which this round also edited.",
+          "evidence": "Result testFiles = [\"/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts\"], while coverage[1].tests = \"ts/metalang/kit.test.ts — the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it\". /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.agents/workflows/tdd.js:1420 requires \"FINAL ANSWER: testFiles (every test file created/edited under tests/)\"; `git show 7402712 --stat` shows ts/metalang/kit.test.ts +20 and ts/metalang/render.test.ts +119 in this round's single commit; the earlier record /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/tdd/result.json declares all three test files.",
+          "nonBlockingReason": "Nothing is concealed and no required result is unproven: the same payload names the file twice (the coverage row and the redProof header block `ts/metalang/kit.test.ts:`), I read the file in the tree and judged its one new test, and my own `bun test` run reproduced its failure. rails-run-a-workflow's False-claims clause directs that a misstated field whose required result independent evidence already establishes is identified as an observation rather than sent back for a narrative rewrite."
+        },
+        {
+          "summary": "Criterion 17's test asserts more than the criterion states: it requires the shipped kit readme to contain the literal string /api/packages/story.js in the same paragraph as the narration wording.",
+          "evidence": "Contract Acceptance 17 reads \"The kit readme says a drawn page reaches out to its origin for the narration script\", and decision `helper-absent` approves \"The kit readme gains a sentence saying a drawn page reaches out to its origin for that script\" — neither requires the path. ts/metalang/kit.test.ts: `const NARRATION_SCRIPT = '/api/packages/story.js'` with `.find((paragraph) => /narrat/i.test(paragraph) && paragraph.includes(NARRATION_SCRIPT))`, and the test name adds \"and names it\".",
+          "nonBlockingReason": "The extra assertion adds no unapproved design element: the path is already approved in `What to do` item 4 and shipped at ts/metalang/render.ts:68 (`const STORY_HELPER = '<script defer src=\"/api/packages/story.js\"></script>'`), nothing in production comes to depend on the readme text, and the assertion is satisfiable inside the one sentence Tim's wording approves, so no approval is owed for it."
+        },
+        {
+          "summary": "The coverage record carries 2 of the contract's 17 acceptance criteria, against the author instruction to cover every criterion.",
+          "evidence": ".agents/workflows/tdd.js:1410 says \"Cover EVERY acceptance criterion\"; this result's coverage holds only items 16 and 17. The notes say the other fifteen are in .dev/inprocess/114-kit-page-narration/tdd/result.json, and I read that file: 15 rows, acceptance items 1 through 15, testFiles naming app.test.tsx, render.test.ts and kit.test.ts. The fix-round direction .dev/inprocess/114-kit-page-narration/fixes-for-the-page-saying-so.md ordered the narrowing: \"this round's coverage record holds exactly the two criteria this round is for, 16 and 17\".",
+          "nonBlockingReason": "No criterion is left uncovered — I verified items 1-15 are recorded in the prior result and items 16-17 here — the narrowing was the ordered fix for the previous lie-catcher finding, and the notes disclose it in the sentence the direction required, so no required proof or approval is missing."
+        }
+      ],
+      "refutationAttempts": [
+        "Tried to refute the external interface assumption the tests encode (`window.__jarvisStory`) as an under-asked direction: read JARVIS's real helper at /Users/timothystockstill/code/macos/4thWAIV/jarvis/jarvis/package_story.js, which does `if (window.__jarvisStory) return; window.__jarvisStory = true;` as it loads and documents itself as loaded from /api/packages/story.js. The assumption is true of the live helper and is named in the contract's `What to do` item 9, which Tim's `helper-absent` decision authorizes. Refutation failed.",
+        "Tried to refute the RED claim by rerunning the proof command myself: `bun test` from the worktree root gave 879 pass, 2 fail, EXIT=1, the two failures being exactly `the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it` and `what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once`, with coverage 95.60% funcs / 96.54% lines over the 0.75 floor. The claim reproduces byte-for-byte in substance. Refutation failed.",
+        "Tried to refute \"the throwaway was removed and the tree is back as I found it\": `git diff HEAD -- ts/metalang/client.tsx` is empty, `git status --porcelain --untracked-files=all` shows only ` M ts/metalang/render.test.ts` with no untracked leftovers, and `git diff HEAD --stat -- package.json bun.lock` is empty, so no dependency was added under cover of this round. Refutation failed.",
+        "Tried to refute the claim that the moved announcement makes the announced case able to fail (i.e. that finding one was only cosmetically applied): in the live file the `if (helper === 'announced')` block now sits after `await import(entry)` and after the root-has-drawn wait and before the DOMContentLoaded/load dispatch, so a mount-time reader finds no announcement in BOTH cases, draws the line in both, and the announced case's `toEqual([])` fails; a reader that waits for the deferred scripts passes both. The order is load-bearing by construction and matches the order `What to do` item 9 requires. Refutation failed.",
+        "Tried to refute the notes' excuse for the two-row coverage record: read .dev/inprocess/114-kit-page-narration/tdd/result.json (15 rows, items 1-15) and `git show --stat cfbbbf5` (\"Implement the kit page narration targets\", touching app.tsx, render.ts, arch.yaml, metalang.yaml, ci.yml, package.json, bun.lock). Both claims in the notes are true. Refutation failed.",
+        "Tried to find an unapproved production or interface change smuggled in by the test author (authority revoked for interfaces and behavior): `PAGE_SOURCE`, which the new harness imports, pre-exists at ts/metalang/render.ts:33; commit 7402712 touched only ts/metalang/kit.test.ts and ts/metalang/render.test.ts; the uncommitted diff is the one moved block plus its comment. Refutation failed.",
+        "Tried to find a weakened, skipped or deleted earlier test (contract MUST NOT): 7402712's render.test.ts diff is `-import { join }` to `+import { dirname, join }`, an added `PAGE_SOURCE` import, and an appended describe block; kit.test.ts's diff is an added constant and an added test; no existing assertion, rule or fixture is altered. Refutation failed.",
+        "Tried to refute the claim that the new child-process DOM harness duplicates an approved mechanism or was invented without authority: ts/metalang/app.test.tsx uses JSDOM only to parse an HTML string (`new JSDOM(html).window.document` at :1784) and never executes the bundle, contract `What to do` item 5 names \"the executed bundle\" as an assertion route, and the reuse ledger's \"Write no new harness\" is scoped to the built-kit page proof, which this is not. Refutation failed.",
+        "Tried to refute the clean-gate claims: `bun run typecheck` (tsc --noEmit) exited 0 and `bun run lint` (eslint ts) exited 0. Refutation failed.",
+        "Tried to rule the green-criterion decision against the rows: both rows are `red: true` with an empty `whyPassing`, which is the shape the decision requires, and criterion 16 is behavior this change builds, so it was not laundered into a `red: false` row; the notes disclose that only its silent case can fail today. No violation."
+      ],
+      "proofChecked": [
+        "`bun test` at /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets — 879 pass, 2 fail, EXIT=1, the two failures being criteria 16 and 17 only; coverage 95.60% funcs / 96.54% lines against the 0.75 floor",
+        "`bun run typecheck` (tsc --noEmit) — exit 0",
+        "`bun run lint` (eslint ts) — exit 0",
+        "`git status --porcelain --untracked-files=all` — only ` M ts/metalang/render.test.ts`",
+        "`git diff HEAD -- ts/metalang/client.tsx` — empty (satisfiability throwaway removed)",
+        "`git diff HEAD --stat -- package.json bun.lock` — empty (no dependency change)",
+        "`git diff HEAD -- ts/metalang/render.test.ts` — the announcement block moved to after `await import(entry)` and the root-drawn wait, plus its comment; nothing else",
+        "`git show 7402712` and `git show --stat cfbbbf5` — this round's test commit (both test files) and the implementation commit the notes cite",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md — decisions `helper-absent`, `when-the-page-says-so`, `green-criterion`; `What to do` items 4, 5, 9; Acceptance 16 and 17; MUST NOT list",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.agents/skills/rails-decisions/SKILL.md — every Violation ruled against the test surface",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.agents/workflows/tdd.js:886-940, :1104-1133, :1395-1420 — the tdd-author result schema, its validations, and the FINAL ANSWER definition of testFiles and coverage",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/tdd/result.json — 15 coverage rows for acceptance items 1-15",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/fixes-for-the-page-saying-so.md — the two confirmed findings and the exact fix each required",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:345-452 and ts/metalang/kit.test.ts:81-112 — the two new tests as they stand in the tree",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.ts:33, :68 and ts/metalang/client.tsx — PAGE_SOURCE, the deferred helper tag, and the mount-only bundle entry",
+        "/Users/timothystockstill/code/macos/4thWAIV/jarvis/jarvis/package_story.js — the live helper setting `window.__jarvisStory = true` at load"
+      ]
+    }
+  ],
+  "anyFail": false,
+  "panelComplete": true,
+  "failedRoles": []
+}

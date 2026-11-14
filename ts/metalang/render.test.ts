@@ -364,14 +364,6 @@ globalThis.window = dom.window
 globalThis.document = dom.window.document
 globalThis.navigator = dom.window.navigator
 
-// JARVIS's story helper announces itself on the window as it loads. A page drawn away from
-// JARVIS loads nothing, so there is no announcement to find. In a browser the window IS the
-// global, so the announcement is written to both here and either way of reading it finds it.
-if (helper === 'announced') {
-  dom.window.__jarvisStory = true
-  globalThis.__jarvisStory = true
-}
-
 await import(entry)
 
 const tick = () => new Promise((settle) => setTimeout(settle, 10))
@@ -382,6 +374,20 @@ const root = dom.window.document.getElementById('root')
 if (root === null) throw new Error('the page has no root for the bundle to draw into')
 for (let i = 0; i < 200 && root.children.length === 0; i += 1) await tick()
 if (root.children.length === 0) throw new Error('the page drew nothing, so nothing can be read off it')
+
+// JARVIS's story helper announces itself on the window as it loads. A page drawn away from
+// JARVIS loads nothing, so there is no announcement to find. In a browser the window IS the
+// global, so the announcement is written to both here and either way of reading it finds it.
+//
+// It is written here, after the page's inline bundle has run and drawn and before the two events
+// below, because that is the order a browser puts them in: an inline script runs first and a
+// deferred script announces itself after it. A bundle that read the announcement at mount would
+// find nothing in this case and draw the line, which is what makes the announced case able to
+// fail at all. The silent case never announces, so this leaves it as it was.
+if (helper === 'announced') {
+  dom.window.__jarvisStory = true
+  globalThis.__jarvisStory = true
+}
 
 // The two events a browser fires once the deferred scripts have run, so a reading that waits
 // for them is given them here as well.
