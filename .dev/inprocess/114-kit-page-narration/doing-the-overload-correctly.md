@@ -10,7 +10,7 @@ The contract's Success definition says a selector naming one member of one decla
 
 A row's identity names one member and no other.
 
-A member name that occurs once among its declaration's members is that row's identity, exactly as it is today. A name that occurs more than once gives each of those rows an identity made of that name and the row's position among the declaration's members, in the order the source declares them, and none of them carries the bare shared name.
+A member name that occurs once among its declaration's members is that row's identity, exactly as it is today. A name that occurs more than once gives each of those rows an identity written as that name, a number sign and the row's place among the members carrying that same name, counting from one: two members both named `PrecheckAsync` draw as `PrecheckAsync#1` and `PrecheckAsync#2`, and neither carries the bare shared name. The number sign can never collide with a name a document writes, because the language holds a name to letters, digits and underscores, and counting among the rows that share the name rather than among all the members means adding an unrelated member above them changes neither identity.
 
 That keeps the two things that matter at once. An overloaded member stays describable — the document is still valid and still says there are two of them — and each one becomes pointable, which it never was before. A name that identifies one member identifies it; a name several members share identifies none of them on its own, so nobody writes a beat against a shared name and silently gets whichever row was drawn first.
 
