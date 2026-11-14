@@ -1120,8 +1120,9 @@ async function __stageResultContracts(args) {
               containsFields: { notes: noTestEvidence },
             }],
             // The no-test sentinel is valid ONLY on the empty result. A real test result proves RED on every covered
-            // acceptance item, except one whose criterion guards behavior that already works: that one is recorded
-            // red: false and says in whyPassing why it cannot fail today.
+            // acceptance item that can fail. One that passes today — a guard on behavior that must keep working, a
+            // prior stage's finished work, or an implementation already built — is recorded red: false and says in
+            // whyPassing why it passes.
             whenArrayNonEmpty: [{
               field: 'testFiles',
               nonEmptyArrayFields: ['coverage'],
@@ -1407,7 +1408,7 @@ The remaining write and RED-proof directions apply only to the normal test-autho
 
 WHAT YOU WRITE — TESTS AGAINST THE SKELETON, RED:
 - The ARCHITECTURE surface is already on disk: the interfaces and concrete types exist. Write your tests against those real types, so they COMPILE — and they must FAIL (RED) now: for a NEW member because its body throws \`NotImplementedException\`; for an EXPANDED existing member because today's behavior returns the wrong result for the inputs the change requires (a plain expected-vs-actual failure). That RED is the forcing function for the IMPLEMENT worker, the same role the RED rules play in RULE-PHASE. For an expansion, a test that asserts the member's CURRENT behavior passes GREEN and proves nothing — assert the REQUIRED new behavior, which today's code fails.
-- A criterion that only guards behavior the contract requires to KEEP working cannot fail today. Write its test all the same, record that row with \`red: false\`, and put in \`whyPassing\` the reason it passes now, in the criterion's own terms. Every other criterion is RED. A \`red: false\` row with an empty \`whyPassing\` is refused, and so is a \`red: true\` row that carries one; never record a criterion this way to avoid writing the test that would fail.
+- A criterion that cannot fail today still gets its test written, recorded with \`red: false\` and the reason it passes in \`whyPassing\`, in the criterion's own terms: a guard on behavior the contract requires to KEEP working, a prior stage's finished work, or an implementation this contract has already built. Every criterion that can fail is RED. A \`red: false\` row with an empty \`whyPassing\` is refused, and so is a \`red: true\` row that carries one; never record a criterion this way to avoid writing the test that would fail.
 - Cover EVERY acceptance criterion. Unit tests drive the real production type and use fakes for outside-world dependencies. Per-OS pointed-integration tests drive the production path through the real OS adapter when the criterion depends on actual OS behavior; those tests run on the per-OS CI legs.
 - Follow every Practice in rails-test-code. The owner rail supplies test completeness, RED-first behavior, assertions, integration coverage, and test-tampering criteria.
 
@@ -1473,7 +1474,7 @@ const TEST_ADVERSARIES = [
   { id: 'lie-catcher', rail: 'rails-decisions', focus: 'decision and approval honesty in the test surface', model: 'opus' },
 ]
 
-const testRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the TDD result — NOT a finished implementation. Do NOT make code changes. Tests are intentionally RED when the contract authorizes tests. A coverage row recorded red: false carries in whyPassing the reason its criterion passes today; FAIL that row when the reason is untrue, and FAIL it when a criterion whose behavior this change builds was recorded that way instead of being made to fail. A contract-backed no-test result is valid only when the contract names no test surface, forbids test changes, and the result's notes contain exact contract evidence. FAIL a no-test result when the contract requires any test or the evidence is not exact.
+const testRefutePrompt = (adv) => `You are the ${adv.id} adversary judging the TDD result — NOT a finished implementation. Do NOT make code changes. Tests are intentionally RED when the contract authorizes tests. A coverage row recorded red: false carries in whyPassing the reason its criterion passes today; FAIL that row when the reason is untrue, and FAIL it when a criterion that could have been made to fail was recorded that way instead. A contract-backed no-test result is valid only when the contract names no test surface, forbids test changes, and the result's notes contain exact contract evidence. FAIL a no-test result when the contract requires any test or the evidence is not exact.
 
 Read .agents/skills/${adv.rail}/SKILL.md — it is your PASS/FAIL checklist. Read the complete contract (${contractPath}), the complete TDD result (${JSON.stringify(testGen)}), and the test files (${JSON.stringify(testGen.testFiles)}). Your lens: ${adv.focus}.
 

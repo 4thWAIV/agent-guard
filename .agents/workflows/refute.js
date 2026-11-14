@@ -1119,8 +1119,9 @@ async function __stageResultContracts(args) {
               containsFields: { notes: noTestEvidence },
             }],
             // The no-test sentinel is valid ONLY on the empty result. A real test result proves RED on every covered
-            // acceptance item, except one whose criterion guards behavior that already works: that one is recorded
-            // red: false and says in whyPassing why it cannot fail today.
+            // acceptance item that can fail. One that passes today — a guard on behavior that must keep working, a
+            // prior stage's finished work, or an implementation already built — is recorded red: false and says in
+            // whyPassing why it passes.
             whenArrayNonEmpty: [{
               field: 'testFiles',
               nonEmptyArrayFields: ['coverage'],
