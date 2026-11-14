@@ -22,6 +22,10 @@ Both decisions were asked twice, because an earlier package carrying the same tw
 
 **impact-test.** The test that records rule 1's impact on existing code stops pinning what that impact was. It asserts the exemptions by the word and the reason, with no totals and no line numbers, so a tenth exemption or a changed reason still fails it while moving code does not. Tim approved this as written on 2026-11-13, answering `impact-test` with `pin-what-not-where` in pkg-fc1d5afd07c9; the record is `results/decisions.json` in `clear-the-last-kit-test-1.0.2-localfe2`. The answer authorizes one RULE-PHASE round touching that one test and nothing else, which is the authorization `rails-run-a-workflow` reserves to him: "Re-running any completed stage is the human's decision and needs their explicit yes."
 
+**helper-absent.** A page the kit draws says so when JARVIS's story helper is not there. The page's own bundle reads the helper's announcement once the deferred scripts have run, and draws one plain line saying the page cannot be narrated here when it finds none. The kit readme gains a sentence saying a drawn page reaches out to its origin for that script. Tim approved this as written on 2026-11-13, answering `helper-absent` with `page-says-so` in pkg-fac2f7a24fe3. The alternative, writing the helper tag only into a page built to be served by JARVIS, was put to him and he chose against it. Until this answer the page drew, was never narratable away from JARVIS, and said nothing, which is the rule in `CLAUDE.md` that nothing may ever fail silently.
+
+**when-the-page-says-so.** That behaviour is built into this work before the kit is released, rather than following it as its own issue. Tim approved this as written on 2026-11-13, answering `when-the-page-says-so` with `fold-it-in` in pkg-d785acd7ea59, and that answer is also his authorization for one test round writing the checks it needs, which `rails-run-a-workflow` reserves to him: "Re-running any completed stage is the human's decision and needs their explicit yes."
+
 ## Rules to add
 
 Three rules, each a contract-directed test inside the existing `bun test` step, following `ts/metalang/examples.test.ts`. Tim approved all three as written on 2026-11-11, and told this session to proceed with the work.
@@ -60,6 +64,7 @@ This run: a selector naming one declaration's members matches exactly one elemen
 
 - `ts/metalang/render.ts` — `pageHtml`, which writes the page shell, and nothing else writes one for a document.
 - `ts/metalang/app.tsx` — the component that draws a declaration, and the `Table` that draws members as rows.
+- `ts/metalang/client.tsx` — the bundle's entry, the only thing in the bundle that touches the DOM, which is where the helper's announcement is read.
 - `ts/metalang/arch.yaml` — `member.name`.
 - `ts/metalang/metalang.yaml` — the `name` role's recorded meaning.
 - `ts/metalang/kit.ts` and `ts/metalang/kit-entry.ts` — what a built kit carries.
@@ -93,6 +98,8 @@ The ledger's earlier reuse verdict cited `arch.yaml:211`, which is the `word` en
 5. Take jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies in `package.json` and `bun.lock`, each pinned to that exact version, and prove in jsdom that a member name containing a double quote, a single quote and a backslash is reachable by selector, that a member name repeated across two declarations resolves to the one asked for, and that two declarations sharing an id are reported as ambiguous rather than resolved to the first. Assertions run against the component render or the executed bundle, never against the CLI output, because `#root` in the written page is empty and the DOM is drawn in the browser.
 6. Add `style.css` and `syntax.css` to the required-file check in `.github/workflows/ci.yml`, which lists seven files while `ts/metalang/kit.ts` marks nine as required.
 7. Keep every `data-part` and `data-col` target working, spelled exactly as now.
+9. Under decision `helper-absent`, have the page say so when the helper is not there. The helper sets `window.__jarvisStory` as it loads; the page's bundle is written inline and runs before any deferred script, so the reading happens once the deferred scripts have run rather than at mount. When there is no announcement, the page draws one plain line saying it cannot be narrated here, in the page's own styles, and nothing else changes. Add one sentence to the kit readme in `ts/metalang/kit.ts` saying a drawn page reaches out to its origin for that script.
+
 8. Under decision `green-criterion`, let the coverage record carry a criterion that passes today with its reason, in the four places named in that decision. This one is already done, by the orchestrator, because the test stage cannot record its own result until the contract it is checked against exists. The IMPLEMENT worker does not repeat it and changes nothing under `.agents/`.
 
 ## What the agent MAY do
@@ -123,6 +130,8 @@ Each check is re-derivable by someone other than the worker.
 14. The coverage record takes a criterion that passes today only with its reason: a `red: false` row carrying a reason is accepted, the same row with an empty reason is refused, and a `red: true` row carrying a reason is refused. Re-derivable by anyone from the repository root, by slicing the three copied blocks out of `.agents/workflows/tdd.js` and validating four rows through the real result contract, which prints `[true,true,false,false]` and exits 0:
    `node --input-type=module -e 'import fs from "fs";const s=fs.readFileSync(".agents/workflows/tdd.js","utf8");const b=(n)=>s.split("// ##COPIED-MODULE-BEGIN## "+n+"\n")[1].split("// ##COPIED-MODULE-END## "+n)[0];const F=Object.getPrototypeOf(async function(){}).constructor;const run=new F("rows",b("workflow-input")+b("required-agent-runtime")+b("stage-result-contracts")+"const out=[];for(const r of rows){try{await __stageResultContracts({name:\"tdd-author\",operation:\"validate\",result:{testFiles:[\"t\"],redProof:\"p\",coverage:[r],notes:\"n\"},context:{noTestEvidence:\"x\"}});out.push(true)}catch(e){out.push(false)}}return out;");const row=(red,why)=>({acceptanceItem:"6",tests:["t"],kind:"unit",red,whyPassing:why});const got=await run([row(true,""),row(false,"guards what works today"),row(false,""),row(true,"passes today")]);console.log(JSON.stringify(got));process.exit(JSON.stringify(got)==="[true,true,false,false]"?0:1)'`
 15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.
+16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.
+17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.
 
 ## Level
 
