@@ -6,17 +6,21 @@ The hidden-decision scan has no recorded result anywhere for this contract — n
 
 `ts/metalang/render.ts:68` holds the tag and `:84` writes it into every page the kit draws, unconditionally. Away from JARVIS that request is a 404 the browser ignores: the page draws, is never narratable, and nothing says so. On another local server, that server's script at `/api/packages/story.js` runs inside a page that draws document text.
 
-This is the rule in `CLAUDE.md` — nothing may ever fail silently — inside the kit's own output. The kit readme at `ts/metalang/kit.ts:106` still tells a taker that a drawn page "needs nothing from this folder afterwards, so a drawn page travels on its own", which stops being true the moment the tag ships.
+This is the rule in `CLAUDE.md` — nothing may ever fail silently — inside the kit's own output. The kit readme at `ts/metalang/kit.ts:106` tells a taker that a drawn page "needs nothing from this folder afterwards, so a drawn page travels on its own". That sentence stays true — it is about the kit folder — but it is also the only thing the readme says about what a drawn page needs, and it does not mention that the page reaches out to its origin for a script.
 
 GROUND flagged it (`ground/facts.json`: whether a missing `story.js` should be diagnosed on the page or stay silent is a design choice) and DESIGN flagged it again (`design/proposals.json`: flag it for Tim, do not decide). No decision answers it.
 
 The escape hatch is closed from the other side: JARVIS checks that the exact tag string appears in the page, so an `onerror` or an integrity attribute on the tag itself would fail that check. A report has to come from the bundle.
 
-## Nothing proves a released kit is the one CI built
+## The release digest finding was wrong, and this is what is actually true
 
-`.github/workflows/ci.yml:599` zips `evolang-kit.zip` and `:634` uploads it in the release's asset list, with no checksum file and no signature, while every binary beside it goes through `eng/ci-stage-and-cosign.sh` and ships a `.sha256` and a cosign bundle. JARVIS pins the SHA-256 of the exact uploaded bytes against the version, the commit and the repository, and today the only route for those four values is a session computing the digest by hand and messaging it.
+The scan reported that nothing proves a released kit is the one the build produced, and that the only route for the four values JARVIS pins is a session working the digest out by hand. The fresh package author refused to write that vote and was right to: JARVIS already does the verifying.
 
-That number is the completion evidence this whole lane turns on, and nobody but the reporter can re-derive it.
+`jarvis/language_kit_updates.py:89` takes the asset's digest from GitHub's own release metadata, `:90` resolves the tag to its commit, `:91` reads that commit's check runs, and `jarvis/language_kit.py:194` refuses downloaded bytes whose digest is not that digest. A stale number, a typo or an asset re-uploaded afterwards is caught there, not missed.
+
+What is true is narrower and is not a decision for Tim. Initial adoption is pinned to three constants in `jarvis/language_kit.py:29-31` — `PINNED_VERSION`, `PINNED_COMMIT` and `PINNED_DIGEST` — and `language_kit_updates.py:102` refuses any first install that does not match them. Someone updates those three by hand from the release, which is what Diagnostics is waiting for. Publishing a checksum file beside the zip would not change that step; it would add a build-produced record a reader can see and a value independent of GitHub's metadata. That is an improvement nobody has decided on, filed as issue 121 rather than put to him, because nothing forces it.
+
+Writing the unverified claim into this record and into a package handoff was my error. The author caught it before it reached him.
 
 ## Two members with the same name inside one declaration both carry the same identity
 
@@ -28,4 +32,4 @@ This one is filed as issue 120, whose folder is `.dev/backlog/120-overloaded-mem
 
 ## What is being done with them
 
-The first two go to Tim as decisions, because each changes something that outlives this work — what every drawn page does, and what the release publishes. The third is an issue. The adversary panel waits until the first two are answered: it would otherwise judge a surface that is about to move.
+The first goes to Tim as a decision, because it changes what every page the kit draws does. The second was wrong as reported and leaves an improvement filed as an issue. The third is issue 120. The adversary panel waits until the first is answered: it would otherwise judge a surface that is about to move.
