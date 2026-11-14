@@ -443,11 +443,30 @@ process.stdout.write(JSON.stringify({ lines: lines.map((el) => (el.textContent ?
     return JSON.parse(out) as Shown
   }
 
-  test('a page the helper never announced itself on says it cannot be narrated here, once', () => {
-    expect(shownBy('silent').lines).toHaveLength(1)
-  })
+  /**
+   * How long one case is given to read its page.
+   *
+   * Reading one starts a DOM subprocess that parses the page and runs its bundle, and `spawnSync`
+   * blocks for all of it. That cost ran to 5392 milliseconds on one machine, against bun's five
+   * second default, so a page saying exactly what it should went red on the clock instead; the
+   * macOS, Windows and Linux runners are slower again. Stated here, each case fails only for what
+   * its page shows, and still fails rather than hanging.
+   */
+  const READING_A_PAGE = 60_000
 
-  test('a page the helper announced itself on says nothing about not being narrated', () => {
-    expect(shownBy('announced').lines).toEqual([])
-  })
+  test(
+    'a page the helper never announced itself on says it cannot be narrated here, once',
+    () => {
+      expect(shownBy('silent').lines).toHaveLength(1)
+    },
+    READING_A_PAGE,
+  )
+
+  test(
+    'a page the helper announced itself on says nothing about not being narrated',
+    () => {
+      expect(shownBy('announced').lines).toEqual([])
+    },
+    READING_A_PAGE,
+  )
 })
