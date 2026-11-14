@@ -1,6 +1,6 @@
 # Every round of this contract, its direction and its result
 
-The readiness check found that the instruction given to the adversary panel enumerated eight round directions when there are nine, and claimed each round's result sat beside its direction when five did not. Both were mine. This file is the map, and the enumeration handed to any panel is built from `ls ../fixes-*.md` rather than from memory.
+The readiness check found that the instruction given to the adversary panel enumerated eight round directions when there were nine, and claimed each round's result sat beside its direction when five did not. Both were mine. This file is the map, and the enumeration handed to any panel is built from `ls ../fixes-*.md` rather than from memory.
 
 A round's direction says what that round was asked to do. Its result is the stage's own return value, copied without change from the run that produced it — from the completed task's output where that still exists, and otherwise from the run's journal, which is noted on the line.
 
@@ -15,7 +15,9 @@ A round's direction says what that round was asked to do. Its result is the stag
 | `../fixes-for-the-rule-round.md` | rule | `rule-round-with-the-scan.json` |
 | `../fixes-for-the-identity-test.md` | test, twice | `tdd-the-identity-refused.json`, then `../tdd/result-identity.json` |
 | `../fixes-for-the-identity-build.md` | implementation | `implement-the-member-identity.json` |
+| `../fixes-for-the-shared-id-assertion.md` | test | `tdd-the-shared-id-assertion.json`, refused for the race below |
+| `../fixes-for-the-announced-race.md` | test | `tdd-the-announced-race.json` |
 
 Two rounds had no direction of their own, because nothing had been refused yet: the architecture stage, whose result is `../architecture-result.json`, and the first adversary panel, whose result is `refute-first-panel.json` and whose findings are written up in `../what-the-panel-found.md`.
 
-A result named "refused" is a round whose panel returned FAIL. It is kept because what a reviewer refused, and why, is part of the record: the test round for the page saying so was refused for a case that could not fail and a record that claimed criteria were failing when they passed, and the test round for the member identity was refused because the identity spelling had not been approved by Tim. Both were fixed and both rounds were then passed.
+A result named "refused" is a round whose panel returned FAIL. It is kept because what a reviewer refused, and why, is part of the record: the test round for the page saying so was refused for a case that could not fail and a record that claimed criteria were failing when they passed, and the test round for the member identity was refused because the identity spelling had not been approved by Tim, and the test round that added the shared-id assertion was refused because a reviewer reproduced the announced case failing under load. Each was fixed and each round was then passed.
