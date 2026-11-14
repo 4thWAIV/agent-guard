@@ -1880,6 +1880,79 @@ describe('pointing at one declaration and at one member of it', () => {
   })
 })
 
+// ── one name carried by two members of one declaration ───────────────────────
+//
+// A beat that says "this member" has to reach one row, and a name two members of one declaration
+// share reaches both of them, which identifies neither. So a shared name is not an identity on its
+// own: each row sharing it carries its place among the rows sharing it, counted from one in the
+// order the source declares them, and the bare name stands on no row at all. A declaration that
+// names each of its members once is untouched by this, which is what keeps every target written
+// against the kit today working.
+
+describe('two members of one declaration carrying one name', () => {
+  const where = beside('parts.yaml')
+
+  /**
+   * One declaration whose two `PrecheckAsync` members sit under an unrelated member, so what the
+   * place in each identity counts is visible: among the rows sharing the name the two are the
+   * first and the second, while among all of the declaration's members they would be the second
+   * and the third.
+   */
+  const overloaded = (): Record<string, unknown> =>
+    archDocument(
+      archElement('IGuard', [
+        archMember('Name', 'The name this guard reports itself by.'),
+        archMember('PrecheckAsync', 'Judges a tool call before it runs.'),
+        archMember('PrecheckAsync', 'Judges a tool call it is handed the session with.'),
+      ]),
+    )
+
+  /**
+   * The one row a member's identity reaches on the drawn page, as the one node it has to be. The
+   * identity is written into the expectation rather than only into the selector, so a failure
+   * names the identity that went unreached and what was drawn instead.
+   */
+  const oneRow = (page: Document, member: string): Element | undefined => {
+    const rows = [...page.querySelectorAll(`[data-declaration="IGuard"] [data-member="${member}"]`)]
+    expect(rows.map((row) => `${row.tagName} ${row.getAttribute('data-member')}`)).toEqual([
+      `TR ${member}`,
+    ])
+    return rows[0]
+  }
+
+  test('each of the two is reached by its place among the members sharing the name', () => {
+    const { page } = matched(overloaded(), where)
+    expect(oneRow(page, 'PrecheckAsync#1')?.textContent).toContain(
+      'Judges a tool call before it runs.',
+    )
+    expect(oneRow(page, 'PrecheckAsync#2')?.textContent).toContain(
+      'Judges a tool call it is handed the session with.',
+    )
+  })
+
+  test('the shared name on its own reaches no row, because it names neither of them', () => {
+    const { page } = matched(overloaded(), where)
+    expect(page.querySelectorAll('[data-member="PrecheckAsync"]').length).toBe(0)
+  })
+
+  test('a declaration naming each of its members once is drawn as it was', () => {
+    const { page } = matched(
+      archDocument(
+        archElement('IGuard', [
+          archMember('Name', 'The name this guard reports itself by.'),
+          archMember('PrecheckAsync', 'Judges a tool call before it runs.'),
+        ]),
+      ),
+      where,
+    )
+    expect(oneRow(page, 'Name')?.textContent).toContain('The name this guard reports itself by.')
+    expect(oneRow(page, 'PrecheckAsync')?.textContent).toContain(
+      'Judges a tool call before it runs.',
+    )
+    expect(page.querySelectorAll('[data-member*="#"]').length).toBe(0)
+  })
+})
+
 describe('a shape whose language has not said which property is the name', () => {
   // Three shapes drawn side by side in one document: one whose language gives the name role to a
   // property, one that gives it to none, and one that gives it to two. The question has one
