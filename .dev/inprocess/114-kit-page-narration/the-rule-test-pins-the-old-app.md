@@ -38,3 +38,9 @@ Pinning what rather than where: the test drops the two totals and the line numbe
 It removed the three tokens `as Document` at `ts/metalang/app.test.tsx:1784`. That line is where the TDD result records criterion 13's RED; installing `@types/jsdom` cleared the unsafe-call error and made the assertion redundant, which the linter then reported at the same position. No assertion, expectation, name or skip changed. The alternatives were a NoWarn, an eslint-disable or an eslint config change, all suppressions.
 
 `bun add --dev --exact @types/jsdom@30.0.0` wrote one transitive resolution into `bun.lock` that was not there before, `@types/tough-cookie@4.0.5`. The lock cannot record the authorized package without it. Nothing else in the lock moved, and the `package.json` description line the command rewrote was reverted.
+
+## The first package asking this was refused
+
+Tim answered `impact-test` with none of these on 2026-11-13 and gave his reason: the package opened with data before saying what it was about and why that data mattered, and a package system exists to stop exactly that. The question stands; the presentation was the problem.
+
+The rebuild opens by saying what the package is about and what it needs from him — the kit work is finished, one test disagrees with it, and only he can authorize the round that changes it — and shows the test and the moved line numbers afterwards, as the evidence for that ask rather than as the opening.
