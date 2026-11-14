@@ -53,6 +53,15 @@ export function inlineScript(js: string): string {
 }
 
 /**
+ * The path JARVIS serves its story helper at, which a drawn page asks its own origin for.
+ *
+ * It is written once, here, because two things say it: the tag the page loads the helper with,
+ * below, and the kit's readme, which tells whoever takes the kit the one thing a drawn page
+ * reaches outside itself for.
+ */
+export const STORY_SCRIPT = '/api/packages/story.js'
+
+/**
  * JARVIS's story helper, which rings a beat of a narration and points at what the beat is about.
  * It is served by JARVIS rather than built here, so the page loads it from the path JARVIS serves
  * it at. It has no order dependency on the data or the bundle: at load it only adds listeners and
@@ -64,8 +73,11 @@ export function inlineScript(js: string): string {
  * helper: the helper carries a closing script tag of its own, and this file's tests read the
  * bundle out of the slice from the first `<script>` to the last `</script>`, so a helper written
  * last would land that search on its own closing tag instead of the bundle's.
+ *
+ * It is deferred, so it runs after the bundle below — which is why the bundle reads its
+ * announcement once the deferred scripts have run rather than at mount. See client.tsx.
  */
-const STORY_HELPER = '<script defer src="/api/packages/story.js"></script>'
+const STORY_HELPER = `<script defer src="${STORY_SCRIPT}"></script>`
 
 /**
  * The whole page as one string of HTML: the styles, the data the page draws, the helper that

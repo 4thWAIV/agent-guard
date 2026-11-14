@@ -1710,6 +1710,25 @@ const NotOnThePage = ({ missing }: { missing: readonly string[] }) => {
 }
 
 /**
+ * The one line a page draws when JARVIS's story helper is not there.
+ *
+ * The helper is served by JARVIS rather than carried by the page, so a page opened away from
+ * JARVIS loads nothing for it: no beat can ring and nothing can be pointed at. Until the page said
+ * so it drew exactly as a narratable page draws and nobody looking at it could tell, which is the
+ * silent failure `CLAUDE.md` forbids.
+ *
+ * It is drawn in the page's own styles, through the class the page already draws a plain line in.
+ * Whether to draw it is not decided here: client.tsx reads the helper's announcement once the
+ * deferred scripts have run, which is the only moment there is an announcement to read.
+ */
+export const NotNarratedHere = () => (
+  <p className="d-nothing">
+    This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points
+    at what the beat is about, and nothing answered for it at this page’s origin.
+  </p>
+)
+
+/**
  * The name one item under `declare` declares, whatever kind it is written as.
  *
  * A declaration written inside another carries its name one level further in: `external` holds the
