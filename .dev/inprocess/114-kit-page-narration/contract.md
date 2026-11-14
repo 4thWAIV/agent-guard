@@ -65,6 +65,7 @@ This run: a selector naming one declaration's members matches exactly one elemen
 - `ts/metalang/kit.ts` and `ts/metalang/kit-entry.ts` — what a built kit carries.
 - `.github/workflows/ci.yml` — the kit asset's required-file check.
 - `ts/metalang/render.test.ts`, `ts/metalang/app.test.tsx`, `ts/metalang/kit.test.ts` — the tests for all of the above.
+- `ts/metalang/guardrails.test.ts` — the three rules in `Rules to add` with a violating and a compliant fixture each, and the test decision `impact-test` rewrote.
 - `package.json` and `bun.lock` — jsdom 31.0.0 and `@types/jsdom` 30.0.0 as development dependencies.
 - `bunfig.toml` — the 0.75 coverage floor the new code is held to.
 - `.agents/workflows/*.js` — the `required-agent-runtime` copied block in all eleven scripts, the `stage-result-contracts` copied block in nine, and the test author's, reviewers' and implementer's instructions in `tdd.js` and `implement.js`.
