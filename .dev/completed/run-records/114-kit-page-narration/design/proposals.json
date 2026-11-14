@@ -1,0 +1,266 @@
+[
+  {
+    "angle": "simplest",
+    "approach": "Three small edits in two source files plus tests, no new file, interface, dependency or language change. (1) render.ts pageHtml: add the bare tag `<script src=\"/api/packages/story.js\"></script>` on its own line immediately BEFORE the bundle script and AFTER the data-block script. That keeps the bundle script last, so the existing `indexOf('<script>')` / `lastIndexOf('</script>')` slices in render.test.ts:96 and :146 still land on the bundle (the helper tag carries an attribute so indexOf('<script>') skips it), and client.tsx still finds #page-data before it runs. The shell has no timestamp or nonce, so bytes stay deterministic (GROUND probed `cmp` identical today). The spelling is the contract's: selector-contract.md Settled row. (2) app.tsx Declaration (line 1468): add `data-declaration={...}` to `<section className=\"d-decl\">` using the `body.id` already in hand there, set only when it is a string (when it is absent or not a string the component already draws a 'no id' Err, so no attribute is emitted for that card). React escapes attribute values, so no new escaper is needed and render.ts's &/< escapeHtml (unsafe for attributes) is not touched; quotes and punctuation in an id are escaped by React's renderer. (3) app.tsx Table (line 719): give each member `<tr>` a `data-member` value derived from the shape being tabulated, not from a column called `name`. Reuse existing owners and add nothing: `propertiesOf(bodyOf, of)` already supplies the columns, and `derivesFrom(bodyOf, type, 'name')` (words.ts:555, the same question syntax.ts:294 already asks) plus `typeOfProperty` (words.ts:436) pick the column whose declared type is MetaLang's `name`. For arch's `member` this finds `name` (is: name) with NO change to arch.yaml, which avoids the language change the selector contract says needs its own approval. Reuse the ledger's owner `propertyCarrying` (words.ts:422, role name) first where a shape declares `role: name`, and fall back to the type-is-name column, so there is one resolver, not two. The 'name' type word is the one constant syntax.ts:111 keeps private; move/export that single constant from words.ts next to SELF rather than writing the literal a second time (DRY). If zero or several columns qualify the row carries no data-member (the shape has no single name), mirroring propertyCarrying's documented 'answers none draws as before', and a beat aimed at it is reported as a missing target by the helper; this is flagged for Tim below because CLAUDE.md rule 1 forbids a silent 'could not tell'. (4) Missing / ambiguous target reporting is the JARVIS helper's job at beat time; in this repo the loud part is a render-time proof: tests assert the model document yields exactly one match for each intended selector and zero matches for a name that does not exist, and nothing in the renderer widens a selector. (5) Tests, RED first: render.test.ts asserts the helper tag exists exactly once, sits after #page-data and before the bundle, and two renders of the same input are byte-identical; app.test.tsx asserts data-declaration on each card, data-member on each row, a member name repeated across two declarations resolves to one match when scoped by declaration, an id with quotes, `<`, `&`, `]` round-trips as an attribute value, and existing data-part / data-col targets unchanged. A kit.test.ts case renders under plain node and checks the tag and attributes appear from a built kit. (6) Release is the existing kit-release controls (pinned version, commit sha, asset SHA-256, download URL to Diagnostics per selector-contract.md); no new mechanism. propose.ts's separate page is left alone because the issue names only pageHtml.",
+    "keySteps": [
+      "Write RED tests first: render.test.ts (helper tag once, between #page-data script and bundle script, byte-identical double render) and app.test.tsx (data-declaration on every card, data-member on every row, repeated member name across two declarations scoped to one match, id with quote/bracket/ampersand/less-than round-trips, nothing-matching selector yields zero, data-part and data-col unchanged).",
+      "Export the 'name' type constant once from words.ts (retire the private NAME in syntax.ts so it imports it) so no second literal exists.",
+      "app.tsx Declaration: add data-declaration from body.id when it is a string.",
+      "app.tsx Table: resolve the member identity column once per table via propertyCarrying(ROLES.name) else the single column whose type derivesFrom name; put data-member on the member tr; emit none when no single column qualifies.",
+      "render.ts pageHtml: insert the story.js script tag after the data block and before the bundle script.",
+      "Run bun test, eslint, and the render determinism cmp on the issue-106 nine-declaration surface; count matches for [data-declaration=\"IGrantStore\"] [data-part=\"members\"] (1) and [data-declaration=\"IWindowsHelloNativeOps\"] [data-member=\"BeginVerification\"] (1).",
+      "Rebuild the kit, run kit.test.ts, then release through the existing kit controls and send the four release facts to Diagnostics; note old-kit documents need revalidation and a new revision."
+    ],
+    "rulesToAdd": [
+      {
+        "rule": "ESLint no-restricted-syntax (or small custom rule) in eslint.config.js: a JSX `<section>` whose className is `d-decl` must also carry a `data-declaration` attribute; a JSX `<tr>` inside Table must carry `data-member` (selector form: JSXOpeningElement[name.name='section']:has(JSXAttribute[name.name='className'][value.value='d-decl']):not(:has(JSXAttribute[name.name='data-declaration']))).",
+        "failureModeStopped": "A later edit redraws the declaration card or member row without its identity attribute, silently making every narration target ambiguous or unreachable again, which is exactly this defect.",
+        "analyzer": "eslint no-restricted-syntax (esquery selector), TypeScript side; not a C# Roslyn analyzer"
+      },
+      {
+        "rule": "Contract test (not analyzer): the page-shell test pins that the story.js tag is spelled exactly once in ts/metalang (grep-able constant) and that the render is byte-identical across two runs.",
+        "failureModeStopped": "A second hand-typed copy of the helper URL (e.g. in propose.ts) drifting from the contract, or a nondeterministic value (timestamp, nonce) slipping into the shell.",
+        "analyzer": "contract-directed test rule"
+      },
+      {
+        "rule": "ESLint no-restricted-syntax: ban the string literal 'name' used as a member-column lookup in Table (member['name'] / columns.includes('name')) so identity must come from the type/role resolver.",
+        "failureModeStopped": "Assuming a column called name, which works for arch and breaks on the first shape that declares another first.",
+        "analyzer": "eslint no-restricted-syntax"
+      }
+    ],
+    "risks": [
+      "Helper tag position is not specified by the issue or any code; if story.js needs the DOM element it points at to exist at load, placing it before the bundle (which renders #root content) may be wrong. It cannot be proven from this repo: the JARVIS helper contract lives elsewhere. Needs Tim or the JARVIS lane to confirm.",
+      "A shape with no single name-typed column gets no data-member, a quiet 'could not tell' that sits against CLAUDE.md rule 1; mitigation is that the helper reports the missing target, but whether the renderer itself should fail loud is a decision for Tim, not mine.",
+      "Choosing 'type derives from name' over adding `role: name` to arch.yaml member.name is a design pick the selector contract lists as open; the type route needs no language change, but Tim has not said yes to it.",
+      "Whether the helper tag should be emitted unconditionally: a page opened outside JARVIS makes a failed script load (silent in the browser). The issue says emit it with no condition.",
+      "propose.ts has its own page template with no story helper; left out because the issue names only pageHtml, but a proposal page would remain un-narratable.",
+      "Moving the 'name' constant touches syntax.ts, a third file, to avoid a duplicate literal; small but outside the two named surfaces.",
+      "Every document checked under the old kit needs revalidation and a new revision; already-signed packages stay immutable."
+    ],
+    "autoResolved": [
+      {
+        "choice": "How a member row finds its identity generically",
+        "resolution": "Reuse the existing owners: propertyCarrying(ROLES.name) first, else the single column whose type derivesFrom 'name' via words.ts derivesFrom/typeOfProperty; no new resolver and no arch.yaml change.",
+        "principle": "rails-dry-code and the prior-art ledger verdict (reuse, owner ts/metalang/words.ts:422); reuse-a-primitive-behind-an-owner.",
+        "evidence": "ledger.json capability name-property-of-a-shape decision reuse; words.ts:395-425 doc comment 'the one place the question...is answered'; syntax.ts:294 already uses derivesFrom(bodyOf, type, NAME); arch.yaml member.name is `is: name` with no role."
+      },
+      {
+        "choice": "Attribute escaping for data-declaration and data-member values",
+        "resolution": "Rely on React's attribute escaping in app.tsx; do not extend render.ts escapeHtml.",
+        "principle": "best-practices-guide 5a fail-closed correctness and rails-dry-code (no second escaper); render.ts escapeHtml escapes only & and < and is title-only.",
+        "evidence": "facts.json page-shell claim on escapeHtml render.ts:38; app.tsx draws via JSX; the contract test with quote/bracket/ampersand ids proves it."
+      },
+      {
+        "choice": "Where the story helper tag goes in the page",
+        "resolution": "After the data-block script and before the bundle script, bare tag with src, so the bundle stays last and existing slice assertions at render.test.ts:96 and :146 keep working.",
+        "principle": "best-practices-guide 6a proof by re-runnable test; least-change.",
+        "evidence": "facts.json page-shell claims on element order and render.test.ts slice logic; client.tsx:15-16 needs #page-data before the bundle."
+      },
+      {
+        "choice": "Whether to prove behavior test-first and keep bytes deterministic",
+        "resolution": "Write RED tests first and add a double-render byte comparison; add no timestamp or nonce.",
+        "principle": "best-practices-guide 6a and 4a.",
+        "evidence": "facts.json autoResolved entries; GROUND cmp probe printed identical."
+      }
+    ]
+  },
+  {
+    "angle": "most-general",
+    "approach": "Build each of the issue's needs as one general seam with one owner, verified against the live tree.\n\n1. STORY HELPER (render.ts, pageHtml, the sole shell producer, render.ts:60-72). Add one exported constant STORY_HELPER_SRC = '/api/packages/story.js' and emit `<script src=\"${STORY_HELPER_SRC}\"></script>` as a constant tag with no variable input. Place it after `<main id=\"root\">` and before the page-data block and the bundle. This keeps the data block ahead of the bundle (client.tsx:15-16 throws otherwise). The bundle stays the last script, and the tag carries an attribute, so render.test.ts:96 and :146 (`indexOf('<script>')` and `lastIndexOf('</script>')`) still slice only the bundle. Both the repo `render` command and the kit go through pageHtml, so one change reaches both after a kit rebuild. propose.ts:882 has its own template and is not touched; the issue names only pageHtml.\n\n2. DECLARATION IDENTITY (app.tsx Declaration, section at ~1468). Add `data-declaration={id}` as a JSX prop, so React escapes it. Do not concatenate markup. The id is `body.id` where it is a non-empty string. Where it is missing, the existing 'no id' em and Err band (app.tsx:1485-1498) is the loud report, so the section carries no attribute. Declaration is called from one place (app.tsx:1828) and the section is the only `d-decl` writer, so nothing else needs the id. `data-part` (app.tsx:963) and `data-col` (736, 757) are untouched, and no existing test asserts the section's opening tag.\n\n3. MEMBER IDENTITY (app.tsx Table, ~719-785). Derive the row identity from the rulebook through the existing single owner, `propertyCarrying(bodyOf, of, ROLES.name)` (words.ts:422, ledger verdict: reuse). Compute it once per table beside `columns`, then put `data-member={String(member[nameColumn])}` on the data `<tr>`, not on the `r-note` sibling row. The `<tr>` id and className used for marks are left as they are. No property is named by spelling, so a shape whose identifying column is called anything, or comes in any position, works. The one change in the language: arch.yaml `member.name` (line ~517) gets `role: name`. That is exactly the 'name it is known by' meaning, and the `distinct by role` constraint is satisfied because `kind` and `does` carry other roles. The other consumers of ROLES.name are unaffected: shownBy/calledBy and the Rungs at app.tsx:590 and :683 read enum value types, and propose.ts:379 reads proposal types. I rejected two alternatives. 'The property whose type is `name`' bakes a type's spelling into the renderer (SOLID rail 3). 'First column' breaks on the first shape that declares another column first. When a shape has no ROLES.name property, or two carry it, the rows get no data-member. The silence is closed by the target resolver in step 4, not left standing.\n\n4. EXACTLY-ONE TARGET SEAM (a new small module, ts/metalang/target.ts, with two pure functions). `attributeSelector(attribute, value)` builds a CSS attribute selector with `\\` and `\"` escaped, so ids with punctuation and quotes round-trip. `soleMatch(html, selector)` returns the single match, and throws a named error on zero matches ('no element matches X') and on more than one ('N elements match X, ambiguous'). It never falls back to a broader selector. The nature of the page (drawn in the browser; the CLI emits an empty `<main>`) means tests run it over renderToStaticMarkup output (app.test.tsx:17-21). The same seam is what a kit command would call. A `node kit.js target <file> <selector>` command is a new public command and a Tim decision. I include it in the design as the known need, flagged for his yes, rather than deferring it.\n\n5. DETERMINISM. No clock, random value or hash enters the shell or the identity code. Identity follows document order (propertiesOf Map order, array index). Add a byte-equality test: render the same document twice through renderWith and compare. Also render through a built kit under node twice, reusing the kit.test.ts:179-205 pattern with arch.yaml. GROUND already probed two builds as identical under Bun 1.2.14.\n\n6. TESTS (RED first). render.test.ts: helper tag is present with the exact literal, appears before the data block and the bundle, and the bundle slice assertions still hold. app.test.tsx: `[data-declaration=\"IGrantStore\"] [data-part=\"members\"]` resolves to exactly one element on a two-declaration fixture. The same member name in two declarations resolves to one row under each declaration's selector. An id containing quotes, brackets and `<` is escaped in the markup and selectable. A shape with no name role gives rows without data-member and a target on it reports 'matches nothing'. Existing data-part and data-col tests (app.test.tsx:990-1110, 1544) pass unchanged. The ledger notes parts.yaml is the only repo document with Table output, so fixtures cover the other shapes.\n\n7. RELEASE. Changing pageHtml and app.tsx changes kit.js and page.js and therefore the digest, so a new kit release through the existing release job (ci.yml:577-599) is the delivery. The four items for the JARVIS lane (tag, 40-char sha, SHA-256 of evolang-kit.zip, download URL) are handed over at release, as selector-contract.md says. Documents checked under the old kit need revalidating and a new revision.",
+    "keySteps": [
+      "1. Tim decisions first, in one package, before any contract text: (a) role: name on arch member.name vs the two alternatives, my pick role: name; (b) the `node kit.js target` command; (c) the rule for a shape with no name role; (d) the helper tag position; (e) duplicate ids and duplicate member names within one declaration: render both, and soleMatch reports 'ambiguous'.",
+      "2. RULE-PHASE: write the eslint rules below with violating and compliant fixtures.",
+      "3. ARCHITECTURE: skeleton for target.ts (attributeSelector, soleMatch), STORY_HELPER_SRC, and the Table's identity signature, with throw-NotImplemented bodies; compile proof.",
+      "4. TDD: write the render.test.ts, app.test.tsx and kit.test.ts acceptance tests above and watch them fail.",
+      "5. IMPLEMENT: pageHtml helper tag; data-declaration prop on section.d-decl; Table identity via propertyCarrying and data-member on the data row; arch.yaml role: name on member.name; target.ts bodies.",
+      "6. Prove byte determinism: two renders of ts/metalang/arch.yaml and of a document with the nine-declaration shape, in the repo and through a built kit under node, compared with cmp.",
+      "7. REFUTE (L1: all five adversaries) against the contract; fix findings in-turn.",
+      "8. Move the run-record inprocess to completed before merging the PR; release through the dev ci.yml release job; hand the four release items to Diagnostics/JARVIS; file issues for any deferred item."
+    ],
+    "rulesToAdd": [
+      {
+        "rule": "eslint no-restricted-syntax on ts/metalang/**/*.tsx outside Table and Declaration: the JSX attributes `data-declaration` and `data-member` may be written only at their one owning site each.",
+        "failureModeStopped": "A second, hand-written copy of an identity attribute grows beside the owner (DRY and second-path drift), e.g. a different value derivation on another component.",
+        "analyzer": "eslint no-restricted-syntax (JSXAttribute name selector) with a file/selector override"
+      },
+      {
+        "rule": "eslint no-restricted-syntax in ts/metalang/app.tsx: no string literal 'name' used as a property key or index (`member.name`, `member['name']`) in drawing code; row identity must come from propertyCarrying(..., ROLES.*).",
+        "failureModeStopped": "Assuming a column called `name`, which the issue forbids; works for arch and breaks on the first shape with another spelling.",
+        "analyzer": "eslint no-restricted-syntax (MemberExpression and Literal selectors)"
+      },
+      {
+        "rule": "Contract-directed test rule (a vitest/bun test over the sources): every `<script src=` in render.ts must be written from a named exported constant, and pageHtml may interpolate only escaped or constant values inside a tag.",
+        "failureModeStopped": "An unescaped or hard-coded second helper URL or attribute value injected into the shell.",
+        "analyzer": "source-scanning test rule (no eslint selector can see template literal context cleanly)"
+      },
+      {
+        "rule": "eslint no-restricted-properties and no-restricted-globals on non-test ts/metalang sources: Date, Math.random, performance.now, crypto.randomUUID.",
+        "failureModeStopped": "A timestamp, nonce or random id slipping into the shell or identities and breaking 'identical bytes under a pinned kit'.",
+        "analyzer": "eslint no-restricted-properties and no-restricted-globals"
+      },
+      {
+        "rule": "eslint no-restricted-syntax: `querySelector` and `querySelectorAll` calls are allowed only in target.ts; target resolution must go through soleMatch.",
+        "failureModeStopped": "A target that matches nothing being silently widened to a broader selector or `|| fallback` chain (CLAUDE.md rule 1).",
+        "analyzer": "eslint no-restricted-syntax (CallExpression callee selector)"
+      }
+    ],
+    "risks": [
+      "The member identity needs `role: name` on arch.yaml member.name. That is a change to a language file carried in the kit and changes the meaning-in-use of ROLES.name from 'shown by' to also 'row identity'. Tim must approve; the contract may not record it as decided until he says yes. Neither alternative is nearly as general.",
+      "Shapes whose language declares no `role: name` property (propose.yaml shapes, the test-only `equivalent` entity) get rows without data-member. The silence is closed only at target-resolution time by soleMatch. If Tim wants it caught at render time instead (an on-page Err band or render failure), that is a different cost: it would break pages that draw such shapes today.",
+      "A page opened outside JARVIS requests /api/packages/story.js and the load fails with no diagnostic. The issue calls this the documented behaviour, but CLAUDE.md rule 1 says nothing may fail silently. Flag it for Tim; do not decide it here. Adding an onerror hook is a new mechanism that needs his yes.",
+      "Duplicate declaration ids (the checker keeps the first) and repeated member names inside one declaration make a selector match more than one element. soleMatch reports 'ambiguous', but the page itself draws both. Whether to refuse or flag duplicates at check time is an open decision.",
+      "The kit digest is a changed, re-pinned artifact: JARVIS stage/activate needs compatibility review, and old documents need revalidation. Not in this repo's control.",
+      "ci.yml's non-empty file check omits style.css and syntax.css (JARVIS requires them): a gap, outside the issue, not to be added without Tim's yes.",
+      "Byte determinism was probed only under Bun 1.2.14 on one machine, and the zip stores mtimes, so the zip digest is not reproducible even though its contents are.",
+      "propose.ts has its own page template with no story helper; if Tim wants proposal pages narrated, that is a second change."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Escaping of data-declaration and data-member values",
+        "resolution": "Emit them as JSX props so React escapes them; no markup string concatenation. render.ts escapeHtml (only & and <) is not used for attributes.",
+        "principle": "Best-practices guide 3a: escape output for where it lands.",
+        "evidence": "app.tsx:736, 757 and 754 already write attributes via JSX; render.ts:38 escapeHtml escapes only & and <; ground facts, declaration-drawing and member-drawing autoResolved."
+      },
+      {
+        "choice": "How a member's identity is found (reuse vs new capability)",
+        "resolution": "Reuse propertyCarrying(bodyOf, of, ROLES.name) as the one owner of 'which property carries that role'; no new lookup is written.",
+        "principle": "rails-dry-code and the prior-art ledger: reuse the existing owner; best-practices 4b (a public name goes to Tim, so the arch.yaml role stays an item for his yes).",
+        "evidence": "ground/ledger.json verdict name-property-of-a-shape: reuse, owner ts/metalang/words.ts:422; words.ts:395-402 doc comment 'the one place the question ... is answered'; app.tsx:683 existing caller."
+      },
+      {
+        "choice": "Fail-closed behaviour on a missing target or a missing identity",
+        "resolution": "Throw a named error from one soleMatch seam on zero or more-than-one matches; never widen. Where an id is missing, the existing Err band is the report.",
+        "principle": "Best-practices guide 5a/5b and CLAUDE.md rule 1, nothing may fail silently.",
+        "evidence": "app.tsx:1485-1498 existing 'no id' Err; render.ts:108-113 notDrawn pattern (exit 1 naming the file); issue 114 test list."
+      },
+      {
+        "choice": "Spelling of data-declaration, data-member and the story helper src",
+        "resolution": "Taken as stated in the live issue and selector-contract.md; not re-chosen.",
+        "principle": "Best-practices guide 4b: public names come from Tim, and here the issue supplies them.",
+        "evidence": "gh issue view 114; .dev/inprocess/114-kit-page-narration/selector-contract.md Settled table."
+      },
+      {
+        "choice": "Determinism and RED-first proof",
+        "resolution": "Byte-equality test by double render (repo path and kit under node); new tests written to fail before implementation.",
+        "principle": "Best-practices guide 6a: 'done' is a re-runnable check; watch it fail first.",
+        "evidence": "ground facts determinism area (cmp identical probes); issue 'identical source plus a pinned kit still renders identical bytes'; kit.test.ts:179-205 pattern reused."
+      }
+    ]
+  },
+  {
+    "angle": "risk-first",
+    "approach": "RISK-FIRST DESIGN \u2014 make every corner-cut here either impossible or greppable, and gate the two choices that cannot be defaulted.\n\nTWO DECISIONS FOR TIM BEFORE IMPLEMENT (neither is auto-resolvable; leaving either to the implementer is a rails-decisions \"undecided forced choice\"):\n\nD1 \u2014 how a member's identity is found. My pick: add `role: name` to `member.name` in `ts/metalang/arch.yaml`, and widen the `role: name` doc text in `ts/metalang/metalang.yaml:1011-1018` from the display-name wording to \"the name this thing is known by\", so the renderer asks the ONE existing owner `propertyCarrying(bodyOf, of, ROLES.name)` (`ts/metalang/words.ts:422`). Why the other two lose: \"first column\" bakes an observed data pattern into the logic (SOLID rail 3, real-work rail 3) and dies on the first shape that declares something else first \u2014 the test-only `equivalent` entity at `app.test.tsx:1070-1110` is already such a shape. \"Find the property whose declared type is MetaLang's `name`\" creates a SECOND answer to the question `propertiesCarrying` already owns, against its own doc comment (\"This is the one place the question 'which property of this type carries that role' is answered\") \u2014 SOLID rails 1 and 4. Cost of my pick is a language-file change, which `selector-contract.md` says \"changes the language and needs its own approval\". I verified it is drawing-safe: all three `ROLES.name` consumers (`app.tsx:590` shownBy, `app.tsx:683` Rungs, `propose.ts:379`) reach the role only through `typeOfOwnValue` of a closed set, and `member` is used only as `list: { of: member }` (`arch.yaml:582`), never as an enum's value type \u2014 so no existing page changes. `distinct: { in: properties, by: role }` stays satisfied (member would carry kind, prose, name). No existing test asserts member has no name role (`words.test.ts:551` asserts only kind).\n\nD2 \u2014 what the acceptance resolves targets with. My pick: add ONE pinned DOM devDependency (happy-dom) so the acceptance resolves `[data-declaration=\u2026] [data-member=\u2026]` the way the browser and JARVIS's `story.js` do. Measured reason, not a preference: I probed Bun 1.2.14's built-in HTMLRewriter in this worktree. It resolves plain descendant selectors (1 match, correct), but `getAttribute` returns the RAW entity text (`a&quot;b&amp;c&lt;d&gt;e&#x27;f`, not equal to the id) and a selector carrying an escaped value matched 0 elements. React's `renderToStaticMarkup` does escape correctly (`\"`\u2192`&quot;`, `&`\u2192`&amp;`, `<`\u2192`&lt;`, `>`\u2192`&gt;`, `'`\u2192`&#x27;`). So the no-dependency option silently disagrees with the browser on exactly the \"punctuation and quotes in an id\" case the issue requires \u2014 it would either pass wrongly or get \"fixed\" by softening the fixture to a plain identifier. A DOM also buys the only honest end-to-end proof: the CLI-rendered page carries an empty `<main id=\"root\">` and nothing resolves until the bundle runs, so a DOM is what proves the BUILT `page.js` carries the change.\n\nTHE BUILD, once those are answered:\n\n1. Shell. `pageHtml` (`render.ts:60-72`) emits the settled tag verbatim \u2014 `<script src=\"/api/packages/story.js\"></script>` \u2014 as a constant with no interpolation, placed LAST, after the bundle script, before `</html>`. Last is the only position that cannot block the page when the helper 404s outside JARVIS (the shell has no `<head>`/`<body>`, and an external classic script earlier blocks the parse until the fetch fails), and it gives the helper a mounted DOM. Pin the whole shell with a byte-exact assertion, not `toContain`, so the position is locked rather than remembered.\n\n2. Declaration identity. In `Declaration` (`app.tsx:1468`), the section takes `data-declaration={body.id}` under the SAME predicate already written at `app.tsx:1485` (`typeof body.id === 'string' && body.id.length > 0`), extracted to one named const consumed by both the `d-id` span and the attribute so the two cannot drift (DRY rail 5). No id \u2192 no attribute; the existing `no id` em and the `Err` at `app.tsx:1502` already report it. Value goes through JSX, so React escapes it and no escaper is written.\n\n3. Member identity. `Table` (`app.tsx:719-785`) asks `propertyCarrying(bodyOf, of, ROLES.name)` ONCE per table, above the row map. Each data `<tr>` takes `data-member={text(member[part])}` when that yields a non-empty string; the `tr.r-note` sibling (`app.tsx:773-779`) never does, and the existing `className`/`id` mark attributes are untouched. Zero carriers \u2192 no attribute, no error, which is the owner's stated contract (\"A thing whose type answers none of the three draws as it drew before the language had the word\", `words.ts:425-428`). Two carriers \u2192 `propertyCarrying` returns undefined, so again no attribute, and NOTHING NEW is written to report it: the page's existing `Err` at `app.tsx:1088-1093` already names both carriers, and the checker already faults it through `distinct: { in: properties, by: role }`. Loudness is reused, not reinvented.\n\n4. One target-resolution owner, test-scope. A single helper every selector assertion goes through: resolve(html, selector) \u2192 exactly-one / missing(selector) / ambiguous(count). It never substitutes a broader selector; missing and ambiguous both fail loudly naming the selector and the count (CLAUDE.md rule 1, guide 5a). It stays test-scope because the approved plan's words for this lane are \"Add the existing story helper to the kit renderer; add stable declaration and member identities; preserve section and column targets\" \u2014 shipping a `kit.js targets` command would be unapproved scope, and the runtime report-don't-widen behaviour is the JARVIS half (4thWAIV/jarvis#120).\n\n5. Acceptance, all in the existing test files. (a) The real in-repo document `ts/metalang/parts.yaml` \u2014 7 declarations, 4 member tables, 18 member rows: every declaration id resolves to exactly one section, every `[data-declaration=\"X\"] [data-part=\"members\"]` to exactly one, every member row by name inside its own declaration. (b) An inline fixture declaring its OWN entity with `role: name` against a language that is not arch, proving the mechanism is language-agnostic and not an arch special case (real-work rail 3). (c) A repeated member name across two declarations \u2014 `parts.yaml` has 18 distinct names, so this case needs the inline fixture; each target resolves to exactly one. (d) An id carrying `\"`, `'`, `&`, `<`, `>`: assert the DECODED attribute value equals the id exactly and that the escaped selector resolves to one \u2014 never a substring assertion. (e) Duplicate declaration ids \u2192 resolver reports ambiguous, and the checker already faults it (`check.ts:1005`). (f) A shape with no name role \u2192 no `data-member`, resolver reports missing. (g) Every existing `data-part`/`data-col` byte assertion (`app.test.tsx:1098-1110`, `:1544`) and the marked-row id assertion (`:1559`) pass untouched. (h) Byte identity, which does not exist today: one document rendered twice compared byte for byte, and two kit builds compared per-file. (i) Through the built kit: `node kit.js render` output carries the helper tag, and the built `page.js` executed in the DOM yields the same resolved targets as the component render \u2014 the proof that what JARVIS downloads carries the change.\n\n6. Release. The change necessarily moves `page.js` and `kit.js`, so the digest changes once; the four Diagnostics facts, the new digest, revalidation of the model surface revision, and immutability of signed packages all run through the existing controls. Rule R7 below closes the live mismatch GROUND found first: the CI release job's non-empty check (`ci.yml:577-599`) omits `style.css` and `syntax.css`, which the consumer requires \u2014 a kit released from this branch could be refused at adoption time.\n\nRULE MECHANISM. The TS side has no custom lint rule infrastructure (`eslint.config.js` wires only `@eslint/js` + `typescript-eslint`, no local plugin), and adding a plugin mechanism is a design element that outlives its function. The rules below are therefore contract-directed test rules that scan source and run inside the `bun test` step CI already executes (`ci.yml:437-441`) \u2014 the in-repo precedent is `examples.test.ts`, which walks the repository root, and, on the .NET side, `EvidenceUploadsCannotRegressTests.cs`, which reads the workflow file. Each ships with a violating fixture proving it fires and a compliant one proving it does not. If Tim prefers them as ESLint local rules instead, that is his call and the rule content is unchanged.",
+    "keySteps": [
+      "Gate on D1 (role: name on arch.yaml member.name + widen the metalang.yaml role doc text) and D2 (one pinned DOM devDependency for target resolution). Neither can be defaulted; nothing else starts until both are answered.",
+      "RULE-PHASE first, under the fence: land R1-R7 with violating and compliant fixtures, so the corner-cuts are impossible or greppable BEFORE any renderer code exists to cut them.",
+      "pageHtml: emit the settled story-helper tag verbatim as a constant, last line before </html>, and pin the whole shell byte-exact (not toContain) so its position is locked.",
+      "Declaration: extract the existing id predicate at app.tsx:1485 to one named const and feed both the d-id span and a new data-declaration={body.id} JSX attribute from it; no id means no attribute.",
+      "Table: ask propertyCarrying(bodyOf, of, ROLES.name) once per table; each data tr takes data-member from that property's text when non-empty; the r-note row never does; mark className/id untouched.",
+      "Zero carriers draws no attribute and no error (words.ts:425-428); two carriers reuses the existing Err at app.tsx:1088 and the checker's distinct-by-role fault. Write no new diagnostic.",
+      "Build one test-scope target resolver returning exactly-one / missing / ambiguous, and route every selector assertion through it; it never widens a selector.",
+      "Acceptance over the real document parts.yaml (7 declarations, 4 tables, 18 rows) plus inline fixtures for a repeated member name, a quoted/punctuated id asserted on the decoded attribute value, duplicate declaration ids, and a shape with no name role.",
+      "Add the byte-identity gate that does not exist today: render one document twice and compare bytes; build the kit twice and compare per-file hashes.",
+      "Prove it through the built kit: node kit.js render carries the helper tag, and the built page.js executed in the DOM resolves the same targets as the component render.",
+      "Fix the CI/carried-file mismatch (ci.yml omits style.css and syntax.css) before the release, under rule R7, then run the release and hand Diagnostics the tag, 40-char sha, asset SHA-256 and URL.",
+      "Hand the JARVIS lane the two literal targets to verify there after adoption, with the re-cut revision of the model surface; they cannot be proven in this repository."
+    ],
+    "rulesToAdd": [
+      {
+        "rule": "No language word by spelling in the drawing path: a string literal naming a property or type of a drawn language (`'name'`, `\"name\"`, and the same for the other language words) is banned in ts/metalang/app.tsx and ts/metalang/client.tsx. The only legal route to a language word is a named constant in words.ts (ROLES, SELF, BOOTSTRAP, ROOT) or a rulebook lookup.",
+        "failureModeStopped": "Deriving a member's identity from the spelling of a column (`member['name']`, `columns.includes('name')`, `=== 'name'`) instead of asking the rulebook \u2014 the exact corner the issue forbids and the cheapest one to take. It lands with no carve-out: app.tsx contains zero 'name'/\"name\" literals today.",
+        "analyzer": "contract-directed test rule (bun test, source scan over app.tsx + client.tsx), pattern of examples.test.ts"
+      },
+      {
+        "rule": "No literal target in non-test source: the strings IGrantStore, IWindowsHelloNativeOps, any declaration id, any member name, and any constant data-declaration=/data-member= attribute value are banned anywhere in non-test ts/ source.",
+        "failureModeStopped": "Special-casing the two intended targets so the acceptance passes while the general mechanism is absent or broken (SOLID rail 3, real-work rail 2) \u2014 a check gamed to pass certifies an unknown problem as solved.",
+        "analyzer": "contract-directed test rule (bun test, source scan over non-test ts/**)"
+      },
+      {
+        "rule": "Render-path purity: Date, Date.now, Math.random, crypto.randomUUID, performance.*, process.env and process.cwd are banned in the non-test render path (app.tsx, client.tsx, render.ts, page-data.ts, words.ts, highlight.ts, check.ts, rulebook.ts, syntax.ts). The two existing uses are outside that path and are named out with their reason: bundle.ts:148 defines process.env.NODE_ENV for the bundler, examples.ts:140 colours a hand-written page.",
+        "failureModeStopped": "Making the helper tag or an identity depend on time, environment or randomness \u2014 a cache-busting `story.js?v=\u2026`, an env-switched URL, a generated row key \u2014 which breaks byte-identical renders and the kit digest. GROUND measured the path clean today; nothing keeps it clean.",
+        "analyzer": "contract-directed test rule (bun test, source scan over the named render-path files)"
+      },
+      {
+        "rule": "Byte-identity gate: a test renders one document twice and compares the bytes, and a test builds the kit twice and compares every file's hash. Neither exists today.",
+        "failureModeStopped": "Determinism asserted by inspection and then silently lost \u2014 GROUND proved by probe that renders and kit builds are byte-stable today, and no test holds that property, so the first non-deterministic id source ships unnoticed and JARVIS's digest pin breaks at adoption.",
+        "analyzer": "contract-directed test rule (acceptance-level, render.test.ts + kit.test.ts)"
+      },
+      {
+        "rule": "One escaper, never in attribute context: escapeHtml stays used only for the <title>; every data-* attribute in ts/metalang is written as a JSX attribute; no data-* attribute is built by string concatenation or template interpolation, and no second escaper is added.",
+        "failureModeStopped": "A hand-rolled half-escaper producing an unparseable or injectable attribute. render.ts:36 escapeHtml escapes only & and < \u2014 not quotes, not > \u2014 so reaching for it in an attribute slot looks right and is wrong; React's own escaping is the tested primitive to reuse.",
+        "analyzer": "contract-directed test rule (bun test, source scan) \u2014 or eslint no-restricted-syntax if Tim prefers the lint route"
+      },
+      {
+        "rule": "Target proofs go through the one resolver: no test may prove a selector target with toContain or any substring match on HTML; a selector assertion must go through the single resolver helper and assert a match COUNT, and an attribute-value assertion must compare the decoded DOM attribute, never the markup text.",
+        "failureModeStopped": "A test that 'proves' [data-declaration=\"X\"] [data-part=\"members\"] with a substring and therefore proves nothing about uniqueness \u2014 the failure the issue is about is nine indistinguishable cards, which a substring assertion passes happily. The measured HTMLRewriter entity divergence makes the attribute-value half a live trap too.",
+        "analyzer": "contract-directed test rule (bun test, source scan over ts/metalang/*.test.ts and *.test.tsx)"
+      },
+      {
+        "rule": "The kit's required-file list has one owner: a test reads .github/workflows/ci.yml and asserts the release job's non-empty check covers exactly carriedFiles from kit.ts plus the four generated files (kit.js, page.js, package.json, README.md).",
+        "failureModeStopped": "Releasing a kit that omits a file the consumer requires. ci.yml:577-599 checks kit.js, page.js, package.json, README.md and the three yaml files but NOT style.css or syntax.css, which the consumer's required-file list includes \u2014 this work forces a kit release, and the omission would surface only when the asset is refused at adoption.",
+        "analyzer": "contract-directed test rule (bun test, reads the workflow file) \u2014 precedent: analyzers/AgentGuard.Analyzers.Tests/EvidenceUploadsCannotRegressTests.cs"
+      }
+    ],
+    "risks": [
+      "The two literal targets cannot be proven in this repository. No MetaLang document here declares IGrantStore or IWindowsHelloNativeOps (grep hits only C# sources and the 114 docs), and .dev/inprocess/106-silent-failure-cleanup/ does not exist in this worktree \u2014 the nine-declaration surface lives in the JARVIS document store. In-repo acceptance proves the general property on parts.yaml plus fixtures; the two literal targets are verified on the JARVIS side after the kit release. Writing those two ids into a repo fixture would be the hardcoded-specific cheat and would prove nothing.",
+      "Bun's built-in HTMLRewriter cannot be trusted for this acceptance. Measured in this worktree on bun 1.2.14: getAttribute returns raw entity text (a&quot;b&amp;c&lt;d&gt;e&#x27;f, not equal to the id) and a selector carrying an escaped value matched 0 elements, while the browser matches. Verification built on it silently passes the quoted-id case the issue requires.",
+      "The rendered page's #root is empty \u2014 the DOM is drawn in the browser by page.js. A selector test aimed at the CLI output finds zero matches, and the obvious 'fix' is to loosen the assertion. Every target assertion must run against the Page component render (the same root client.tsx mounts) or against the executed bundle.",
+      "GROUND's ledger reads as 'reuse propertyCarrying, no new capability', and its evidence cites arch.yaml:211 \u2014 but that role: name sits on word.name, not member.name. propertyCarrying(bodyOf, 'member', ROLES.name) returns undefined today. Taken at face value, IMPLEMENT ships a data-member that never appears and the intended target cannot match. This is why D1 is a decision and not a reuse.",
+      "story.js belongs to JARVIS and is not readable from this repository, so its load-order expectations are unproven here. Helper-last cannot block the page and gives the helper a mounted DOM, but the JARVIS lane (#120) must confirm the helper tolerates being loaded after React mounts.",
+      "The language change means every document checked under the old kit needs revalidating and a new revision; the model surface revision must be re-cut before any beat is written against the new targets, and already-signed packages stay immutable.",
+      "Executing the built page.js in a DOM may be slow or flaky. If that leg is dropped, the proof of the BUILT bundle degrades to a string check on page.js \u2014 a weaker claim that must be reported as such, never quietly swapped in.",
+      "The ts coverage floor is 0.75 (bunfig.toml, matching eng/coverage-gate.sh). New renderer code carries its own tests or the gate fails; lowering the floor or skipping a leg to get green is out.",
+      "Duplicate declaration ids are possible (app.test.tsx:100 'one id declared twice keeps the first'), so a target can legitimately match two cards. The issue names only the repeated-member-name case; the duplicate-id case is the one that would silently ring the wrong card, so the acceptance must cover it and the resolver must report ambiguous rather than take the first."
+    ],
+    "autoResolved": [
+      {
+        "choice": "Whether to write an escaper for the data-declaration and data-member values, or rely on the renderer's attribute escaping.",
+        "resolution": "Write both attributes as JSX props and add no escaper; render.ts's escapeHtml stays title-only.",
+        "principle": "Best-practices guide 3a \u2014 'Escape or encode output for wherever it lands (HTML, shell, SQL) so it cannot be injected'; rails-dry-code rail 8 \u2014 reuse a tested primitive behind its owner rather than reimplementing it.",
+        "evidence": "Measured in this worktree: renderToStaticMarkup(<section data-declaration={`a\"b&c<d>e'f`}/>) emitted data-declaration=\"a&quot;b&amp;c&lt;d&gt;e&#x27;f\" \u2014 quotes, ampersand, angle brackets and apostrophe all escaped. render.ts:36 escapeHtml replaces only & and <, so it is not attribute-safe and must not be reached for here."
+      },
+      {
+        "choice": "What the renderer does when the tabulated shape has no property carrying ROLES.name (zero carriers).",
+        "resolution": "The row carries no data-member, and no error is drawn; the target is then reported missing by the consumer.",
+        "principle": "The owner's stated contract in words.ts:425-428 \u2014 'A thing whose type answers none of the three draws as it drew before the language had the word'; rails-solid-code rail 1 (single owner of the invariant).",
+        "evidence": "ts/metalang/words.ts:422-430 propertyCarrying returns undefined for zero or several carriers; app.tsx:590 (shownBy) and app.tsx:683 (Rungs) already treat undefined as 'no name' and fall back to the id. The test-only `equivalent` entity (app.test.tsx:1070-1110) is a real shape with no name role."
+      },
+      {
+        "choice": "What reports the ambiguity when two properties of a shape carry ROLES.name.",
+        "resolution": "Nothing new is written. The page's existing Err already names both carriers, and the checker already faults the declaration.",
+        "principle": "rails-solid-code rail 1 (the invariant has exactly one owner) and rails-dry-code rail 1 (reuse the existing owner rather than adding a second).",
+        "evidence": "app.tsx:1088-1093 draws Err '<owner> gives role <role> to <list>, so nothing says which of them holds it'; check.ts:1024 plus holdsToConstraints enforce metalang.yaml:1160-1163 `distinct: { in: properties, by: role }`; words.test.ts:536-541 pins propertyCarrying returning undefined for two carriers."
+      },
+      {
+        "choice": "Whether the acceptance reads the nine-declaration surface from the JARVIS tree to prove the two literal targets.",
+        "resolution": "No. Acceptance uses in-repo fixtures only; the two literal targets are verified on the JARVIS side after the kit release, and that handoff is stated above the fold.",
+        "principle": "rails-real-work rail 11 \u2014 'Every path a change writes points inside the repository root.'",
+        "evidence": "grep for IGrantStore across this worktree hits only C# sources under src/ and the 114 docs; grep for IWindowsHelloNativeOps hits only analyzers/; .dev/inprocess holds only 114-kit-page-narration, so the revision-lineage.md that selector-contract.md cites is not in this tree; the surface is identified by a JARVIS document store id (document-40f2beb547b345b9b35d75d728e538c1)."
+      },
+      {
+        "choice": "Whether a target that matches nothing, or matches several, is reported or quietly widened to a broader selector.",
+        "resolution": "Reported loudly, naming the selector and the count; the resolver never substitutes a broader selector and never takes the first of several.",
+        "principle": "Best-practices guide 5a \u2014 fail closed, 'never a silent ignore'; the project rule in CLAUDE.md \u2014 'Nothing may ever fail silently; failures must be loud\u2026 Where a thing cannot be checked, report it as a blocker or an error.'",
+        "evidence": "The contract's Acceptance section requires 'a target that matches nothing reported rather than widened to a broad substitute'; app.test.tsx:100 shows duplicate declaration ids are possible, so the several-matches branch is reachable and cannot be allowed to pick one."
+      },
+      {
+        "choice": "Whether the story-helper script URL is a constant or configurable (parameter, env var, cache-busting query).",
+        "resolution": "A constant, exactly `<script src=\"/api/packages/story.js\"></script>`, with no interpolation and no parameter.",
+        "principle": "rails-decisions \u2014 a decision exists only where Tim gave an explicit yes to that exact item, so inventing a configuration mechanism beside a settled value is an unapproved mechanism; reinforced by the byte-identical-render requirement, which an environment-dependent value breaks.",
+        "evidence": "selector-contract.md 'Settled' table carries the tag's exact text and states 'The page carries no copy of the helper; JARVIS serves it'; GROUND measured no process.env or clock anywhere in the render path, which is the property rule R3 locks."
+      },
+      {
+        "choice": "Where the helper tag sits in the page shell.",
+        "resolution": "Last, after the bundle script, immediately before </html>.",
+        "principle": "Best-practices guide 5b \u2014 a failure must not leave the user with nothing usable; the issue's own documented requirement that 'A page opened outside JARVIS simply has no helper', which means the page must still draw when the fetch fails.",
+        "evidence": "render.ts:60-72 writes a shell with no <head>/<body>, so an external classic script placed earlier blocks the parse until the fetch fails or 404s; client.tsx:15-16 throws if the #page-data block is missing, which fixes data-block-before-bundle, leaving only the position after the bundle free. Last also means the helper loads against a mounted DOM."
+      },
+      {
+        "choice": "The mechanism the new guardrail rules are written in, for a TypeScript surface.",
+        "resolution": "Contract-directed test rules that scan source and run in the existing `bun test` step, each with a violating and a compliant fixture \u2014 not a new ESLint local-plugin mechanism.",
+        "principle": "rails-solid-code rail 6 \u2014 the guard is 'wired into the normal workflow (build/test/gate) so it runs without anyone remembering to'; rails-decisions \u2014 a new plugin mechanism is a design element that outlives its function and would need Tim's yes.",
+        "evidence": "eslint.config.js wires only @eslint/js and typescript-eslint with no local plugin; package.json scripts run typecheck, lint and test; ci.yml:437-441 runs all three on every PR. In-repo precedent for a source-scanning test: examples.test.ts:19 walks the repository root; on the .NET side EvidenceUploadsCannotRegressTests.cs reads .github/workflows/ci.yml."
+      }
+    ]
+  }
+]

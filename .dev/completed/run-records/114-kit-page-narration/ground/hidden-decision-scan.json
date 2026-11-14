@@ -1,0 +1,242 @@
+{
+  "judged": {
+    "findings": [
+      {
+        "choice": "What a drawn page does when JARVIS's story helper is not there: every page the kit draws now asks whatever origin it was opened from for /api/packages/story.js.",
+        "whyForced": "pageHtml writes the tag unconditionally, with no signal either way. Off JARVIS the request is a 404 (or file:///api/packages/story.js) that the browser ignores, so the page draws and is simply never narratable and nothing says so; on some other local server, that server's script at that path runs with full access to the drawn document. GROUND and DESIGN both flagged this for Tim (ground/facts.json 'whether a missing story.js should be diagnosed on the page or stay silent is a design choice'; proposals.json 'Flag it for Tim; do not decide') and no Decisions entry answers it.",
+        "options": [
+          "Leave it silent, and say in the kit readme that a page away from JARVIS cannot be narrated.",
+          "The page says so: the bundle looks for the helper's own announcement after load and draws one plain line when it did not arrive.",
+          "Emit the tag only for a page built to be served by JARVIS, so a page that travels carries no dead tag."
+        ],
+        "howItBites": "A silent ignored failure on every page the kit draws, which CLAUDE.md rule 1 bans outright, plus a script from an unknown origin executing in a page that draws untrusted document text. The kit readme still promises a drawn page 'needs nothing from this folder afterwards, so a drawn page travels on its own' (ts/metalang/kit.ts:106), which stops being true the moment the tag ships. Reversing it later changes the page shell and the readme that kit takers build against. Note the escape hatch is closed from the other side: JARVIS checks that the exact string appears in the page, so an onerror or integrity attribute on the tag itself would fail that check — the report has to come from the bundle.",
+        "recommended": "Keep the tag on every page and make the absence loud from the bundle (option 2), and name the request in the kit readme so a taker knows the page reaches out.",
+        "severity": "high"
+      },
+      {
+        "choice": "How a consumer proves a released evolang-kit.zip is the kit CI built: CI publishes the digest, or a session computes and reports it by hand after the release.",
+        "whyForced": "ci.yml zips and uploads evolang-kit.zip with no checksum and no signature, while every binary beside it ships guard-<rid>.sha256 and a cosign bundle. JARVIS's language_kit.stage needs the SHA-256 of the exact uploaded bytes bound to the version, commit and repository, and the only route for those four values today is a session messaging them to Diagnostics.",
+        "options": [
+          "Status quo: whoever cuts the release computes the digest and reports it in a message.",
+          "CI writes evolang-kit.zip.sha256 beside the zip and puts version, commit and digest in the release notes; the report quotes them.",
+          "Sign the kit zip through the same cosign flow as the binaries and have the consumer verify the signature.",
+          "Both: publish the digest asset and sign the zip."
+        ],
+        "howItBites": "The one number this whole lane turns on — the contract names 'kit release digest' as the walkthrough repair's completion evidence — has no reproducible source, so nobody but the reporter can re-derive it, and a stale digest, a typo, or an asset re-uploaded after the number was sent is undetectable. It is also the only release asset with nothing to verify it, while the guide's own standing practice is to verify a download against a published checksum or signature. A new release asset name is a public name consumers build against, so it is cheapest to settle before the first kit ships from this branch.",
+        "recommended": "Option 2: CI publishes the digest beside the zip and in the notes, so the four values JARVIS pins are quoted from the release rather than computed by hand.",
+        "severity": "high"
+      },
+      {
+        "choice": "What two member rows with the same name inside one declaration do to data-member — both carry it (a member selector matches two), the language refuses the repeat, or the identity carries a disambiguator.",
+        "whyForced": "identityOf writes each row's own name value with no uniqueness check (app.tsx:745-755), and arch.yaml puts no distinct constraint on element.members, so both rows carry the same data-member. MetaLang already has the constraint that would refuse it (metalang.yaml:814, used as distinct: { in: properties, by: role }); it is simply not applied here. The contract and Acceptance 3/5 cover a name repeated ACROSS declarations only.",
+        "options": [
+          "Accept it: an overloaded member is reported as an ambiguous target and cannot be pointed at.",
+          "Refuse it in the language: distinct: { in: members, by: name } on element, which also makes documenting overloads impossible.",
+          "Make the identity unique where it repeats, by name plus position, changing the published identity format.",
+          "Accept it now and file it beside issues 115 and 116 so the identity format is chosen deliberately."
+        ],
+        "howItBites": "Overloads are normal in the C# this language exists to describe, so the Success definition's 'a selector naming one member of one declaration matches exactly one element' is unachievable in general. The narration does not point at the wrong row — the helper reports a target matching more than one as ambiguous — it points at nothing, so a walkthrough beat on an overload is dropped, which is the walkthrough hole this work exists to close. data-member is the published target format every JARVIS beat is written against, so adding a disambiguator later changes a shipped format.",
+        "recommended": "Option 4: accept the ambiguous-target report for now and file the issue, so the identity format changes once, deliberately, rather than under a broken walkthrough.",
+        "severity": "medium"
+      }
+    ],
+    "droppedAsNoise": 11,
+    "autoResolved": [
+      {
+        "choice": "What a declaration that writes no id carries in data-declaration.",
+        "resolution": "No attribute, and no new report: the identity is the declaration's own id or nothing, and the page already says the id is missing where it is missing.",
+        "principle": "Approved contract, What to do item 2 ('from the declaration's own id, through the single extracted id predicate') and the Reuse ledger ('Add no second report'); best-practices guide 5b, which has the failure named where it happens rather than twice.",
+        "evidence": "ts/metalang/app.tsx:1451 reads the id once; :1521 draws 'no id' on the head line; :1538 draws the error band for the missing id; :1508 writes declaredId ?? undefined from that one reading."
+      },
+      {
+        "choice": "What string a member's identity is when its name property holds a non-string value (number, mapping, list).",
+        "resolution": "Whatever the page's one text owner writes, with no special case: a non-string name is already refused by the language and reported by the checker, so the page adds nothing.",
+        "principle": "Approved contract, What to do item 3 ('from the value that property holds') and the Reuse ledger ('Add no second report', 'no second resolver'); best-practices guide 5a, which has the expectation asserted once, where it is owned.",
+        "evidence": "ts/metalang/arch.yaml:522-524 types member.name as `name` with role: name; ts/metalang/metalang.yaml:873-878 declares `name` as a string under pattern '[A-Za-z_][A-Za-z0-9_]*'; ts/metalang/constraints.ts:217,230 matches the pattern against the whole value and reports a non-string as 'is not text, so no pattern can be matched against it'; ts/metalang/app.tsx:748-755 goes through `text`."
+      },
+      {
+        "choice": "Whether an empty or absent member name gives the row an empty data-member, no attribute, or an error.",
+        "resolution": "No attribute on that row and no new diagnostic: an empty or missing name is already a check failure the page shows.",
+        "principle": "Approved contract, Reuse ledger ('one carrier gives the attribute, zero or two give no attribute and no new diagnostic', 'Add no second report'); best-practices guide 5a, fail closed and loud at the owner.",
+        "evidence": "ts/metalang/metalang.yaml:878 pattern '[A-Za-z_][A-Za-z0-9_]*' rejects the empty string; ts/metalang/arch.yaml:522-525 member.name carries no `accepts`, so a missing name is reported; ts/metalang/app.tsx:751-754 returns undefined and the row carries no attribute."
+      },
+      {
+        "choice": "Whether jsdom 31.0.0 and @types/jsdom 30.0.0 are held to published integrity hashes, installed frozen, and kept out of the shipped kit.",
+        "resolution": "Yes to all three, through the mechanisms already in place — the lockfile's integrity entries, the frozen install in CI, and development-only scope that the kit's bundles never reach.",
+        "principle": "Best-practices guide 3a: 'Verify a download or dependency against a published checksum or signature' and 'Take the least privilege and the narrowest scope that works.'",
+        "evidence": "bun.lock:68 and :218 carry sha512 integrity for @types/jsdom@30.0.0 and jsdom@31.0.0; package.json:26,30 hold both under devDependencies; .github/workflows/ci.yml:591 runs `bun install --frozen-lockfile` before building the kit; jsdom is imported at exactly one site, ts/metalang/app.test.tsx:12, and ts/metalang/bundle.ts:90-145 builds from the single client.tsx and kit-entry.ts entrypoints, which import no test file."
+      }
+    ]
+  },
+  "lenses": [
+    {
+      "lensId": "trust-identity",
+      "candidates": [
+        {
+          "choice": "Whether the story helper script that every rendered page now executes is trusted as-is, or pinned/verified (subresource integrity hash, versioned path, or a recorded owner and serving origin), and whether pages may load it at all when the document being drawn is untrusted.",
+          "forcedBy": "Silently taken: an unpinned, unversioned, root-relative script tag with no integrity attribute. Whatever JARVIS serves at /api/packages/story.js at view time runs with full access to the page DOM, including the document content drawn into it.",
+          "category": "trust-boundary",
+          "evidence": "Contract What to do item 4 and Acceptance 12 fix the exact string `<script defer src=\"/api/packages/story.js\"></script>`; ts/metalang/render.ts STORY_HELPER. The comment says 'served by JARVIS rather than built here'. Nothing in the contract names who vouches for the file, or how a consumer verifies it."
+        },
+        {
+          "choice": "What the page does when it is opened away from JARVIS (file://, an agent folder, a different host), where the root-relative helper path resolves to nothing or to some other origin's script: stay silent, load anyway, or report.",
+          "forcedBy": "Silently taken: the tag stays and a 404, or whatever the local origin happens to serve at that path, is executed or ignored with no signal. This also collides with the project rule that nothing may fail silently.",
+          "category": "trust-boundary",
+          "evidence": "ts/metalang/render.ts pageHtml emits the tag for every page, including pages built by `node kit.js render` away from the repository (kit.test.ts:193-207, Reuse ledger 'The built-kit page proof'). Acceptance 12 only asserts the tag is present."
+        },
+        {
+          "choice": "Who owns the contract for turning a document-supplied member name (untrusted text, written into data-member) into a safe selector on the consuming side, and where that is recorded.",
+          "forcedBy": "Silently taken: the repository proves only that its own jsdom tests reach quote/backslash names, while the JARVIS helper's quoting is assumed. Acceptance 10 defers the JARVIS-side check to after release, so a helper that builds selectors by string concatenation can be injected through a member name.",
+          "category": "trust-boundary",
+          "evidence": "Contract What to do items 3 and 5 and Acceptance 4 and 10. Decision `selector-proof` covers only this repository's tests, not the consumer contract."
+        },
+        {
+          "choice": "How a consumer (JARVIS) verifies that a released evolang-kit.zip is the official kit built from this branch: a recorded digest, signature or attestation, or nothing beyond the GitHub release asset.",
+          "forcedBy": "Silently taken: the kit zip is uploaded with no checksum file, no signature and no recorded digest, while the agent binaries beside it are signed. The 'kit release digest' that the authorize-walkthrough-repair plan names as completion evidence is then produced ad hoc by whoever records it.",
+          "category": "provenance",
+          "evidence": "Contract authorize-walkthrough-repair completion evidence 'upstream PR/CI and kit release digest'. .github/workflows/ci.yml:577-640 zips and uploads evolang-kit.zip with no digest step. Standard: 'A kit released from this branch carries every file kit.ts marks as required'."
+        },
+        {
+          "choice": "Whether the pinned development-only dependencies (jsdom 31.0.0, @types/jsdom 30.0.0) are held to the lockfile's integrity hashes and installed under the existing frozen-lockfile rule, and that they must stay out of the kit's runtime bundle.",
+          "forcedBy": "Silently taken: the dependencies are added by whatever bun resolves, with no check that they stay development-only or out of the bundled page.js and kit.js that ship to consumers.",
+          "category": "supply-chain",
+          "evidence": "Decisions dom-library and jsdom-types authorize only the exact versions in package.json devDependencies and bun.lock. What to do item 5 and ci.yml:591 `bun install --frozen-lockfile` do not say whether jsdom may be reachable from the kit bundle."
+        }
+      ]
+    },
+    {
+      "lensId": "user-dev-facing",
+      "candidates": [
+        {
+          "choice": "What 'reported as ambiguous' looks like when two declarations share an id: which surface reports it (page, helper-facing attribute, test helper), and its wording or shape.",
+          "forcedBy": "The implementer invents a message and place (likely a test-only helper that throws), so nothing user-visible exists, or a format JARVIS later depends on gets silently fixed.",
+          "category": "output-format",
+          "evidence": "contract.md Success definition and Acceptance 5 say 'reported as ambiguous rather than resolved to the first'. Issue 115 (refusing duplicate ids at check time) is explicitly not decided, and no contract text names a report. grep for 'ambiguous' in ts/metalang finds nothing in the renderer."
+        },
+        {
+          "choice": "The selector form JARVIS beats use to reach a member: nesting `[data-declaration=ID] [data-member=NAME]` or something else, and whether the attribute values are raw, unescaped strings with quote and backslash handling left to the consumer.",
+          "forcedBy": "The tests pick a selector shape and a quoting convention, which then become the de facto narration targeting contract on the JARVIS side (criterion 10).",
+          "category": "interface",
+          "evidence": "contract.md Standard: 'a selector reaches one declaration's members'. Acceptance 2-4 assert selectors without stating their form. app.tsx:780 `data-member={identityOf(member)}` and app.tsx:1508 `data-declaration={declaredId ?? undefined}`."
+        },
+        {
+          "choice": "Identity for a declaration that writes no id, and for nested declarations or a member row whose name value is empty or non-string: omit the attribute, or carry some derived value.",
+          "forcedBy": "The code already takes 'omit the attribute' (app.tsx:1508 comment 'carries none'), which narration silently cannot point at; the contract only speaks of 'the declaration's own id'.",
+          "category": "output-format",
+          "evidence": "contract.md What to do 2 and Reuse ledger (zero/two carrier decided for members only). app.tsx:1505-1508. No decision covers the id-less declaration."
+        },
+        {
+          "choice": "Two member rows with the same name inside one declaration: both carry the same data-member (the selector matches two), or one is refused or disambiguated.",
+          "forcedBy": "The default is duplicate attribute values, so 'exactly one element' for one member of one declaration silently fails for such a document.",
+          "category": "output-format",
+          "evidence": "contract.md Success definition 'a selector naming one member of one declaration matches exactly one element' and Acceptance 3 against 'a member name repeated across two declarations' only; the within-one-table case is unaddressed. Issues 115 and 116 do not cover it."
+        },
+        {
+          "choice": "The version and release name of the kit cut from this branch, and the tag that triggers it.",
+          "forcedBy": "The ci.yml release job takes whatever $TAG the release is cut with, and buildKit defaults to LOCAL_VERSION '0.0.0-local' when none is given, so the digest JARVIS pins to is named by default.",
+          "category": "release-name",
+          "evidence": "contract.md Standard 'A kit released from this branch' and Acceptance 10 'after the kit release'. ci.yml:577-599 `kit.ts dist/evolang-kit \"$TAG\"`. kit.ts LOCAL_VERSION."
+        },
+        {
+          "choice": "Whether the kit readme (readmeText) documents the new story-helper script and the data-declaration and data-member identities a narrator can point at.",
+          "forcedBy": "The readme's page description says a drawn page 'needs nothing from this folder afterwards' and lists no identities, so it silently becomes false: the page now fetches /api/packages/story.js and the identities are an undocumented consumer-facing API.",
+          "category": "documentation",
+          "evidence": "ts/metalang/kit.ts readmeText, 'The page that comes out carries its own styles and its own script and needs nothing from this folder afterwards'. contract.md Surfaces lists kit.ts but What to do names no readme change."
+        }
+      ]
+    },
+    {
+      "lensId": "tool-defaults",
+      "candidates": [
+        {
+          "choice": "What the story-helper script src resolves against when a page is opened anywhere other than a JARVIS server, and whether that absence is loud or silent. The URL form (root-relative, relative, or carrying an origin) and the failure behavior are not decided.",
+          "forcedBy": "The browser default for a root-relative src: the page resolves it against whatever origin it is opened from, and a missing helper (404, or file:///api/... when opened from disk) is ignored without any message. The page then renders but cannot be narrated.",
+          "category": "default-url-endpoint",
+          "evidence": "contract.md What to do item 4 and Acceptance 12 fix the literal `<script defer src=\"/api/packages/story.js\"></script>`, but no Decisions entry covers the URL form or what happens off-JARVIS. ts/metalang/render.ts STORY_HELPER. kit.ts readmeText says a drawn page \"needs nothing from this folder afterwards, so a drawn page travels on its own\", which a root-relative helper reference now contradicts. CLAUDE.md rule 1 forbids silent failure."
+        },
+        {
+          "choice": "How jsdom is constructed to prove the selector criteria: parse-only or executing the page's scripts, and which url and resource-loading options. This determines whether the proof exercises the executed bundle or only a component render, and whether the story-helper tag is fetched.",
+          "forcedBy": "jsdom defaults: `new JSDOM(html)` runs no scripts, loads no subresources, and uses the about:blank URL, so the executed-bundle route in Acceptance 2-5 and What to do item 5 is not taken unless an option is set.",
+          "category": "library-default",
+          "evidence": "contract.md What to do item 5 and Acceptance 2-5 allow \"the component render or the executed bundle\". ts/metalang/app.test.tsx:12 imports JSDOM and :1784 builds `new JSDOM(html)` with no options. Decision `dom-library` authorizes only the dependency and version, not its configuration."
+        }
+      ]
+    },
+    {
+      "lensId": "committed-shipped",
+      "candidates": [
+        {
+          "choice": "What a repeated member name inside ONE declaration does to data-member: both rows carry the same value (selector matches two), only the first does, or neither does.",
+          "forcedBy": "Each row simply writes its own name property value, so two same-named rows in one declaration get an identical data-member and a member selector matches two elements, which breaks the 'matches exactly one element' standard for that case.",
+          "category": "wire-format",
+          "evidence": "Contract 'What to do' item 3 and Acceptance 3/5 only cover a name repeated ACROSS declarations; ts/metalang/app.tsx Table identityOf writes member[namePart] per row with no uniqueness handling."
+        },
+        {
+          "choice": "How 'two declarations sharing an id are reported as ambiguous' is shipped: on the page as an attribute or element, in a helper or resolver the page carries, or only as an element count the test checks.",
+          "forcedBy": "Nothing in the page is written to report it, so the default is both sections silently carrying the same data-declaration value and ambiguity being visible only as a selector matching two elements, with the reporting left to JARVIS.",
+          "category": "wire-format",
+          "evidence": "Contract Success definition and Acceptance 5 require 'reported as ambiguous rather than resolved to the first'; item 5 says prove it in jsdom; issue 115 and 116 are excluded under 'Not decided'; grep of ts for 'ambiguous' and data-declaration finds only the section attribute in app.tsx."
+        },
+        {
+          "choice": "The selector grammar the identity attributes are consumed through, which is the contract with JARVIS: attribute selector with the value quoted and escaped, CSS.escape, or another form, and the exact scoping shape for 'one declaration's members' and 'one member of one declaration'.",
+          "forcedBy": "The tests must pick some selector form to prove a name with a double quote, single quote and backslash is reachable, and that form becomes the de facto published contract for the JARVIS side with nothing recording it.",
+          "category": "wire-format",
+          "evidence": "Contract Acceptance 2-5 and item 10 (verified on the JARVIS side after release); ts/metalang/app.tsx emits data-declaration on section.d-decl and data-member on rows, with no documented selector form anywhere in the contract."
+        },
+        {
+          "choice": "What a declaration whose language names no id carries in data-declaration: no attribute (current), or a fallback identity.",
+          "forcedBy": "The component writes `declaredId ?? undefined`, so such a declaration is silently left unaddressable in a shipped page.",
+          "category": "wire-format",
+          "evidence": "ts/metalang/app.tsx:~1510 comment 'A declaration writing no id carries none'; contract item 2 says only 'from the declaration's own id, through the single extracted id predicate' and 116 covers only the member-name-role report."
+        }
+      ]
+    },
+    {
+      "lensId": "invariants-forks",
+      "candidates": [
+        {
+          "choice": "What string a member's identity is when its name property holds a non-string value (number, boolean, mapping, list)",
+          "forcedBy": "The page takes `text(held)` (app.tsx:70-76), which writes JSON for non-strings, so a name of `5` becomes `data-member=\"5\"` and a mapping becomes a JSON blob",
+          "category": "encoding",
+          "evidence": "Contract What to do 3: 'write data-member on each row from the value that property holds'; app.tsx identityOf calls text(held)"
+        },
+        {
+          "choice": "Whether an empty or absent name value gives a row no `data-member`, rather than an empty attribute or an error",
+          "forcedBy": "identityOf returns undefined for undefined, null or empty string, so the row silently carries no identity and no diagnostic. The contract settles only the zero-carrier and two-carrier cases",
+          "category": "fork",
+          "evidence": "Contract What to do 3 and Reuse ledger ('zero or two give no attribute and no new diagnostic') cover carriers, not an empty value; app.tsx identityOf"
+        },
+        {
+          "choice": "Whether identity values (declaration id, member name) are written verbatim, with no trim, case-folding or Unicode normalization",
+          "forcedBy": "The raw value is passed through unchanged, so `Foo` and `foo`, or composed and decomposed forms, are different identities and trailing whitespace is part of the identity",
+          "category": "encoding",
+          "evidence": "Contract What to do 2 and 3 ('from the declaration's own id', 'from the value that property holds'); Success definition requires names with quote, apostrophe and backslash to be reachable"
+        },
+        {
+          "choice": "Which side owns turning a name or id into a selector (quote and backslash escaping rule) and what the page promises about the attribute encoding",
+          "forcedBy": "Nothing fixes the rule, so each caller (the jsdom tests, JARVIS's story helper) picks its own escaping (CSS.escape, quoted-string escape, or none), and the page's raw attribute value means different things to each",
+          "category": "encoding",
+          "evidence": "Contract Success definition and Acceptance 4 (a name with double quote, single quote and backslash 'is reachable by selector'); What to do 5; Reuse ledger relies on React attribute escaping only"
+        },
+        {
+          "choice": "What 'reported as ambiguous' means for two declarations sharing an id, and whether that report lives in non-test code or only in a test-side resolver",
+          "forcedBy": "With issue 115 (check-time refusal) and 116 not in this contract, the page emits the same `data-declaration` on both sections and the only 'report' is a test that counts matches, so a runtime consumer gets the first match silently",
+          "category": "fork",
+          "evidence": "Contract Success definition, Acceptance 5, What to do 5, and 'Not decided' naming issue 115 only for the check-time side"
+        },
+        {
+          "choice": "How two rows of one declaration with the same member name are handled (both carry the same `data-member`, or the repeat is refused or marked)",
+          "forcedBy": "Both rows get identical `data-member`, so a selector naming one member of one declaration matches two elements and the 'exactly one element' guarantee fails silently for that input",
+          "category": "invariant",
+          "evidence": "Acceptance 3 ('selector naming one member of one declaration matches exactly one element') versus the contract covering repeats only across declarations; Table in app.tsx emits data-member per row without a uniqueness check"
+        },
+        {
+          "choice": "The scope of `data-member`: only the rows of a declaration's members table, or the row of any Table whose shape's name-role property is carried (e.g. other entities with `role: name` at arch.yaml:211), including tables nested inside a declaration",
+          "forcedBy": "Table is generic and writes `data-member` for any shape where propertyCarrying finds exactly one name-role carrier, so the attribute spreads to every such table and a selector for 'one declaration's members' may reach non-member rows or nested tables",
+          "category": "fork",
+          "evidence": "Contract What to do 3 ('Table ... on each row') against Standard ('each member row carries its own'); arch.yaml:211 and :524 both carry `role: name`; app.tsx:725 Table is shared"
+        }
+      ]
+    }
+  ]
+}

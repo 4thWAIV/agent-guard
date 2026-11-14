@@ -1,0 +1,310 @@
+{
+  "testFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts",
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.test.ts"
+  ],
+  "redProof": "$ cd /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets\n$ bun test\n[... the 879 passing tests are elided; the untouched 1038-line run is at /private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/red-proof.txt ...]\n\nts/metalang/kit.test.ts:\n(pass) the readme the kit ships with > shows both commands, because a consumer calls a command [0.09ms]\n(pass) the readme the kit ships with > says plainly that drawing a page needs bun and checking does not [0.06ms]\n105 |   // the renderer happens to be writing today.\n106 |   test('says a drawn page asks its origin for the narration script, and names it', () => {\n107 |     const narration = readmeText()\n108 |       .split('\\n\\n')\n109 |       .find((paragraph) => /narrat/i.test(paragraph) && paragraph.includes(NARRATION_SCRIPT))\n110 |     expect(narration).toBeDefined()\n                            ^\nerror: expect(received).toBeDefined()\n\nReceived: undefined\n\n      at <anonymous> (/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.test.ts:110:23)\n(fail) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.53ms]\n\nts/metalang/render.test.ts:\n(pass) the story helper a narrated page loads > the page loads it [0.14ms]\n(pass) the story helper a narrated page loads > it sits after the data the page draws and before the bundle that draws it [0.09ms]\n(pass) the story helper a narrated page loads > the slice the bundle is read out of is still the bundle and nothing else [0.05ms]\n436 |     }\n437 |     return JSON.parse(out) as Shown\n438 |   }\n439 | \n440 |   test('a page the helper never announced itself on says it cannot be narrated here, once', () => {\n441 |     expect(shownBy('silent').lines).toHaveLength(1)\n                                          ^\nerror: expect(received).toHaveLength(expected)\n\nExpected length: 1\nReceived length: 0\n\n      at <anonymous> (/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts:441:37)\n(fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1538.73ms]\n(pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [1337.69ms]\n\n2 tests failed:\n(fail) the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it [0.53ms]\n(fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1538.73ms]\n----------------------------|---------|---------|-------------------\nFile                        | % Funcs | % Lines | Uncovered Line #s\n----------------------------|---------|---------|-------------------\nAll files                   |   95.60 |   96.54 |\n ts/metalang/app.tsx        |  100.00 |   99.83 | 923\n ts/metalang/bundle.ts      |  100.00 |  100.00 | \n ts/metalang/check.ts       |  100.00 |   98.84 | 381,569-570,626-627,664-665,669-670\n ts/metalang/cli.ts         |   80.00 |   96.61 | 135-136\n ts/metalang/constraints.ts |  100.00 |  100.00 | \n ts/metalang/examples.ts    |  100.00 |   85.37 | 133-144\n ts/metalang/expression.ts  |  100.00 |  100.00 | \n ts/metalang/highlight.ts   |  100.00 |  100.00 | \n ts/metalang/kit.ts         |  100.00 |   92.19 | 185-189\n ts/metalang/page-data.ts   |   75.00 |   91.30 | 43\n ts/metalang/propose.ts     |   78.95 |   86.56 | 112,117-119,128,137-139,198,232-246,269,280,376,461,500-505,507,513-516,518,555-558,560,642-643,809,856-862,906-909\n ts/metalang/render.ts      |  100.00 |   97.96 | 215-216\n ts/metalang/rulebook.ts    |  100.00 |  100.00 | \n ts/metalang/syntax.ts      |  100.00 |   99.47 | 226\n ts/metalang/words.ts       |  100.00 |  100.00 | \n----------------------------|---------|---------|-------------------\n\n 879 pass\n 2 fail\n 1501 expect() calls\nRan 881 tests across 16 files. [10.38s]\n$ echo $?\n1\n\nThe two other commands this contract is checked with, unchanged by this round:\n\n$ bun run typecheck\n$ tsc --noEmit\nNow using node v22.16.0 (npm v10.9.2)\n$ echo $?\n0\n\n$ bun run lint\n$ eslint ts\nNow using node v22.16.0 (npm v10.9.2)\n$ echo $?\n0",
+  "coverage": [
+    {
+      "acceptanceItem": "1. `make build && make test` green, and `bun test` green, from the repository root. Both are named because `make test` is `dotnet test` alone and runs none of the kit's tests, which is filed as issue 118.",
+      "tests": [
+        "`bun test` — the whole suite, 878 tests across 16 files: 862 pass, 16 fail, exit 1",
+        "`make build && make test` — the .NET suite, 834 tests across four assemblies, exit 0"
+      ],
+      "kind": "pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one declaration’s members reaches that one table"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "3. A selector naming one member of one declaration matches exactly one element, same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one member of one declaration reaches that one row",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > the architecture language says it is the member’s own name property",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > MetaLang’s record of the name role covers a thing that has a name and no id",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape no property of which carries the role draws its rows with no identity",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape two properties of which carry the role draws its rows with no identity"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "4. A member name containing a double quote, a single quote and a backslash is reachable by selector in jsdom. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name carrying a double quote, a single quote and a backslash is reachable"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "5. A member name repeated across two declarations resolves to the one asked for, and two declarations sharing an id are reported as ambiguous rather than resolved to the first. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name two declarations share resolves to the one asked for",
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "6. Every `data-part` and `data-col` target that passes today still passes, by the existing assertions running unchanged.",
+      "tests": [
+        "ts/metalang/app.test.tsx > a value of a type with properties > each part draws its name and its own value",
+        "ts/metalang/app.test.tsx > a value of a type with properties > a part whose own type has parts nests",
+        "ts/metalang/app.test.tsx > several of one shape > a column carries each part name once, in the order the shape declares them",
+        "ts/metalang/app.test.tsx > several of one shape > one of the shape on its own is parts rather than a table",
+        "ts/metalang/app.test.tsx > a declaration carrying one value of its own > the table names each column once, from the type the parts are of",
+        "ts/metalang/propose.test.ts > marks the part the example says is the word, with a rule written beside it"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "The criterion's own words are that these targets pass \"by the existing assertions running unchanged\", and they are unchanged: this round wrote no assertion over a data-part or data-col target and nothing has yet touched the renderer, so every one of those targets is still spelled and drawn as it is today. All six named tests pass in the run above. The criterion is the guard that the two new identity attributes do not move or rename them when IMPLEMENT adds them."
+    },
+    {
+      "acceptanceItem": "7. The same document rendered twice under one built kit produces identical bytes per file. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > is drawn twice from one kit as the same bytes, so what a kit draws is reproducible"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "The page a kit draws carries nothing today that varies between two renders, so one document drawn twice from one built kit already comes back as the same bytes — the test builds the kit, runs `node kit.js render` on the copied document twice and passes in 618ms in the run above. The criterion guards that the member and declaration identities, and the story helper tag, do not put anything render-dependent into the page; it cannot fail before that code exists."
+    },
+    {
+      "acceptanceItem": "8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > every literal of a language word is caught, whatever position it is written in",
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > the language asked, the page’s own union, prose and a JavaScript type are not caught",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > a constant identity value is caught by every route it is given one by",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > an identity taken from the document being drawn is not caught",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > a second site writing an identity attribute is caught, by every route it writes by",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > the owning site writing it, and a selector reading it, are not caught"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "RULE-PHASE wrote all three rules and both fixtures for each one before this stage ran, and the test stage changes none of them: each rule's violating fixture already produces its diagnostic and each compliant fixture already produces none, and all six pass in the run above. What is RED in guardrails.test.ts is a different test — `the drawing path > writes no word of the language out`, the fifteen literals rule 1 flags in app.tsx — which is the rule's recorded impact on existing code for IMPLEMENT to clear, not a missing fixture."
+    },
+    {
+      "acceptanceItem": "9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with style.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with syntax.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > names every file the kit marks as required, so neither list can drift from the other",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > passes a kit asset carrying every file it names"
+      ],
+      "kind": "pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > no file outside a test writes a target"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "The criterion's own words put the verification \"on the JARVIS side against the re-cut revision after the kit release, not in this repository\", so no test here can prove it and this row must not be read as it having been checked here — it is checked on the JARVIS side after the release. What this repository holds is the other half of the same sentence, that writing either literal into a fixture is what rule 2 bans, and rule 2's scan of every non-test .ts/.tsx file passes in the run above. That scan reads TypeScript source only, so the sentence's \"no document here declares either id\" is a fact about the repository's YAML documents that no test asserts."
+    },
+    {
+      "acceptanceItem": "11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`.",
+      "tests": [
+        "`bun test` — the coverage summary it prints and enforces itself from bunfig.toml (`coverage = true`, `coverageThreshold = 0.75`)"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "bun test enforces the floor itself and printed no threshold failure: the run above reports 95.60% of functions and 96.54% of lines across all files, both far above the 0.75 floor, and the exit 1 is the sixteen failing tests rather than the coverage gate. The criterion guards that the code IMPLEMENT writes does not pull coverage under the floor, which cannot fail before that code exists."
+    },
+    {
+      "acceptanceItem": "12. The rendered page loads the story helper as `<script defer src=\"/api/packages/story.js\"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the page loads it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > it sits after the data the page draws and before the bundle that draws it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the slice the bundle is read out of is still the bundle and nothing else",
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > the page it draws loads the story helper, so a released kit can be narrated"
+      ],
+      "kind": "unit and pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository. Commands: `bun run typecheck` and `bun run lint`.",
+      "tests": [
+        "`bun run typecheck` — exit 2, TS7016 on the jsdom import at ts/metalang/app.test.tsx(12,23)",
+        "`bun run lint` — exit 1, @typescript-eslint/no-unsafe-call at ts/metalang/app.test.tsx:1784:18"
+      ],
+      "kind": "pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "14. The coverage record takes a criterion that passes today only with its reason: a `red: false` row carrying a reason is accepted, the same row with an empty reason is refused, and a `red: true` row carrying a reason is refused. Re-derivable by anyone from the repository root, by slicing the three copied blocks out of `.agents/workflows/tdd.js` and validating four rows through the real result contract, which prints `[true,true,false,false]` and exits 0.",
+      "tests": [
+        "the contract's own Acceptance-14 command, run verbatim against the live .agents/workflows/tdd.js: printed `[true,true,false,false]`, exit 0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "`What to do` item 8 says this one \"is already done, by the orchestrator, because the test stage cannot record its own result until the contract it is checked against exists\", and the same item says the IMPLEMENT worker does not repeat it and changes nothing under `.agents/`. So no code remains to be written for it and nothing can make it fail. Running the criterion's own command against the live tdd.js prints exactly `[true,true,false,false]` and exits 0: the red:false row carrying a reason is accepted, the same row with an empty reason is refused, and the red:true row carrying a reason is refused."
+    },
+    {
+      "acceptanceItem": "15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.",
+      "tests": [
+        "`node eng/check-copied-modules.mjs` — 11 workflow files, 41 copied blocks, 7 distinct block names, PASS, exit 0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "The only changed blocks are the ones `What to do` item 8 already landed — `required-agent-runtime` in eleven scripts and `stage-result-contracts` in nine — and the check reports all 41 copies of all 7 block names byte-identical, \"PASS — every duplicated block is byte-identical across all copies\", exit 0. This round changed nothing under `.agents/`, so there is no copy left to diverge and the criterion cannot fail today; it is the guard that a later edit to one copy is caught."
+    },
+    {
+      "acceptanceItem": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.",
+      "tests": [
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once",
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": true,
+      "whyPassing": ""
+    },
+    {
+      "acceptanceItem": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it"
+      ],
+      "kind": "unit",
+      "red": true,
+      "whyPassing": ""
+    }
+  ],
+  "notes": "FIX ROUND, AND ONLY THE TWO NEW CHECKS. `fixes-for-the-page-saying-so.md` says \"Two acceptance checks are new and have no tests. Everything else in the contract is covered and passing; nothing already written changes.\" Criteria 16 and 17 got tests; no existing test, assertion, rule or fixture was touched, nothing under `.agents/` was read for edit, and no production file was left changed. The whole diff is `git diff --stat`: ts/metalang/kit.test.ts +20, ts/metalang/render.test.ts +119, 138 insertions and 1 deletion — the single deletion is render.test.ts's `import { join }` line rewritten as `import { dirname, join }`. No new repository file: the harness criterion 16 needs is written into the test's own temp dir at run time, which is what \"Add test fixtures\" allows.\n\nTHE FIFTEEN ROWS ARE THE PRIOR ROUND'S, VERBATIM, BECAUSE THE FIX DIRECTION SAYS SO: \"The coverage record keeps the rows it has; the two new criteria join it with their own rows\" and \"Every other criterion must stay as it is — fifteen rows unchanged, eight of them red for the reasons already recorded and seven carrying the reason they pass.\" I copied all fifteen byte-for-byte out of `.dev/inprocess/114-kit-page-narration/tdd/result.json`. READ THEM AS THE RECORD OF THE EARLIER ROUND, NOT OF THE TREE TODAY: IMPLEMENT has since run (commit cfbbbf5), so row 1's counts (\"878 tests … 862 pass, 16 fail\") and row 13's two failures are no longer what the commands print. Today `bun test` is 881 tests, 879 pass, 2 fail, exit 1 — the 2 being the new criterion-16 and criterion-17 tests — and `bun run typecheck` and `bun run lint` are both exit 0. I am reporting that rather than quietly restating stale numbers.\n\nWHY THE WHOLE-SUITE RUN IS THE PROOF. The fix direction: \"`bun test` from the repository root is the proof, and `0 fail` is the signal: a single-file run always exits 1 here because `bunfig.toml` turns coverage on with a floor one file cannot reach.\" Confirmed: `bun test ts/metalang/render.test.ts` alone reports 73.42% of lines against the 0.75 floor. The whole suite still reports 95.60% of functions and 96.54% of lines, so criterion 11 is unmoved by this round.\n\nCRITERION 16 — WHAT THE TEST DOES, AND WHY IT IS SHAPED THIS WAY. The criterion is about what a page SHOWS, and the line is drawn in the browser — it is in no page's own text. So the test writes the real page with the real renderer (`renderWith(LANGUAGE_FILE, …)`), then runs the page's real bundle entry (`PAGE_SOURCE`, which is `client.tsx`, the file the contract's Surfaces names as \"where the helper's announcement is read\") over that page in a real DOM, and counts the innermost elements whose text says it cannot be narrated. One child process per case, because a bundle mounts a page once. No seam was invented and no signature touched: the test drives the page end to end, through types that already exist.\n\nONE SIDE OF CRITERION 16 PASSES TODAY, AND I AM SAYING SO RATHER THAN DRESSING IT UP. The criterion has two sides and both are tested, as rails-test-code Practice 4 requires. The silent side fails now (expected 1 line, received 0) and is the forcing function. The announced side passes now vacuously — nothing draws any line yet, so \"shows none\" is trivially true. The criterion's row is `red: true` because the criterion fails today; I did not split the announced side into a `red: false` row, because its behaviour is behaviour this change builds, which decision `green-criterion` forbids recording as passing. The announced side is not idle after IMPLEMENT: it is what catches a page that says it cannot be narrated when the helper did announce itself, which is the defect `What to do` item 9 exists to prevent.\n\nONE THING THE TEST CANNOT PROVE, REPORTED AS A GAP RATHER THAN LEFT QUIET. `What to do` item 9 requires the reading to happen \"once the deferred scripts have run rather than at mount\". No test here proves that ordering, because this machine cannot execute a page's scripts inside a document that is still parsing. Both routes are blocked and I verified each: under bun, jsdom 31's `runScripts: 'dangerously'` dies in `node_modules/jsdom/lib/jsdom/browser/Window.js:60` with `TypeError: The \"context\" argument must be of type object. Received type symbol (Symbol(vm_context_no_contextify))`; under this machine's node (v23.5.0) jsdom 31 cannot even be imported — `node_modules/undici/lib/interceptor/decompress.js:78 TypeError: Cannot read properties of undefined (reading 'bind')`, because `zlib.createZstdDecompress` does not exist in that node. So the harness parses the page first and runs the bundle after, and it both sets the announcement before running the bundle and dispatches `DOMContentLoaded` and `load` afterwards, so an implementation that checks `document.readyState` and one that waits for an event are both read correctly. A mount-time reading would still pass here. The implementer and the reviewers should treat the deferred ordering as covered by the contract's own words and by the page's inline/deferred layout, not by a test.\n\nBOTH NEW TESTS WERE PROVEN SATISFIABLE, THEN THE PROOF WAS THROWN AWAY. A test nobody can turn green is not a forcing function, it is a wall, so I checked: a four-line throwaway addition to client.tsx (read `window.__jarvisStory`, append one `<p>`) turned render.test.ts to 38 pass / 0 fail, and a throwaway narration paragraph in `readmeText()` turned kit.test.ts to 28 pass / 0 fail. Both were reverted immediately and `git status --short` shows only the two test files modified. I implemented nothing.\n\nONE THING THE IMPLEMENTER WILL TRIP ON. The kit readme is a template literal inside `readmeText()`, so a backtick in the new sentence must be written `\\``. My first throwaway sentence used bare backticks and broke kit.ts outright — 20 tests failed. It is a spike artifact, not a test requirement, but it is the obvious way to get it wrong.\n\nKINDS. Criterion 16 is pointed-integration by the standard the earlier round set in this contract — it writes a real page to disk and spawns a real process, like the kit tests — even though its DOM is the jsdom the `selector-proof` decision bought rather than an OS adapter. Criterion 17 is a unit test over `readmeText()`.\n\nHOW CRITERION 17'S TEST IS BOUNDED. It reads the readme's paragraphs, takes the one that both mentions narration and names `/api/packages/story.js`, and requires that paragraph to say \"origin\" — the criterion's own word, and the fix file's (\"reaches out to its origin for the narration script\"). It is prose, so a prose test is the only kind there is; the test name says exactly what has to be written so nobody has to guess.\n\nDRY. The script's path is written out again in kit.test.ts rather than imported from the renderer, as a named constant with the reason beside it — the same reason the file already records for its own story-helper test: \"The tag itself is written out rather than read from the renderer, so this says what a released kit has to carry rather than agreeing with whatever the renderer happens to write.\" The two criterion-16 cases share one `shownBy` helper and one harness; nothing is written twice.\n\nNO COMMIT, NO PUSH. Nothing was staged or committed. The working tree holds exactly the two modified test files.",
+  "verdicts": [
+    {
+      "lens": "test-quality",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "Rails 6/7 (every assertion can fail; derived from the criterion): contract What-to-do item 9 requires the helper announcement to be read once the deferred scripts have run, not at mount, but no test can fail for a mount-time reading, so that required behavior is unpinned. The test author's own notes concede this.",
+          "evidence": "ts/metalang/render.test.ts HARNESS (about lines 365-395): the announced case sets dom.window.__jarvisStory = true and globalThis.__jarvisStory = true BEFORE `await import(entry)`. A bundle that reads the flag at mount therefore sees it and passes the announced case, and the silent case is identical either way. The contract (item 9) says 'the page's bundle is written inline and runs before any deferred script, so the reading happens once the deferred scripts have run rather than at mount'. The notes' claim that this cannot be modelled on this machine is not true for ordering: the harness can import the bundle first, wait for the root to draw, then set the announcement, then dispatch DOMContentLoaded and load. That is the real browser order (inline bundle, then the deferred helper announces). With that order a mount-time reader draws the line in the announced case and the test fails. No jsdom runScripts is needed.",
+          "fix": "In the HARNESS, for the announced case, set __jarvisStory only after the bundle has mounted and the root has children, and before dispatching DOMContentLoaded and load. Keep the silent case as is. Add a case or comment confirming that a page whose helper announces itself after mount shows no line, so the announced-case test fails for a mount-time implementation. Re-prove it satisfiable with a throwaway load-time implementation and re-run bun test from the root."
+        }
+      ],
+      "observations": [
+        {
+          "summary": "The announced-side test of criterion 16 passes today, vacuously, while the row is recorded red:true.",
+          "evidence": "bun test: only the silent case of criterion 16 fails. The announced case passes because nothing draws any line yet.",
+          "nonBlockingReason": "The row is red because the silent case fails, and the announced side is a real guard once implemented. The notes disclose this. It becomes meaningful when the ordering fix above is applied."
+        },
+        {
+          "summary": "The fifteen carried-over coverage rows are stale: row 1 and row 13 describe the earlier round's counts and failures.",
+          "evidence": "Row 1 says '862 pass, 16 fail' and row 13 says typecheck exit 2 and lint exit 1. Live bun test shows 879 pass, 2 fail, and the notes say typecheck and lint are now exit 0.",
+          "nonBlockingReason": "The fix direction instructs that the rows stay verbatim, and the notes disclose the staleness explicitly."
+        }
+      ],
+      "refutationAttempts": [
+        "Re-ran bun test from the worktree root: confirmed exactly 2 fail (criterion 16 silent case, criterion 17 readme) and 879 pass, matching redProof; git status shows only the two test files modified.",
+        "Tried to show the criterion 17 test is trivially passing: it requires a paragraph containing both 'narrat' and the script path, then the word 'origin'; it fails today because the readme has neither, so it can fail.",
+        "Tried to show the silent-case count is wrong: the innermost-element filter counts one line, and 0 lines is the observed failure, so the test fails for the correct reason (absent behavior).",
+        "Tried to show the announced case can catch a wrong implementation: it catches a line drawn even when announced, but not a mount-time read, since the flag is set before the bundle import. This is the confirmed finding."
+      ],
+      "proofChecked": [
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/kit.test.ts",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md (items 9, criteria 16-17)",
+        "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/fixes-for-the-page-saying-so.md",
+        "live bun test run: 879 pass, 2 fail"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The narration script path is written out three times across the test files, once more than before this round.",
+          "evidence": "kit.test.ts:83 (new NARRATION_SCRIPT constant), kit.test.ts:245 (full script tag, existing), render.test.ts:306 (HELPER tag, existing); the production owner is render.ts:68 STORY_HELPER.",
+          "nonBlockingReason": "rails-dry-code rail 5 says independent test expectations may legitimately repeat a literal. The new constant's own comment says it is deliberately not read from the renderer, so it states what the readme must name. A test importing the renderer's value would agree with whatever the renderer writes. Within kit.test.ts the constant could be built into the line 245 literal, but that line asserts a full tag, so this is not duplicated logic."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second DOM-in-subprocess harness or jsdom runner the new HARNESS in render.test.ts could have reused. The only other jsdom use is app.test.tsx:12 and :1784, which builds a JSDOM in-process from an HTML string. The new harness needs a separate process because the bundle mounts once per page and the two cases are two pages, so the two are different capabilities.",
+        "Compared the new shownBy spawn against the kit.test.ts Bun.spawnSync call sites (145, 153, 165, 207, 219, 255). Those run node on kit.js with the CAPTURED options. shownBy runs bun on a harness with a JSDOM_MODULE env and different error handling, so there is no shared block to extract. The two criterion-16 cases share the one shownBy and the one HARNESS.",
+        "Checked whether the two criterion-16 tests or the criterion-17 test copy existing setup. Both cases go through shownBy, and criterion 17 reuses the existing readmeText().",
+        "Checked whether the diff adds any non-test duplicate. It does not, since only test files changed."
+      ],
+      "proofChecked": [
+        "git diff of kit.test.ts and render.test.ts",
+        "grep of story.js, JSDOM, spawnSync and __jarvisStory across ts/metalang",
+        "rails-dry-code SKILL.md rails 5, 6 and the Verdict section"
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "FAIL",
+      "findings": [
+        {
+          "summary": "Seven coverage rows assert the criterion is still RED when it passes in the tree this result is submitted against, and row 13 states exit codes the result's own redProof contradicts; the only authorization cited for keeping them is the orchestrator's fix-direction file, not Tim's approved `green-criterion` wording.",
+          "evidence": "Decision `green-criterion` (contract.md:17) is the approved wording that governs a row: \"A criterion that only guards behavior this contract requires to keep working is recorded in the coverage list as `red: false` carrying the reason in `whyPassing`; every other criterion is still RED, a `red: false` row with no reason is refused, and a `red: true` row that carries one is refused.\" Rows for acceptance items 2, 3, 4, 5, 9, 12 and 13 are recorded `red: true`, which asserts the criterion fails. All seven pass today: `cd /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets && bun test` → 879 pass, 2 fail, and the only two failures are the new criterion-16 and criterion-17 tests; `bun test ts/metalang/app.test.tsx` → 207 pass, 0 fail (items 2-5); `bun test ts/metalang/kit.test.ts` → \"refuses a kit asset with style.css taken out of it\" (pass), \"refuses a kit asset with syntax.css taken out of it\" (pass), \"the page it draws loads the story helper, so a released kit can be narrated\" (pass) (items 9, 12). Row 13 goes further and records as its evidence \"`bun run typecheck` — exit 2, TS7016 on the jsdom import at ts/metalang/app.test.tsx(12,23)\" and \"`bun run lint` — exit 1, @typescript-eslint/no-unsafe-call at ts/metalang/app.test.tsx:1784:18\"; I ran both from the worktree root: `bun run typecheck` → exit 0, `bun run lint` → exit 0, and the result's own redProof pastes those same two commands at exit 0. The record therefore contradicts the proof attached to it. Those criteria are green because IMPLEMENT landed them in commit cfbbbf5 \"Implement the kit page narration targets\" (ts/metalang/app.tsx, render.ts, arch.yaml, metalang.yaml, ci.yml, package.json, bun.lock, app.test.tsx). The authorization the notes give is \"THE FIFTEEN ROWS ARE THE PRIOR ROUND'S, VERBATIM, BECAUSE THE FIX DIRECTION SAYS SO\", quoting `.dev/inprocess/114-kit-page-narration/fixes-for-the-page-saying-so.md`; the quotes are accurate (that file's last line reads \"Every other criterion must stay as it is — fifteen rows unchanged, eight of them red for the reasons already recorded and seven carrying the reason they pass\"), but that file is a stage direction, not Tim, and it contradicts itself — its opening line reads \"Everything else in the contract is covered and passing\" while its closing line orders eight rows to stay red. rails-decisions: \"Anchor approval to Tim's actual words, never to 'it's already in the code'\" and \"No one is exempt — audit the orchestrator's steps too, not just the worker's.\" The notes disclose the staleness in prose (\"Today `bun test` is 881 tests, 879 pass, 2 fail\"), so nothing is hidden, but the machine-read coverage record the gate accepts still asserts seven failures that do not exist and two exit codes that are wrong, and it asks the reader to interpret it against a tree that no longer exists: \"READ THEM AS THE RECORD OF THE EARLIER ROUND, NOT OF THE TREE TODAY\".",
+          "fix": ""
+        },
+        {
+          "summary": "Four `red: false` rows carry a `whyPassing` reason that is untrue of the tree, each one asserting the implementing code has not been written when commit cfbbbf5 wrote it.",
+          "evidence": "The requirement is decision `green-criterion` (contract.md:17), which permits `red: false` only \"carrying the reason in `whyPassing`\" — the reason the criterion passes today. Four of the seven `red: false` rows state facts that are false now. Row 6 (`data-part`/`data-col` targets): \"nothing has yet touched the renderer, so every one of those targets is still spelled and drawn as it is today\" and \"The criterion is the guard that the two new identity attributes do not move or rename them when IMPLEMENT adds them\" — IMPLEMENT has run: commit cfbbbf5 changed ts/metalang/app.tsx (109 lines) and ts/metalang/render.ts (22 lines). Row 7 (identical bytes twice): \"The criterion guards that the member and declaration identities, and the story helper tag, do not put anything render-dependent into the page; it cannot fail before that code exists\" — that code exists: `grep -n 'data-declaration\\|data-member' ts/metalang/app.tsx` → `780: data-member={identityOf(member)}` and `1508: data-declaration={declaredId ?? undefined}`, and `ts/metalang/render.ts:68` holds `const STORY_HELPER = '<script defer src=\"/api/packages/story.js\"></script>'`. Row 8 (the three rules' fixtures): \"What is RED in guardrails.test.ts is a different test — `the drawing path > writes no word of the language out`, the fifteen literals rule 1 flags in app.tsx — which is the rule's recorded impact on existing code for IMPLEMENT to clear\" — nothing in that file is RED: `bun test ts/metalang/guardrails.test.ts` → 17 pass, 0 fail, including `(pass) the drawing path > writes no word of the language out`. Row 11 (coverage floor): \"the exit 1 is the sixteen failing tests rather than the coverage gate\" and \"which cannot fail before that code exists\" — exit 1 is two failing tests, per the result's own redProof (\"879 pass / 2 fail\") and my own run, and the code exists per the greps above. Each row's stated ground for passing is therefore not the ground on which it passes, which is the condition the test stage is judged against: a `red: false` row whose reason is untrue is a FAIL. As in the finding above, the only authorization offered is the orchestrator's `fixes-for-the-page-saying-so.md` ordering the rows kept verbatim, which cannot make a false statement of the tree true and is not Tim's approval of this record.",
+          "fix": ""
+        }
+      ],
+      "observations": [
+        {
+          "summary": "The criterion-17 test requires the readme paragraph to contain the literal `/api/packages/story.js`, which criterion 17's own words do not require.",
+          "evidence": "ts/metalang/kit.test.ts:106-112 finds the paragraph by `/narrat/i.test(paragraph) && paragraph.includes(NARRATION_SCRIPT)` with `NARRATION_SCRIPT = '/api/packages/story.js'`, then asserts `expect(narration).toBeDefined()`, so the readme must name the path. Acceptance 17 says only \"The kit readme says a drawn page reaches out to its origin for the narration script\", and decision `helper-absent` (contract.md:25) says \"The kit readme gains a sentence saying a drawn page reaches out to its origin for that script.\" The test also forces the sentence into its own `\\n\\n`-delimited paragraph.",
+          "nonBlockingReason": "No new decision-level element is introduced: the path is already approved in `What to do` item 4 and named in Acceptance 12 and at ts/metalang/render.ts:68, so \"that script\" naming it is a defensible reading rather than a requirement change, and paragraph structure is test-internal with no blast radius."
+        },
+        {
+          "summary": "The ordering `What to do` item 9 requires — the reading taken once the deferred scripts have run rather than at mount — is proven by no test, and the notes ask the implementer and the reviewers to treat it as covered by the contract's words.",
+          "evidence": "Contract `What to do` item 9: \"the page's bundle is written inline and runs before any deferred script, so the reading happens once the deferred scripts have run rather than at mount.\" The harness at ts/metalang/render.test.ts:350-392 parses the page first, then imports the entry, sets the announcement before that import, and dispatches `DOMContentLoaded` and `load` afterwards; the notes state plainly \"A mount-time reading would still pass here\" and give the verified failure for both routes (jsdom 31 under bun dies at node_modules/jsdom/lib/jsdom/browser/Window.js:60; under node v23.5.0 it cannot be imported). The notes then say \"The implementer and the reviewers should treat the deferred ordering as covered by the contract's own words and by the page's inline/deferred layout, not by a test.\"",
+          "nonBlockingReason": "No Acceptance criterion states the ordering — Acceptance 16 asks only what the page shows in each of the two cases, and both cases are tested — and the gap was disclosed with reproducible evidence rather than reported as checked, so nothing is laundered; whether the test is thereby weakened is the TDD lens's ruling, not a decision or approval defect."
+        },
+        {
+          "summary": "The criterion-16 page is drawn with an empty bundle and the entry is imported as a module instead, so the shipped page shape (inline bundle inside the real shell) is never exercised.",
+          "evidence": "ts/metalang/render.test.ts:410 renders the page as `await renderWith(LANGUAGE_FILE, page, () => Promise.resolve(''))`, and the harness is spawned over `join(dirname(LANGUAGE_FILE), PAGE_SOURCE)` (ts/metalang/render.test.ts:424), i.e. ts/metalang/client.tsx imported directly, with jsdom constructed without `runScripts`.",
+          "nonBlockingReason": "No interface or seam is assumed that the contract does not already state: `PAGE_SOURCE` is an existing export at ts/metalang/render.ts:33, `renderWith` is used with its existing signature, and Surfaces (contract.md:67) names ts/metalang/client.tsx as \"where the helper's announcement is read\"; the fidelity question belongs to the TDD lens."
+        }
+      ],
+      "proofChecked": [
+        "Read .agents/skills/rails-decisions/SKILL.md in full and ruled every decision-level item in the test surface against its Violations list",
+        "Read .dev/inprocess/114-kit-page-narration/contract.md in full, including decisions `helper-absent`, `when-the-page-says-so`, `green-criterion`, `dom-library`, `jsdom-types`, and Acceptance 1-17",
+        "Read both changed test files and the whole working-tree diff: `git diff --stat` → ts/metalang/kit.test.ts +20, ts/metalang/render.test.ts +119 (138 insertions, 1 deletion); `git status --short` → only those two files modified, no production file changed, nothing staged or committed",
+        "Read .dev/inprocess/114-kit-page-narration/fixes-for-the-page-saying-so.md and verified the notes' three quotations from it are verbatim, including \"Everything else in the contract is covered and passing\" and \"fifteen rows unchanged, eight of them red for the reasons already recorded and seven carrying the reason they pass\"",
+        "`bun test` from the worktree root → 879 pass, 2 fail, 881 tests across 16 files, coverage 95.60% funcs / 96.54% lines; the two failures are exactly the new criterion-16 and criterion-17 tests",
+        "`bun test ts/metalang/app.test.tsx` → 207 pass, 0 fail (Acceptance 2, 3, 4, 5 recorded red:true)",
+        "`bun test ts/metalang/kit.test.ts` → 27 pass, 1 fail; the required-file, identical-bytes and story-helper tests all pass (Acceptance 7, 9, 12), the one failure is the new criterion-17 test",
+        "`bun test ts/metalang/guardrails.test.ts` → 17 pass, 0 fail, including `the drawing path > writes no word of the language out`, which row 8's whyPassing calls RED",
+        "`bun run typecheck` → exit 0 and `bun run lint` → exit 0, against row 13's recorded \"exit 2, TS7016\" and \"exit 1, @typescript-eslint/no-unsafe-call\"",
+        "`git show --stat cfbbbf5` — IMPLEMENT changed ts/metalang/app.tsx, render.ts, arch.yaml, metalang.yaml, ci.yml, package.json, bun.lock, app.test.tsx, against row 6's \"nothing has yet touched the renderer\"",
+        "Greps confirming the implementing code exists: ts/metalang/app.tsx:780 `data-member`, :1508 `data-declaration`, ts/metalang/render.ts:68 `STORY_HELPER`, and no `__jarvisStory` anywhere in ts/metalang/client.tsx or render.ts (so criteria 16 and 17 are RED for the right reason)",
+        "Checked that no seam was invented: `PAGE_SOURCE` is pre-existing at ts/metalang/render.ts:33 and already consumed by cli.ts and kit.ts",
+        "Checked the approved dependency pins against package.json: `\"jsdom\": \"31.0.0\"` and `\"@types/jsdom\": \"30.0.0\"`, matching decisions `dom-library` and `jsdom-types`",
+        "Parsed .dev/inprocess/114-kit-page-narration/tdd/result.json and confirmed the fifteen submitted rows are that file's rows, with red/whyPassing pairing identical"
+      ],
+      "refutationAttempts": [
+        "Tried to clear the stale rows on the fix direction's authority: `fixes-for-the-page-saying-so.md` does order \"fifteen rows unchanged\", and the notes quote it accurately — but that file is the orchestrator's stage direction, not Tim's words, rails-decisions requires auditing the orchestrator too, and the file contradicts itself by calling everything else \"covered and passing\" in its first line while ordering eight rows to stay red in its last. Tim's approved `green-criterion` wording governs what a row may say. The finding survived.",
+        "Tried to read the fifteen rows as a legitimate historical record of the earlier TDD round rather than a claim about today: the notes ask for exactly that reading. But the coverage record is the machine-read part of the result the gate validates (Acceptance 14's command validates rows, not their truth), and prose asking a reader to discount a record does not make the record true — row 13's \"exit 2\" is contradicted by the redProof pasted in the same result. The finding survived.",
+        "Tried to read row 6's \"nothing has yet touched the renderer\" as scoped to this round: the full sentence is \"this round wrote no assertion over a data-part or data-col target and nothing has yet touched the renderer, so every one of those targets is still spelled and drawn as it is today\" — the second clause is unqualified, and the row's closing sentence is future-tense about work already landed in cfbbbf5. The finding survived.",
+        "Tried to find a legal row shape that would excuse the red:true rows: `green-criterion` allows red:false only for a criterion that \"only guards behavior this contract requires to keep working\", so criteria the change builds and which now pass have no legal row — but the resolution of that gap is Tim's, and asserting a RED that does not exist is not it. The finding survived.",
+        "Tried to fail the criterion-16 test as recording built behavior as passing: its row is red: true with an empty whyPassing, the silent side genuinely fails (expected 1 line, received 0 — reproduced), and the author explicitly refused to split the vacuously-passing announced side into a red:false row, citing `green-criterion`. No finding.",
+        "Tried to fail the two new tests as encoding an unapproved interface: `window.__jarvisStory` is named in `What to do` item 9, the script path and tag in item 4 and at render.ts:68, the \"cannot be narrated here\" wording in Acceptance 16 and decision `helper-absent`, client.tsx as the reading site in Surfaces, and `PAGE_SOURCE`/`renderWith` already exist. No finding.",
+        "Tried to fail the result for a no-test or contract-forbidden test change: the contract authorizes this round twice in Tim's approved wording (`when-the-page-says-so`: \"that answer is also his authorization for one test round writing the checks it needs\"), names the two test files in Surfaces, and nothing under .agents/ or in production was touched (git status shows only the two test files). No finding.",
+        "Tried to fail the throwaway satisfiability spike as the test author implementing behavior: it touched client.tsx and kit.ts, was reverted, was disclosed, and leaves no trace in the tree. Self-erasing, so no finding."
+      ]
+    }
+  ],
+  "anyFail": true,
+  "panelComplete": true,
+  "failedRoles": []
+}

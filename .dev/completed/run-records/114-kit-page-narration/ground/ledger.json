@@ -1,0 +1,14 @@
+{
+  "projectPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets",
+  "verdicts": [
+    {
+      "capability": "name-property-of-a-shape",
+      "decision": "reuse",
+      "owner": "ts/metalang/words.ts:422",
+      "evidence": "The doc comment on propertiesCarrying (words.ts:395-404) says it is \"the one place the question 'which property of this type carries that role' is answered\" and that every renderer asks it there. propertyCarrying (words.ts:422) returns the single carrying property, or undefined when none or several carry the role. ROLES.name (words.ts:181) is the generic name role, and the rulebooks declare it with `role: name` (names.yaml:51, arch.yaml:211). app.tsx:683 already calls propertyCarrying(bodyOf, type, ROLES.name). The Table component (app.tsx:719) only needs to call this to give each row an identity, and it currently hard-codes no `name` column, so no new capability is needed. The other candidates are different notions: constraints.ts:267 and highlight.ts:102 read the bootstrap id, not the name role. propertyCarrying is called from app.tsx:568, 683, 1427 and propose.ts:405 only as a consumer, not as a copy. I read words.ts and the Table source directly. I did not run the pooled lens searches again.",
+      "confidence": "high"
+    }
+  ],
+  "panelComplete": true,
+  "failedRoles": []
+}

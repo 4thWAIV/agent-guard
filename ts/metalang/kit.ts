@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { bundleCommand, bundlePage } from './bundle.ts'
-import { PAGE_BUNDLE, PAGE_SOURCE } from './render.ts'
+import { PAGE_BUNDLE, PAGE_SOURCE, STORY_SCRIPT } from './render.ts'
 
 const here = dirname(fileURLToPath(import.meta.url))
 
@@ -105,6 +105,10 @@ than inside that bundle, which is what lets one bundle draw a document it has ne
 
 The page that comes out carries its own styles and its own script and needs nothing from this folder
 afterwards, so a drawn page travels on its own.
+
+The one thing it reaches outside itself for is narration: it asks its own origin for
+\`${STORY_SCRIPT}\`, the script JARVIS serves to ring a beat of a story and point at what that beat
+is about, so a page opened anywhere else says on itself that it cannot be narrated there.
 
 ## What is in here
 

@@ -6,7 +6,7 @@
 
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
@@ -14,6 +14,7 @@ import {
   inlineScript,
   outputFor,
   outputPathFor,
+  PAGE_SOURCE,
   pageHtml,
   render,
   renderWith,
@@ -292,4 +293,209 @@ describe('drawing with a bundle the caller already has', () => {
     const block = html.split(`id="${DATA_ID}">`)[1]?.split('</script>')[0] ?? ''
     expect(dataFrom(block).doc).not.toBeNull()
   })
+})
+
+// ── the story helper ─────────────────────────────────────────────────────────
+//
+// JARVIS narrates a package by ringing a beat and pointing at what the beat is about. The helper
+// that rings and points is served by JARVIS rather than built here, so the page loads it from the
+// path JARVIS serves it at, and it is loaded by every page a document is written into — including
+// the one a kit draws, because the page shell is written in one place.
+describe('the story helper a narrated page loads', () => {
+  /** The tag the contract settled, written out so the test says what a page has to carry. */
+  const HELPER = '<script defer src="/api/packages/story.js"></script>'
+
+  test('the page loads it', () => {
+    expect(pageHtml('T', '', 'var x=1', DATA)).toContain(HELPER)
+  })
+
+  test('it sits after the data the page draws and before the bundle that draws it', () => {
+    const html = pageHtml('T', '', 'var x=1', DATA)
+    const data = html.indexOf(`id="${DATA_ID}"`)
+    const helper = html.indexOf(HELPER)
+    const bundle = html.indexOf('<script>var x=1</script>')
+    expect(data).toBeGreaterThan(-1)
+    expect(helper).toBeGreaterThan(data)
+    expect(bundle).toBeGreaterThan(helper)
+  })
+
+  // The helper carries a closing script tag of its own. Written last in the page it would end the
+  // search this file reads the bundle out of, and the bundle's own closing tag would land inside
+  // that slice — which is what forces the helper to sit before the bundle rather than after it.
+  test('the slice the bundle is read out of is still the bundle and nothing else', () => {
+    const html = pageHtml('T', '', 'var a = "x"', DATA)
+    expect(html.slice(html.indexOf('<script>') + 8, html.lastIndexOf('</script>'))).toBe(
+      'var a = "x"',
+    )
+  })
+})
+
+// ── what a drawn page says about being narrated ──────────────────────────────
+//
+// The helper is served by JARVIS rather than built into the page, so a page drawn anywhere else
+// loads a script that is not there. Until the page says so it draws exactly as a page that can be
+// narrated draws, and whoever is looking at it has no way to tell — which is the silent failure
+// `CLAUDE.md` forbids. So the page's own bundle reads the helper's announcement and, finding
+// none, draws one plain line saying the page cannot be narrated here.
+//
+// What a page SHOWS is what is read here, not what the bundle's source says: the line is drawn in
+// the browser and is written into the page's own text nowhere. So the real page is written to
+// disk and the real bundle entry is run over it in a real DOM — one process per case, because a
+// bundle mounts a page once and the two cases are two pages.
+describe('what a drawn page says about being narrated', () => {
+  /**
+   * The harness, which runs a page's own bundle over the page and reports what the page shows.
+   *
+   * It is written beside the page rather than kept in this folder because it is not part of the
+   * page or of the renderer: it is how this test looks at a drawn page. The DOM library reaches it
+   * by path for the same reason — run from a folder outside the repository, a bare import of it
+   * resolves to nothing.
+   */
+  const HARNESS = `
+import { readFileSync } from 'node:fs'
+
+const [page, entry, helper] = process.argv.slice(2)
+const { JSDOM } = await import(process.env.JSDOM_MODULE)
+
+// The page as a browser holds it: parsed, with its own scripts left unrun. The bundle is run
+// below instead, which is the order a browser runs it in.
+const dom = new JSDOM(readFileSync(page, 'utf8'), { url: 'https://jarvis.local/package/one/' })
+globalThis.window = dom.window
+globalThis.document = dom.window.document
+globalThis.navigator = dom.window.navigator
+
+const tick = () => new Promise((settle) => setTimeout(settle, 10))
+
+// Waiting for something the DOM library does on its own schedule, loudly: a wait that runs out
+// says what it was waiting for, rather than letting the reading go on against a page that was
+// never ready. Each caller says how long its own thing is given, in ticks.
+const waitFor = async (done, saying, ticks) => {
+  for (let i = 0; i < ticks && !done(); i += 1) await tick()
+  if (!done()) throw new Error(saying())
+}
+
+// The DOM library fires a DOMContentLoaded of its own once it has finished parsing, on a schedule
+// nothing here sets, and the page's bundle keeps one listener for that event and spends it on the
+// first one to arrive. Waiting here until the document reads complete, a state the library reaches
+// only after it has delivered that event, spends the library's event before the bundle exists: the
+// only DOMContentLoaded the bundle can be given is the one dispatched below, in the order below.
+await waitFor(
+  () => dom.window.document.readyState === 'complete',
+  () => 'the page never finished parsing: its ready state is still ' + dom.window.document.readyState,
+  2000,
+)
+
+// JARVIS's story helper announces itself on the window as it loads. A page drawn away from
+// JARVIS loads nothing, so there is no announcement to find. In a browser the window IS the
+// global, so the announcement is written to both here and either way of reading it finds it.
+//
+// It arrives the way a browser delivers it rather than as a global written between two awaits: as
+// a DOMContentLoaded listener of its own, registered before the bundle is imported. Listeners run
+// in the order they were registered, so the announcement is written before the bundle's listener
+// reads for it whichever event carries it, instead of racing the library's own event for the one
+// reading the bundle does.
+//
+// It is still written after the bundle has mounted and drawn, because no DOMContentLoaded is
+// delivered between the parse above and the dispatch below: a bundle that read the announcement
+// at mount would find nothing in this case and draw the line, which is what makes the announced
+// case able to fail at all. The silent case never announces, so this leaves it as it was.
+if (helper === 'announced') {
+  dom.window.document.addEventListener('DOMContentLoaded', () => {
+    dom.window.__jarvisStory = true
+    globalThis.__jarvisStory = true
+  })
+}
+
+await import(entry)
+
+// The page has to have been drawn before anything is read off it, or a page that drew nothing
+// reads as a page that had nothing to say.
+const root = dom.window.document.getElementById('root')
+if (root === null) throw new Error('the page has no root for the bundle to draw into')
+await waitFor(
+  () => root.children.length > 0,
+  () => 'the page drew nothing, so nothing can be read off it',
+  200,
+)
+
+// The two events a browser fires once the deferred scripts have run, so a reading that waits
+// for them is given them here as well.
+dom.window.document.dispatchEvent(new dom.window.Event('DOMContentLoaded', { bubbles: true }))
+dom.window.dispatchEvent(new dom.window.Event('load'))
+for (let i = 0; i < 20; i += 1) await tick()
+
+// Every element saying the page cannot be narrated, less the ones saying it only because
+// something inside them does. What is left is the lines a reader reads.
+const said = /cannot be narrated/i
+const matching = [...dom.window.document.querySelectorAll('*')].filter((el) => said.test(el.textContent ?? ''))
+const lines = matching.filter((el) => !matching.some((other) => other !== el && el.contains(other)))
+
+process.stdout.write(JSON.stringify({ lines: lines.map((el) => (el.textContent ?? '').trim()) }))
+`
+
+  /** Whether the story helper had announced itself before the page's bundle looked for it. */
+  type Helper = 'announced' | 'silent'
+
+  /** What a drawn page shows: the lines on it saying the page cannot be narrated here. */
+  interface Shown {
+    readonly lines: readonly string[]
+  }
+
+  let page: string
+  let harness: string
+
+  beforeAll(async () => {
+    // The real page, written by the renderer, with the bundle left out of the shell: the bundle is
+    // run by the harness instead, so what it is given is the page a reader is given.
+    page = join(dir, 'narrated.html')
+    await renderWith(LANGUAGE_FILE, page, () => Promise.resolve(''))
+    harness = join(dir, 'in-a-browser.mjs')
+    await writeFile(harness, HARNESS, 'utf8')
+  })
+
+  /** The page read with the helper either announced or silent, by the bundle the page carries. */
+  const shownBy = (helper: Helper): Shown => {
+    const ran = Bun.spawnSync(
+      [process.execPath, 'run', harness, page, join(dirname(LANGUAGE_FILE), PAGE_SOURCE), helper],
+      {
+        env: { ...process.env, JSDOM_MODULE: Bun.resolveSync('jsdom', import.meta.dir) },
+        stdout: 'pipe',
+        stderr: 'pipe',
+      },
+    )
+    const out = ran.stdout.toString()
+    if (ran.exitCode !== 0) {
+      throw new Error(
+        `the page could not be read with the helper ${helper}: ${out}${ran.stderr.toString()}`,
+      )
+    }
+    return JSON.parse(out) as Shown
+  }
+
+  /**
+   * How long one case is given to read its page.
+   *
+   * Reading one starts a DOM subprocess that parses the page and runs its bundle, and `spawnSync`
+   * blocks for all of it. That cost ran to 5392 milliseconds on one machine, against bun's five
+   * second default, so a page saying exactly what it should went red on the clock instead; the
+   * macOS, Windows and Linux runners are slower again. Stated here, each case fails only for what
+   * its page shows, and still fails rather than hanging.
+   */
+  const READING_A_PAGE = 60_000
+
+  test(
+    'a page the helper never announced itself on says it cannot be narrated here, once',
+    () => {
+      expect(shownBy('silent').lines).toHaveLength(1)
+    },
+    READING_A_PAGE,
+  )
+
+  test(
+    'a page the helper announced itself on says nothing about not being narrated',
+    () => {
+      expect(shownBy('announced').lines).toEqual([])
+    },
+    READING_A_PAGE,
+  )
 })

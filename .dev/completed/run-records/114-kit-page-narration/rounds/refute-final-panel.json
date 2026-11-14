@@ -1,0 +1,200 @@
+{
+  "contractPath": "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/.dev/inprocess/114-kit-page-narration/contract.md",
+  "verdicts": [
+    {
+      "lens": "prove-it",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Acceptance item 10 (the two literal JARVIS targets) is not proven in this repository.",
+          "evidence": "The contract says it is verified on the JARVIS side after the kit release. IGrantStore appears only in ts/metalang/guardrails.test.ts, as a rule 2 fixture, and in no non-test source.",
+          "nonBlockingReason": "The contract itself scopes this check out of this repository, and rule 2 bans writing those targets into fixtures. No requirement is unmet here."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for the shared-id case being resolved to the first declaration rather than reported. app.test.tsx:1866 asserts two [data-declaration=\"IGuard\"] sections and the checker band entry '\"IGuard\" is already the id of declare[0].constant'. It is reported, not resolved to the first.",
+        "Looked for a narrowed or weakened target check. data-member is written in app.tsx:802 from identities[i], and data-declaration at app.tsx:1530 from declaredId. The data-part and data-col tests pass unchanged and the test count is 884 pass, 0 fail.",
+        "Looked for a weakened or deleted test. grep for skip, todo and xit in ts/metalang/*.test.* found none. bunfig.toml holds coverageThreshold = 0.75.",
+        "Looked for the helper-absent line being a silent or racy path. client.tsx reads window.__jarvisStory on DOMContentLoaded, after the deferred scripts. Both the announced and not-announced cases are asserted and pass.",
+        "Looked for a CI required-file gap. ci.yml line 593 lists style.css and syntax.css. kit.test.ts runs the extracted check script on assets with each file removed and refuses both.",
+        "Looked for the kit readme sentence and the pinned dependencies. The readme test for the narration-script sentence passes. package.json and bun.lock carry exactly jsdom 31.0.0 and @types/jsdom 30.0.0, and no declaration file for jsdom exists under ts/.",
+        "Looked for a .agents change outside the authorized item 8 and decisions. node eng/check-copied-modules.mjs reports every copy of a block identical. The rails-test-code and rails-run-a-workflow prose carry the passing-row-reason wording."
+      ],
+      "proofChecked": [
+        "bun test: 884 pass, 0 fail across 16 files, with the coverage table printed: all files 96.53 percent lines, app.tsx 99.48, render.ts 97.98, kit.ts 92.31. This satisfies the 0.75 floor (acceptance 1, 2 to 5, 6, 7, 11, 12, 16, 17, 18).",
+        "bun run typecheck exits 0 and bun run lint exits 0 (acceptance 13).",
+        "make build exits 0 (acceptance 1).",
+        "Acceptance 14 command run verbatim: it printed [true,true,false,false] and exited 0.",
+        "node eng/check-copied-modules.mjs: PASS, 41 copied blocks identical, exit 0 (acceptance 15).",
+        "Test output names the required cases: 'refuses a kit asset with style.css taken out of it', the same for syntax.css, the story helper position tests, both helper-absent cases, the readme origin sentence, and the PrecheckAsync#1 and #2 identity cases (acceptance 9, 12, 16, 17, 18).",
+        "git status is clean, so the working tree equals HEAD."
+      ]
+    },
+    {
+      "lens": "solid",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Member-identity disambiguation (the name#place numbering) is written inline inside the Table component rather than as a named pure function.",
+          "evidence": "ts/metalang/app.tsx Table: names/carriers/places/identities computed inline after the propertyCarrying call.",
+          "nonBlockingReason": "It has one owner (Table, the single writer of data-member), one resolver (propertyCarrying), and no second copy. This is a testability preference, not a rails-solid-code violation."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second resolver of a member's name: Table calls propertyCarrying(bodyOf, of, ROLES.name) once per table, and a grep of the diff shows no read of member['name'] by spelling.",
+        "Looked for a second writer of data-declaration or data-member: data-declaration is only in Declaration and data-member only in Table's row. propose.ts's shell is the filed issue 117, outside this contract.",
+        "Looked for a duplicated id predicate: the two copies in Declaration are collapsed into one declaredId that feeds the id span, the error band, the Properties owner and data-declaration.",
+        "Looked for a second page shell or second helper tag: STORY_SCRIPT is one constant in render.ts, shared by the tag and the kit readme.",
+        "Looked for escape hatches: the diff adds no any, and the Window.__jarvisStory declaration is typed unknown.",
+        "Looked for hardcoded specifics: no IGrantStore or IWindowsHelloNativeOps, and no constant data-member value in non-test source.",
+        "Looked for dependency inversion: client.tsx imports app.tsx and not the reverse, and OPTIONAL moved down to the existing export in words.ts.",
+        "Reran the checks: bun run typecheck exited 0, bun run lint exited 0, and node eng/check-copied-modules.mjs passed with 41 copied blocks identical. bun test passed 884 with 0 failures and coverage of 96.5% lines, above the 0.75 floor."
+      ],
+      "proofChecked": [
+        "contract.md read in full",
+        "rails-solid-code SKILL.md read",
+        "git diff from merge-base c918581 over app.tsx, client.tsx, render.ts, kit.ts, arch.yaml, metalang.yaml, ci.yml and package.json",
+        "ci.yml required-file list now includes style.css and syntax.css",
+        "package.json pins jsdom 31.0.0 and @types/jsdom 30.0.0 exactly",
+        "bun run typecheck exit 0",
+        "bun run lint exit 0",
+        "node eng/check-copied-modules.mjs PASS",
+        "bun test 884 pass 0 fail"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The kit's required-file list is written twice: `ts/metalang/kit.ts` marks nine files as required, and the shell loop in `.github/workflows/ci.yml` (around line 593) hard-codes the same nine names.",
+          "evidence": "The ci.yml loop is `for required in kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml style.css syntax.css`. kit.ts `beside(name, required)` and its missing-file check, around lines 64-81, hold the same set. The diff added `style.css syntax.css` to the loop.",
+          "nonBlockingReason": "Contract What-to-do item 6 and acceptance 9 direct exactly this edit. The CI check is a separate verification of the built output, not a second source of the list the build uses. No consumer bypasses an owner."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second copy of the declaration id predicate. It now lives once, as `declaredId` in `Declaration` in `app.tsx`. It feeds the id span, the error band, the properties owner and `data-declaration`. The old copies at the former lines 1480 and 1500 are gone.",
+        "Looked for a second resolver for a member's name. `Table` calls `propertyCarrying(bodyOf, of, ROLES.name)` once per table. The grep found no other reader of `member['name']` in the drawing path.",
+        "Grepped `data-declaration` and `data-member` in non-test source. Each has one JSX write site, at `app.tsx:1530` and `app.tsx:802`, which is rule 3's single-owner requirement.",
+        "Looked for a second page shell or a second story-script path. `STORY_SCRIPT` is defined once in `render.ts:62`. Both `render.ts` and the `kit.ts` readme read it. The only other occurrences of the literal are in tests, where independent expectations are legitimate. `propose.ts` is out of scope under issue 117.",
+        "Looked for duplicated constants. `OPTIONAL` is now exported once from `words.ts:479` and imported by `app.tsx`. The local `ROOT` was replaced with `SELF.object`, and the bootstrap literals were replaced with `BOOTSTRAP.*` and `LANGUAGE`. Grep found no remaining local `OPTIONAL` or `ROOT` constant.",
+        "Looked for a second copy of the repeated-member numbering logic and found none. The only `${name}#${place}` hit is at `app.tsx:775`.",
+        "Re-ran `node eng/check-copied-modules.mjs`. It exited 0 with every block identical across copies: 11 workflow files, 41 copied blocks, 7 block names."
+      ],
+      "proofChecked": [
+        "Contract read in full.",
+        "`git diff fb15d28 HEAD` on app.tsx, render.ts, client.tsx, kit.ts, arch.yaml, metalang.yaml, ci.yml and package.json.",
+        "`node eng/check-copied-modules.mjs` exited 0 (copied workflow blocks byte-identical).",
+        "Grep for the story-script literal, `__jarvisStory`, `DOMContentLoaded`, `data-declaration`, `data-member`, `OPTIONAL` and the `#` identity format across `ts/metalang`.",
+        "I did not run CodeGraph. I did not run `bun test`, `make build`, `typecheck` or `lint`, which are outside the DRY lens."
+      ]
+    },
+    {
+      "lens": "laziness",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Acceptance 10 (the two literal targets verified on the JARVIS side after the kit release) cannot be checked in this repository.",
+          "evidence": "The contract text of check 10 says it is verified outside this repo; no document here declares IGrantStore or IWindowsHelloNativeOps. grep for those names under ts finds only ts/metalang/guardrails.test.ts, which is the rule 2 fixtures.",
+          "nonBlockingReason": "The contract assigns this check to a later step on the JARVIS side and bans writing the targets into a fixture, so there is no proof to demand from this change."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for easy-half and one-case shortcuts in the identity mechanism. app.test.tsx:1937-1945 covers PrecheckAsync#1, PrecheckAsync#2 and the bare shared name matching nothing. Line 1855 covers a member name with quotes and a backslash, and line 1866 covers two declarations sharing an id, asserting both the two sections and the checker's report band.",
+        "Looked for a silent failure in the helper-absent behaviour. client.tsx reads window.__jarvisStory on DOMContentLoaded, after the deferred scripts have run, and draws NotNarratedHere when it is absent. render.test.ts has named cases for announced and not announced.",
+        "Simulated the CI required-file loop from ci.yml:593 on a kit built with syntax.css removed. It exited 1 with 'MISSING syntax.css', which proves acceptance 9. style.css and syntax.css are in the loop's list.",
+        "Checked for hard-wired literal targets. Under ts, IGrantStore and IWindowsHelloNativeOps appear only in ts/metalang/guardrails.test.ts. The helper script path is a single named constant (STORY_SCRIPT in render.ts:62).",
+        "Checked the dependency pins. package.json and bun.lock carry jsdom 31.0.0 and @types/jsdom 30.0.0. bunfig.toml keeps coverageThreshold = 0.75."
+      ],
+      "proofChecked": [
+        "bun test: 884 pass, 0 fail, coverage 96.53% lines, above the 0.75 floor. I saw the summary, but my shell did not capture the exit code, so I did not confirm the exit code.",
+        "node eng/check-copied-modules.mjs: PASS, 41 copied blocks identical, exit 0.",
+        "bun run typecheck (tsc --noEmit) and bun run lint (eslint ts) printed no errors. I did not capture their exit codes.",
+        "Acceptance 14 command from the contract: printed [true,true,false,false] and exited 0.",
+        "The CI required-file check with syn­tax.css removed fails with exit 1.",
+        "Contract decisions member-identity, member-identity-unique, helper-absent and identity-spelling are each backed by a named test in app.test.tsx, render.test.ts or kit.test.ts. The kit readme sentence is at kit.ts:109."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Acceptance 10 is not verified anywhere, because its own text defers the verification to the JARVIS side after a kit release that has not happened; its two in-repository preconditions were independently re-derived.",
+          "evidence": "Contract Acceptance 10: the two literal targets \"are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.\" Re-derived at /Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets: `grep -rn \"IGrantStore\\|IWindowsHelloNativeOps\" ts/` returns hits only inside ts/metalang/guardrails.test.ts (the rule's own fixtures and ban list) — no non-test source and no YAML document; and guardrails.test.ts's `no file outside a test writes a target` asserts [] over all 15 non-test ts/ files, green in the 884-pass run. The branch is kit-walkthrough-targets at 964e72f, unmerged, so no kit has been cut.",
+          "nonBlockingReason": "The contract's Success definition enumerates the criteria for \"This run\" and does not include this one; the criterion's own wording places the check outside this repository and after release, so no proof is owed here. Both in-repo conditions it does state are proven."
+        },
+        {
+          "summary": "The shared-name identity is numbered per TABLE, while decision `member-identity-unique` words the count as \"among the members of that declaration\"; the two differ only for a declaration that draws more than one name-carrying table, which no language in this tree can produce.",
+          "evidence": "ts/metalang/app.tsx Table (lines ~765-778) builds `carriers`/`places` from `members.map(...)` for the one table it is drawing, and `What to do` item 3 says \"resolve the member's name property once per table\". arch.yaml:582-583 gives `element` exactly one `list: { of: member }`; arch.yaml:590-591 `relates` is a map of lists of `link`, which `rowsOf` rejects because `of` is not a string naming an object primitive. Probed every document the renderer draws (metalang.yaml, arch.yaml, names.yaml, parts.yaml, stage.yaml, propose.yaml) by rendering each and counting `data-member` values inside each `[data-declaration]` section with jsdom: sections 45/21/4/7/1/13, member rows 0/0/0/18/0/0, duplicate `data-member` within a declaration = 0 in every document.",
+          "nonBlockingReason": "No reachable document or language in the tree distinguishes the two scopings, the contract's own `What to do` item 3 specifies per-table, and acceptance 18's three cases plus acceptance 2/3 all pass. Raising it as a defect would re-litigate Tim's approved `identity-spelling` wording rather than name an unmet requirement."
+        },
+        {
+          "summary": "Decision `member-identity-unique` grounds the `#` separator on the language holding a name to letters, digits and underscores, but metalang.yaml:878 is a pattern the checker reports on rather than refuses, so an out-of-pattern name is still drawn.",
+          "evidence": "ts/metalang/metalang.yaml:872-878 declares `name` with `constraints: - pattern: { value: '[A-Za-z_][A-Za-z0-9_]*' }`; ts/metalang/constraints.ts reports a mismatch as a problem rather than dropping the value, and app.test.tsx's acceptance-4 test relies on exactly that route — it draws the member name `Quote\"And'Apostrophe\\Backslash`, which the pattern rejects, and asserts `getAttribute('data-member')` returns it verbatim. So a document writing a member name containing `#` is drawn too.",
+          "nonBlockingReason": "This is the justification sentence inside wording Tim approved as written, not something this change weakened; no acceptance criterion or Success-definition sentence turns on it, and the implementation does exactly what the approved decision says."
+        },
+        {
+          "summary": "The new helper-absence reading in ts/metalang/client.tsx contributes no measured coverage, because no in-process test imports that module; the floor is met on the rest of the tree and the behaviour is proven by a subprocess harness instead.",
+          "evidence": "`bun test` coverage table lists 15 ts/metalang files and no client.tsx row; totals are 95.54% funcs / 96.53% lines against bunfig.toml's `coverageThreshold = 0.75`, exit 0. The behaviour is proven two-sidedly in ts/metalang/render.test.ts by `shownBy('silent')` (1 line) and `shownBy('announced')` (0 lines), each running the real bundle entry `join(dirname(LANGUAGE_FILE), PAGE_SOURCE)` over the real written page in jsdom in a separate process, so the executed code is not instrumented by the parent run. client.tsx carried no coverage row before this change either (it is the bundle entry).",
+          "nonBlockingReason": "Acceptance 11's words — coverage at or above the 0.75 floor, enforced by bun itself — are met and re-derivable, and acceptance 16 supplies the real proof for the code in question. Nothing was lowered: bunfig.toml is byte-unchanged from the base."
+        },
+        {
+          "summary": "The hidden-decision scan's second judged finding (a published digest for the released kit zip) is recorded as refuted on evidence in a different repository, which cannot be re-derived from here; the residual improvement was filed as an issue rather than put to Tim.",
+          "evidence": ".dev/inprocess/114-kit-page-narration/ground/hidden-decision-scan.json records it as a high-severity forced choice with no answering Decision. .dev/inprocess/114-kit-page-narration/three-choices-nobody-made.md refutes it citing `jarvis/language_kit_updates.py:89-91` and `jarvis/language_kit.py:194` — files outside this repository — and says the remainder is \"filed as issue 121 rather than put to him, because nothing forces it.\" `gh issue list` confirms 121 OPEN, \"Publish a build-produced digest beside the released kit zip\". Nothing in contract.md's Decisions, Acceptance or Success definition mentions a digest, and the ci.yml diff touches only the required-file loop (one line, adding style.css and syntax.css).",
+          "nonBlockingReason": "No contract requirement, acceptance check or Success-definition sentence depends on the digest, and this change alters no release packaging, so no proof is owed. The choice was surfaced in the run record and tracked as an open issue rather than silently defaulted, which is what rails-decisions requires of an uncovered choice."
+        }
+      ],
+      "refutationAttempts": [
+        "Tried to refute the run against its complete success definition by re-running every command the contract names myself on a clean tree at 964e72f: `make build` (0 warnings, 0 errors, exit 0), `make test` (619+11+56+148 passed, 0 failed, 0 skipped, exit 0), `bun test` (884 pass, 0 fail, 1513 expect() calls, exit 0), `bun run typecheck` (exit 0), `bun run lint` (exit 0), `node eng/check-copied-modules.mjs` (41 blocks, 7 names, all byte-identical, exit 0), and the acceptance-14 one-liner (printed [true,true,false,false], exit 0). Every criterion the Success definition lists for this run is met.",
+        "Tried to find a test weakened, skipped, xfail'd, deleted or loosened by diffing all four test files against the merge base c918581. Test counts rose (app.test.tsx 194->206, render.test.ts 33->38, kit.test.ts 21->27, guardrails.test.ts new with 17); `grep -rnE '\\.only\\(|test\\.skip|describe\\.skip|test\\.todo|it\\.skip' ts/` returns nothing; and the 12 pre-existing data-part/data-col assertion lines in app.test.tsx are byte-identical before and after (diff shows one added line and no changed or removed line), which is exactly what acceptance 6 requires.",
+        "Tried to refute acceptance 16 as a pair of tests that cannot fail. Rejected: the two cases run the same real bundle over the same written page and differ only in whether the announcement is made, and they assert opposite outcomes (exactly 1 line vs 0 lines), so an implementation that always drew the line or never drew it would fail one of them. Both are named in the `bun test` output at lines 871-872.",
+        "Tried to reproduce the flaky-test round's confirmed finding that the announced case fails intermittently (3 failures in 14 runs at load 48-62). Ran the pair 10 times while four concurrent `dotnet build` jobs and ten spinners drove the load average from 4.96 to 65.98: 10/10 runs 5 pass, 0 fail. The race fix at e0d3ebb is deterministic by construction — the harness registers its announcement listener before `await import(entry)`, so listener order, not timing, decides.",
+        "Tried to find the generality gap behind 'a selector naming one member of one declaration matches exactly one element' by rendering all six documents the renderer draws and counting duplicate `data-member` values inside each `[data-declaration]` section with jsdom. No duplicates in any document; arch.yaml gives `element` exactly one list-of-member, so per-table and per-declaration numbering coincide for every language in the tree.",
+        "Tried to find a suppression used to reach green. `git diff c918581 HEAD -- ts/ .github/ package.json bunfig.toml eslint.config.js tsconfig.json | grep -E 'eslint-disable|ts-ignore|ts-expect-error|@ts-nocheck|NoWarn|severity *= *none|SuppressMessage|pragma warning|continue-on-error|\\|\\| true'` returns only two prose comments inside guardrails.test.ts. bunfig.toml, eslint.config.js, tsconfig.json, .runsettings and Directory.Build.props are byte-unchanged, so neither the 0.75 floor nor the analyzer fence was touched, and `make build` reports 0 warnings.",
+        "Tried to find a renamed validator key left silently inert by the `green-criterion` change: the required-agent-runtime block renamed `itemsAllTrue` to `itemsTrueOrExplained`, so any surviving `itemsAllTrue:` caller would be skipped without a word. `grep -rn 'itemsAllTrue' .agents/ eng/` returns nothing, and all nine `itemsTrueOrExplained` call sites match the new key.",
+        "Tried to break every approval claim in the contract by reading the actual recorded answers rather than the contract's own account of them, at ~/code/macos/4thWAIV/jarvis/data/packages/*/results/decisions.json. All thirteen decision ids resolve to a real record whose answer value and timestamp match the contract exactly: member-identity=change-language and selector-proof=add-dom-library in both architecture-repair-the-executive-brief-1.0.3-local156 (20:54/20:58) and kit-narration-repair-two-language-and-te-1.0.0-local6cb (21:03), authorize-walkthrough-repair=approve-build, dom-library=jsdom-31, jsdom-types=types-package, green-criterion=record-it-green, rule-2-middle-clause=drop-the-clause, impact-test=pin-what-not-where, helper-absent=page-says-so, when-the-page-says-so=fold-it-in, scan-ran-late=re-run-the-stages, passing-row-reason=say-why-it-passes, fix-round-authority=confirmed-finding-opens-it, identity-spelling=among-the-shared, rule-1-boundary=lookups-and-renames, rule-2-boundary=drawn-documents.",
+        "Tried to show an approval was really a non-answer, a topic change or a reword request. Each decision's deck carried two genuine competing options and Tim picked the recorded one (e.g. identity-spelling offered among-the-shared vs among-all-members; passing-row-reason offered say-why-it-passes vs round-covers-its-own; helper-absent offered page-says-so vs only-for-jarvis; when-the-page-says-so offered fold-it-in vs release-first). The one answer that is not an option pick, `overload-target`, is recorded as answer 'none' with Tim's own note refusing issue 120, a delay and a hack and ordering the correct fix — which is exactly how the contract describes it, and the spelling it implies was then approved separately as `identity-spelling`.",
+        "Tried to show the time-budget round was ratified by wording Tim never saw. Rejected: two-answers-about-your-process-1.0.0-localba6/UNDERSTANDING.md:157 put it to him in terms — 'the timeout round stays unauthorized ... That also ratifies the timeout round already run' — and names the exact artefact (render.test.ts line 455, committed c10d147 at 21:52 on 13 November). He answered confirmed-finding-opens-it at 22:35:41.",
+        "Tried to show the three guardrail rules were never approved, since the contract cites a date with no package record. Rejected: rule-2-s-middle-clause-1.0.0-local2d1, which Tim signed off, speaks of 'Rule 2 as approved', 'Rule 2 stays as approved' and carries a status board naming all three including 'Rule 3, one owning site per identity attribute: clean, passed both rounds'; and where-two-approved-rules-stop-1.0.0-local9b6 records him answering boundary questions for rules 1 and 2 on 2026-11-11.",
+        "Tried to find an autoResolved record that does not hold up. All three supplied stage outputs carry the array: ground/facts.json has it on all six areas (3+0+4+0+2+2 entries), design/verdict.json has 10, and ground/hidden-decision-scan.json has 4 under `judged`. Every entry carries all four fields, and I checked each hidden-decision entry against its cited principle and live code — the id-less declaration and empty/non-string member name resolutions cite guide 5a/5b plus the contract's 'Add no second report', and app.tsx:1518-1520 and the Table's `nameHeldBy` do exactly that; the jsdom integrity entry cites guide 3a and bun.lock:68/:218 do carry sha512 integrity for @types/jsdom@30.0.0 and jsdom@31.0.0 under devDependencies with ci.yml:591 installing frozen.",
+        "Tried to find a guide-covered choice escalated instead of auto-resolved, and an uncovered choice silently defaulted. The scan's three escalations all sit in reserved territory: the story-helper absence is a trust boundary (guide 3b, 'none of it auto-resolves'), the release digest asset is a public name people build against (guide 4b), and the overload identity is a shipped wire format (guide 4b) — none auto-resolvable. All three were surfaced; two became Tim's decisions (`helper-absent`, `member-identity-unique`/`identity-spelling`) and the third was refuted on record with issue 121 filed.",
+        "Tried to find an unaddressed FAIL verdict left behind in the round records. Every FAIL round has a traceable resolution: refute-first-panel's three fails map to the time-budget round, commit 9ea4fe0 (the .dev/inprocess path, now absent from ts/ except a pre-existing metalang.yaml:712 comment that is byte-identical in the base), and decisions member-identity-unique/identity-spelling/scan-ran-late; tdd-the-flaky-test's three lie-catcher findings map to `passing-row-reason`, `fix-round-authority` and the announced-race fix; tdd-the-page-saying-so-refused, tdd-the-identity-refused and tdd-the-shared-id-assertion each have a passing successor. The last round of every stage is PASS (rule-round-with-the-scan, architecture-result, tdd/result, tdd/result-page-says-so, tdd/result-identity, tdd-the-announced-race).",
+        "Tried to find reuse-ledger instructions quietly ignored: a second resolver, a second escaper, a second report or a second page shell. words.ts:422 `propertyCarrying` is the only resolver and Table calls it once per table with no fallback; the zero- and two-carrier cases come back undefined from that same owner; both identity attributes are plain JSX props beside data-col/data-part, and the only escapers in ts/ (render.ts:38, propose.ts:60, syntax.ts:658) are all byte-identical to the base; the duplicate id predicate is now the single `declaredId` reading feeding the id span, the error band, `Properties owner`, and data-declaration; check.ts is untouched, so the shared-id report is the pre-existing one and not a second report; and render.ts `pageHtml` is still the only page shell for a document (propose.ts's second shell is issue 117, excluded by the contract).",
+        "Tried to defeat each of the three rules' own proof. Each has a violating fixture whose exact finding list is asserted and a compliant fixture asserted empty, plus a live run over all 15 non-test ts/ files asserting []. Rule 1's banned set is derived from `Object.values(words)` and words.ts exports no nested array of language words, so nothing escapes by structure; the impact test pins the nine exemptions by word and reason with no totals and no line numbers, exactly as decision `impact-test` requires, which is what stops the exemption kinds being widened to swallow the fifteen defects the contract says IMPLEMENT must clear."
+      ],
+      "proofChecked": [
+        "make build at 964e72f on a clean tree: 'Build succeeded. 0 Warning(s) 0 Error(s)', BUILD_EXIT=0",
+        "make test: AgentGuard.Analyzers.Tests 619 passed / 0 failed / 0 skipped; Cli.Tests 11/0/0; CrossPlatform.Tests 56/0/0; Tests 148/0/0; TEST_EXIT=0",
+        "bun test (full suite, clean tree, twice): 884 pass, 0 fail, 1513 expect() calls, 16 files; coverage All files 95.54% funcs / 96.53% lines against bunfig.toml coverageThreshold = 0.75; BUNTEST_EXIT=0",
+        "bun run typecheck (tsc --noEmit): TYPECHECK_EXIT=0; bun run lint (eslint ts): LINT_EXIT=0",
+        "node eng/check-copied-modules.mjs: required-agent-runtime 11 copies identical, stage-result-contracts 9 copies identical, 41 blocks over 7 names, 'PASS — every duplicated block is byte-identical across all copies', EXIT=0",
+        "Acceptance 14 one-liner against the real result contract sliced out of .agents/workflows/tdd.js: printed [true,true,false,false], EXIT=0",
+        "Acceptance 16 both cases named in the bun test output: '(pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1348.19ms]' and '... a page the helper announced itself on says nothing about not being narrated [1154.79ms]'",
+        "Acceptance 12 in the released kit: '(pass) a document written in a language other than MetaLang > the page it draws loads the story helper, so a released kit can be narrated [269.00ms]', and the three render.test.ts helper tests including 'the slice the bundle is read out of is still the bundle and nothing else'",
+        "Flakiness re-test of the two page-reading cases: 10 consecutive runs of `bun test ts/metalang/render.test.ts -t narrated`, each 5 pass / 0 fail, while the load average was driven from 4.96 to 65.98 by four concurrent dotnet builds and ten spinners",
+        "Independent jsdom probe of all six drawn documents (metalang.yaml, arch.yaml, names.yaml, parts.yaml, stage.yaml, propose.yaml): 0 duplicate data-declaration ids and 0 duplicate data-member values inside any declaration; parts.yaml draws 4 tables and 18 member rows",
+        "grep -rn 'IGrantStore|IWindowsHelloNativeOps' ts/ — hits only in ts/metalang/guardrails.test.ts (ban list, fixtures, expected findings); no non-test source and no document declares either id",
+        "git diff c918581 HEAD over ts/, .github/, package.json and the config files: no eslint-disable, ts-ignore, ts-expect-error, @ts-nocheck, NoWarn, severity = none, SuppressMessage, pragma warning, continue-on-error or '|| true'; bunfig.toml, eslint.config.js, tsconfig.json, .runsettings and Directory.Build.props byte-unchanged; no src/ or analyzers/ change at all",
+        "grep -rn 'itemsAllTrue' .agents/ eng/ — nothing; nine itemsTrueOrExplained call sites, all matching the renamed key",
+        "Test-file diffs vs c918581: app.test.tsx 194->206 tests, render.test.ts 33->38, kit.test.ts 21->27, guardrails.test.ts 0->17; the 12 existing data-part/data-col assertion lines byte-identical; no .only/.skip/.todo anywhere in ts/",
+        "bun.lock:68 '@types/jsdom@30.0.0' with sha512 integrity and bun.lock:218 'jsdom@31.0.0' with sha512 integrity; package.json devDependencies pin both at those exact versions; no .d.ts and no `declare module 'jsdom'` anywhere in ts/",
+        ".github/workflows/ci.yml required-file loop now 'kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml style.css syntax.css'; kit.test.ts runs that extracted script under bash --noprofile --norc and proves exit 1 with the named error for each of style.css and syntax.css removed, exit 0 and empty stderr intact, plus a drift test tying the list to kit.ts's required set",
+        "Decision records read directly at ~/code/macos/4thWAIV/jarvis/data/packages/*/results/decisions.json: all 13 contract decisions present with matching answer values and timestamps; option sets read from each package's deck-data.js show two real alternatives per decision",
+        "two-answers-about-your-process-1.0.0-localba6/UNDERSTANDING.md:157 and :186 — the ratification of the unauthorized time-budget round, and the exact render.test.ts:455 / c918581 evidence, put to Tim before he answered confirmed-finding-opens-it",
+        "gh issue list: 115, 116, 117, 118 and 121 OPEN; 120 CLOSED (superseded by Tim's order to fix the overload identity now)",
+        "autoResolved arrays: ground/facts.json 6 areas all carrying the field (3,0,4,0,2,2 entries), design/verdict.json 10 entries, hidden-decision-scan.json judged.autoResolved 4 entries; every entry carries choice, resolution, principle and evidence",
+        "git status --porcelain empty at 964e72f before and after every command above; no project file was created, edited or deleted by this review"
+      ]
+    }
+  ],
+  "anyFail": false,
+  "failedLenses": [],
+  "panelComplete": true,
+  "failedRoles": []
+}

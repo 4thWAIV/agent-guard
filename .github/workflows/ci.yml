@@ -590,7 +590,7 @@ jobs:
           set -euo pipefail
           bun install --frozen-lockfile
           bun run ts/metalang/kit.ts dist/evolang-kit "$TAG"
-          for required in kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml; do
+          for required in kit.js page.js package.json README.md metalang.yaml arch.yaml propose.yaml style.css syntax.css; do
             if [ ! -s "dist/evolang-kit/$required" ]; then
               echo "::error::dist/evolang-kit/$required is missing or empty — the kit would ship unusable" >&2
               exit 1
