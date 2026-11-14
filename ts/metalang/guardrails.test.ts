@@ -1,11 +1,11 @@
 // The guardrails this repository holds over its own TypeScript source.
 //
-// Three rules, approved as written in `.dev/inprocess/114-kit-page-narration/contract.md` under
-// `Rules to add`. None of them is an analyzer: the fence in `analyzers/` is Roslyn's and cannot
-// see TypeScript, so each one is a test inside the `bun test` step, following examples.test.ts.
-// The contract says it in those words — "Three rules, each a contract-directed test inside the
-// existing `bun test` step" — and adds that "None of the three is an analyzer and none carries a
-// diagnostic id", so a rule here is named by the test that holds it.
+// Three rules, approved as written under this work's contract heading `Rules to add`. None of
+// them is an analyzer: the fence in `analyzers/` is Roslyn's and cannot see TypeScript, so each
+// one is a test inside the `bun test` step, following examples.test.ts. The contract says it in
+// those words — "Three rules, each a contract-directed test inside the existing `bun test`
+// step" — and adds that "None of the three is an analyzer and none carries a diagnostic id", so
+// a rule here is named by the test that holds it.
 //
 // Each rule reads one file at a time, given as a path and the text it holds, so a rule is proven
 // on a fixture of a few lines and the repository's own files are more cases to run it on. The
