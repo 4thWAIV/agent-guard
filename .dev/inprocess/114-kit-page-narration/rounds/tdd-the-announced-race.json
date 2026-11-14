@@ -1,0 +1,301 @@
+{
+  "testFiles": [
+    "/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts"
+  ],
+  "redProof": "THE FINDING, REPRODUCED DETERMINISTICALLY INSTEAD OF WAITED FOR. The confirmed finding is a race, so \"it passed this time\" proves nothing either way. Both harnesses — the one at HEAD and the one this round wrote — were extracted from their render.test.ts verbatim into a scratchpad copy with ONE line added at the exact point the finding names: a `DOMContentLoaded` dispatched right after `await import(entry)`, i.e. after the bundle has registered its single `{ once: true }` listener and before the harness has written the announcement. That is the condition the loaded machine produced by accident. Run against the real page and the real bundle entry, helper=announced:\n\n  === HEAD harness, same forcing, helper=announced (the finding) ===\n  {\"lines\":[\"This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points at what the beat is about, and nothing answered for it at this page’s origin.\"]}\n  EXIT=0\n  === FINAL harness, helper=announced, a DOMContentLoaded forced to arrive after the bundle registered ===\n  {\"lines\":[]}\n  EXIT=0\n  === FINAL harness, helper=silent, same forcing ===\n  {\"lines\":[\"This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points at what the beat is about, and nothing answered for it at this page’s origin.\"]}\n  EXIT=0\n\n`lines` is what `expect(shownBy('announced').lines).toEqual([])` reads: the HEAD harness hands the test the one line, which is the reported failure `received [\"This page cannot be narrated here: ...\"]` to the letter; the fixed harness hands it `[]`; and the silent case still shows its one line.\n\nRUNS UNDER LOAD, ON THE FINAL TREE. `make build && make test` was looped eight times in the background throughout (`LOAD2_ITERATION_1_EXIT=0` … `LOAD2_ITERATION_8_EXIT=0`, `ALL_DONE`), which is also acceptance check 1 proven eight more times on this tree. Six whole-suite `bun test` runs from the repository root, with the 1-minute load average printed before each:\n\n  === FINAL bun test run 1, load 18.96 17.82 14.50 ===\n  BUN_EXIT_RUN_1=0\n  (pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1398.99ms]\n  (pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [1348.98ms]\n  All files                   |   95.54 |   96.53 |\n   884 pass\n   0 fail\n  Ran 884 tests across 16 files. [14.12s]\n  === FINAL bun test run 2, load 20.70 18.25 14.69 ===  BUN_EXIT_RUN_2=0   884 pass  0 fail  (both cases pass: 1962.23ms / 1611.91ms)\n  === FINAL bun test run 3, load 28.42 20.17 15.44 ===  BUN_EXIT_RUN_3=0   884 pass  0 fail  (1451.49ms / 1205.31ms)\n  === FINAL bun test run 4, load 28.45 20.62 15.69 ===  BUN_EXIT_RUN_4=0   884 pass  0 fail  (2164.03ms / 1889.66ms)\n  === FINAL bun test run 5, load 33.54 21.94 16.21 ===  BUN_EXIT_RUN_5=0   884 pass  0 fail  (2478.26ms / 1233.82ms)\n  === FINAL bun test run 6, load 36.62 23.22 16.77 ===  BUN_EXIT_RUN_6=0   884 pass  0 fail  (1478.74ms / 2145.29ms)\n\nTen further runs of the file the two cases live in, same load window (load 19 → 37 one-minute, 23 → 25 five-minute):\n\n  FINAL render-only run 7 (load 35.60 23.80 17.12): 0 fail lines, 38 pass, both cases pass [2244.56ms | 2992.47ms]\n  FINAL render-only run 8 (load 37.23 24.33 17.35): 0 fail lines, 38 pass, both cases pass [1619.38ms | 1740.19ms]\n  FINAL render-only run 9 (load 34.89 24.06 17.30): 0 fail lines, 38 pass, both cases pass [1437.06ms | 2257.60ms]\n  FINAL render-only run 10 (load 33.30 23.91 17.28): 0 fail lines, 38 pass, both cases pass [2027.19ms | 1328.20ms]\n  FINAL render-only run 11 (load 31.03 23.60 17.21): 0 fail lines, 38 pass, both cases pass [1606.93ms | 2157.10ms]\n  FINAL render-only run 12 (load 33.43 24.22 17.47): 0 fail lines, 38 pass, both cases pass [2060.34ms | 1561.32ms]\n  FINAL render-only run 13 (load 31.07 23.88 17.39): 0 fail lines, 38 pass, both cases pass [2306.74ms | 3119.79ms]\n  FINAL render-only run 14 (load 30.43 23.87 17.42): 0 fail lines, 38 pass, both cases pass [1629.49ms | 1239.94ms]\n  FINAL render-only run 15 (load 31.43 24.19 17.57): 0 fail lines, 38 pass, both cases pass [1386.42ms | 2061.10ms]\n  FINAL render-only run 16 (load 37.40 25.54 18.09): 0 fail lines, 38 pass, both cases pass [1762.56ms | 1321.82ms]\n\n16 runs in all on the final tree, 0 failures, the six whole-suite ones exiting 0. (A single-FILE `bun test <path>` run exits 1 on this repository for a reason that has nothing to do with these tests: bunfig's `coverageThreshold = 0.75` is enforced per file, and a single-file run leaves production files it never loads under the floor — e.g. the app-only run reports `ts/metalang/syntax.ts | 46.15 | 51.47` with ` 0 fail`. `bun test ts/metalang/kit.test.ts` is byte-identical to HEAD on this tree and exits 1 the same way, so the exit is not this round's. The whole-suite command, which is what checks 1, 11 and 16 name, exits 0 with every file above the floor.)\n\nMUTATION 1 — A BUNDLE THAT READS THE ANNOUNCEMENT AT MOUNT MUST FAIL THE ANNOUNCED CASE. `ts/metalang/client.tsx`, `document.addEventListener('DOMContentLoaded', read, { once: true })` → `read()`, against the final harness, load 12.23 16.48 13.93:\n\n  (pass) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [2576.69ms]\n  495 |     'a page the helper announced itself on says nothing about not being narrated',\n  error: expect(received).toEqual(expected)\n  +   \"This page cannot be narrated here: JARVIS serves the story helper that rings a beat and points at what the beat is about, and nothing answered for it at this page’s origin.\"\n  - Expected  - 1\n  + Received  + 3\n  (fail) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [1889.51ms]\n   37 pass\n   1 fail\n  Ran 38 tests across 1 files. [5.51s]\n  MUTATED_A_EXIT=1\n\nMUTATION 2 — A BUNDLE THAT DRAWS NO LINE MUST FAIL THE SILENT CASE. `drawing.render(drawnSaying(<NotNarratedHere />))` → `drawing.render(drawnSaying(null))`, load 16.32 17.24 14.24:\n\n  487 |     'a page the helper never announced itself on says it cannot be narrated here, once',\n  error: expect(received).toHaveLength(expected)\n  Expected length: 1\n  Received length: 0\n  (fail) what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once [1262.25ms]\n  (pass) what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated [1301.24ms]\n   37 pass\n   1 fail\n  Ran 38 tests across 1 files. [2.97s]\n  MUTATED_B_EXIT=1\n\nEach mutation was reverted with `git checkout -- ts/metalang/client.tsx` and the tree re-read:\n\n  === the tree after both mutations were reverted ===\n   M ts/metalang/app.test.tsx\n   M ts/metalang/render.test.ts\n   ts/metalang/app.test.tsx   | 30 ++++++++++++++++-------\n   ts/metalang/render.test.ts | 59 ++++++++++++++++++++++++++++++++++------------\n\nNo production file is modified; `ts/metalang/app.test.tsx` is the previous round's uncommitted change, untouched here.\n\nWHY THERE IS NO `NotImplementedException`-SHAPED RED. The two cases are not new behaviour: the contract's `helper-absent` implementation is already built and the IMPLEMENT stage is past, which is what decision `passing-row-reason` covers and what every row below records. The forcing function in its place is the pair of mutations above — each one makes its own case fail, so neither test is passing by construction — plus the forced-race run, which shows the announced case failing on the HEAD harness and passing on this one under the identical event order.\n\nSUPPORTING COMMANDS, ALL ON THE FINAL TREE: `bun run typecheck` → `TYPECHECK_EXIT=0`; `bun run lint` → `LINT_EXIT=0`; `node eng/check-copied-modules.mjs` → `11 workflow files, 41 copied blocks, 7 distinct block names` / `PASS — every duplicated block is byte-identical across all copies`, `COPIED_EXIT=0`; the contract's own Acceptance-14 one-liner → `[true,true,false,false]`, `ACC14_EXIT=0`; `grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` → `ts/metalang/guardrails.test.ts` only.",
+  "coverage": [
+    {
+      "acceptanceItem": "1. `make build && make test` green, and `bun test` green, from the repository root. Both are named because `make test` is `dotnet test` alone and runs none of the kit's tests, which is filed as issue 118.",
+      "tests": [
+        "`make build && make test` — nine runs on this tree (one standalone, `MAKE_EXIT=0`, and eight looped as the load: `LOAD2_ITERATION_1_EXIT=0` … `LOAD2_ITERATION_8_EXIT=0`), each `Passed!  - Failed: 0` for 619 + 56 + 11 + 148 = 834 tests across four assemblies",
+        "`bun test` — six whole-suite runs from the repository root under load averages 18.96 → 36.62, each ` 884 pass` / ` 0 fail` / `Ran 884 tests across 16 files`, `BUN_EXIT_RUN_1=0` … `BUN_EXIT_RUN_6=0`"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, and the row this round exists to make reproducible. The announced case is the one that failed under load in the reported finding, so this row no longer rests on one quiet run: the fixed harness was run through six whole-suite `bun test` runs and ten further runs of the file the two cases live in, with `make build && make test` looping beside them the whole time (one-minute load average 18.96 → 37.40, five-minute 14.50 → 25.54), 0 failures in all sixteen, and the .NET side green nine times over. The deterministic forced-event run proves the dependence is removed rather than unobserved."
+    },
+    {
+      "acceptanceItem": "2. A selector naming one declaration's members matches exactly one element, asserted against the component render or the executed bundle. Command: `bun test ts/metalang/app.test.tsx`.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one declaration’s members reaches that one table"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `data-declaration` is written in the component that draws a declaration, so against a page drawing two `table.d-table` elements the selector `[data-declaration=\"IGuard\"] table.d-table` narrows to exactly one. It passes on this tree — `bun test ts/metalang/app.test.tsx` reports ` 210 pass` / ` 0 fail`, and the whole-suite runs are 884 pass / 0 fail. This round changed nothing in `app.tsx` or in `app.test.tsx`."
+    },
+    {
+      "acceptanceItem": "3. A selector naming one member of one declaration matches exactly one element, same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a selector naming one member of one declaration reaches that one row",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > the architecture language says it is the member’s own name property",
+        "ts/metalang/app.test.tsx > which property of a member carries its name > MetaLang’s record of the name role covers a thing that has a name and no id",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape no property of which carries the role draws its rows with no identity",
+        "ts/metalang/app.test.tsx > a shape whose language has not said which property is the name > a shape two properties of which carry the role draws its rows with no identity"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `role: name` sits on `member.name` in arch.yaml, metalang.yaml's name role covers a thing with a name and no id, and `Table` resolves the carrier once through `propertyCarrying` and writes `data-member` from the value it holds. All five pass in the app-only run (` 210 pass`, ` 0 fail`) and in the six whole-suite runs, the zero-carrier and two-carrier cases among them. This round touched neither the renderer nor these tests."
+    },
+    {
+      "acceptanceItem": "4. A member name containing a double quote, a single quote and a backslash is reachable by selector in jsdom. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name carrying a double quote, a single quote and a backslash is reachable"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: the identity is written as a JSX prop so React escapes it through the attribute, and jsdom matches the selector the way a browser does. On this tree `package.json` pins `\"jsdom\": \"31.0.0\"` and `bun.lock:218` agrees at `jsdom@31.0.0`, and the name `Quote\"And'Apostrophe\\Backslash` is matched by its escaped selector and read back off the row unchanged. It passes in the app-only run and in all six whole-suite runs."
+    },
+    {
+      "acceptanceItem": "5. A member name repeated across two declarations resolves to the one asked for, and two declarations sharing an id are reported as ambiguous rather than resolved to the first. Same command.",
+      "tests": [
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > a member name two declarations share resolves to the one asked for",
+        "ts/metalang/app.test.tsx > pointing at one declaration and at one member of it > two declarations sharing an id read as the two they are, not as the first of them"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "Both clauses are behaviour already built, which is why the previous round could only add the missing assertion. First clause — an implementation this contract has already built: `data-member=\"Name\"` matches two rows across the page and exactly one under `[data-declaration=\"IStore\"]`. Second clause — a guard on behaviour the contract requires to keep working, built before this contract and proven on the page rather than assumed: `ts/metalang/check.ts` fails the second declaration with `\"IGuard\" is already the id of declare[0].constant` and the page's `Found` band draws that problem, which the previous round's added assertion now reads as the whole band. Both pass on this tree. This round did not touch `ts/metalang/app.test.tsx`; the modification `git status` shows on it is that previous round's work, unchanged by me."
+    },
+    {
+      "acceptanceItem": "6. Every `data-part` and `data-col` target that passes today still passes, by the existing assertions running unchanged.",
+      "tests": [
+        "ts/metalang/app.test.tsx > a value of a type with properties > each part draws its name and its own value",
+        "ts/metalang/app.test.tsx > a value of a type with properties > a part whose own type has parts nests",
+        "ts/metalang/app.test.tsx > a value of a type with properties > a part nothing says a type for still draws as what is written",
+        "ts/metalang/app.test.tsx > several of one shape > a column carries each part name once, in the order the shape declares them",
+        "ts/metalang/app.test.tsx > several of one shape > a row carries each member",
+        "ts/metalang/app.test.tsx > several of one shape > one of the shape on its own is parts rather than a table",
+        "ts/metalang/app.test.tsx > a declaration carrying one value of its own > the table names each column once, from the type the parts are of",
+        "ts/metalang/propose.test.ts > the word in use, drawn inside the decision that adds it > marks the part the example says is the word, with a rule written beside it"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "A guard on behaviour the contract requires to keep working, and the criterion's own words are that it passes \"by the existing assertions running unchanged\". `git diff --stat` on this tree is two test files and no production file; my own diff is confined to `ts/metalang/render.test.ts`, inside the `HARNESS` string and nothing else, so not one of these assertions and no line they exercise was touched. All eight pass in every run above."
+    },
+    {
+      "acceptanceItem": "7. The same document rendered twice under one built kit produces identical bytes per file. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > is drawn twice from one kit as the same bytes, so what a kit draws is reproducible"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A guard on behaviour the contract requires to keep working: the test builds a real kit, copies a document away from the repository, runs `node kit.js render` on it twice and compares the bytes. It passes on this tree in the kit-only run (` 28 pass`, ` 0 fail`) and in the whole-suite runs. This round changed one test file and no renderer line, so no byte the renderer writes changed."
+    },
+    {
+      "acceptanceItem": "8. Each of the three rules has one violating fixture that produces its diagnostic and one compliant fixture that does not.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > every literal of a language word is caught, whatever position it is written in",
+        "ts/metalang/guardrails.test.ts > no language word by spelling in the drawing path > the language asked, the page’s own union, prose and a JavaScript type are not caught",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > a constant identity value is caught by every route it is given one by",
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > an identity taken from the document being drawn is not caught",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > a second site writing an identity attribute is caught, by every route it writes by",
+        "ts/metalang/guardrails.test.ts > one owning site per identity attribute > the owning site writing it, and a selector reading it, are not caught"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "A prior stage's finished work: RULE-PHASE wrote all three rules with a violating and a compliant fixture each, and this round touched nothing in `ts/metalang/guardrails.test.ts` — `git status --porcelain` lists only `ts/metalang/app.test.tsx` and `ts/metalang/render.test.ts`. All six pass in the whole-suite runs, alongside the three whole-tree rule tests (`no file outside a test writes a target`, `no file outside a test writes an identity attribute away from its owning site`, and the exemption tests)."
+    },
+    {
+      "acceptanceItem": "9. CI refuses a kit asset missing `style.css` or `syntax.css`, proven by a run with the file removed.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with style.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > refuses a kit asset with syntax.css taken out of it",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > names every file the kit marks as required, so neither list can drift from the other",
+        "ts/metalang/kit.test.ts > the required-file check the release job runs > passes a kit asset carrying every file it names"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `.github/workflows/ci.yml` now loops over all nine required files including `style.css` and `syntax.css`, and these four tests run that very check against a built kit with each stylesheet removed and with every file present. All four pass on this tree, in the kit-only run and in the whole-suite runs. This round edited no workflow and no kit file."
+    },
+    {
+      "acceptanceItem": "10. The two literal targets, `IGrantStore`'s members and `IWindowsHelloNativeOps`'s `BeginVerification`, are verified on the JARVIS side against the re-cut revision after the kit release, not in this repository: no document here declares either id, and writing them into a fixture is what rule 2 bans.",
+      "tests": [
+        "ts/metalang/guardrails.test.ts > no literal target in non-test source > no file outside a test writes a target",
+        "`grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` — one file, `ts/metalang/guardrails.test.ts`, which is the rule's own ban list"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "The two conditions the criterion puts in THIS repository both hold on this tree: I ran the grep and it returns only `ts/metalang/guardrails.test.ts`, so no document here declares either id, and rule 2's whole-tree test passes in every run above. This row must not be read as the on-page verification having happened here — the criterion's own words put that \"on the JARVIS side against the re-cut revision after the kit release, not in this repository\", and this round, authorized to fix one harness, did nothing on the JARVIS side."
+    },
+    {
+      "acceptanceItem": "11. Coverage stays at or above the 0.75 floor `bunfig.toml` sets, which `bun test` enforces itself through `coverage = true` and `coverageThreshold = 0.75`. Command: `bun test`.",
+      "tests": [
+        "`bun test` — the coverage table it prints and the floor it enforces itself from `bunfig.toml` (`coverage = true`, `coverageThreshold = 0.75`), six runs, each `All files                   |   95.54 |   96.53 |` and exit 0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A guard bun enforces itself, and it passes on this tree: every one of the six whole-suite runs reports All files at 95.54% of functions and 96.53% of lines, far above the 0.75 floor, with no file under the floor and exit 0 each time. This round added no production line and no uncovered line: the whole of my diff is inside the `HARNESS` string of `ts/metalang/render.test.ts`, which bun counts as test source and `coverageSkipTestFiles = true` leaves out of the table. (A single-file run exits 1 on the same floor because files it never loads fall below it — e.g. `ts/metalang/syntax.ts | 46.15 | 51.47` in the app-only run, with 0 test failures — which is why this criterion names the whole-suite command.)"
+    },
+    {
+      "acceptanceItem": "12. The rendered page loads the story helper as `<script defer src=\"/api/packages/story.js\"></script>`, after the data block and before the bundle, and a page built from a released kit loads it too. Commands: `bun test ts/metalang/render.test.ts` and `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the page loads it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > it sits after the data the page draws and before the bundle that draws it",
+        "ts/metalang/render.test.ts > the story helper a narrated page loads > the slice the bundle is read out of is still the bundle and nothing else",
+        "ts/metalang/kit.test.ts > a document written in a language other than MetaLang > the page it draws loads the story helper, so a released kit can be narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: `pageHtml` writes the helper tag after the data block and before the bundle, and the kit test builds a real kit, draws a page from it under plain node and finds the tag there too. All four pass in every run above, including all sixteen runs of `ts/metalang/render.test.ts` under load. This round touched no renderer line, so the tag's position is where the earlier round left it; my diff is in the same file as the first three tests but not in them."
+    },
+    {
+      "acceptanceItem": "13. `bun run typecheck` and `bun run lint` are clean, with `@types/jsdom` 30.0.0 the only typing added for jsdom and no declaration file for it in this repository. Commands: `bun run typecheck` and `bun run lint`.",
+      "tests": [
+        "`bun run typecheck` — `tsc --noEmit`, exit 0, run on this tree after the harness fix",
+        "`bun run lint` — `eslint ts`, exit 0, run on this tree after the harness fix",
+        "`package.json` `\"@types/jsdom\": \"30.0.0\"` with `bun.lock:15`/`:68` agreeing, jsdom itself pinned at 31.0.0, and `find . -name '*.d.ts'` outside node_modules and coverage returning nothing"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, and still clean with this round's fix in the tree: I ran both commands after the final edit and both exit 0. `@types/jsdom` 30.0.0 is the only typing for jsdom and the find returns no declaration file anywhere outside node_modules. The fix adds no import, no cast and no dependency — the harness is a string the test writes to disk, and jsdom still reaches it only through `Bun.resolveSync('jsdom', import.meta.dir)` and `process.env.JSDOM_MODULE`, exactly as before."
+    },
+    {
+      "acceptanceItem": "14. The coverage record takes a criterion that passes today only with its reason: a `red: false` row carrying a reason is accepted, the same row with an empty reason is refused, and a `red: true` row carrying a reason is refused.",
+      "tests": [
+        "the contract's own Acceptance-14 command, run verbatim from the repository root against the live `.agents/workflows/tdd.js`: printed `[true,true,false,false]`, ACC14_EXIT=0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A prior stage's finished work: `What to do` item 8 says this one \"is already done, by the orchestrator, because the test stage cannot record its own result until the contract it is checked against exists\". I ran the criterion's own one-liner verbatim on this tree and it printed `[true,true,false,false]` and exited 0, so the live `tdd-author` contract accepts a reasoned passing row and refuses both an unreasoned passing row and a reasoned failing one — which is also what lets every row of THIS record be `red: false` with its reason. This round edited nothing under `.agents/`."
+    },
+    {
+      "acceptanceItem": "15. Every copy of a changed block stays byte-identical. Command: `node eng/check-copied-modules.mjs`.",
+      "tests": [
+        "`node eng/check-copied-modules.mjs` — 11 workflow files, 41 copied blocks, 7 distinct block names, `PASS — every duplicated block is byte-identical across all copies`, COPIED_EXIT=0"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "A prior stage's finished work, still intact: the only changed blocks are the ones `What to do` item 8 landed, this round edited nothing under `.agents/` (`git status --porcelain` lists two test files), and the check reports all 41 copies of all 7 block names byte-identical — `required-agent-runtime` 11 copies identical, `workflow-input` 11 copies identical — with exit 0 on this tree after the fix."
+    },
+    {
+      "acceptanceItem": "16. A page drawn where the helper never announces itself shows exactly one plain line saying it cannot be narrated here, and a page where the helper announced itself shows none. Both cases, named in the output. Command: `bun test`.",
+      "tests": [
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper never announced itself on says it cannot be narrated here, once",
+        "ts/metalang/render.test.ts > what a drawn page says about being narrated > a page the helper announced itself on says nothing about not being narrated"
+      ],
+      "kind": "pointed-integration",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, under decision `helper-absent` — and this is the row the round exists for, so it rests on runs under load and on two mutations rather than on one quiet run. The two tests write the real page to disk and run the real bundle entry over it in a real DOM, one process per case. Both pass in all sixteen runs on this tree under one-minute load averages 18.96 → 37.40 (the six whole-suite runs `BUN_EXIT_RUN_1=0` … `BUN_EXIT_RUN_6=0`, both cases named in each output as the criterion requires). Neither passes by construction: a bundle reading the announcement at mount fails the announced case (`expect(received).toEqual(expected)`, received the one line, exit 1) and a bundle drawing no line fails the silent one (`Expected length: 1`, `Received length: 0`, exit 1), each mutation then reverted and the tree re-read. The fix this round made is in the harness only: the announcement is now registered as its own `DOMContentLoaded` listener before the bundle is imported, and the DOM library's own event is spent before the bundle exists, so the announced case no longer depends on which event arrives first — proven directly by forcing a `DOMContentLoaded` to arrive after the bundle registered, where the HEAD harness yields the reported failure and this one yields `{\"lines\":[]}`."
+    },
+    {
+      "acceptanceItem": "17. The kit readme says a drawn page reaches out to its origin for the narration script. Command: `bun test ts/metalang/kit.test.ts`.",
+      "tests": [
+        "ts/metalang/kit.test.ts > the readme the kit ships with > says a drawn page asks its origin for the narration script, and names it"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built: the readme in `ts/metalang/kit.ts` carries the sentence and names the script, and the test finds the paragraph that both reads as narration and names the script. It passes on this tree in the kit-only run (` 28 pass`, ` 0 fail`) and in the whole-suite runs. This round changed no readme text."
+    },
+    {
+      "acceptanceItem": "18. A declaration with two members both named `PrecheckAsync` draws one row with `data-member=\"PrecheckAsync#1\"` and one with `data-member=\"PrecheckAsync#2\"`, each selector matching exactly one element, while a selector naming `PrecheckAsync` alone matches none. A declaration with no repeated name is drawn exactly as before. All three cases named in the output.",
+      "tests": [
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > each of the two is reached by its place among the members sharing the name",
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > the shared name on its own reaches no row, because it names neither of them",
+        "ts/metalang/app.test.tsx > two members of one declaration carrying one name > a declaration naming each of its members once is drawn as it was"
+      ],
+      "kind": "unit",
+      "red": false,
+      "whyPassing": "An implementation this contract has already built, under decisions `member-identity-unique` and `identity-spelling`: the member identity numbers a repeated name among the rows sharing it, so `PrecheckAsync#1` and `PrecheckAsync#2` each reach exactly one TR, bare `PrecheckAsync` reaches none, and a declaration naming each member once is drawn as before. All three pass on this tree and are named in the output of the app-only run and of the whole-suite runs. This round did not touch these three tests."
+    }
+  ],
+  "notes": "WHAT CHANGED, AND NOTHING ELSE. One file: `/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts`, and inside it only the `HARNESS` string in `describe('what a drawn page says about being narrated')`. No production code, no other test, no rule, nothing under `.agents/`. The confirmed finding was the only item in the round and it is the only thing fixed.\n\nTHE FIX, IN ORDER. The harness now (1) waits until the document reads `complete` before importing the bundle, which the DOM library reaches only after it has delivered its own `DOMContentLoaded`, so that event is spent before the bundle exists; (2) when the case is `announced`, registers the announcement as its own `DOMContentLoaded` listener BEFORE `await import(entry)`, so listener order puts the announcement on the window ahead of the bundle's single `{ once: true }` reading, whichever event carries it; (3) imports the bundle, waits for the draw, then dispatches the `DOMContentLoaded` and `load` it always dispatched. That is the shape the direction named, plus the parse wait that makes it deterministic: without the wait, the library's event could still land during the import and write the announcement BEFORE the bundle mounted, which would quietly retire the mount mutation. With it, no `DOMContentLoaded` exists between the parse and the dispatch, so the announcement is still written after mount — mutation 1 fails the announced case, as it must.\n\nWHAT A REVIEWER SHOULD CHECK AND WILL FIND HOLDS. The browser order the earlier round pinned is preserved: mount with nothing said about narration, then the helper announces, then the reading. What changed is only how the announcement is delivered — a listener instead of a global written between two awaits. The page's bundle is unchanged and still registers one `{ once: true }` listener on `document`; the only difference it can see is that the announcement is already on the window when its listener runs.\n\nONE SMALL CLEANUP INSIDE THE SAME STRING. The parse wait would have been a second copy of the harness's existing wait loop (`for (let i = 0; i < n && !cond; i += 1) await tick()` plus a loud throw), so both now go through one `waitFor(done, saying, ticks)` in the harness. Each caller keeps its own patience unchanged — 200 ticks for the draw, as before, 2000 for the parse — and both still fail loudly with the message they always had. Behaviour identical, duplication not introduced.\n\nTHE FORCED-EVENT EXPERIMENT IS SCRATCHPAD ONLY. Both harnesses were extracted into `/private/tmp/claude-501/-Users-timothystockstill-code-macos-4thWAIV-agent-guard/35473c11-0419-4893-8f1d-297a9a2adba7/scratchpad/race/` (`old-harness.mjs` from `git show HEAD:ts/metalang/render.test.ts`, `new-harness.mjs` from the live file), each with the one forced dispatch added there and not in the repository. Nothing in the repository holds that forcing; `git status --porcelain` is two test files.\n\nSOMETHING THE NEXT ROUND SHOULD KNOW, NOT A FINDING. `ts/metalang/app.test.tsx` is modified and uncommitted on this tree: it is the previous round's shared-id assertion, named in `rounds/tdd-the-shared-id-assertion.json`. I did not touch it and it is not in my `testFiles`. Also, a single-FILE `bun test <path>` exits 1 on this repository because bunfig's `coverageThreshold = 0.75` is enforced per file and a one-file run leaves production files it never loads under the floor (` 0 fail` in every such run; `ts/metalang/kit.test.ts` is byte-identical to HEAD and does it too). It is pre-existing and unrelated to this round — the whole-suite `bun test`, which checks 1, 11 and 16 name, exits 0 with every file above the floor. If the gate reads an exit code from a single-file command, that is the thing to read carefully, not a failure this round introduced.\n\nLOAD STATED, AS THE ROUND REQUIRED. `make build && make test` looped eight times in the background across every run and every mutation (all eight exit 0; one earlier standalone run also exit 0). One-minute load average ran 18.96 → 37.40 and the five-minute 14.50 → 25.54 on this machine during the sixteen bun runs. The machine was never quiet while the announced case was being read.",
+  "verdicts": [
+    {
+      "lens": "test-quality",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "Single-file bun test exits 1 because of the per-file coverage floor; the whole-suite command is what criteria 1, 11 and 16 name.",
+          "evidence": "TDD notes state this is pre-existing and unchanged from HEAD; I ran the whole-suite bun test: 884 pass, 0 fail, exit 0.",
+          "nonBlockingReason": "The criteria name the whole-suite command, and that command passes."
+        }
+      ],
+      "refutationAttempts": [
+        "Read the render.test.ts diff for a harness that passes by construction. The announcement is registered as a DOMContentLoaded listener before the bundle import, and the harness waits for readyState complete first. No DOMContentLoaded can fire between the parse and the explicit dispatch, so the announcement is still written after mount. A bundle that reads at mount would therefore still fail the announced case; the recorded mutation 1 shows this.",
+        "Checked the silent case is not weakened. It registers no announcement, and the bundle's one line is asserted with a length of 1. Recorded mutation 2 fails it with 0 lines.",
+        "Checked waitFor keeps the loud-failure behaviour. Both waits throw a specific message when they run out, so nothing fails silently.",
+        "Re-ran the whole suite on the live tree: 884 pass, 0 fail, exit 0, and both narration cases pass. git status shows only app.test.tsx (the earlier round's change) and render.test.ts modified, so no production file changed.",
+        "Checked red:false rows for untrue reasons. Row 16 gives a true reason (an already-built implementation, plus the mutation and forced-race proof). Row 10 is honest that on-page verification is on the JARVIS side and not in this repository."
+      ],
+      "proofChecked": [
+        "rails-test-code SKILL.md rails 1-9",
+        "render.test.ts git diff (HARNESS string only)",
+        "contract helper-absent decision and acceptance 16",
+        "whole-suite bun test result (884 pass, 0 fail, exit 0)",
+        "git status porcelain: two test files only"
+      ]
+    },
+    {
+      "lens": "dry",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The harness keeps one fixed 20-tick settle loop beside the new waitFor helper.",
+          "evidence": "ts/metalang/render.test.ts:425 `for (let i = 0; i < 20; i += 1) await tick()`; waitFor at :372-375.",
+          "nonBlockingReason": "The 20-tick loop waits a fixed time for later effects to land. waitFor waits on a condition and throws if it runs out. They are different logic and share only the one-line tick."
+        }
+      ],
+      "refutationAttempts": [
+        "Looked for a second copy of the wait-then-throw loop. The two condition waits (parse and draw) both go through waitFor at render.test.ts:382 and :415, and no inline copy of the loop remains.",
+        "Grepped ts/ for JSDOM construction and the __jarvisStory announcement. The only test constructing JSDOM for this harness is render.test.ts:362. app.test.tsx:1784 builds a JSDOM to read rendered HTML, which is a different purpose.",
+        "Checked whether the two cases (silent, announced) copy the harness. They share one HARNESS string parameterised by helper, with one shownBy driver and one READING_A_PAGE timeout, so the setup is not duplicated.",
+        "Checked the announced-case DOMContentLoaded listener against the later dispatch, in case the same knowledge is written twice. The listener sets the announcement and the dispatch only fires the events, so each is written once."
+      ],
+      "proofChecked": [
+        "git diff of ts/metalang/render.test.ts: changes are confined to the HARNESS string, and the diff extracts waitFor from a duplicated loop.",
+        "rails-dry-code rails 5 and 6, applied to the test file. No duplicated block or value that must change together was found.",
+        "The coverage rows record red:false, each with a reason. Only the DRY lens was ruled here, and none of the rows shows duplication."
+      ]
+    },
+    {
+      "lens": "lie-catcher",
+      "verdict": "PASS",
+      "findings": [],
+      "observations": [
+        {
+          "summary": "The fix adds harness mechanics beyond the shape the round direction named: a new `readyState === 'complete'` parse wait with its own 2000-tick budget, and a `waitFor(done, saying, ticks)` extraction that both wait loops now route through.",
+          "evidence": "`git diff ts/metalang/render.test.ts` adds `const waitFor = async (done, saying, ticks) => {...}` and `await waitFor(() => dom.window.document.readyState === 'complete', ..., 2000)` inside the HARNESS string; `fixes-for-the-announced-race.md` named only \"Registering the announcement as its own `DOMContentLoaded` listener BEFORE the bundle is imported\". The notes disclose both additions and why (\"without the wait, the library's event could still land during the import ... which would quietly retire the mount mutation\"; \"The parse wait would have been a second copy of the harness's existing wait loop\").",
+          "nonBlockingReason": "The same direction authorizes \"that shape or a better one\", and rails-decisions puts this on the agent's side of the boundary: \"How a named thing is internally coded (a loop, a helper, a name) is implementation, not a decision, and needs no sign-off.\" The budget is local to a test harness string, nothing depends on it, it fails loudly with a named message (CLAUDE.md rule 1), and the second copy it avoids is what the mandatory DRY rail demands."
+        },
+        {
+          "summary": "Eight acceptance criteria (2, 3, 4, 5, 7, 12, 17, 18) name single-file `bun test <path>` commands that exit 1 on this repository because `bunfig.toml`'s `coverageThreshold = 0.75` is enforced per file, so a gate reading those exit codes reads a failure that no test produced.",
+          "evidence": "I reproduced it on a file this contract's rounds have not touched: `git diff --name-only HEAD -- ts/metalang/kit.test.ts` is empty, and `bun test ts/metalang/kit.test.ts` gives `KIT_ONLY_EXIT=1` with ` 28 pass` / ` 0 fail`. `bun test ts/metalang/app.test.tsx` gives `APP_ONLY_EXIT=1` with ` 210 pass` / ` 0 fail` and `ts/metalang/syntax.ts | 46.15 | 51.47`. The whole-suite `bun test` from the root gives `BUN_EXIT=0`, ` 884 pass` / ` 0 fail`, `All files | 95.54 | 96.53`.",
+          "nonBlockingReason": "Pre-existing and not this round's: the condition reproduces on a file byte-identical to HEAD. The result does not hide it — the notes state it outright (\"If the gate reads an exit code from a single-file command, that is the thing to read carefully, not a failure this round introduced\") and every affected row states pass/fail counts rather than claiming exit 0. It is a defect in the contract's named commands, not a decision or approval failure in the test surface."
+        }
+      ],
+      "refutationAttempts": [
+        "Tried to prove the harness change weakens the two cases into passing by construction. Wrote my own probe entry (scratchpad, no repo change) and ran it through the LIVE harness string extracted verbatim from `ts/metalang/render.test.ts`: `AT_MOUNT={\"windowFlag\":null,\"globalFlag\":null,\"readyState\":\"complete\"}` for BOTH the announced and the silent case, and `AT_DOMCONTENTLOADED={\"windowFlag\":true,\"globalFlag\":true}` only for the announced case. So the announcement is still absent at mount — a bundle reading it at mount still draws the line and still fails the announced case, which is mutation 1's premise. Refutation failed.",
+        "Tried to prove the claimed red proof does not reproduce. Diffed `race/new-harness.mjs` against the harness string extracted from the live file: identical but for the three forced-dispatch lines and a trailing newline. Ran both scratchpad harnesses myself against the real page and the real bundle entry `ts/metalang/client.tsx`: HEAD harness + forced DOMContentLoaded, helper=announced → the one line `\"This page cannot be narrated here: ...\"` (the reported failure verbatim); live harness, same forcing → `{\"lines\":[]}`; live harness, helper=silent → the one line. Refutation failed.",
+        "Tried to prove the harness change removes real coverage (a weakened test, which the contract's MUST NOT forbids). The race removed is an artifact of the harness driving DOMContentLoaded by hand: a `defer` script executes before DOMContentLoaded fires in a browser, so no deployed order exists in which the bundle's `{once:true}` listener is spent before the helper announces, and a 404 of the helper is the silent case the other test still pins. The assertions themselves are untouched (`toHaveLength(1)`, `toEqual([])`), and a bundle reading at `load` or by polling would still pass, so no approved implementation is newly banned. Refutation failed.",
+        "Tried to prove an unapproved decision-level item is encoded in the test surface. The harness asserts only the announcement key `__jarvisStory`, which contract `What to do` item 9 states as written (\"The helper sets `window.__jarvisStory` as it loads\"), and the read-after-deferred-scripts order that decision `helper-absent` states as written. No new dependency, no new test case, no interface change: `git status --porcelain` is two test files and `package.json`/`bun.lock` are untouched. Refutation failed.",
+        "Tried to prove the round ran without authority. Decision `fix-round-authority` is recorded in the contract as approved (\"A finding a reviewer confirms against a file lets the stage that owns that file run again to fix exactly that finding, with no new behaviour and no new check\"), `fixes-for-the-announced-race.md` carries the confirmed lie-catcher finding verbatim with the failing test line, the round changed only the HARNESS string of the file the finding names, and it added no test case. Refutation failed.",
+        "Tried to prove 'an implementation this contract has already built' is an approval anchored to the code (rails-decisions: \"Violation — anchored to the code\"). It is not approval for a decision; it is the reason-category Tim approved as written in decision `passing-row-reason` (\"whatever makes it pass — a guard on behaviour that must keep working, a prior stage's finished work, or an implementation this contract has already built\"), and the direction ordered all eighteen rows recorded under it. Refutation failed.",
+        "Tried to prove a criterion that could have been made to fail was recorded `red: false` instead. The round adds no behaviour and no check and the IMPLEMENT stage is past, so no row had a legitimate RED available; the forcing function in its place is the two mutations plus the forced-event run, and I verified the mount-mutation premise myself. Refutation failed.",
+        "Tried to prove the round touched what it was forbidden to touch. `git status --porcelain` lists only `ts/metalang/app.test.tsx` and `ts/metalang/render.test.ts`; the `app.test.tsx` diff is exactly the shared-id band assertion described in `rounds/tdd-the-shared-id-assertion.json`, nothing under `.agents/` changed (`node eng/check-copied-modules.mjs` → 41 copies, all identical, exit 0), and no production file is modified. Refutation failed."
+      ],
+      "proofChecked": [
+        "`.agents/skills/rails-decisions/SKILL.md` — read in full as the PASS/FAIL checklist; every Violation ruled against the round",
+        "`.dev/inprocess/114-kit-page-narration/contract.md` — read in full: decisions `helper-absent`, `when-the-page-says-so`, `green-criterion`, `passing-row-reason`, `fix-round-authority`, `member-identity-unique`, `identity-spelling`; all 18 acceptance items; What the agent MUST NOT do",
+        "`/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/render.test.ts` — the whole HARNESS string and both test cases read live, and `git diff` of the change",
+        "`/Users/timothystockstill/code/macos/4thWAIV/agent-guard/.claude/worktrees/kit-walkthrough-targets/ts/metalang/app.test.tsx` — `git diff` read and matched against the prior round's recorded result, confirming this round did not touch it",
+        "`.dev/inprocess/114-kit-page-narration/fixes-for-the-announced-race.md` — the round direction and the confirmed finding it carries",
+        "`.dev/inprocess/114-kit-page-narration/rounds/tdd-the-shared-id-assertion.json` and `rounds/README.md` — the prior round's result and the round map",
+        "`bun test` from the repository root: `BUN_EXIT=0`, ` 884 pass` / ` 0 fail`, `All files | 95.54 | 96.53`, with both narration cases named in the output (1284.11ms / 1145.09ms) — matches the record's claim",
+        "`make build && make test`: `MAKE_EXIT=0`, `Passed! - Failed: 0` for 619 + 56 + 148 + 11 = 834 tests across the four assemblies — acceptance 1's .NET half",
+        "`bun run typecheck` → `TYPECHECK_EXIT=0`; `bun run lint` → `LINT_EXIT=0` — acceptance 13",
+        "`node eng/check-copied-modules.mjs` → `11 workflow files, 41 copied blocks, 7 distinct block names`, `PASS`, exit 0 — acceptance 15",
+        "The contract's own Acceptance-14 one-liner, run verbatim from the repository root → `[true,true,false,false]`, `ACC14_EXIT=0`",
+        "`grep -rln 'IGrantStore\\|IWindowsHelloNativeOps' ts/` → `ts/metalang/guardrails.test.ts` only — acceptance 10's in-repository half",
+        "`package.json` (`\"@types/jsdom\": \"30.0.0\"`, `\"jsdom\": \"31.0.0\"`), `bun.lock:68` and `bun.lock:218` agreeing, and `find . -name '*.d.ts'` outside node_modules/coverage returning nothing — acceptance 13's pinning half",
+        "My own forced-race runs of both harnesses against the real page and `ts/metalang/client.tsx`: HEAD harness/announced → the one line, live harness/announced → `{\"lines\":[]}`, live harness/silent → the one line",
+        "My own probe entry through the live harness: `AT_MOUNT` shows no announcement in either case, `AT_DOMCONTENTLOADED` shows it only in the announced case — the mount mutation is still able to fail",
+        "`bun test ts/metalang/kit.test.ts` on a file byte-identical to HEAD → exit 1 with ` 28 pass` / ` 0 fail`, and `bun test ts/metalang/app.test.tsx` → exit 1 with ` 210 pass` / ` 0 fail` and `syntax.ts | 46.15 | 51.47` — the single-file exit is pre-existing, exactly as the notes disclose",
+        "The whole-suite output lines for the tests named in rows 4, 7, 9, 17 and 18 — each present and passing"
+      ]
+    }
+  ],
+  "anyFail": false,
+  "panelComplete": true,
+  "failedRoles": []
+}

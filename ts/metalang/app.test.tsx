@@ -1864,19 +1864,31 @@ describe('pointing at one declaration and at one member of it', () => {
   // says so by carrying both, so whoever asks for that id is told there are two of them rather
   // than handed the first and left believing it was the only one.
   test('two declarations sharing an id read as the two they are, not as the first of them', () => {
-    const sections = [
-      ...matched(
-        archDocument(
-          archElement('IGuard', [archMember('First', 'The member of the first.')]),
-          archElement('IGuard', [archMember('Second', 'The member of the second.')]),
-        ),
-        where,
-      ).page.querySelectorAll('[data-declaration="IGuard"]'),
-    ]
+    const { page } = matched(
+      archDocument(
+        archElement('IGuard', [archMember('First', 'The member of the first.')]),
+        archElement('IGuard', [archMember('Second', 'The member of the second.')]),
+      ),
+      where,
+    )
+    const sections = [...page.querySelectorAll('[data-declaration="IGuard"]')]
     expect(sections.length).toBe(2)
     expect(
       sections.map((one) => one.querySelector('[data-member]')?.getAttribute('data-member')),
     ).toEqual(['First', 'Second'])
+    // Drawing both is half of it: a reader who never counts the sections has to be TOLD, so the
+    // checker's report reaches the page as well. It is read here as the whole band, which says
+    // the second declaration's id is already the first's and names where the first was, and says
+    // nothing else — so the page reports the clash rather than settling it on the first.
+    expect(
+      [...page.querySelectorAll('.d-found li')].map((one) => [
+        one.querySelector('.f-what')?.textContent,
+        one.querySelector('.f-at')?.textContent,
+        one.querySelector('.f-says')?.textContent,
+      ]),
+    ).toEqual([
+      ['problem', 'declare[1].constant.id', '"IGuard" is already the id of declare[0].constant'],
+    ])
   })
 })
 
