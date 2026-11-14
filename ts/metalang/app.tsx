@@ -744,14 +744,36 @@ const Table = ({
   // is said again here.
   const namePart = propertyCarrying(bodyOf, of, ROLES.name)
 
-  /** The identity a narration points one member out by: the name its own shape says it has. */
-  const identityOf = (member: Mapping): string | undefined => {
+  /** The name a member's own shape says it has, read from the one property carrying the role. */
+  const nameHeldBy = (member: Mapping): string | undefined => {
     if (namePart === undefined) return undefined
     const held = member[namePart]
     if (held === undefined || held === null) return undefined
     const named = text(held)
     return named.length === 0 ? undefined : named
   }
+
+  // The identity a narration points one member out by, one per row, in the order the rows are
+  // drawn. A name one member of the table carries is that row's identity, exactly as it has always
+  // been. A name two or more carry identifies none of them, so each of those rows takes that name,
+  // a number sign and its place among the rows carrying the same name, counted from one in the
+  // order the source declares them, and the bare shared name stands on no row. The place counts
+  // among the rows sharing the name rather than among all of the members, so a member added above
+  // a sharing pair leaves both identities as they were and a beat written against either still
+  // reaches it. The number sign can never collide with a name a document writes, because the
+  // language holds a name to letters, digits and underscores.
+  const names = members.map((member) => nameHeldBy(member))
+  const carriers = new Map<string, number>()
+  for (const name of names) {
+    if (name !== undefined) carriers.set(name, (carriers.get(name) ?? 0) + 1)
+  }
+  const places = new Map<string, number>()
+  const identities = names.map((name) => {
+    if (name === undefined || carriers.get(name) === 1) return name
+    const place = (places.get(name) ?? 0) + 1
+    places.set(name, place)
+    return `${name}#${place}`
+  })
 
   return (
     <table className="d-table">
@@ -777,7 +799,7 @@ const Table = ({
               <tr
                 className={says === null ? undefined : classes('r-marked', colourOf(says))}
                 id={says === null ? undefined : rowAt}
-                data-member={identityOf(member)}
+                data-member={identities[i]}
               >
                 {columns.map((name) => (
                   <td key={name} data-col={name}>
